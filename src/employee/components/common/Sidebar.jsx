@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAppSelector } from "../../store/hooks";
 import { useState } from "react";
-import MissedPunchOutModal from "../modals/MissedPunchOutModal";
+import MissedPunchOutModal from "../modals/MissedPunchoutModal";
 import MissedPunchInModal from "../modals/MissedPunchInModal";
 import LateCheckinModal from "../modals/LateCheckinModal";
 import EarlyCheckinModal from "../modals/EarlyCheckinModal";

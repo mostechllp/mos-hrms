@@ -3,7 +3,7 @@ import { FiEye, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, 
 import { MdFingerprint } from "react-icons/md";
 import { showToast } from "../components/common/Toast";
 import StatusBadge from "../components/common/StatusBadge";
-import MissedPunchOutModal from "../components/modals/MissedPunchOutModal";
+import MissedPunchOutModal from "../components/modals/MissedPunchoutModal";
 import MissedPunchInModal from "../components/modals/MissedPunchInModal";
 import LateCheckinModal from "../components/modals/LateCheckinModal";
 import EarlyCheckinModal from "../components/modals/EarlyCheckinModal";

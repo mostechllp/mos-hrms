@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { showToast } from "../common/Toast";
 
 const LateCheckinModal = ({ isOpen, onClose }) => {
