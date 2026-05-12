@@ -9,6 +9,7 @@ const AddOrganization = () => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [logoPreview, setLogoPreview] = useState(null);
+  const [selectedLogoFile, setSelectedLogoFile] = useState(null); // Store actual file
   
   const [formData, setFormData] = useState({
     name: '',
@@ -29,6 +30,11 @@ const AddOrganization = () => {
         showToast('Logo size must be less than 2MB', 'error');
         return;
       }
+      
+      // Store the actual file object
+      setSelectedLogoFile(file);
+      
+      // Create preview only
       const reader = new FileReader();
       reader.onload = (event) => {
         setLogoPreview(event.target.result);
@@ -55,19 +61,29 @@ const AddOrganization = () => {
     
     setLoading(true);
     
-    // Prepare data with correct field names for API
-    const organizationData = {
-      name: formData.name,
-      phone: formData.phone,
-      email: formData.email,
-      address: formData.address,
-      multi_company: formData.multi_company,
-      logo: logoPreview,
-    };
+    // Create FormData object for file upload
+    const submitData = new FormData();
+    submitData.append('name', formData.name);
+    submitData.append('phone', formData.phone);
+    submitData.append('email', formData.email);
+    submitData.append('address', formData.address || '');
+    submitData.append('multi_company', formData.multi_company);
     
-    console.log("Sending organization data:", organizationData);
+    // Append logo as file if selected
+    if (selectedLogoFile) {
+      submitData.append('logo', selectedLogoFile);
+    }
     
-    const result = await dispatch(addOrganization(organizationData));
+    console.log("Sending organization data as FormData");
+    for (let pair of submitData.entries()) {
+      if (pair[0] === 'logo') {
+        console.log(`logo: File - ${pair[1].name} (${pair[1].size} bytes)`);
+      } else {
+        console.log(`${pair[0]}: ${pair[1]}`);
+      }
+    }
+    
+    const result = await dispatch(addOrganization(submitData));
     setLoading(false);
     
     if (addOrganization.fulfilled.match(result)) {
@@ -77,13 +93,13 @@ const AddOrganization = () => {
       }, 1200);
     } else {
       console.error("Add organization failed:", result.payload);
-      showToast('Failed to add organization', 'error');
+      // Show detailed error message
+      const errorMsg = result.payload?.message || result.payload || 'Failed to add organization';
+      showToast(errorMsg, 'error');
     }
   };
 
   return (
-    // Remove the outer div with Sidebar and flex layout
-    // Just return the main content directly
     <div className="w-full overflow-x-hidden">
       <div className="max-w-4xl mx-auto w-full">
         
@@ -226,7 +242,7 @@ const AddOrganization = () => {
                 <input
                   type="file"
                   id="logoInput"
-                  accept="image/jpeg,image/png,image/svg+xml"
+                  accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml"
                   onChange={handleLogoChange}
                   className="hidden"
                 />
@@ -234,8 +250,12 @@ const AddOrganization = () => {
                   <div className="upload-icon mb-2 md:mb-3">
                     <i className="fas fa-cloud-upload-alt text-3xl md:text-5xl text-green-500"></i>
                   </div>
-                  <div className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">Click to upload logo</div>
-                  <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1 md:mt-2">Max size: 2MB. Format: JPG, PNG, SVG</div>
+                  <div className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {selectedLogoFile ? selectedLogoFile.name : 'Click to upload logo'}
+                  </div>
+                  <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1 md:mt-2">
+                    Max size: 2MB. Format: JPG, PNG, SVG
+                  </div>
                 </label>
               </div>
               
