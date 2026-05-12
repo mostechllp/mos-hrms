@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { showToast } from "@admin/components/common/Toast";
+import { showToast } from "../../components/common/Toast";
 import { fetchEmployeeById } from "@admin/store/slices/employeeSlice";
 import {
   FiUser,
