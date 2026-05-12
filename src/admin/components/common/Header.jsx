@@ -1,0 +1,404 @@
+// Header.js - Updated with dynamic title and avatar
+import React, { useState, useRef, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { markAsRead, markAllRead } from "../../store/slices/notificationSlice";
+import { logoutUser } from "../../store/slices/authSlice";
+import { useTheme } from "../../hooks/useTheme";
+import { fetchNotifications } from "../../store/slices/notificationSlice";
+
+const Header = ({ onMenuClick }) => {
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [currentDate, setCurrentDate] = useState("");
+  const [avatarError, setAvatarError] = useState(false);
+  const notificationRef = useRef(null);
+  const profileRef = useRef(null);
+  const dispatch = useDispatch();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useSelector((state) => state.auth);
+  const { notifications, unreadCount } = useSelector(
+    (state) => state.notifications,
+  );
+  const { theme, toggleTheme } = useTheme();
+
+  // Get user's avatar URL
+  const getUserAvatar = () => {
+    if (avatarError) return null;
+    if (user?.avatar) return user.avatar;
+    // Generate avatar from name if not available
+    const name = getUserName();
+    const encodedName = encodeURIComponent(name);
+    return `https://ui-avatars.com/api/?name=${encodedName}&color=ffffff&background=22c55e`;
+  };
+
+  // Get user's display name
+  const getUserName = () => {
+    if (user?.employee?.name) return user.employee.name;
+    if (user?.name) return user.name;
+    if (user?.username) return user.username;
+    return "HR Admin";
+  };
+
+  // Get user's email
+  const getUserEmail = () => {
+    if (user?.email) return user.email;
+    if (user?.username) return user.username;
+    return "admin@example.com";
+  };
+
+  // Get page title based on current route
+  const getPageTitle = () => {
+    const path = location.pathname;
+
+    if (path === "/dashboard" || path === "/") {
+      return "Dashboard";
+    } else if (path === "/employees") {
+      return "Employees";
+    } else if (path === "/organizations") {
+      return "Organizations";
+    } else if (path === "/organizations/add-company") {
+      return "Add Company";
+    } else if (path === "/organizations/add-organization") {
+      return "Add Organization";
+    } else if (path === "/agreements") {
+      return "Agreements";
+    } else if (path === "/agreements/add-agreement") {
+      return "Add Agreement";
+    } else if (path === "/attendances") {
+      return "Attendance";
+    } else if (path === "/leaves/leave-types") {
+      return "Add Leave Types";
+    } else if (path === "/leaves") {
+      return "Leaves";
+    } else if (path === "/designations") {
+      return "Designations";
+    } else if (path === "/departments") {
+      return "Departments";
+    } else if (path === "/task-reports") {
+      return "Task Reports";
+    } else if (path === "/wfh") {
+      return "WFH Requests";
+    } else if (path === "/reports") {
+      return "Reports";
+    } else if (path === "/settings") {
+      return "Settings";
+    } else if (path.includes("/employees/add-employee")) {
+      return "Add Employee";
+    } else if (path.includes("/employees/edit")) {
+      return "Edit Employee";
+    } else if (path.includes("/employees/")) {
+      return "Employee Details";
+    } else if (path.includes("/reports/employee-details")) {
+      return "Employee Details Report";
+    } else if (path.includes("/reports/attendance")) {
+      return "Attendance Report";
+    } else if (path.includes("/reports/leave-requests")) {
+      return "Leave Request Reports";
+    } else if (path.includes("/reports/pending-leaves")) {
+      return "Pending Leaves";
+    } else if (path.includes("/reports/employee-near-expiry")) {
+      return "Employee Nearest Expiry";
+    } else if (path.includes("/reports/employee-upcoming-renewals")) {
+      return "Employee Upcoming Renewals";
+    } else if (path.includes("/reports/organization-near-expiry")) {
+      return "Company Nearest Expiry";
+    } else if (path.includes("/reports/organization-upcoming-renewals")) {
+      return "Company Upcoming Renewals";
+    } else {
+      return "HR Management";
+    }
+  };
+
+  const getPageSubtitle = () => {
+    const path = location.pathname;
+
+    if (path === "/dashboard" || path === "/") {
+      return "Command Center";
+    } else if (path === "/employees") {
+      return "Manage employee records";
+    } else if (path === "/organizations") {
+      return "Manage company profiles";
+    } else if (path === "/agreements") {
+      return "Manage contracts and agreements";
+    } else if (path === "/attendances") {
+      return "Track employee attendance";
+    } else if (path === "/leaves") {
+      return "Manage leave requests";
+    } else if (path === "/reports") {
+      return "View analytics and reports";
+    } else if (path === "/settings") {
+      return "Configure system settings";
+    } else if (path.includes("/reports/")) {
+      return "Detailed report view";
+    } else {
+      return "HR Management System";
+    }
+  };
+
+  useEffect(() => {
+    dispatch(fetchNotifications());
+  }, [dispatch]);
+
+  useEffect(() => {
+    const updateDate = () => {
+      setCurrentDate(
+        new Date().toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }),
+      );
+    };
+    updateDate();
+    const interval = setInterval(updateDate, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target)
+      ) {
+        setShowNotifications(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setShowProfile(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleMarkAsRead = (id) => {
+    dispatch(markAsRead(id));
+  };
+
+  const handleMarkAllRead = () => {
+    dispatch(markAllRead());
+  };
+
+  const handleLogout = async () => {
+    try {
+      await dispatch(logoutUser()).unwrap();
+      navigate("/login");
+    } catch (err) {
+      console.error("Logout failed", err);
+    }
+  };
+
+  return (
+    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 md:px-6 py-2 md:py-3 sticky top-0 z-40">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {/* Mobile menu button */}
+          <button
+            onClick={onMenuClick}
+            className="md:hidden w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center"
+            aria-label="Toggle menu"
+          >
+            <i className="fas fa-bars text-gray-600 dark:text-gray-300 text-lg"></i>
+          </button>
+
+          <div>
+            <h1 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
+              {getPageTitle()}
+            </h1>
+            <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-400">
+              {getPageSubtitle()}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="hidden md:block bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-full text-xs font-medium">
+            <i className="far fa-calendar-alt mr-2"></i>
+            <span>{currentDate}</span>
+          </div>
+
+          {/* Theme Toggle */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full p-1">
+            <button
+              onClick={() => toggleTheme("light")}
+              className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${
+                theme === "light"
+                  ? "bg-white dark:bg-gray-800 shadow-md text-green-500"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+            >
+              <i className="fas fa-sun text-xs md:text-sm"></i>
+            </button>
+            <button
+              onClick={() => toggleTheme("dark")}
+              className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${
+                theme === "dark"
+                  ? "bg-white dark:bg-gray-800 shadow-md text-green-500"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+            >
+              <i className="fas fa-moon text-xs md:text-sm"></i>
+            </button>
+          </div>
+
+          {/* Notification Bell */}
+          <div className="relative" ref={notificationRef}>
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative w-9 h-9 md:w-10 md:h-10 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full flex items-center justify-center"
+            >
+              <i className="fas fa-bell text-gray-600 dark:text-gray-300 text-sm md:text-base"></i>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {showNotifications && (
+              <div className="absolute top-12 right-0 w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-soft-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-200">
+                    Notifications
+                  </h3>
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="text-xs text-green-500 hover:text-green-600"
+                  >
+                    Mark all as read
+                  </button>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                      <i className="fas fa-bell-slash text-3xl mb-2 opacity-50"></i>
+                      <p>No notifications</p>
+                    </div>
+                  ) : (
+                    notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`p-3 border-b border-gray-200 dark:border-gray-700 cursor-pointer transition-colors ${
+                          !notification.read
+                            ? "bg-green-50 dark:bg-green-900/20"
+                            : ""
+                        } hover:bg-gray-50 dark:hover:bg-gray-700`}
+                        onClick={() => handleMarkAsRead(notification.id)}
+                      >
+                        <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                          {notification.title}
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          {notification.message}
+                        </p>
+                        <small className="text-xs text-gray-500 dark:text-gray-400 block mt-1">
+                          {notification.time || "Just now"}
+                        </small>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="p-3 border-t border-gray-200 dark:border-gray-700 text-center bg-gray-50 dark:bg-gray-700/50">
+                  <button
+                    onClick={() => {
+                      setShowNotifications(false);
+                      // Navigate to notifications page if needed
+                    }}
+                    className="text-xs text-green-500 hover:text-green-600"
+                  >
+                    View all notifications
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Profile Avatar */}
+          <div className="relative" ref={profileRef}>
+            <button
+              onClick={() => setShowProfile(!showProfile)}
+              className="w-9 h-9 md:w-10 md:h-10 rounded-xl overflow-hidden shadow-md ring-2 ring-transparent hover:ring-green-500 transition-all"
+            >
+              {getUserAvatar() ? (
+                <img
+                  src={getUserAvatar()}
+                  alt={getUserName()}
+                  className="w-full h-full object-cover"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center text-white font-bold text-sm">
+                  {getUserName().charAt(0).toUpperCase()}
+                </div>
+              )}
+            </button>
+
+            {showProfile && (
+              <div className="absolute top-12 right-0 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-soft-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+                <div className="p-4 flex gap-3 border-b border-gray-200 dark:border-gray-700">
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-gradient-to-r from-green-500 to-green-600 flex-shrink-0">
+                    {getUserAvatar() ? (
+                      <img
+                        src={getUserAvatar()}
+                        alt={getUserName()}
+                        className="w-full h-full object-cover"
+                        onError={() => setAvatarError(true)}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
+                        {getUserName().charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+                      {getUserName()}
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {getUserEmail()}
+                    </p>
+                  </div>
+                </div>
+                <NavLink
+                  to="/settings"
+                  className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  onClick={() => setShowProfile(false)}
+                >
+                  <i className="fas fa-user text-green-500 w-5"></i>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    My Profile
+                  </span>
+                </NavLink>
+                <NavLink
+                  to="/settings"
+                  className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  onClick={() => setShowProfile(false)}
+                >
+                  <i className="fas fa-gear text-green-500 w-5"></i>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Settings
+                  </span>
+                </NavLink>
+                <div className="border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                  >
+                    <i className="fas fa-arrow-right-from-bracket text-red-500 w-5"></i>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Sign out
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default Header;

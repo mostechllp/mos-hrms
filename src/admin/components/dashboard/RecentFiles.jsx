@@ -1,0 +1,295 @@
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import SearchBar from "../common/SearchBar";
+import EntriesSelector from "../common/EntriesSelector";
+import Pagination from "../common/Paginations";
+import { useSelector } from "react-redux";
+import ConfirmModal from "../common/ConfirmModal";
+import { showToast } from "../common/Toast";
+import EmployeesTable from "../dashboardtables/EmployeesTable";
+import DocumentsTable from "../dashboardtables/DocumentsTable";
+import FoldersTable from "../dashboardtables/FoldersTable";
+
+const RecentFiles = () => {
+  const { recentData } = useSelector((state) => state.dashboard);
+  const navigate = useNavigate();
+  const [activeFolder, setActiveFolder] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState(null);
+
+  const documents = [
+    ...(recentData?.organization_files || []),
+    ...(recentData?.agreements || []),
+    ...(recentData?.hr || []),
+    ...(recentData?.others || []),
+  ];
+
+  const folders = [
+    { name: "All Files", value: "all", icon: "fas fa-folder-open", route: null },
+    { name: "Organization Files", value: "organizations", icon: "fas fa-building", route: "/agreements/add-agreement" },
+    { name: "Agreements", value: "agreements", icon: "fas fa-file-signature", route: "/agreements/add-agreement" },
+    { name: "HR", value: "hr", icon: "fas fa-user-tie", route: "/agreements/add-agreement" },
+    { name: "Employees", value: "employees", icon: "fas fa-users", route: "/employees/add-employee" },
+    { name: "Folders", value: "folders", icon: "fas fa-folder", route: "create-folder" },
+    { name: "Others", value: "others", icon: "fas fa-ellipsis-h", route: "create-file" },
+  ];
+
+  const renderTable = () => {
+    switch (activeFolder) {
+      case "folders":
+        return (
+          <FoldersTable
+            pageDocs={pageDocs}
+            start={start}
+            handleView={handleView}
+            handleEdit={handleEdit}
+            handleDeleteClick={handleDeleteClick}
+          />
+        );
+
+      case "employees":
+        return (
+          <EmployeesTable
+            pageDocs={pageDocs}
+            start={start}
+            handleView={handleView}
+            handleEdit={handleEdit}
+            handleDeleteClick={handleDeleteClick}
+          />
+        );
+
+      default:
+        return (
+          <DocumentsTable
+            pageDocs={pageDocs}
+            start={start}
+            handleView={handleView}
+            handleEdit={handleEdit}
+            handleDeleteClick={handleDeleteClick}
+            formatDate={formatDate}
+            getExpiryClass={getExpiryClass}
+          />
+        );
+    }
+  };
+
+
+  const getFilteredDocs = () => {
+    let filtered = [];
+
+    if (activeFolder === "all") {
+      filtered = [
+        ...(recentData?.organization_files || []),
+        ...(recentData?.agreements || []),
+        ...(recentData?.hr || []),
+        ...(recentData?.others || []),
+      ];
+    } else if (activeFolder === "organizations") {
+      filtered = recentData?.organization_files || [];
+    } else if (activeFolder === "agreements") {
+      filtered = recentData?.agreements || [];
+    } else if (activeFolder === "hr") {
+      filtered = recentData?.hr || [];
+    } else if (activeFolder === "employees") {
+      filtered = recentData?.employees || [];
+    } else if (activeFolder === "folders") {
+      filtered = recentData?.folders || [];
+    } else if (activeFolder === "others") {
+      filtered = recentData?.others || [];
+    } else {
+      filtered = documents.filter((doc) => doc.type === activeFolder);
+    }
+
+    if (searchTerm) {
+      filtered = filtered.filter((item) =>
+        (item.name || item.username || item.email || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase())
+      );
+    }
+    return filtered;
+  };
+
+
+  const filteredDocs = getFilteredDocs();
+  const totalPages = Math.ceil(filteredDocs.length / perPage);
+  const start = (currentPage - 1) * perPage;
+  const pageDocs = filteredDocs.slice(start, start + perPage);
+
+  const handleAddClick = () => {
+
+    switch (activeFolder) {
+      case "all":
+        navigate("/agreements/add-document");
+        break;
+      case "agreements":
+        navigate("/agreements/add-agreement");
+        break;
+      case "hr":
+        navigate("/agreements/add-document");
+        break;
+      case "employees":
+        navigate("/employees/add-employee");
+        break;
+      case "folders": {
+        const folderName = prompt("Enter folder name:", "New Folder");
+        if (folderName) {
+          showToast(`Folder "${folderName}" created successfully`, "success");
+        }
+        break;
+      }
+      case "others": {
+        const fileName = prompt("Enter file name:", "New File");
+        if (fileName) {
+          showToast(`File "${fileName}" added successfully`, "success");
+        }
+        break;
+      }
+      default:
+        navigate("/agreements/add-agreement");
+    }
+
+  };
+
+  const handleView = (doc) => {
+    if (doc.file_path) {
+      const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || window.location.origin;
+      const fileUrl = `${baseUrl}/storage/${doc.file_path.replace(/^\/+/, '')}`;
+      window.open(fileUrl, '_blank');
+    } else {
+      showToast("No document file available", "info");
+    }
+  };
+
+  const handleEdit = (doc) => {
+    // Navigate to appropriate edit page based on document type
+    if (doc.type === 'agreements') {
+      navigate(`/agreements/edit-agreement/${doc.id}`);
+    } else if (doc.type === 'hr') {
+      navigate(`/agreements/edit-agreement/${doc.id}`);
+    } else if (doc.type === 'employee') {
+      navigate(`/employees/edit/${doc.employee_id || doc.id}`);
+    }
+  };
+
+  const handleDeleteClick = (doc) => {
+    setSelectedDocument(doc);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedDocument) return;
+
+    // TODO: API call to delete document
+    showToast(`${selectedDocument.name} deleted successfully`, "success");
+    setConfirmOpen(false);
+    setSelectedDocument(null);
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'No Expiry';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const getExpiryClass = (expiryDate) => {
+    if (!expiryDate) return '';
+    const today = new Date();
+    const expiry = new Date(expiryDate);
+    const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return 'text-red-500 font-semibold';
+    if (diffDays <= 30) return 'text-amber-500 font-semibold';
+    return '';
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+      <div className="p-5 border-b border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-4">
+          <i className="fas fa-folder-open mr-2 text-green-500"></i>
+          {folders.find((f) => f.value === activeFolder)?.name || "All Files"}
+        </h3>
+
+        <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-3">
+          {folders.map((folder) => (
+            <button
+              key={folder.value}
+              onClick={() => setActiveFolder(folder.value)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${activeFolder === folder.value
+                ? "bg-green-500 text-white"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-green-100 dark:hover:bg-green-900/30"
+                }`}
+            >
+              <i className={`${folder.icon} mr-1 text-xs`}></i>
+              {folder.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap justify-between items-center gap-4">
+          <EntriesSelector value={perPage} onChange={setPerPage} />
+          <div className="flex gap-3">
+            <SearchBar
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Search records..."
+            />
+            <button
+              onClick={handleAddClick}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-all"
+            >
+              <i className="fas fa-plus"></i>
+              {activeFolder === "agreements"
+                ? "Add Agreement"
+                : activeFolder === "hr"
+                  ? "Add HR Document"
+                  : activeFolder === "employees"
+                    ? "Add Employee"
+                    : activeFolder === "folders"
+                      ? "Create Folder"
+                      : activeFolder === "others"
+                        ? "Add Other File"
+                        : "Add Document"}
+
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        {renderTable()}
+      </div>
+
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredDocs.length}
+          itemsPerPage={perPage}
+        />
+      </div>
+
+      <ConfirmModal
+        isOpen={confirmOpen}
+        onClose={() => {
+          setConfirmOpen(false);
+          setSelectedDocument(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete Document"
+        message={`Are you sure you want to delete "${selectedDocument?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+      />
+    </div>
+  );
+};
+
+export default RecentFiles;
