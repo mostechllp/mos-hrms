@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import apiClient from "../../utils/apiClient";
+import apiClient from "../../../utils/apiClient";
 
 // Fetch all WFH requests (Admin)
 export const fetchAdminWFHRequests = createAsyncThunk(
@@ -10,7 +10,7 @@ export const fetchAdminWFHRequests = createAsyncThunk(
       console.log("Admin WFH requests response:", response.data);
       
       if (response.data?.status === "success") {
-        return response.data.data || [];
+        return response.data.data?.data || [];
       }
       return rejectWithValue(response.data?.message || "Failed to fetch WFH requests");
     } catch (error) {

@@ -1,12 +1,10 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import Sidebar from "../common/Sidebar";
 import SearchBar from "../common/SearchBar";
 import EntriesSelector from "../common/EntriesSelector";
-import { showToast } from "../common/Toast";
+import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
-import Header from "../common/Header";
 import { fetchEmployees } from "../../store/slices/employeeSlice";
 
 const EmployeeDetailsReport = () => {
@@ -19,8 +17,6 @@ const EmployeeDetailsReport = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
   // Filter states
@@ -30,15 +26,6 @@ const EmployeeDetailsReport = () => {
 
   // Export states
   const [exportFormat, setExportFormat] = useState("csv");
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   useEffect(() => {
     dispatch(fetchEmployees());
@@ -286,348 +273,340 @@ const EmployeeDetailsReport = () => {
   ).length;
 
   return (
-    <div className="app flex min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      <div
-        className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}
-      >
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
-          {/* Page Header */}
-          <div className="mb-6">
-            <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
-              <Link
-                to="/reports"
-                className="text-green-500 hover:text-green-600 font-medium"
+    <div className="w-full overflow-x-hidden">
+      <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
+        {/* Page Header */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
+            <Link
+              to="/admin/reports"
+              className="text-green-500 hover:text-green-600 font-medium"
+            >
+              Reports
+            </Link>
+            <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
+            <span className="text-gray-500">Employee details report</span>
+          </div>
+          <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent">
+            Employee Details Report
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Complete employee information including personal, professional, and
+            document details
+          </p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Total Employees
+                </p>
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  {transformedEmployees.length}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                <i className="fas fa-users text-blue-600 dark:text-blue-400"></i>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Active Employees
+                </p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {activeCount}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                <i className="fas fa-user-check text-green-600 dark:text-green-400"></i>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Inactive Employees
+                </p>
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                  {inactiveCount}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                <i className="fas fa-user-slash text-red-600 dark:text-red-400"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters Bar */}
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Company Filter */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                <i className="fas fa-building mr-1"></i> Company
+              </label>
+              <select
+                value={selectedCompany}
+                onChange={(e) => setSelectedCompany(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
               >
-                Reports
-              </Link>
-              <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
-              <span className="text-gray-500">Employee details report</span>
-            </div>
-            <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent">
-              Employee Details Report
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Complete employee information including personal, professional,
-              and document details
-            </p>
-          </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Total Employees
-                  </p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {transformedEmployees.length}
-                  </p>
-                </div>
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-users text-blue-600 dark:text-blue-400"></i>
-                </div>
-              </div>
+                <option value="">All Companies</option>
+                {uniqueCompanies.map((company) => (
+                  <option key={company} value={company}>
+                    {company}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Active Employees
-                  </p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {activeCount}
-                  </p>
-                </div>
-                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-user-check text-green-600 dark:text-green-400"></i>
-                </div>
-              </div>
+            {/* Department Filter */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                <i className="fas fa-diagram-project mr-1"></i> Department
+              </label>
+              <select
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+              >
+                <option value="">All Departments</option>
+                {uniqueDepartments.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Inactive Employees
-                  </p>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                    {inactiveCount}
-                  </p>
-                </div>
-                <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-user-slash text-red-600 dark:text-red-400"></i>
-                </div>
-              </div>
+            {/* Status Filter */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                <i className="fas fa-circle mr-1"></i> Status
+              </label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+              >
+                <option value="all">All Status</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
             </div>
-          </div>
 
-          {/* Filters Bar */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Company Filter */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                  <i className="fas fa-building mr-1"></i> Company
-                </label>
-                <select
-                  value={selectedCompany}
-                  onChange={(e) => setSelectedCompany(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
-                >
-                  <option value="">All Companies</option>
-                  {uniqueCompanies.map((company) => (
-                    <option key={company} value={company}>
-                      {company}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Department Filter */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                  <i className="fas fa-diagram-project mr-1"></i> Department
-                </label>
-                <select
-                  value={selectedDepartment}
-                  onChange={(e) => setSelectedDepartment(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
-                >
-                  <option value="">All Departments</option>
-                  {uniqueDepartments.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Status Filter */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                  <i className="fas fa-circle mr-1"></i> Status
-                </label>
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
-                >
-                  <option value="all">All Status</option>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-              </div>
-
-              {/* Filter Actions */}
-              <div className="flex items-end gap-2">
-                <button
-                  onClick={handleResetFilters}
-                  className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium text-sm flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
-                >
-                  <i className="fas fa-undo-alt"></i> Reset
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Actions Bar */}
-          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-5">
-            <EntriesSelector
-              value={perPage}
-              onChange={(val) => {
-                setPerPage(val);
-                setCurrentPage(1);
-              }}
-            />
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <SearchBar
-                value={searchTerm}
-                onChange={setSearchTerm}
-                placeholder="Search by name, ID, company, email, phone..."
-              />
+            {/* Filter Actions */}
+            <div className="flex items-end gap-2">
               <button
-                onClick={() => setShowExportModal(true)}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+                onClick={handleResetFilters}
+                className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium text-sm flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
               >
-                <i className="fas fa-download"></i> Export Report
+                <i className="fas fa-undo-alt"></i> Reset
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Employees Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
-            <div className="min-w-[1200px] lg:min-w-0">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      S.No
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Emp ID
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Name
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Company
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Department
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Designation
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Passport No
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Passport Expiry
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Visa No
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Visa Expiry
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Labor No
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Labor Expiry
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      EID No
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      EID Expiry
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Joining Date
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Email
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Phone
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {!loading && pageEmployees.length > 0 ? (
-                    pageEmployees.map((emp, idx) => (
-                      <tr
-                        key={emp.id}
-                        className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                      >
-                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400 text-center">
-                          {start + idx + 1}
-                        </td>
-                        <td className="px-3 py-3 text-sm font-mono text-gray-700 dark:text-gray-300">
-                          {emp.emp_id}
-                        </td>
-                        <td className="px-3 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                          {emp.name}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {emp.company_name}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {emp.department_name}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {emp.designation_name}
-                        </td>
-                        <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
-                          {emp.passport_no}
-                        </td>
-                        <td
-                          className={`px-3 py-3 text-sm ${getExpiryClass(emp.passport_expiry)}`}
-                        >
-                          {formatDate(emp.passport_expiry)}
-                        </td>
-                        <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
-                          {emp.visa_no}
-                        </td>
-                        <td
-                          className={`px-3 py-3 text-sm ${getExpiryClass(emp.visa_expiry)}`}
-                        >
-                          {formatDate(emp.visa_expiry)}
-                        </td>
-                        <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
-                          {emp.labor_no}
-                        </td>
-                        <td
-                          className={`px-3 py-3 text-sm ${getExpiryClass(emp.labor_expiry)}`}
-                        >
-                          {formatDate(emp.labor_expiry)}
-                        </td>
-                        <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
-                          {emp.eid_no}
-                        </td>
-                        <td
-                          className={`px-3 py-3 text-sm ${getExpiryClass(emp.eid_expiry)}`}
-                        >
-                          {formatDate(emp.eid_expiry)}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {formatDate(emp.joining_date)}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {emp.email}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {emp.phone}
-                        </td>
-                        <td className="px-3 py-3">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                              emp.status === "Active"
-                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                            }`}
-                          >
-                            {emp.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
+        {/* Actions Bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-5">
+          <EntriesSelector
+            value={perPage}
+            onChange={(val) => {
+              setPerPage(val);
+              setCurrentPage(1);
+            }}
+          />
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <SearchBar
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Search by name, ID, company, email, phone..."
+            />
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+            >
+              <i className="fas fa-download"></i> Export Report
+            </button>
+          </div>
+        </div>
+
+        {/* Employees Table */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
+          <div className="min-w-[1200px] lg:min-w-0">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    S.No
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Emp ID
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Name
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Company
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Department
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Designation
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Passport No
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Passport Expiry
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Visa No
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Visa Expiry
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Labor No
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Labor Expiry
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    EID No
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    EID Expiry
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Joining Date
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Email
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Phone
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {!loading && pageEmployees.length > 0 ? (
+                  pageEmployees.map((emp, idx) => (
+                    <tr
+                      key={emp.id}
+                      className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                      <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400 text-center">
+                        {start + idx + 1}
+                      </td>
+                      <td className="px-3 py-3 text-sm font-mono text-gray-700 dark:text-gray-300">
+                        {emp.emp_id}
+                      </td>
+                      <td className="px-3 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        {emp.name}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        {emp.company_name}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        {emp.department_name}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        {emp.designation_name}
+                      </td>
+                      <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                        {emp.passport_no}
+                      </td>
                       <td
-                        colSpan="18"
-                        className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                        className={`px-3 py-3 text-sm ${getExpiryClass(emp.passport_expiry)}`}
                       >
-                        {loading
-                          ? "Loading employees..."
-                          : "No employees found"}
+                        {formatDate(emp.passport_expiry)}
+                      </td>
+                      <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                        {emp.visa_no}
+                      </td>
+                      <td
+                        className={`px-3 py-3 text-sm ${getExpiryClass(emp.visa_expiry)}`}
+                      >
+                        {formatDate(emp.visa_expiry)}
+                      </td>
+                      <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                        {emp.labor_no}
+                      </td>
+                      <td
+                        className={`px-3 py-3 text-sm ${getExpiryClass(emp.labor_expiry)}`}
+                      >
+                        {formatDate(emp.labor_expiry)}
+                      </td>
+                      <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                        {emp.eid_no}
+                      </td>
+                      <td
+                        className={`px-3 py-3 text-sm ${getExpiryClass(emp.eid_expiry)}`}
+                      >
+                        {formatDate(emp.eid_expiry)}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        {formatDate(emp.joining_date)}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        {emp.email}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        {emp.phone}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            emp.status === "Active"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          }`}
+                        >
+                          {emp.status}
+                        </span>
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="18"
+                      className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                    >
+                      {loading ? "Loading employees..." : "No employees found"}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
+        </div>
 
-          {/* Pagination */}
-          {totalFiltered > 0 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              totalItems={totalFiltered}
-              itemsPerPage={perPage}
-            />
-          )}
-        </main>
-      </div>
+        {/* Pagination */}
+        {totalFiltered > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={totalFiltered}
+            itemsPerPage={perPage}
+          />
+        )}
+      </main>
 
       {/* Export Modal */}
       {showExportModal && (

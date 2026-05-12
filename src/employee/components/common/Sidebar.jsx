@@ -1,21 +1,29 @@
-import { Link, useLocation } from "react-router-dom";
+// src/employee/components/common/Sidebar.jsx
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../store/hooks";
+import { logoutUser } from "../../../store/slices/authSlice";
 
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { user } = useAppSelector((state) => state.auth);
 
   const navItems = [
-    { path: "/dashboard", icon: "fas fa-chart-line", label: "Dashboard" },
-    { path: "/leaves", icon: "fas fa-calendar-check", label: "My Leaves" },
-    { path: "/wfh", icon: "fas fa-home", label: "WFH Requests" },
-    {
-      path: "/task-reports",
-      icon: "fas fa-clipboard-list",
-      label: "Task Reports",
-    },
-    { path: "/profile", icon: "fas fa-user-circle", label: "My Profile" },
+    { path: "/employee/dashboard", icon: "fas fa-chart-line", label: "Dashboard" },
+    { path: "/employee/leaves", icon: "fas fa-calendar-check", label: "My Leaves" },
+    { path: "/employee/request-leave", icon: "fas fa-plus-circle", label: "Request Leave" },
+    { path: "/employee/wfh", icon: "fas fa-home", label: "WFH Requests" },
+    { path: "/employee/task-reports", icon: "fas fa-clipboard-list", label: "Task Reports" },
+    { path: "/employee/profile", icon: "fas fa-user-circle", label: "My Profile" },
   ];
+
+  const handleLogout = async () => {
+    await dispatch(logoutUser());
+    onClose();
+    navigate("/login");
+  };
 
   return (
     <aside className={`sidebar ${isOpen ? "open" : ""}`}>
@@ -45,16 +53,16 @@ const Sidebar = ({ isOpen, onClose }) => {
       </nav>
 
       <div className="sidebar-footer">
-        <Link to="/" className="nav-item" onClick={onClose}>
+        <button onClick={handleLogout} className="nav-item w-full text-left">
           <i className="fas fa-sign-out-alt"></i>
           <span>Sign Out</span>
-        </Link>
+        </button>
 
         <div className="user-info">
-          <div className="user-avatar">{user?.name?.charAt(0)}</div>
+          <div className="user-avatar">{user?.name?.charAt(0) || "U"}</div>
           <div className="user-details">
-            <h4>{user.name}</h4>
-            <p>{user.role}</p>
+            <h4>{user?.name || "Employee"}</h4>
+            <p>{user?.role || "Employee"}</p>
           </div>
         </div>
       </div>

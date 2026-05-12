@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { showToast } from '../common/Toast';
-import apiClient from '../../utils/apiClient';
+import { useState } from 'react';
+import { showToast } from '../../../components/common/Toast';
+import apiClient from '../../../utils/apiClient';
 
 const AddPartyModal = ({ isOpen, onClose, onPartyAdded }) => {
   const [isCreating, setIsCreating] = useState(false);

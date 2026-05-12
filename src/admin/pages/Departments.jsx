@@ -1,11 +1,9 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import Sidebar from "../components/common/Sidebar";
-import Header from "../components/common/Header";
 import SearchBar from "../components/common/SearchBar";
 import EntriesSelector from "../components/common/EntriesSelector";
 import Pagination from "../components/common/Paginations";
-import { showToast } from "../components/common/Toast";
+import { showToast } from "../../components/common/Toast";
 import {
   fetchDepartments,
   addDepartment,
@@ -25,8 +23,6 @@ const Departments = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -35,14 +31,6 @@ const Departments = () => {
   const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
 
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   useEffect(() => {
     dispatch(fetchDepartments());
@@ -142,13 +130,8 @@ const Departments = () => {
   const totalDepartments = departments?.length || 0;
 
   return (
-    <div className="app flex min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      <div
-        className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}
-      >
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
+    <div className="w-full overflow-x-hidden">
+    <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
           {/* Stats Cards */}
           <div className="stats-grid grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-5 mb-6">
             <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
@@ -299,7 +282,6 @@ const Departments = () => {
             />
           )}
         </main>
-      </div>
 
       {/* Modals */}
       <DepartmentModal

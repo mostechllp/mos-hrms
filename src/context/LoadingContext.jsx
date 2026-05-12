@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import NavigationLoader from '@admin/components/common/NavigationLoader';
+import { createContext, useContext, useState, useCallback } from 'react';
+import NavigationLoader from '../components/common/NavigationLoader';
 
 const LoadingContext = createContext();
 

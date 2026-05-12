@@ -1,0 +1,34 @@
+import { useState, useEffect } from "react";
+import { Outlet } from "react-router-dom";
+import Sidebar from "../../admin/components/common/Sidebar";
+import Header from "../../admin/components/common/Header";
+
+const AdminLayout = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  return (
+    <div className="app flex min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+      <div
+        className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}
+      >
+        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+        <main className="content px-4 py-4 md:px-6 md:py-6 max-w-[1600px] mx-auto w-full overflow-x-hidden">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default AdminLayout;

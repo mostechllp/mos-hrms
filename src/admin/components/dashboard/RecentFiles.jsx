@@ -5,7 +5,7 @@ import EntriesSelector from "../common/EntriesSelector";
 import Pagination from "../common/Paginations";
 import { useSelector } from "react-redux";
 import ConfirmModal from "../common/ConfirmModal";
-import { showToast } from "../common/Toast";
+import { showToast } from "../../../components/common/Toast";
 import EmployeesTable from "../dashboardtables/EmployeesTable";
 import DocumentsTable from "../dashboardtables/DocumentsTable";
 import FoldersTable from "../dashboardtables/FoldersTable";

@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import apiClient from "../../utils/apiClient";
+import apiClient from "../../../utils/apiClient";
 
-// ✅ Fetch Dashboard Data
+// Fetch Dashboard Data
 export const fetchDashboardData = createAsyncThunk(
   "attendance/fetchDashboardData",
   async (_, { rejectWithValue }) => {

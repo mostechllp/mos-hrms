@@ -5,7 +5,7 @@ import Sidebar from "../components/common/Sidebar";
 import Header from "../components/common/Header";
 import SearchBar from "../components/common/SearchBar";
 import EntriesSelector from "../components/common/EntriesSelector";
-import { showToast } from "../components/common/Toast";
+import { showToast } from "../../components/common/Toast";
 import {
   fetchCompanies,
   deleteCompany,

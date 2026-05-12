@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import apiClient from "../../utils/apiClient";
+import apiClient from "../../../utils/apiClient";
 
 // Helper for error handling
 const handleApiError = (error) => {

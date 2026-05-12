@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { showToast } from '../common/Toast';
+import { showToast } from '../../../components/common/Toast';
 import { addDocumentFolder } from '../../store/slices/documentsSlice';
 
 const AddFolderModal = ({ isOpen, onClose, onFolderAdded }) => {

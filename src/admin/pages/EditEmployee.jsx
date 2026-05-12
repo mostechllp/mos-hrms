@@ -6,7 +6,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Sidebar from "../components/common/Sidebar";
 import Header from "../components/common/Header";
-import { showToast } from "../components/common/Toast";
+import { showToast } from "../../components/common/Toast";
 import {
   fetchEmployeeById,
   updateEmployee,

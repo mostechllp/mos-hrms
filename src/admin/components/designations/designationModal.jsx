@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { showToast } from "../common/Toast";
+import { showToast } from "../../../components/common/Toast";
 import {
   addDesignation,
   fetchDesignations,

@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { fetchUploadStatus, removeUpload } from '../../store/slices/attendanceSlice';
-import { showToast } from './Toast';
+import { showToast } from '../../../components/common/Toast';
 
 const GlobalUploadStatus = () => {
   const dispatch = useDispatch();

@@ -1,0 +1,131 @@
+// src/store/slices/authSlice.js
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import apiClient from "../../utils/apiClient"; // Updated path
+
+export const loginUser = createAsyncThunk(
+  "auth/login",
+  async ({ email, password }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post("/auth/login", {
+        username: email,
+        password,
+      });
+
+      const data = response.data.data;
+      const { access_token, user } = data;
+
+      // Store unified token
+      localStorage.setItem("auth-token", access_token);
+      localStorage.setItem("user-type", user.type);
+      localStorage.setItem("user-data", JSON.stringify(user));
+
+      // Store role-specific tokens for backward compatibility
+      if (user.type === "admin") {
+        localStorage.setItem("hr-token", access_token);
+        localStorage.setItem("hr-user", JSON.stringify(user));
+      } else if (user.type === "employee") {
+        localStorage.setItem("employee-token", access_token);
+        localStorage.setItem("employee-user", JSON.stringify(user));
+      }
+
+      // Store remember me info if checked
+      if (typeof window !== 'undefined') {
+        const rememberMe = localStorage.getItem("remember-me") === "true";
+        if (rememberMe) {
+          localStorage.setItem("remembered-email", email);
+        }
+      }
+
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Login failed");
+    }
+  }
+);
+
+export const logoutUser = createAsyncThunk("auth/logout", async () => {
+  // Clear all storage
+  localStorage.removeItem("auth-token");
+  localStorage.removeItem("user-type");
+  localStorage.removeItem("user-data");
+  localStorage.removeItem("hr-token");
+  localStorage.removeItem("hr-user");
+  localStorage.removeItem("employee-token");
+  localStorage.removeItem("employee-user");
+  localStorage.removeItem("remember-me");
+  localStorage.removeItem("remembered-email");
+  
+  return null;
+});
+
+const getUserFromStorage = () => {
+  const userData = localStorage.getItem("user-data");
+  if (userData) {
+    const user = JSON.parse(userData);
+    return {
+      ...user,
+      name: user.employee?.name || user.username,
+    };
+  }
+  return null;
+};
+
+const initialState = {
+  user: getUserFromStorage(),
+  token: localStorage.getItem("auth-token") || null,
+  userType: localStorage.getItem("user-type") || null,
+  isAuthenticated: !!localStorage.getItem("auth-token"),
+  loading: false,
+  error: null,
+};
+
+const authSlice = createSlice({
+  name: "auth",
+  initialState,
+  reducers: {
+    clearError: (state) => {
+      state.error = null;
+    },
+    setRememberMe: (state, action) => {
+      if (action.payload) {
+        localStorage.setItem("remember-me", "true");
+      } else {
+        localStorage.removeItem("remember-me");
+        localStorage.removeItem("remembered-email");
+      }
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(loginUser.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(loginUser.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isAuthenticated = true;
+        state.token = action.payload.access_token;
+        state.userType = action.payload.user.type;
+        state.user = {
+          ...action.payload.user,
+          name: action.payload.user.employee?.name || action.payload.user.username,
+        };
+      })
+      .addCase(loginUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.isAuthenticated = false;
+      })
+      .addCase(logoutUser.fulfilled, (state) => {
+        state.user = null;
+        state.token = null;
+        state.userType = null;
+        state.isAuthenticated = false;
+        state.loading = false;
+        state.error = null;
+      });
+  },
+});
+
+export const { clearError, setRememberMe } = authSlice.actions;
+export default authSlice.reducer;

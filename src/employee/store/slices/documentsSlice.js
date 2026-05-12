@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import apiClient from '../../utils/apiClient';
+import apiClient from '../../../utils/apiClient';
 
 // Helper function to transform form data for API
 const transformDocumentForAPI = (formData, file) => {

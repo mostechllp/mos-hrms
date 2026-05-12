@@ -1,76 +1,71 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { clearError, loginUser } from "../store/slices/authSlice";
+import { clearError, loginUser, setRememberMe } from "../store/slices/authSlice";
 import { showToast } from "../components/common/Toast";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMeState] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  // const [loading, setLoading] = useState(false); // remove this once API is set
-    const { loading, error, isAuthenticated } = useSelector(
-      (state) => state.auth,
-    );
+  const { loading, error, isAuthenticated, userType } = useSelector(
+    (state) => state.auth
+  );
 
-    useEffect(() => {
-      if (isAuthenticated) {
-        navigate("/dashboard");
-      }
-    }, [isAuthenticated, navigate]);
+  // Load remembered email if exists
+  useEffect(() => {
+    const remembered = localStorage.getItem("remember-me") === "true";
+    const savedEmail = localStorage.getItem("remembered-email");
+    if (remembered && savedEmail) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEmail(savedEmail);
+      setRememberMeState(true);
+    }
+  }, []);
 
-    useEffect(() => {
-      if (error) {
-        showToast(error, "error");
-        dispatch(clearError());
-      }
-    }, [error, dispatch]);
+  // Redirect based on user type after successful login
+  useEffect(() => {
+    if (isAuthenticated && userType) {
+      const redirectPath = userType === "admin" ? "/admin/dashboard" : "/employee/dashboard";
+      showToast(`Welcome back! Redirecting to ${userType} dashboard...`, "success");
+      setTimeout(() => navigate(redirectPath), 1000);
+    }
+  }, [isAuthenticated, userType, navigate]);
 
-  //   Once API is set uncomment
+  // Show error toast if login fails
+  useEffect(() => {
+    if (error) {
+      showToast(error, "error");
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
 
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      if (!email || !password) {
-        showToast('Please fill in all fields', 'error');
-        return;
-      }
-      const result = await dispatch(loginUser({ email, password }));
-      if (loginUser.fulfilled.match(result)) {
-        showToast('Login successful! Redirecting...', 'success');
-        setTimeout(() => navigate('/dashboard'), 1000);
-      }
-    };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!email || !password) {
+      showToast("Please fill in all fields", "error");
+      return;
+    }
 
-  // remove this once API is set
-  // const handleSubmit = async (e) => {
-  //   e.preventDefault();
-
-  //   if (!email || !password) {
-  //     showToast("Please fill in all fields", "error");
-  //     return;
-  //   }
-
-  //   setLoading(true);
-
-  //   setTimeout(() => {
-  //     setLoading(false);
-  //     if (email === "hr@thesay.ae" && password === "HR@th3$4y2026") {
-  //       showToast("Login successful!", "success");
-  //       navigate("/dashboard");
-  //     } else {
-  //       showToast("Invalid credentials", "error");
-  //     }
-  //   }, 1000);
-  // };
+    // Save remember me preference
+    dispatch(setRememberMe(rememberMe));
+    
+    const result = await dispatch(loginUser({ email, password }));
+    
+    if (loginUser.rejected.match(result)) {
+      setRememberMeState(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Branding */}
       <div className="hidden lg:flex flex-1 bg-gradient-to-br from-green-600 to-green-500 relative overflow-hidden items-center justify-center p-10">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,...')] opacity-30"></div>
+        <div className="absolute inset-0 bg-black/20"></div>
         <div className="relative z-10 text-center text-white max-w-md">
           <div className="mb-8">
             <img
@@ -81,8 +76,8 @@ const Login = () => {
           </div>
           <h1 className="text-4xl font-bold mb-4">Human Resource Management</h1>
           <p className="text-lg opacity-90 mb-10">
-            Seamlessly manage attendance, employees, and organization reports in
-            one place.
+            Unified portal for administrators and employees. Seamlessly manage 
+            attendance, leaves, reports, and more in one place.
           </p>
           <div className="space-y-3 text-left">
             {[
@@ -127,7 +122,8 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                  placeholder="your email"
+                  placeholder="your@email.com"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -144,15 +140,14 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-11 pr-11 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                   placeholder="••••••••"
+                  disabled={loading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  <i
-                    className={`fas ${showPassword ? "fa-eye" : "fa-eye-slash"}`}
-                  ></i>
+                  <i className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"}`}></i>
                 </button>
               </div>
             </div>
@@ -162,25 +157,19 @@ const Login = () => {
                 <input
                   type="checkbox"
                   checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+                  onChange={(e) => setRememberMeState(e.target.checked)}
                   className="w-4 h-4 accent-green-500"
                 />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   Remember me
                 </span>
               </label>
-              {/* <button
-                type="button"
-                className="text-sm text-green-500 hover:text-green-600"
-              >
-                Forgot Password?
-              </button> */}
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-70"
+              className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>

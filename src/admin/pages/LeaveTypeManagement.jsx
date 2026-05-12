@@ -1,13 +1,11 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import Sidebar from "../components/common/Sidebar";
-import Header from "../components/common/Header";
 import SearchBar from "../components/common/SearchBar";
 import EntriesSelector from "../components/common/EntriesSelector";
 import Loader from "../components/common/Loader";
 import LeaveTypeModal from "../components/leaves/LeaveTypeModal";
-import { showToast } from "../components/common/Toast";
+import { showToast } from "../../components/common/Toast";
 import {
   fetchLeaveTypes,
   deleteLeaveType,
@@ -24,22 +22,10 @@ const LeaveTypeManagement = () => {
   const [perPage, setPerPage] = useState(10);
   const [showModal, setShowModal] = useState(false);
   const [editingType, setEditingType] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedDelete, setSelectedDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
   useEffect(() => {
     dispatch(fetchLeaveTypes());
   }, [dispatch]);
@@ -115,12 +101,8 @@ const LeaveTypeManagement = () => {
   if (loading) return <Loader fullScreen />;
 
   return (
-    <div className="app flex min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      <div
-        className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}
-      >
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+    <div className="w-full overflow-x-hidden">
+      <div className="w-full">
         <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
           {/* Breadcrumbs - Responsive */}
           <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">

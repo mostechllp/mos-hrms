@@ -1,5 +1,4 @@
-// Header.js - Updated with dynamic title and avatar
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { markAsRead, markAllRead } from "../../store/slices/notificationSlice";
@@ -52,59 +51,59 @@ const Header = ({ onMenuClick }) => {
   const getPageTitle = () => {
     const path = location.pathname;
 
-    if (path === "/dashboard" || path === "/") {
+    if (path === "/admin/dashboard" || path === "/") {
       return "Dashboard";
-    } else if (path === "/employees") {
+    } else if (path === "//adminemployees") {
       return "Employees";
-    } else if (path === "/organizations") {
+    } else if (path === "/admin/organizations") {
       return "Organizations";
-    } else if (path === "/organizations/add-company") {
+    } else if (path === "/admin/organizations/add-company") {
       return "Add Company";
-    } else if (path === "/organizations/add-organization") {
+    } else if (path === "/admin/organizations/add-organization") {
       return "Add Organization";
-    } else if (path === "/agreements") {
+    } else if (path === "/admin/agreements") {
       return "Agreements";
-    } else if (path === "/agreements/add-agreement") {
+    } else if (path === "/admin/agreements/add-agreement") {
       return "Add Agreement";
-    } else if (path === "/attendances") {
+    } else if (path === "/admin/attendances") {
       return "Attendance";
-    } else if (path === "/leaves/leave-types") {
+    } else if (path === "/admin/leaves/leave-types") {
       return "Add Leave Types";
-    } else if (path === "/leaves") {
+    } else if (path === "/admin/leaves") {
       return "Leaves";
-    } else if (path === "/designations") {
+    } else if (path === "/admin/designations") {
       return "Designations";
-    } else if (path === "/departments") {
+    } else if (path === "/admin/departments") {
       return "Departments";
-    } else if (path === "/task-reports") {
+    } else if (path === "/admin/task-reports") {
       return "Task Reports";
-    } else if (path === "/wfh") {
+    } else if (path === "/admin/wfh") {
       return "WFH Requests";
-    } else if (path === "/reports") {
+    } else if (path === "/admin/reports") {
       return "Reports";
-    } else if (path === "/settings") {
+    } else if (path === "/admin/settings") {
       return "Settings";
-    } else if (path.includes("/employees/add-employee")) {
+    } else if (path.includes("/admin/employees/add-employee")) {
       return "Add Employee";
-    } else if (path.includes("/employees/edit")) {
+    } else if (path.includes("/admin/employees/edit")) {
       return "Edit Employee";
-    } else if (path.includes("/employees/")) {
+    } else if (path.includes("/admin/employees/")) {
       return "Employee Details";
-    } else if (path.includes("/reports/employee-details")) {
+    } else if (path.includes("/admin/reports/employee-details")) {
       return "Employee Details Report";
-    } else if (path.includes("/reports/attendance")) {
+    } else if (path.includes("/admin/reports/attendance")) {
       return "Attendance Report";
-    } else if (path.includes("/reports/leave-requests")) {
+    } else if (path.includes("/admin/reports/leave-requests")) {
       return "Leave Request Reports";
-    } else if (path.includes("/reports/pending-leaves")) {
+    } else if (path.includes("/admin/reports/pending-leaves")) {
       return "Pending Leaves";
-    } else if (path.includes("/reports/employee-near-expiry")) {
+    } else if (path.includes("/admin/reports/employee-near-expiry")) {
       return "Employee Nearest Expiry";
-    } else if (path.includes("/reports/employee-upcoming-renewals")) {
+    } else if (path.includes("/admin/reports/employee-upcoming-renewals")) {
       return "Employee Upcoming Renewals";
-    } else if (path.includes("/reports/organization-near-expiry")) {
+    } else if (path.includes("/admin/reports/organization-near-expiry")) {
       return "Company Nearest Expiry";
-    } else if (path.includes("/reports/organization-upcoming-renewals")) {
+    } else if (path.includes("/admin/reports/organization-upcoming-renewals")) {
       return "Company Upcoming Renewals";
     } else {
       return "HR Management";

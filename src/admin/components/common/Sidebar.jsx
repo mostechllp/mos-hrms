@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutUser } from "../../store/slices/authSlice";
@@ -11,7 +11,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const { user } = useSelector((state) => state.auth);
   const navigate = useNavigate();
 
-  console.log("user: ", user)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -33,22 +32,22 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   }, [location, isMobile, setIsOpen]);
 
   const navItems = [
-    { path: "/dashboard", icon: "fas fa-chart-line", label: "Dashboard" },
-    { path: "/employees", icon: "fas fa-users", label: "Employees" },
+    { path: "/admin/dashboard", icon: "fas fa-chart-line", label: "Dashboard" },
+    { path: "/admin/employees", icon: "fas fa-users", label: "Employees" },
     {
-      path: "/organizations",
+      path: "/admin/organizations",
       icon: "fas fa-briefcase",
       label: "Organizations",
     },
-    { path: "/agreements", icon: "fas fa-file-signature", label: "Agreements" },
-    { path: "/attendances", icon: "fas fa-fingerprint", label: "Attendance" },
-    { path: "/leaves", icon: "fas fa-calendar-check", label: "Leaves" },
-    { path: "/designations", icon: "fas fa-tags", label: "Designations" },
-    { path: "/departments", icon: "fas fa-building", label: "Departments" },
-    { path: "/task-reports", icon: "fas fa-tasks", label: "Task Reports" },
-    {path: "/wfh", icon: "fas fa-home", label: "WFH Requests"},
-    { path: "/reports", icon: "fas fa-chart-line", label: "Reports" },
-    { path: "/settings", icon: "fas fa-gear", label: "Settings" },
+    { path: "/admin/agreements", icon: "fas fa-file-signature", label: "Agreements" },
+    { path: "/admin/attendances", icon: "fas fa-fingerprint", label: "Attendance" },
+    { path: "/admin/leaves", icon: "fas fa-calendar-check", label: "Leaves" },
+    { path: "/admin/designations", icon: "fas fa-tags", label: "Designations" },
+    { path: "/admin/departments", icon: "fas fa-building", label: "Departments" },
+    { path: "/admin/task-reports", icon: "fas fa-tasks", label: "Task Reports" },
+    {path: "/admin/wfh", icon: "fas fa-home", label: "WFH Requests"},
+    { path: "/admin/reports", icon: "fas fa-chart-line", label: "Reports" },
+    { path: "/admin/settings", icon: "fas fa-gear", label: "Settings" },
   ];
 
   const handleLogout = async () => {

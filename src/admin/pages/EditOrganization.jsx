@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import { updateOrganization, fetchOrganizations } from "../store/slices/organizationSlice";
-import { showToast } from "../components/common/Toast";
+import { showToast } from "../../components/common/Toast";
 import Sidebar from "../components/common/Sidebar";
 import Header from "../components/common/Header";
 

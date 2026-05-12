@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import apiClient from '../../utils/apiClient';
+import apiClient from '../../../utils/apiClient';
 
 // Fetch Employee Leaves
 export const fetchEmployeeLeaves = createAsyncThunk(

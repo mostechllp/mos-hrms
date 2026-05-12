@@ -1,6 +1,6 @@
 // store/slices/wfhSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import apiClient from "../../utils/apiClient";
+import apiClient from "../../../utils/apiClient";
 
 // Fetch WFH requests
 export const fetchWFHRequests = createAsyncThunk(

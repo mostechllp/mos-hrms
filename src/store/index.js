@@ -1,0 +1,54 @@
+import { configureStore } from "@reduxjs/toolkit";
+import authReducer from "./slices/authSlice";
+import employeeReducer from "../admin/store/slices/employeeSlice";
+import notificationReducer from "../admin/store/slices/notificationSlice";
+import organizationReducer from "../admin/store/slices/organizationSlice";
+import companyReducer from "../admin/store/slices/companySlice";
+import attendanceReducer from "../admin/store/slices/attendanceSlice";
+import leaveReducer from "../admin/store/slices/LeaveSlice";
+import designationReducer from "../admin/store/slices/designationSlice";
+import taskReportReducer from "../admin/store/slices/taskReportSlice";
+import dashboardReducer from "../admin/store/slices/dashboardSlice";
+import departmentReducer from "../admin/store/slices/departmentSlice";
+import documentsReducer from "../admin/store/slices/documentsSlice";
+import wfhReducer from "../admin/store/slices/wfhSlice";
+
+// Employee reducers
+import leavesReducer from "../employee/store/slices/leavesSlice";
+import tasksReducer from "../employee/store/slices/tasksSlice";
+import notesReducer from "../employee/store/slices/notesSlice";
+import themeReducer from "../employee/store/slices/themeSlice";
+import EmpWfhReducer from "../employee/store/slices/wfhSlice";
+import taskReportsReducer from "../employee/store/slices/taskReportsSlice";
+import EmpAttendanceReducer from "../employee/store/slices/attendanceSlice";
+
+export const store = configureStore({
+  reducer: {
+    auth: authReducer,
+    employees: employeeReducer,
+    notifications: notificationReducer,
+    organizations: organizationReducer,
+    companies: companyReducer,
+    attendance: attendanceReducer,
+    leaves: leaveReducer,
+    designations: designationReducer,
+    taskReports: taskReportReducer,
+    dashboard: dashboardReducer,
+    departments: departmentReducer,
+    documents: documentsReducer,
+    wfh: wfhReducer,
+
+    // Employee
+    EmpLeaves: leavesReducer,
+    tasks: tasksReducer,
+    notes: notesReducer,
+    theme: themeReducer,
+    EmpWfh: EmpWfhReducer,
+    EmpTaskReports: taskReportsReducer,
+    EmpAttendance: EmpAttendanceReducer,
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: false,
+    }),
+});

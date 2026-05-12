@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import Sidebar from "../components/common/Sidebar";
 import Header from "../components/common/Header";
-import { showToast } from "../components/common/Toast";
+import { showToast } from "../../components/common/Toast";
 import {
   fetchCompanyById,
   updateCompany,

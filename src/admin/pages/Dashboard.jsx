@@ -14,7 +14,7 @@ import { fetchDashboard } from "../store/slices/dashboardSlice";
 const Dashboard = () => {
   const dispatch = useDispatch();
   const { employees } = useSelector((state) => state.employees);
-  const {user} = useSelector(state => state.auth)
+  const { user } = useSelector((state) => state.auth);
   const { stats, charts, recentData, loading } = useSelector(
     (state) => state.dashboard,
   );
@@ -44,58 +44,49 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="app flex min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      {/* Main content - add margin-left on desktop only */}
-      <div
-        className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}
-      >
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="content px-4 py-4 md:px-6 md:py-6 max-w-[1600px] mx-auto w-full overflow-x-hidden">
-          {formattedStats && <WelcomeBanner stats={formattedStats} user={user}/>}
+    <>
+      {formattedStats && <WelcomeBanner stats={formattedStats} user={user} />}
 
-          {/* Stats Grid - 2 columns on mobile, 4 on desktop */}
-          <div className="stats-grid grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6">
-            <StatsCard
-              title="Total Employees"
-              value={formattedStats?.totalEmployees}
-              icon="fas fa-users"
-              color="green"
-            />
-            <StatsCard
-              title="Punched In Today"
-              value={formattedStats?.punchedInToday}
-              icon="fas fa-fingerprint"
-              color="blue"
-            />
-            <StatsCard
-              title="Late Arrivals"
-              value={formattedStats?.lateArrivals}
-              icon="fas fa-clock"
-              color="amber"
-            />
-            <StatsCard
-              title="Absent Today"
-              value={formattedStats?.absentToday}
-              icon="fas fa-user-slash"
-              color="red"
-            />
-          </div>
-
-          {/* Charts Grid - 1 column on mobile/tablet, 2 on desktop */}
-          <div className="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
-            <div className="w-full min-w-0 overflow-hidden">
-              <AttendanceChart />
-            </div>
-            <div className="w-full min-w-0 overflow-hidden">
-              <PunchChart />
-            </div>
-          </div>
-
-          <RecentFiles />
-        </main>
+      {/* Stats Grid - 2 columns on mobile, 4 on desktop */}
+      <div className="stats-grid grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6">
+        <StatsCard
+          title="Total Employees"
+          value={formattedStats?.totalEmployees}
+          icon="fas fa-users"
+          color="green"
+        />
+        <StatsCard
+          title="Punched In Today"
+          value={formattedStats?.punchedInToday}
+          icon="fas fa-fingerprint"
+          color="blue"
+        />
+        <StatsCard
+          title="Late Arrivals"
+          value={formattedStats?.lateArrivals}
+          icon="fas fa-clock"
+          color="amber"
+        />
+        <StatsCard
+          title="Absent Today"
+          value={formattedStats?.absentToday}
+          icon="fas fa-user-slash"
+          color="red"
+        />
       </div>
-    </div>
+
+      {/* Charts Grid - 1 column on mobile/tablet, 2 on desktop */}
+      <div className="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
+        <div className="w-full min-w-0 overflow-hidden">
+          <AttendanceChart />
+        </div>
+        <div className="w-full min-w-0 overflow-hidden">
+          <PunchChart />
+        </div>
+      </div>
+
+      <RecentFiles />
+    </>
   );
 };
 

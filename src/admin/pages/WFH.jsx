@@ -1,12 +1,10 @@
-import React, { useEffect, useState } from "react";
+import  { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import Sidebar from "../components/common/Sidebar";
-import Header from "../components/common/Header";
 import SearchBar from "../components/common/SearchBar";
 import EntriesSelector from "../components/common/EntriesSelector";
 import Pagination from "../components/common/Paginations";
 import ConfirmModal from "../components/common/ConfirmModal";
-import { showToast } from "../components/common/Toast";
+import { showToast } from "../../components/common/Toast";
 import {
   fetchAdminWFHRequests,
   updateWFHRequestStatus,
@@ -14,7 +12,7 @@ import {
   setAdminWfhPagination,
   clearAdminWfhError,
 } from "../store/slices/wfhSlice";
-import { FiEye, FiCheckCircle, FiXCircle, FiLoader } from "react-icons/fi";
+import { FiEye, FiCheckCircle, FiXCircle} from "react-icons/fi";
 import StatusBadge from "../components/common/StatusBadge";
 
 const AdminWFH = () => {
@@ -22,23 +20,12 @@ const AdminWFH = () => {
   const { requests, filter, pagination, loading, error } = useSelector(
     (state) => state.wfh
   );
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [actionType, setActionType] = useState(null);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   useEffect(() => {
     dispatch(fetchAdminWFHRequests());
@@ -166,27 +153,20 @@ const AdminWFH = () => {
   };
 
   if (loading && requests.length === 0) {
-    return (
-      <div className="app flex min-h-screen bg-gray-50 overflow-x-hidden">
-        <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-        <div className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}>
-          <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-          <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-            </div>
-          </main>
+  return (
+    <div className="w-full overflow-x-hidden">
+      <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
         </div>
-      </div>
-    );
-  }
+      </main>
+    </div>
+  );
+}
 
   return (
-    <div className="app flex min-h-screen bg-gray-50 overflow-x-hidden">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      <div className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}>
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
+    <div className="w-full overflow-x-hidden">
+    <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
           
           {/* Stats Cards */}
           <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
@@ -357,7 +337,6 @@ const AdminWFH = () => {
             />
           )}
         </main>
-      </div>
 
       {/* Details Modal */}
       {showDetailsModal && selectedRequest && (

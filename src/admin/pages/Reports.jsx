@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import Sidebar from "../components/common/Sidebar";
-import Header from "../components/common/Header";
 import { fetchEmployees } from "../store/slices/employeeSlice";
 import { fetchOrganizations } from "../store/slices/organizationSlice";
 import { fetchAttendanceRecords } from "../store/slices/attendanceSlice";
@@ -10,22 +8,16 @@ import { fetchLeaves } from "../store/slices/LeaveSlice";
 
 const Reports = () => {
   const dispatch = useDispatch();
-  const { organizations = [] } = useSelector((state) => state.organizations || {});
+  const { organizations = [] } = useSelector(
+    (state) => state.organizations || {},
+  );
   const { employees = [] } = useSelector((state) => state.employees || {});
-  const { records: attendanceRecords = [] } = useSelector((state) => state.attendance || {});
-  const { leaves: leaveRecords = [] } = useSelector((state) => state.leaves || {});
-  
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
+  const { records: attendanceRecords = [] } = useSelector(
+    (state) => state.attendance || {},
+  );
+  const { leaves: leaveRecords = [] } = useSelector(
+    (state) => state.leaves || {},
+  );
 
   useEffect(() => {
     dispatch(fetchOrganizations());
@@ -36,20 +28,22 @@ const Reports = () => {
 
   // Calculate statistics for cards
   const totalEmployees = employees.length;
-  const pendingLeaves = leaveRecords.filter(leave => leave.status === "Pending").length;
-  
+  const pendingLeaves = leaveRecords.filter(
+    (leave) => leave.status === "Pending",
+  ).length;
+
   // Calculate expiry statistics
   const today = new Date();
   const thirtyDaysFromNow = new Date();
   thirtyDaysFromNow.setDate(today.getDate() + 30);
-  
+
   let employeeNearExpiry = 0;
   let employeeUpcomingRenewals = 0;
   let orgNearExpiry = 0;
   let orgUpcomingRenewals = 0;
-  
+
   // Check employee document expiries (assuming employees have document expiry dates)
-  employees.forEach(emp => {
+  employees.forEach((emp) => {
     if (emp.document_expiry_date) {
       const expiryDate = new Date(emp.document_expiry_date);
       if (expiryDate < today) {
@@ -61,9 +55,9 @@ const Reports = () => {
       }
     }
   });
-  
+
   // Check organization document expiries
-  organizations.forEach(org => {
+  organizations.forEach((org) => {
     if (org.document_expiry_date) {
       const expiryDate = new Date(org.document_expiry_date);
       if (expiryDate < today) {
@@ -84,8 +78,8 @@ const Reports = () => {
       icon: "fas fa-users",
       iconBg: "bg-blue-100 dark:bg-blue-900/30",
       iconColor: "text-blue-600 dark:text-blue-400",
-      link: "/reports/employee-details",
-      count: totalEmployees
+      link: "/admin/reports/employee-details",
+      count: totalEmployees,
     },
     {
       id: "attendance",
@@ -94,8 +88,8 @@ const Reports = () => {
       icon: "fas fa-fingerprint",
       iconBg: "bg-green-100 dark:bg-green-900/30",
       iconColor: "text-green-600 dark:text-green-400",
-      link: "/reports/attendance-reports",
-      count: attendanceRecords.length
+      link: "/admin/reports/attendance-reports",
+      count: attendanceRecords.length,
     },
     {
       id: "leave-requests",
@@ -104,8 +98,8 @@ const Reports = () => {
       icon: "fas fa-calendar-check",
       iconBg: "bg-purple-100 dark:bg-purple-900/30",
       iconColor: "text-purple-600 dark:text-purple-400",
-      link: "/reports/leave-requests-reports",
-      count: leaveRecords.length
+      link: "/admin/reports/leave-requests-reports",
+      count: leaveRecords.length,
     },
     {
       id: "pending-leaves",
@@ -114,9 +108,9 @@ const Reports = () => {
       icon: "fas fa-clock",
       iconBg: "bg-amber-100 dark:bg-amber-900/30",
       iconColor: "text-amber-600 dark:text-amber-400",
-      link: "/reports/pending-leaves-reports",
+      link: "/admin/reports/pending-leaves-reports",
       count: pendingLeaves,
-      highlight: pendingLeaves > 0
+      highlight: pendingLeaves > 0,
     },
     {
       id: "emp-near-expiry",
@@ -125,9 +119,9 @@ const Reports = () => {
       icon: "fas fa-exclamation-triangle",
       iconBg: "bg-red-100 dark:bg-red-900/30",
       iconColor: "text-red-600 dark:text-red-400",
-      link: "/reports/employee-near-expiry",
+      link: "/admin/reports/employee-near-expiry",
       count: employeeNearExpiry,
-      highlight: employeeNearExpiry > 0
+      highlight: employeeNearExpiry > 0,
     },
     {
       id: "emp-upcoming-renewals",
@@ -136,8 +130,8 @@ const Reports = () => {
       icon: "fas fa-calendar-alt",
       iconBg: "bg-cyan-100 dark:bg-cyan-900/30",
       iconColor: "text-cyan-600 dark:text-cyan-400",
-      link: "/reports/employee-upcoming-renewals",
-      count: employeeUpcomingRenewals
+      link: "/admin/reports/employee-upcoming-renewals",
+      count: employeeUpcomingRenewals,
     },
     {
       id: "org-near-expiry",
@@ -146,9 +140,9 @@ const Reports = () => {
       icon: "fas fa-building",
       iconBg: "bg-rose-100 dark:bg-rose-900/30",
       iconColor: "text-rose-600 dark:text-rose-400",
-      link: "/reports/organization-near-expiry",
+      link: "/admin/reports/organization-near-expiry",
       count: orgNearExpiry,
-      highlight: orgNearExpiry > 0
+      highlight: orgNearExpiry > 0,
     },
     {
       id: "org-upcoming-renewals",
@@ -157,74 +151,73 @@ const Reports = () => {
       icon: "fas fa-chart-line",
       iconBg: "bg-indigo-100 dark:bg-indigo-900/30",
       iconColor: "text-indigo-600 dark:text-indigo-400",
-      link: "/reports/organization-upcoming-renewals",
-      count: orgUpcomingRenewals
-    }
+      link: "/admin/reports/organization-upcoming-renewals",
+      count: orgUpcomingRenewals,
+    },
   ];
 
   return (
-    <div className="app flex min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      <div className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}>
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
-          
-          {/* Page Header */}
-          <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
-            <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
-              Reports
-            </h2>
-          </div>
+    <div className="w-full overflow-x-hidden">
+      <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
+        {/* Page Header */}
+        <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
+          <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+            Reports
+          </h2>
+        </div>
 
-          {/* Report Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
-            {reportCards.map((card) => (
-              <Link
-                key={card.id}
-                to={card.link}
-                className="group block"
-              >
-                <div className={`
+        {/* Report Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
+          {reportCards.map((card) => (
+            <Link key={card.id} to={card.link} className="group block">
+              <div
+                className={`
                   bg-white dark:bg-gray-800 rounded-xl border 
-                  ${card.highlight 
-                    ? 'border-red-300 dark:border-red-700 shadow-lg ring-2 ring-red-300 dark:ring-red-700/50' 
-                    : 'border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-700'
+                  ${
+                    card.highlight
+                      ? "border-red-300 dark:border-red-700 shadow-lg ring-2 ring-red-300 dark:ring-red-700/50"
+                      : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-700"
                   } 
                   transition-all duration-200 hover:-translate-y-1 hover:shadow-lg overflow-hidden
-                `}>
-                  {/* Card Header with Icon */}
-                  <div className="p-4 pb-3">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className={`w-12 h-12 rounded-xl ${card.iconBg} flex items-center justify-center`}>
-                        <i className={`${card.icon} ${card.iconColor} text-xl`}></i>
-                      </div>
-                      {card.count !== undefined && (
-                        <div className={`
-                          text-2xl font-bold 
-                          ${card.highlight ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-200'}
-                        `}>
-                          {card.count}
-                        </div>
-                      )}
+                `}
+              >
+                {/* Card Header with Icon */}
+                <div className="p-4 pb-3">
+                  <div className="flex items-start justify-between mb-3">
+                    <div
+                      className={`w-12 h-12 rounded-xl ${card.iconBg} flex items-center justify-center`}
+                    >
+                      <i
+                        className={`${card.icon} ${card.iconColor} text-xl`}
+                      ></i>
                     </div>
-                    
-                    {/* Card Title */}
-                    <h3 className="font-bold text-gray-800 dark:text-gray-200 text-base mb-1">
-                      {card.title}
-                    </h3>
-                    
-                    {/* Card Description */}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                      {card.description}
-                    </p>
-                    
+                    {card.count !== undefined && (
+                      <div
+                        className={`
+                          text-2xl font-bold 
+                          ${card.highlight ? "text-red-600 dark:text-red-400" : "text-gray-800 dark:text-gray-200"}
+                        `}
+                      >
+                        {card.count}
+                      </div>
+                    )}
                   </div>
+
+                  {/* Card Title */}
+                  <h3 className="font-bold text-gray-800 dark:text-gray-200 text-base mb-1">
+                    {card.title}
+                  </h3>
+
+                  {/* Card Description */}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    {card.description}
+                  </p>
                 </div>
-              </Link>
-            ))}
-          </div>
-        </main>
-      </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </main>
     </div>
   );
 };
