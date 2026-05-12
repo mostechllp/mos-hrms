@@ -1,12 +1,12 @@
 import  { useEffect, useState } from "react";
 import { FiEye, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiLogIn, FiClock, FiChevronDown } from "react-icons/fi";
 import { MdFingerprint } from "react-icons/md";
-import EarlyCheckinModal from "../components/modals/EarlyCheckinModal";
-import LateCheckinModal from "../components/modals/LateCheckinModal";
-import MissedPunchInModal from "../components/modals/MissedPunchInModal";
-import MissedPunchOutModal from "../components/modals/MissedPunchOutModal";
 import { showToast } from "../components/common/Toast";
 import StatusBadge from "../components/common/StatusBadge";
+import MissedPunchOutModal from "../components/modals/MissedPunchOutModal";
+import MissedPunchInModal from "../components/modals/MissedPunchInModal";
+import LateCheckinModal from "../components/modals/LateCheckinModal";
+import EarlyCheckinModal from "../components/modals/EarlyCheckinModal";
 
 const AttendanceRequests = () => {
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -541,14 +541,14 @@ const AttendanceRequests = () => {
       )}
 
       {/* Modals */}
-      <EarlyCheckinModal 
+      <EarlyCheckinModal
         isOpen={showEarlyCheckin} 
         onClose={() => {
           setShowEarlyCheckin(false);
           fetchAttendanceRequests();
         }} 
       />
-      <LateCheckinModal 
+      <LateCheckinModal
         isOpen={showLateCheckin} 
         onClose={() => {
           setShowLateCheckin(false);
@@ -562,7 +562,7 @@ const AttendanceRequests = () => {
           fetchAttendanceRequests();
         }} 
       />
-      <MissedPunchOutModal 
+      <MissedPunchOutModal
         isOpen={showMissedPunchOut} 
         onClose={() => {
           setShowMissedPunchOut(false);
