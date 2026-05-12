@@ -1,10 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAppSelector } from "../../store/hooks";
 import { useState } from "react";
-import EarlyCheckinModal from "../modals/EarlyCheckinModal";
-import LateCheckinModal from "../modals/LateCheckinModal";
-import MissedPunchInModal from "../modals/MissedPunchInModal";
 import MissedPunchOutModal from "../modals/MissedPunchOutModal";
+import MissedPunchInModal from "../modals/MissedPunchInModal";
+import LateCheckinModal from "../modals/LateCheckinModal";
+import EarlyCheckinModal from "../modals/EarlyCheckinModal";
 
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
@@ -129,19 +129,19 @@ const Sidebar = ({ isOpen, onClose }) => {
       </aside>
 
       {/* Modals */}
-      <EarlyCheckinModal 
+      <EarlyCheckinModal
         isOpen={showEarlyCheckin} 
         onClose={() => setShowEarlyCheckin(false)} 
       />
-      <LateCheckinModal 
+      <LateCheckinModal
         isOpen={showLateCheckin} 
         onClose={() => setShowLateCheckin(false)} 
       />
-      <MissedPunchInModal 
+      <MissedPunchInModal
         isOpen={showMissedPunchIn} 
         onClose={() => setShowMissedPunchIn(false)} 
       />
-      <MissedPunchOutModal 
+      <MissedPunchOutModal
         isOpen={showMissedPunchOut} 
         onClose={() => setShowMissedPunchOut(false)} 
       />
