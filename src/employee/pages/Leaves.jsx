@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { setLeaveFilter, setLeavePagination, fetchEmployeeLeaves } from '../store/slices/leavesSlice';
@@ -7,18 +7,19 @@ import StatusBadge from '../components/common/StatusBadge';
 
 const Leaves = () => {
   const dispatch = useAppDispatch();
-  const { leaves, filter, pagination, loading } = useAppSelector((state) => state.leaves);
-  const [filteredLeaves, setFilteredLeaves] = useState([]);
+  const leavesState = useAppSelector((state) => state.leaves);
   
-  // Fetch leaves on component mount
-  useEffect(() => {
-    dispatch(fetchEmployeeLeaves());
-  }, [dispatch]);
+  // Add safety defaults
+  const leaves = leavesState?.leaves || [];
+  const filter = leavesState?.filter || { status: 'all', search: '' };
+  const pagination = leavesState?.pagination || { currentPage: 1, perPage: 10 };
+  const loading = leavesState?.loading || false;
   
-  useEffect(() => {
+  // Use useMemo instead of useState + useEffect to prevent infinite loops
+  const filteredLeaves = useMemo(() => {
     let filtered = [...leaves];
     
-    if (filter.status !== 'all') {
+    if (filter.status && filter.status !== 'all') {
       filtered = filtered.filter(l => {
         const leaveStatus = typeof l.status === 'object' ? l.status?.name?.toLowerCase() : l.status?.toLowerCase();
         return leaveStatus === filter.status.toLowerCase();
@@ -36,15 +37,23 @@ const Leaves = () => {
       });
     }
     
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFilteredLeaves(filtered);
-  }, [leaves, filter]);
+    return filtered;
+  }, [leaves, filter.status, filter.search]); // Only recompute when these change
   
-  const totalPages = Math.ceil(filteredLeaves.length / pagination.perPage);
-  const start = (pagination.currentPage - 1) * pagination.perPage;
-  const currentLeaves = filteredLeaves.slice(start, start + pagination.perPage);
+  // Fetch leaves on component mount - only once
+  useEffect(() => {
+    dispatch(fetchEmployeeLeaves());
+  }, [dispatch]); // Empty dependency array - only runs once
   
-  // Helper function to safely get leave type name
+  // Safety check for pagination
+  const perPage = pagination?.perPage || 10;
+  const currentPage = pagination?.currentPage || 1;
+  
+  const totalPages = Math.ceil(filteredLeaves.length / perPage);
+  const start = (currentPage - 1) * perPage;
+  const currentLeaves = filteredLeaves.slice(start, start + perPage);
+  
+  // Helper functions
   const getLeaveTypeName = (leaveType) => {
     if (!leaveType) return '-';
     if (typeof leaveType === 'object') {
@@ -53,7 +62,6 @@ const Leaves = () => {
     return leaveType;
   };
   
-  // Helper function to safely get status
   const getStatus = (status) => {
     if (!status) return 'pending';
     if (typeof status === 'object') {
@@ -62,7 +70,6 @@ const Leaves = () => {
     return status.toLowerCase();
   };
   
-  // Helper function to safely get claim salary
   const getClaimSalary = (claimSalary) => {
     if (claimSalary === undefined || claimSalary === null) return 'Yes';
     if (typeof claimSalary === 'object') return 'Yes';
@@ -70,42 +77,16 @@ const Leaves = () => {
     return 'No';
   };
   
-  // Helper function to safely get document
   const hasDocument = (document) => {
     return document !== null && document !== undefined && document !== '';
   };
   
-  const stats = {
+  const stats = useMemo(() => ({
     total: leaves.length,
-    pending: leaves.filter(l => {
-      const status = getStatus(l.status);
-      return status === 'pending';
-    }).length,
-    approved: leaves.filter(l => {
-      const status = getStatus(l.status);
-      return status === 'approved';
-    }).length,
-    rejected: leaves.filter(l => {
-      const status = getStatus(l.status);
-      return status === 'rejected';
-    }).length,
-  };
-  
-  const handleStatusFilter = (status) => {
-    dispatch(setLeaveFilter({ status: status === 'all' ? 'all' : status.toLowerCase(), search: filter.search }));
-  };
-  
-  const handleSearch = (e) => {
-    dispatch(setLeaveFilter({ status: filter.status, search: e.target.value }));
-  };
-  
-  const handlePageChange = (page) => {
-    dispatch(setLeavePagination({ currentPage: page, perPage: pagination.perPage }));
-  };
-  
-  const handleEntriesChange = (e) => {
-    dispatch(setLeavePagination({ currentPage: 1, perPage: parseInt(e.target.value) }));
-  };
+    pending: leaves.filter(l => getStatus(l.status) === 'pending').length,
+    approved: leaves.filter(l => getStatus(l.status) === 'approved').length,
+    rejected: leaves.filter(l => getStatus(l.status) === 'rejected').length,
+  }), [leaves]);
   
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -129,6 +110,30 @@ const Leaves = () => {
     } catch (error) {
       return 0, error;
     }
+  };
+  
+  const handleStatusFilter = (status) => {
+    dispatch(setLeaveFilter({ 
+      status: status === 'all' ? 'all' : status.toLowerCase(), 
+      search: filter.search || '' 
+    }));
+  };
+  
+  const handleSearch = (e) => {
+    dispatch(setLeaveFilter({ 
+      status: filter.status || 'all', 
+      search: e.target.value 
+    }));
+  };
+  
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      dispatch(setLeavePagination({ currentPage: page, perPage: perPage }));
+    }
+  };
+  
+  const handleEntriesChange = (e) => {
+    dispatch(setLeavePagination({ currentPage: 1, perPage: parseInt(e.target.value) }));
   };
   
   if (loading) {
@@ -188,7 +193,7 @@ const Leaves = () => {
         <h2 className="text-xl md:text-2xl font-semibold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent">
           My Leave Requests
         </h2>
-        <Link to="/request-leave" className="request-btn bg-green-500 text-white py-2.5 px-6 rounded-full font-semibold text-sm flex items-center gap-2 hover:bg-green-600 hover:-translate-y-0.5 transition-all">
+        <Link to="/employee/request-leave" className="request-btn bg-green-500 text-white py-2.5 px-6 rounded-full font-semibold text-sm flex items-center gap-2 hover:bg-green-600 hover:-translate-y-0.5 transition-all">
           <FiPlus /> Request Leave
         </Link>
       </div>
@@ -200,7 +205,7 @@ const Leaves = () => {
             key={status}
             onClick={() => handleStatusFilter(status)}
             className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-              filter.status === status.toLowerCase() || (status === 'all' && filter.status === 'all')
+              (filter.status === status.toLowerCase()) || (status === 'all' && filter.status === 'all')
                 ? 'bg-green-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-green-100 hover:text-green-600'
             }`}
@@ -215,7 +220,7 @@ const Leaves = () => {
         <div className="entries-select flex items-center gap-2.5 bg-white border border-gray-200 rounded-full px-3.5 py-1.5 text-xs text-gray-500">
           <span>Show entries</span>
           <select
-            value={pagination.perPage}
+            value={perPage}
             onChange={handleEntriesChange}
             className="border-none outline-none bg-transparent font-semibold text-gray-800 cursor-pointer"
           >
@@ -230,7 +235,7 @@ const Leaves = () => {
             <FiSearch className="text-gray-400 text-xs" />
             <input
               type="text"
-              value={filter.search}
+              value={filter.search || ''}
               onChange={handleSearch}
               placeholder="Search by type, status..."
               className="border-none outline-none bg-transparent text-xs text-gray-800 w-36 sm:w-44"
@@ -271,7 +276,7 @@ const Leaves = () => {
                 const days = leave.duration_days || calculateDays(leave.start_date, leave.end_date);
                 
                 return (
-                  <tr key={leave.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={leave.id || idx} className="hover:bg-gray-50 transition-colors">
                     <td className="py-3.5 px-4 border-b border-gray-200 text-center">{start + idx + 1}</td>
                     <td className="py-3.5 px-4 border-b border-gray-200 font-semibold text-gray-800">{leaveTypeName}</td>
                     <td className="py-3.5 px-4 border-b border-gray-200 text-gray-600">{formatDate(leave.start_date)}</td>
@@ -306,36 +311,39 @@ const Leaves = () => {
       </div>
       
       {/* Pagination */}
-      {filteredLeaves.length > 0 && (
+      {filteredLeaves.length > 0 && totalPages > 0 && (
         <div className="pagination-container flex flex-col sm:flex-row justify-between items-center gap-3 mt-5">
           <div className="text-xs text-gray-500">
-            Showing {start + 1} to {Math.min(start + pagination.perPage, filteredLeaves.length)} of {filteredLeaves.length} entries
+            Showing {start + 1} to {Math.min(start + perPage, filteredLeaves.length)} of {filteredLeaves.length} entries
           </div>
           <div className="page-buttons flex gap-1.5 flex-wrap">
             <button
-              onClick={() => handlePageChange(pagination.currentPage - 1)}
-              disabled={pagination.currentPage === 1}
-              className="w-9 h-9 rounded-lg border border-gray-200 bg-white cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="w-9 h-9 rounded-lg border border-gray-200 bg-white cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
             >
               <FiChevronLeft className="mx-auto" />
             </button>
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => handlePageChange(i + 1)}
-                className={`w-9 h-9 rounded-lg border text-xs transition-all ${
-                  pagination.currentPage === i + 1
-                    ? 'bg-green-500 border-green-500 text-white'
-                    : 'border-gray-200 bg-white text-gray-700'
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
+            {[...Array(Math.min(totalPages, 10))].map((_, i) => {
+              const pageNum = i + 1;
+              return (
+                <button
+                  key={i}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`w-9 h-9 rounded-lg border text-xs transition-all ${
+                    currentPage === pageNum
+                      ? 'bg-green-500 border-green-500 text-white'
+                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
             <button
-              onClick={() => handlePageChange(pagination.currentPage + 1)}
-              disabled={pagination.currentPage === totalPages}
-              className="w-9 h-9 rounded-lg border border-gray-200 bg-white cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="w-9 h-9 rounded-lg border border-gray-200 bg-white cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
             >
               <FiChevronRight className="mx-auto" />
             </button>

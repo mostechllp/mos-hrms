@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchWFHRequests,
@@ -20,9 +20,15 @@ import WFHModal from "../components/WFH/WFHModal";
 
 const WFH = () => {
   const dispatch = useDispatch();
-  const { wfhRequests, filter, pagination, loading, error } = useSelector(
-    (state) => state.wfh
-  );
+  const wfhState = useSelector((state) => state.wfh);
+  
+  // Add safety defaults - FIXES THE ERROR
+  const wfhRequests = wfhState?.wfhRequests || [];
+  const filter = wfhState?.filter || { status: 'all', search: '' };
+  const pagination = wfhState?.pagination || { currentPage: 1, perPage: 10 };
+  const loading = wfhState?.loading || false;
+  const error = wfhState?.error || null;
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch WFH requests on component mount
@@ -38,11 +44,11 @@ const WFH = () => {
     }
   }, [error, dispatch]);
 
-  // Filter requests
-  const getFilteredRequests = () => {
+  // Filter requests using useMemo to prevent infinite loops
+  const filteredRequests = useMemo(() => {
     let filtered = [...wfhRequests];
 
-    if (filter.status !== "all") {
+    if (filter.status && filter.status !== "all") {
       filtered = filtered.filter(
         (r) => r.status?.toLowerCase() === filter.status.toLowerCase()
       );
@@ -59,45 +65,44 @@ const WFH = () => {
     }
 
     return filtered;
-  };
+  }, [wfhRequests, filter.status, filter.search]);
 
-  const filteredRequests = getFilteredRequests();
-  const totalPages = Math.ceil(filteredRequests.length / pagination.perPage);
-  const start = (pagination.currentPage - 1) * pagination.perPage;
-  const currentRequests = filteredRequests.slice(
-    start,
-    start + pagination.perPage
-  );
+  // Safety check for pagination
+  const perPage = pagination?.perPage || 10;
+  const currentPage = pagination?.currentPage || 1;
+  
+  const totalPages = Math.ceil(filteredRequests.length / perPage);
+  const start = (currentPage - 1) * perPage;
+  const currentRequests = filteredRequests.slice(start, start + perPage);
 
   // Calculate stats from API data
-  const stats = {
+  const stats = useMemo(() => ({
     total: wfhRequests.length,
-    pending: wfhRequests.filter((r) => r.status?.toLowerCase() === "pending")
-      .length,
-    approved: wfhRequests.filter((r) => r.status?.toLowerCase() === "approved")
-      .length,
-    rejected: wfhRequests.filter((r) => r.status?.toLowerCase() === "rejected")
-      .length,
-  };
+    pending: wfhRequests.filter((r) => r.status?.toLowerCase() === "pending").length,
+    approved: wfhRequests.filter((r) => r.status?.toLowerCase() === "approved").length,
+    rejected: wfhRequests.filter((r) => r.status?.toLowerCase() === "rejected").length,
+  }), [wfhRequests]);
 
   const handleStatusFilter = (status) => {
     dispatch(
       setWFHFilter({
         status: status === "all" ? "all" : status.toLowerCase(),
-        search: filter.search,
+        search: filter.search || '',
       })
     );
   };
 
   const handleSearch = (e) => {
-    dispatch(setWFHFilter({ status: filter.status, search: e.target.value }));
+    dispatch(setWFHFilter({ status: filter.status || 'all', search: e.target.value }));
   };
 
   const handlePageChange = (page) => {
-    dispatch(
-      setWFHPagination({ currentPage: page, perPage: pagination.perPage })
-    );
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (page >= 1 && page <= totalPages) {
+      dispatch(
+        setWFHPagination({ currentPage: page, perPage: perPage })
+      );
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const handleEntriesChange = (e) => {
@@ -108,12 +113,16 @@ const WFH = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch (error) {
+      return "-", error;
+    }
   };
 
   if (loading && wfhRequests.length === 0) {
@@ -198,7 +207,7 @@ const WFH = () => {
             key={status}
             onClick={() => handleStatusFilter(status)}
             className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all capitalize ${
-              filter.status === status.toLowerCase() ||
+              (filter.status === status.toLowerCase()) ||
               (status === "all" && filter.status === "all")
                 ? "bg-green-500 text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-green-100 hover:text-green-600"
@@ -214,7 +223,7 @@ const WFH = () => {
         <div className="entries-select flex items-center gap-2.5 bg-white border border-gray-200 rounded-full px-3.5 py-1.5 text-xs text-gray-500">
           <span>Show entries</span>
           <select
-            value={pagination.perPage}
+            value={perPage}
             onChange={handleEntriesChange}
             className="border-none outline-none bg-transparent font-semibold text-gray-800 cursor-pointer"
           >
@@ -229,7 +238,7 @@ const WFH = () => {
             <FiSearch className="text-gray-400 text-xs" />
             <input
               type="text"
-              value={filter.search}
+              value={filter.search || ''}
               onChange={handleSearch}
               placeholder="Search records..."
               className="border-none outline-none bg-transparent text-xs text-gray-800 w-36 sm:w-44"
@@ -259,7 +268,7 @@ const WFH = () => {
               </tr>
             ) : (
               currentRequests.map((request, idx) => (
-                <tr key={request.id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
+                <tr key={request.id || idx} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
                   <td className="py-3.5 px-4">{start + idx + 1}</td>
                   <td className="py-3.5 px-4 font-medium text-gray-800">
                     {formatDate(request.date)}
@@ -267,7 +276,7 @@ const WFH = () => {
                   <td className="py-3.5 px-4 text-gray-600">
                     {request.reason}
                   </td>
-                  <td className="py-3.5 px-4 text-gray-600 max-w-[200px] truncate">
+                  <td className="py-3.5 px-4 text-gray-600 max-w-[200px] truncate" title={request.notes}>
                     {request.notes || "-"}
                   </td>
                   <td className="py-3.5 px-4">
@@ -285,34 +294,37 @@ const WFH = () => {
         <div className="pagination-container flex flex-col sm:flex-row justify-between items-center gap-3 mt-5">
           <div className="text-xs text-gray-500">
             Showing {start + 1} to{" "}
-            {Math.min(start + pagination.perPage, filteredRequests.length)} of{" "}
+            {Math.min(start + perPage, filteredRequests.length)} of{" "}
             {filteredRequests.length} entries
           </div>
           <div className="page-buttons flex gap-1.5 flex-wrap">
             <button
-              onClick={() => handlePageChange(pagination.currentPage - 1)}
-              disabled={pagination.currentPage === 1}
-              className="w-9 h-9 rounded-lg border border-gray-200 bg-white cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="w-9 h-9 rounded-lg border border-gray-200 bg-white cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
             >
               <FiChevronLeft className="mx-auto" />
             </button>
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => handlePageChange(i + 1)}
-                className={`w-9 h-9 rounded-lg border text-xs transition-all ${
-                  pagination.currentPage === i + 1
-                    ? "bg-green-500 border-green-500 text-white"
-                    : "border-gray-200 bg-white text-gray-700"
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
+            {[...Array(Math.min(totalPages, 10))].map((_, i) => {
+              const pageNum = i + 1;
+              return (
+                <button
+                  key={i}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`w-9 h-9 rounded-lg border text-xs transition-all ${
+                    currentPage === pageNum
+                      ? "bg-green-500 border-green-500 text-white"
+                      : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
             <button
-              onClick={() => handlePageChange(pagination.currentPage + 1)}
-              disabled={pagination.currentPage === totalPages}
-              className="w-9 h-9 rounded-lg border border-gray-200 bg-white cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="w-9 h-9 rounded-lg border border-gray-200 bg-white cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
             >
               <FiChevronRight className="mx-auto" />
             </button>

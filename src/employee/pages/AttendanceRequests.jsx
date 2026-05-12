@@ -1,0 +1,576 @@
+import  { useEffect, useState } from "react";
+import { FiEye, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiLogIn, FiClock, FiChevronDown } from "react-icons/fi";
+import { MdFingerprint } from "react-icons/md";
+import EarlyCheckinModal from "../components/modals/EarlyCheckinModal";
+import LateCheckinModal from "../components/modals/LateCheckinModal";
+import MissedPunchInModal from "../components/modals/MissedPunchInModal";
+import MissedPunchOutModal from "../components/modals/MissedPunchOutModal";
+import { showToast } from "../components/common/Toast";
+import StatusBadge from "../components/common/StatusBadge";
+
+const AttendanceRequests = () => {
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showEarlyCheckin, setShowEarlyCheckin] = useState(false);
+  const [showLateCheckin, setShowLateCheckin] = useState(false);
+  const [showMissedPunchIn, setShowMissedPunchIn] = useState(false);
+  const [showMissedPunchOut, setShowMissedPunchOut] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [filter, setFilter] = useState({ status: "all", search: "" });
+  const [pagination, setPagination] = useState({ currentPage: 1, perPage: 10 });
+  const [loading, setLoading] = useState(false);
+  const [requests, setRequests] = useState([]);
+
+  // Fetch attendance requests
+  const fetchAttendanceRequests = async () => {
+    setLoading(true);
+    try {
+      // Mock data for now
+      const mockData = [
+        {
+          id: 1,
+          type: "early_checkin",
+          date: "2026-05-11",
+          time: "08:30",
+          reason: "Had an early meeting",
+          status: "Pending",
+          created_at: "2026-05-11T08:00:00.000000Z",
+        },
+        {
+          id: 2,
+          type: "late_checkin",
+          date: "2026-05-10",
+          time: "10:15",
+          reason: "Traffic jam",
+          status: "Approved",
+          created_at: "2026-05-10T09:00:00.000000Z",
+        },
+        {
+          id: 3,
+          type: "missed_punch_in",
+          date: "2026-05-09",
+          time: "09:00",
+          reason: "Forgot to punch in",
+          status: "Rejected",
+          created_at: "2026-05-09T18:00:00.000000Z",
+        },
+      ];
+      setRequests(mockData);
+    } catch (error) {
+      showToast("Failed to fetch attendance requests", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchAttendanceRequests();
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showDropdown && !event.target.closest('.dropdown-container')) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showDropdown]);
+
+  const getRequestTypeLabel = (type) => {
+    const types = {
+      early_checkin: "Early Check-in",
+      late_checkin: "Late Check-in",
+      missed_punch_in: "Missed Punch In",
+      missed_punch_out: "Missed Punch Out",
+    };
+    return types[type] || type;
+  };
+
+  const getRequestTypeIcon = (type) => {
+    const icons = {
+      early_checkin: <FiSun className="text-[var(--muted)] text-xs" />,
+      late_checkin: <FiMoon className="text-[var(--muted)] text-xs" />,
+      missed_punch_in: <MdFingerprint className="text-[var(--muted)] text-xs" />,
+      missed_punch_out: <FiLogIn className="text-[var(--muted)] text-xs" />,
+    };
+    return icons[type] || <FiClock className="text-[var(--muted)] text-xs" />;
+  };
+
+  const getFilteredRequests = () => {
+    let filtered = [...requests];
+    
+    if (filter.status !== "all") {
+      filtered = filtered.filter(
+        (r) => r.status?.toLowerCase() === filter.status.toLowerCase()
+      );
+    }
+    
+    if (filter.search) {
+      const searchLower = filter.search.toLowerCase();
+      filtered = filtered.filter(
+        (r) =>
+          getRequestTypeLabel(r.type).toLowerCase().includes(searchLower) ||
+          (r.reason || "").toLowerCase().includes(searchLower)
+      );
+    }
+    
+    return filtered;
+  };
+
+  const filteredRequests = getFilteredRequests();
+  const totalPages = Math.ceil(filteredRequests.length / pagination.perPage);
+  const start = (pagination.currentPage - 1) * pagination.perPage;
+  const currentRequests = filteredRequests.slice(start, start + pagination.perPage);
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const formatTime = (timeString) => {
+    if (!timeString) return "-";
+    return timeString;
+  };
+
+  const handleViewDetails = (request) => {
+    setSelectedRequest(request);
+    setShowDetailsModal(true);
+  };
+
+  const stats = {
+    total: requests.length,
+    pending: requests.filter(r => r.status?.toLowerCase() === "pending").length,
+    approved: requests.filter(r => r.status?.toLowerCase() === "approved").length,
+    rejected: requests.filter(r => r.status?.toLowerCase() === "rejected").length,
+  };
+
+  const openRequestModal = (type) => {
+    setShowDropdown(false);
+    switch(type) {
+      case "early_checkin":
+        setShowEarlyCheckin(true);
+        break;
+      case "late_checkin":
+        setShowLateCheckin(true);
+        break;
+      case "missed_punch_in":
+        setShowMissedPunchIn(true);
+        break;
+      case "missed_punch_out":
+        setShowMissedPunchOut(true);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleSearch = (e) => {
+    setFilter({ ...filter, search: e.target.value });
+  };
+
+  const handleEntriesChange = (e) => {
+    setPagination({ currentPage: 1, perPage: parseInt(e.target.value) });
+  };
+
+  const handlePageChange = (page) => {
+    setPagination({ ...pagination, currentPage: page });
+  };
+
+  return (
+    <div>
+      {/* Stats Grid - Matching TaskReports style */}
+      <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-5 mb-7">
+        <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
+          <div className="stat-icon w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-2xl mx-auto mb-3">
+            <FiClock />
+          </div>
+          <div className="stat-number text-3xl font-extrabold text-blue-600">
+            {stats.total}
+          </div>
+          <div className="stat-label text-xs text-[var(--muted)]">
+            Total Requests
+          </div>
+        </div>
+
+        <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
+          <div className="stat-icon w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-2xl mx-auto mb-3">
+            <FiClock />
+          </div>
+          <div className="stat-number text-3xl font-extrabold text-amber-500">
+            {stats.pending}
+          </div>
+          <div className="stat-label text-xs text-[var(--muted)]">
+            Pending
+          </div>
+        </div>
+
+        <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
+          <div className="stat-icon w-12 h-12 rounded-xl bg-green-500/10 text-green-500 flex items-center justify-center text-2xl mx-auto mb-3">
+            <FiClock />
+          </div>
+          <div className="stat-number text-3xl font-extrabold text-green-500">
+            {stats.approved}
+          </div>
+          <div className="stat-label text-xs text-[var(--muted)]">
+            Approved
+          </div>
+        </div>
+
+        <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
+          <div className="stat-icon w-12 h-12 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center text-2xl mx-auto mb-3">
+            <FiClock />
+          </div>
+          <div className="stat-number text-3xl font-extrabold text-red-500">
+            {stats.rejected}
+          </div>
+          <div className="stat-label text-xs text-[var(--muted)]">
+            Rejected
+          </div>
+        </div>
+      </div>
+
+      {/* Header with Dropdown */}
+      <div className="attendance-requests-header flex flex-col md:flex-row justify-between items-start md:items-center gap-5 mb-7">
+        <h2 className="text-xl md:text-2xl font-semibold bg-gradient-to-r from-[var(--text)] to-green-600 bg-clip-text text-transparent">
+          My Attendance Requests
+        </h2>
+        
+        {/* Dropdown Container */}
+        <div className="dropdown-container relative">
+          <button
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all text-sm"
+          >
+            <FiPlus className="text-sm" />
+            <span>New Request</span>
+            <FiChevronDown className={`text-sm transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {/* Dropdown Menu */}
+          {showDropdown && (
+            <div className="absolute right-0 mt-2 w-64 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg overflow-hidden z-50">
+              <div className="py-1">
+                <button
+                  onClick={() => openRequestModal("early_checkin")}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--surface2)] transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-500 flex items-center justify-center">
+                    <FiSun className="text-sm" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-[var(--text)]">Early Check-in</div>
+                    <div className="text-xs text-[var(--muted)]">Request early check-in approval</div>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => openRequestModal("late_checkin")}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--surface2)] transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center">
+                    <FiMoon className="text-sm" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-[var(--text)]">Late Check-in</div>
+                    <div className="text-xs text-[var(--muted)]">Request late check-in approval</div>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => openRequestModal("missed_punch_in")}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--surface2)] transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                    <MdFingerprint className="text-sm" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-[var(--text)]">Missed Punch In</div>
+                    <div className="text-xs text-[var(--muted)]">Request missed punch in approval</div>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => openRequestModal("missed_punch_out")}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--surface2)] transition-colors border-t border-[var(--border)]"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-green-500/10 text-green-500 flex items-center justify-center">
+                    <FiLogIn className="text-sm" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-[var(--text)]">Missed Punch Out</div>
+                    <div className="text-xs text-[var(--muted)]">Request missed punch out approval</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Status Tabs */}
+      <div className="overflow-x-auto pb-2 mb-5 -mx-4 px-4">
+        <div className="flex gap-2 min-w-max border-b border-[var(--border)] pb-3">
+          {["all", "pending", "approved", "rejected"].map((status) => (
+            <button
+              key={status}
+              onClick={() => setFilter({ ...filter, status })}
+              className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all whitespace-nowrap capitalize ${
+                filter.status === status
+                  ? "bg-green-500 text-white shadow-md"
+                  : "bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface2)]"
+              }`}
+            >
+              {status === "all" ? "All Requests" : status}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Action Bar - Matching TaskReports style */}
+      <div className="files-actions flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
+        <div className="entries-select flex items-center gap-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-full px-3.5 py-1.5 text-xs text-[var(--text-secondary)]">
+          <span>Show entries</span>
+          <select
+            value={pagination.perPage}
+            onChange={handleEntriesChange}
+            className="border-none outline-none bg-transparent font-semibold text-[var(--text)] cursor-pointer"
+          >
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        <div className="search-wrapper flex items-center gap-3 flex-wrap">
+          <div className="search-box flex items-center gap-2 bg-[var(--surface)] border border-[var(--border)] rounded-full px-3.5 py-2">
+            <FiSearch className="text-[var(--muted)] text-xs" />
+            <input
+              type="text"
+              value={filter.search}
+              onChange={handleSearch}
+              placeholder="Search by type, reason..."
+              className="border-none outline-none bg-transparent text-xs text-[var(--text)] w-36 sm:w-44"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Table - Matching TaskReports style */}
+      <div className="attendance-requests-table-wrapper bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-x-auto shadow-sm">
+        <table className="attendance-requests-table w-full border-collapse text-xs min-w-[900px]">
+          <thead>
+            <tr>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                #
+              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                Type
+              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                Date
+              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                Time
+              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                Reason
+              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                Status
+              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                Action
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="7" className="text-center py-8 text-[var(--muted)]">
+                  Loading...
+                </td>
+              </tr>
+            ) : currentRequests.length === 0 ? (
+              <tr>
+                <td colSpan="7" className="text-center py-8 text-[var(--muted)]">
+                  <div className="flex flex-col items-center gap-2">
+                    <FiClock className="text-4xl text-[var(--muted)]" />
+                    <p>No attendance requests found.</p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              currentRequests.map((request, idx) => (
+                <tr
+                  key={request.id}
+                  className="hover:bg-[var(--surface2)] transition-colors"
+                >
+                  <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
+                    {start + idx + 1}
+                  </td>
+                  <td className="py-3.5 px-4 border-b border-[var(--border)]">
+                    <div className="flex items-center gap-2">
+                      {getRequestTypeIcon(request.type)}
+                      <span className="text-[var(--text)] text-xs">
+                        {getRequestTypeLabel(request.type)}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] whitespace-nowrap">
+                    {formatDate(request.date)}
+                  </td>
+                  <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
+                    {formatTime(request.time)}
+                  </td>
+                  <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] max-w-[200px] truncate" title={request.reason}>
+                    {request.reason}
+                  </td>
+                  <td className="py-3.5 px-4 border-b border-[var(--border)]">
+                    <StatusBadge status={request.status} />
+                  </td>
+                  <td className="py-3.5 px-4 border-b border-[var(--border)]">
+                    <button
+                      onClick={() => handleViewDetails(request)}
+                      className="p-1.5 rounded-lg hover:bg-[var(--surface2)] text-green-500 transition-colors"
+                      title="View Details"
+                    >
+                      <FiEye className="text-sm" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination - Matching TaskReports style */}
+      {filteredRequests.length > 0 && (
+        <div className="pagination-container flex flex-col sm:flex-row justify-between items-center gap-3 mt-5">
+          <div className="text-xs text-[var(--muted)]">
+            Showing {start + 1} to{" "}
+            {Math.min(start + pagination.perPage, filteredRequests.length)} of{" "}
+            {filteredRequests.length} entries
+          </div>
+          <div className="page-buttons flex gap-1.5 flex-wrap">
+            <button
+              onClick={() => handlePageChange(pagination.currentPage - 1)}
+              disabled={pagination.currentPage === 1}
+              className="w-9 h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text)]"
+            >
+              <FiChevronLeft className="mx-auto" />
+            </button>
+            {[...Array(totalPages)].map((_, i) => (
+              <button
+                key={i}
+                onClick={() => handlePageChange(i + 1)}
+                className={`w-9 h-9 rounded-lg border text-xs transition-all ${
+                  pagination.currentPage === i + 1
+                    ? "bg-blue-500 border-green-500 text-white"
+                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)]"
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button
+              onClick={() => handlePageChange(pagination.currentPage + 1)}
+              disabled={pagination.currentPage === totalPages}
+              className="w-9 h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text)]"
+            >
+              <FiChevronRight className="mx-auto" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Details Modal - Updated to match theme */}
+      {showDetailsModal && selectedRequest && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1100] flex items-center justify-center p-4" onClick={() => setShowDetailsModal(false)}>
+          <div className="bg-[var(--surface)] max-w-md w-full rounded-2xl p-6 shadow-xl border border-[var(--border)]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-[var(--text)]">Request Details</h3>
+              <button onClick={() => setShowDetailsModal(false)} className="text-[var(--muted)] hover:text-[var(--text)]">
+                ✕
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex py-2 border-b border-[var(--border)]">
+                <span className="font-semibold text-[var(--text)] w-28">Type:</span>
+                <span className="text-[var(--text-secondary)]">{getRequestTypeLabel(selectedRequest.type)}</span>
+              </div>
+              <div className="flex py-2 border-b border-[var(--border)]">
+                <span className="font-semibold text-[var(--text)] w-28">Date:</span>
+                <span className="text-[var(--text-secondary)]">{formatDate(selectedRequest.date)}</span>
+              </div>
+              <div className="flex py-2 border-b border-[var(--border)]">
+                <span className="font-semibold text-[var(--text)] w-28">Time:</span>
+                <span className="text-[var(--text-secondary)]">{selectedRequest.time}</span>
+              </div>
+              <div className="flex py-2 border-b border-[var(--border)]">
+                <span className="font-semibold text-[var(--text)] w-28">Reason:</span>
+                <span className="text-[var(--text-secondary)]">{selectedRequest.reason}</span>
+              </div>
+              <div className="flex py-2 border-b border-[var(--border)]">
+                <span className="font-semibold text-[var(--text)] w-28">Status:</span>
+                <StatusBadge status={selectedRequest.status} />
+              </div>
+              <div className="flex py-2">
+                <span className="font-semibold text-[var(--text)] w-28">Submitted:</span>
+                <span className="text-[var(--text-secondary)]">{formatDate(selectedRequest.created_at)}</span>
+              </div>
+            </div>
+            <div className="flex justify-end mt-6 pt-4 border-t border-[var(--border)]">
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="px-4 py-2 rounded-full bg-[var(--surface2)] text-[var(--text)] hover:bg-[var(--border)] transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      <EarlyCheckinModal 
+        isOpen={showEarlyCheckin} 
+        onClose={() => {
+          setShowEarlyCheckin(false);
+          fetchAttendanceRequests();
+        }} 
+      />
+      <LateCheckinModal 
+        isOpen={showLateCheckin} 
+        onClose={() => {
+          setShowLateCheckin(false);
+          fetchAttendanceRequests();
+        }} 
+      />
+      <MissedPunchInModal 
+        isOpen={showMissedPunchIn} 
+        onClose={() => {
+          setShowMissedPunchIn(false);
+          fetchAttendanceRequests();
+        }} 
+      />
+      <MissedPunchOutModal 
+        isOpen={showMissedPunchOut} 
+        onClose={() => {
+          setShowMissedPunchOut(false);
+          fetchAttendanceRequests();
+        }} 
+      />
+    </div>
+  );
+};
+
+export default AttendanceRequests;

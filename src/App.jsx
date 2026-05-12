@@ -54,6 +54,7 @@ const RequestLeave = lazy(() => import("./employee/pages/RequestLeave"));
 const EmployeeProfile = lazy(() => import("./employee/pages/Profile"));
 const EmployeeWFH = lazy(() => import("./employee/pages/WFH"));
 const EmployeeTaskReports = lazy(() => import("./employee/pages/TaskReports"));
+const AttendanceRequests = lazy(() => import("./employee/pages/AttendanceRequests"));
 
 function App() {
   const { theme } = useTheme();
@@ -138,6 +139,7 @@ function App() {
             <Route path="wfh" element={<EmployeeWFH />} />
             <Route path="task-reports" element={<EmployeeTaskReports />} />
             <Route path="profile" element={<EmployeeProfile />} />
+            <Route path="attendance-requests" element={<AttendanceRequests />} />
           </Route>
 
           {/* Default redirect based on user type */}

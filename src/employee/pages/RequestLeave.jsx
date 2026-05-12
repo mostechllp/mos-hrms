@@ -8,7 +8,12 @@ import { MdCalculate } from 'react-icons/md';
 const RequestLeave = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { leaveBalances, submitting, error } = useSelector((state) => state.leaves);
+  const leavesState = useSelector((state) => state.leaves);
+  
+  // Add safety defaults - FIXES THE ERROR
+  const leaveBalances = leavesState?.leaveBalances || { total: { allocated: 0, taken: 0, pending: 0, remaining: 0 } };
+  const submitting = leavesState?.submitting || false;
+  const error = leavesState?.error || null;
   
   const [formData, setFormData] = useState({
     fromDate: '',
@@ -20,7 +25,6 @@ const RequestLeave = () => {
   const [totalDays, setTotalDays] = useState(0);
   const [selectedFile, setSelectedFile] = useState(null);
   const [localError, setLocalError] = useState('');
-  
   
   // Fetch leaves and balance on mount
   useEffect(() => {
@@ -47,6 +51,8 @@ const RequestLeave = () => {
       } else {
         setTotalDays(0);
       }
+    } else {
+      setTotalDays(0);
     }
   };
   
@@ -92,18 +98,18 @@ const RequestLeave = () => {
     if (addLeaveRequest.fulfilled.match(result)) {
       await dispatch(fetchEmployeeLeaves());
       await dispatch(fetchLeaveBalance());
-      navigate('/leaves');
+      navigate('/employee/leaves');
     }
   };
   
-  // Get balance values from the API response
-  const totalBalance = leaveBalances.total || { allocated: 0, taken: 0, pending: 0, remaining: 0 };
-  const currentLeaveBalance = leaveBalances[formData.leaveType] || totalBalance;
+  // Get balance values with safety defaults
+  const totalBalance = leaveBalances?.total || { allocated: 0, taken: 0, pending: 0, remaining: 0 };
+  const currentLeaveBalance = leaveBalances?.[formData.leaveType] || totalBalance;
   
-  const remaining = currentLeaveBalance.remaining || totalBalance.remaining || 0;
-  const usedLeaves = currentLeaveBalance.taken || totalBalance.taken || 0;
-  const pendingLeaves = currentLeaveBalance.pending || 0;
-  const allocatedLeaves = currentLeaveBalance.allocated || totalBalance.allocated || 0;
+  const remaining = currentLeaveBalance?.remaining ?? totalBalance?.remaining ?? 0;
+  const usedLeaves = currentLeaveBalance?.taken ?? totalBalance?.taken ?? 0;
+  const pendingLeaves = currentLeaveBalance?.pending ?? 0;
+  const allocatedLeaves = currentLeaveBalance?.allocated ?? totalBalance?.allocated ?? 0;
   
   // Check if requested days exceed balance
   const exceedsBalance = totalDays > remaining && remaining >= 0;
@@ -112,9 +118,9 @@ const RequestLeave = () => {
     <div className="p-4 md:p-6">
       {/* Breadcrumbs */}
       <div className="breadcrumbs flex items-center gap-2 text-sm mb-6 flex-wrap">
-        <Link to="/dashboard" className="text-green-500 hover:underline">Dashboard</Link>
+        <Link to="/employee/dashboard" className="text-green-500 hover:underline">Dashboard</Link>
         <FiChevronRight className="text-xs text-gray-400" />
-        <Link to="/leaves" className="text-green-500 hover:underline">My Leaves</Link>
+        <Link to="/employee/leaves" className="text-green-500 hover:underline">My Leaves</Link>
         <FiChevronRight className="text-xs text-gray-400" />
         <span className="text-gray-500">Request Leave</span>
       </div>
@@ -244,7 +250,7 @@ const RequestLeave = () => {
             )}
             
             <div className="form-actions flex flex-col sm:flex-row justify-end gap-4 mt-8 pt-6 border-t border-gray-200">
-              <Link to="/leaves" className="cancel-btn py-3 px-7 rounded-full font-semibold text-center bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
+              <Link to="/employee/leaves" className="cancel-btn py-3 px-7 rounded-full font-semibold text-center bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
                 <FiX /> Cancel
               </Link>
               <button 

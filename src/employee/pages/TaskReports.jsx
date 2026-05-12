@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import {useMemo } from "react";
 import { useAppSelector, useAppDispatch } from "../store/hooks";
 import {
   setTaskReportsPagination,
@@ -13,56 +13,66 @@ import {
 
 const TaskReports = () => {
   const dispatch = useAppDispatch();
-  const { taskReports, pagination, search } = useAppSelector(
-    (state) => state.taskReports,
-  );
-  const [filteredReports, setFilteredReports] = useState([]);
-
-  useEffect(() => {
+  const taskReportsState = useAppSelector((state) => state.taskReports);
+  
+  // Add safety defaults - FIXES THE ERROR
+  const taskReports = taskReportsState?.taskReports || [];
+  const pagination = taskReportsState?.pagination || { currentPage: 1, perPage: 10 };
+  const search = taskReportsState?.search || '';
+  
+  // Use useMemo instead of useState + useEffect to prevent infinite loops
+  const filteredReports = useMemo(() => {
     let filtered = [...taskReports];
 
     if (search) {
       filtered = filtered.filter(
         (r) =>
-          r.tasksCompleted.toLowerCase().includes(search.toLowerCase()) ||
-          r.planTomorrow.toLowerCase().includes(search.toLowerCase()) ||
-          r.remarks.toLowerCase().includes(search.toLowerCase()),
+          (r.tasksCompleted || "").toLowerCase().includes(search.toLowerCase()) ||
+          (r.planTomorrow || "").toLowerCase().includes(search.toLowerCase()) ||
+          (r.remarks || "").toLowerCase().includes(search.toLowerCase())
       );
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFilteredReports(filtered);
+    return filtered;
   }, [taskReports, search]);
 
-  const totalPages = Math.ceil(filteredReports.length / pagination.perPage);
-  const start = (pagination.currentPage - 1) * pagination.perPage;
-  const currentReports = filteredReports.slice(
-    start,
-    start + pagination.perPage,
-  );
+  // Safety check for pagination
+  const perPage = pagination?.perPage || 10;
+  const currentPage = pagination?.currentPage || 1;
+  
+  const totalPages = Math.ceil(filteredReports.length / perPage);
+  const start = (currentPage - 1) * perPage;
+  const currentReports = filteredReports.slice(start, start + perPage);
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: taskReports.length,
     thisWeek: taskReports.filter((r) => {
-      const reportDate = new Date(r.date);
-      const today = new Date();
-      const weekAgo = new Date();
-      weekAgo.setDate(today.getDate() - 7);
-      return reportDate >= weekAgo;
+      try {
+        const reportDate = new Date(r.date);
+        const today = new Date();
+        const weekAgo = new Date();
+        weekAgo.setDate(today.getDate() - 7);
+        return reportDate >= weekAgo;
+      } catch (error) {
+        return false, error;
+      }
     }).length,
-  };
+  }), [taskReports]);
 
   const handleSearch = (e) => {
     dispatch(setTaskReportsSearch(e.target.value));
   };
 
   const handlePageChange = (page) => {
-    dispatch(
-      setTaskReportsPagination({
-        currentPage: page,
-        perPage: pagination.perPage,
-      }),
-    );
+    if (page >= 1 && page <= totalPages) {
+      dispatch(
+        setTaskReportsPagination({
+          currentPage: page,
+          perPage: perPage,
+        })
+      );
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const handleEntriesChange = (e) => {
@@ -70,7 +80,7 @@ const TaskReports = () => {
       setTaskReportsPagination({
         currentPage: 1,
         perPage: parseInt(e.target.value),
-      }),
+      })
     );
   };
 
@@ -113,7 +123,7 @@ const TaskReports = () => {
         <div className="entries-select flex items-center gap-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-full px-3.5 py-1.5 text-xs text-[var(--text-secondary)]">
           <span>Show entries</span>
           <select
-            value={pagination.perPage}
+            value={perPage}
             onChange={handleEntriesChange}
             className="border-none outline-none bg-transparent font-semibold text-[var(--text)] cursor-pointer"
           >
@@ -172,7 +182,7 @@ const TaskReports = () => {
             ) : (
               currentReports.map((report, idx) => (
                 <tr
-                  key={report.id}
+                  key={report.id || idx}
                   className="hover:bg-[var(--surface2)] transition-colors"
                 >
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
@@ -202,34 +212,37 @@ const TaskReports = () => {
         <div className="pagination-container flex flex-col sm:flex-row justify-between items-center gap-3 mt-5">
           <div className="text-xs text-[var(--muted)]">
             Showing {start + 1} to{" "}
-            {Math.min(start + pagination.perPage, filteredReports.length)} of{" "}
+            {Math.min(start + perPage, filteredReports.length)} of{" "}
             {filteredReports.length} entries
           </div>
           <div className="page-buttons flex gap-1.5 flex-wrap">
             <button
-              onClick={() => handlePageChange(pagination.currentPage - 1)}
-              disabled={pagination.currentPage === 1}
-              className="w-9 h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text)]"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="w-9 h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text)] hover:bg-[var(--surface2)] transition-colors"
             >
               <FiChevronLeft className="mx-auto" />
             </button>
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => handlePageChange(i + 1)}
-                className={`w-9 h-9 rounded-lg border text-xs transition-all ${
-                  pagination.currentPage === i + 1
-                    ? "bg-green-500 border-green-500 text-white"
-                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)]"
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
+            {[...Array(Math.min(totalPages, 10))].map((_, i) => {
+              const pageNum = i + 1;
+              return (
+                <button
+                  key={i}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`w-9 h-9 rounded-lg border text-xs transition-all ${
+                    currentPage === pageNum
+                      ? "bg-green-500 border-green-500 text-white"
+                      : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--surface2)]"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
             <button
-              onClick={() => handlePageChange(pagination.currentPage + 1)}
-              disabled={pagination.currentPage === totalPages}
-              className="w-9 h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text)]"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="w-9 h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text)] hover:bg-[var(--surface2)] transition-colors"
             >
               <FiChevronRight className="mx-auto" />
             </button>

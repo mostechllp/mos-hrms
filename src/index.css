@@ -693,3 +693,74 @@
     transform: translateY(0);
   }
 }
+
+.nav-section {
+  margin-top: 8px;
+}
+
+.nav-submenu {
+  margin-left: 44px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.3s ease;
+}
+
+/* When parent (My Requests) is active, show submenu */
+.nav-section:hover .nav-submenu,
+.nav-section .nav-item.active + .nav-submenu,
+.nav-section .nav-submenu:hover {
+  max-height: 300px;
+}
+
+/* For sidebar hover state to show submenu */
+.sidebar:hover .nav-section .nav-submenu {
+  max-height: 300px;
+}
+
+/* Always show submenu in mobile when sidebar is open */
+.sidebar.open .nav-section .nav-submenu {
+  max-height: 300px;
+}
+
+.nav-submenu-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px 10px 20px;
+  margin: 2px 8px;
+  border-radius: 12px;
+  color: var(--sidebar-text);
+  font-size: 12px;
+  transition: all 0.2s;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+.nav-submenu-item i {
+  width: 24px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.nav-submenu-item span {
+  opacity: 0;
+  transition: opacity 0.2s 0.05s;
+}
+
+/* Show submenu item text on hover */
+.sidebar:hover .nav-submenu-item span,
+.sidebar.open .nav-submenu-item span {
+  opacity: 1;
+}
+
+.nav-submenu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
