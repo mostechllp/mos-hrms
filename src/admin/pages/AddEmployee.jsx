@@ -5,11 +5,11 @@ import { useForm, Controller, useFieldArray } from "react-hook-form";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { showToast } from "../../components/common/Toast";
-import { addEmployee } from "../../store/slices/employeeSlice";
-import { fetchOrganizations } from "../../store/slices/organizationSlice";
-import { fetchCompanies } from "../../store/slices/companySlice";
-import { fetchDesignations } from "../../store/slices/designationSlice";
-import { fetchDepartments } from "../../store/slices/departmentSlice";
+import { addEmployee } from "../store/slices/employeeSlice";
+import { fetchOrganizations } from "../store/slices/organizationSlice";
+import { fetchCompanies } from "../store/slices/companySlice";
+import { fetchDesignations } from "../store/slices/designationSlice";
+import { fetchDepartments } from "../store/slices/departmentSlice";
 import apiClient from "../../utils/apiClient";
 
 const AddEmployee = () => {
