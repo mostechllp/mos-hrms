@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useLocation, useParams } from "react-router-dom";
-import Sidebar from "../components/common/Sidebar";
-import Header from "../components/common/Header";
 import SearchBar from "../components/common/SearchBar";
 import EntriesSelector from "../components/common/EntriesSelector";
 import { showToast } from "../../components/common/Toast";
@@ -26,8 +24,6 @@ const Companies = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const [organization] = useState(location.state?.organization || null);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -41,7 +37,7 @@ const Companies = () => {
     const apiUrl = import.meta.env.VITE_API_URL;
     if (apiUrl) {
       // Remove /api from the end if present
-      return apiUrl.replace(/\/api$/, '');
+      return apiUrl.replace(/\/api$/, "");
     }
     // Fallback to current origin
     return window.location.origin;
@@ -51,42 +47,31 @@ const Companies = () => {
     if (!logoPath) return null;
 
     // If it's already a full URL, return it
-    if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) {
+    if (logoPath.startsWith("http://") || logoPath.startsWith("https://")) {
       return logoPath;
     }
 
     const baseUrl = getBaseUrl();
 
     // Remove any leading slashes
-    const cleanPath = logoPath.replace(/^\/+/, '');
+    const cleanPath = logoPath.replace(/^\/+/, "");
 
     // Construct the full URL
-    // The API stores logos in storage/app/public/logos/companies/...
-    // The public URL should be /storage/logos/companies/...
     let fullUrl;
-    if (cleanPath.startsWith('storage/')) {
+    if (cleanPath.startsWith("storage/")) {
       fullUrl = `${baseUrl}/${cleanPath}`;
     } else {
       fullUrl = `${baseUrl}/storage/${cleanPath}`;
     }
 
-    console.log('Logo URL constructed:', {
+    console.log("Logo URL constructed:", {
       original: logoPath,
       baseUrl,
-      fullUrl
+      fullUrl,
     });
 
     return fullUrl;
   };
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   useEffect(() => {
     if (organizationId) {
@@ -156,243 +141,240 @@ const Companies = () => {
 
   const handleImageError = (companyId) => {
     console.log(`Failed to load logo for company ID: ${companyId}`);
-    setFailedImages(prev => ({ ...prev, [companyId]: true }));
+    setFailedImages((prev) => ({ ...prev, [companyId]: true }));
   };
 
   const totalCompanies = companies?.length || 0;
 
   return (
-    <div className="app flex min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      <div
-        className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}
-      >
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
-          {/* Breadcrumbs */}
-          <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
-            <Link
-              to="/organizations"
-              className="text-green-500 hover:text-green-600 font-medium"
-            >
-              Organizations
-            </Link>
-            <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
-            <span className="text-gray-500 dark:text-gray-400">
-              {currentOrganizationName || organization?.name || "Companies"}
-            </span>
-          </div>
+    <div className="w-full overflow-x-hidden">
+      <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
+        {/* Breadcrumbs */}
+        <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
+          <Link
+            to="/organizations"
+            className="text-green-500 hover:text-green-600 font-medium"
+          >
+            Organizations
+          </Link>
+          <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
+          <span className="text-gray-500 dark:text-gray-400">
+            {currentOrganizationName || organization?.name || "Companies"}
+          </span>
+        </div>
 
-          {/* Header */}
-          <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
-            <div>
-              <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
-                Company Management
-              </h2>
-              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Managing companies under{" "}
-                {currentOrganizationName || organization?.name}
-              </p>
-            </div>
-            <Link
-              to={`/organizations/${organizationId}/add-company`}
-              state={{
-                organizationId,
-                organizationName: currentOrganizationName || organization?.name,
-              }}
-              className="bg-green-500 hover:bg-green-600 text-white 
+        {/* Header */}
+        <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
+          <div>
+            <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+              Company Management
+            </h2>
+            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Managing companies under{" "}
+              {currentOrganizationName || organization?.name}
+            </p>
+          </div>
+          <Link
+            to={`/admin/organizations/${organizationId}/add-company`}
+            state={{
+              organizationId,
+              organizationName: currentOrganizationName || organization?.name,
+            }}
+            className="bg-green-500 hover:bg-green-600 text-white 
              px-3 py-1.5 md:px-4 md:py-2 
              text-xs md:text-sm 
              rounded-full font-semibold 
              flex items-center gap-1.5 md:gap-2 
              transition-all shadow-md hover:shadow-lg"
-            >
-              <i className="fas fa-plus-circle text-xs md:text-sm"></i>
-              <span className="hidden sm:inline">Add Company</span>
-              <span className="sm:hidden">Add</span>
-            </Link>
-          </div>
+          >
+            <i className="fas fa-plus-circle text-xs md:text-sm"></i>
+            <span className="hidden sm:inline">Add Company</span>
+            <span className="sm:hidden">Add</span>
+          </Link>
+        </div>
 
-          {/* Stats Cards */}
-          <div className="stats-grid grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-5 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
-              <div className="flex justify-between items-start mb-2 md:mb-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                  <i className="fas fa-building text-green-600 dark:text-green-400 text-base md:text-xl"></i>
-                </div>
-              </div>
-              <div className="text-2xl md:text-3xl font-extrabold text-green-600 dark:text-green-400">
-                {totalCompanies}
-              </div>
-              <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
-                Total Companies
+        {/* Stats Cards */}
+        <div className="stats-grid grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-5 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
+            <div className="flex justify-between items-start mb-2 md:mb-3">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                <i className="fas fa-building text-green-600 dark:text-green-400 text-base md:text-xl"></i>
               </div>
             </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
-              <div className="flex justify-between items-start mb-2 md:mb-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                  <i className="fas fa-chart-line text-blue-600 dark:text-blue-400 text-base md:text-xl"></i>
-                </div>
-              </div>
-              <div className="text-2xl md:text-3xl font-extrabold text-blue-600 dark:text-blue-400">
-                Active
-              </div>
-              <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
-                Company Status
-              </div>
+            <div className="text-2xl md:text-3xl font-extrabold text-green-600 dark:text-green-400">
+              {totalCompanies}
+            </div>
+            <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
+              Total Companies
             </div>
           </div>
 
-          {/* Actions Bar */}
-          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-5">
-            <EntriesSelector value={perPage} onChange={setPerPage} />
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <SearchBar
-                value={searchTerm}
-                onChange={setSearchTerm}
-                placeholder="Search by name, email..."
-              />
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
+            <div className="flex justify-between items-start mb-2 md:mb-3">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                <i className="fas fa-chart-line text-blue-600 dark:text-blue-400 text-base md:text-xl"></i>
+              </div>
+            </div>
+            <div className="text-2xl md:text-3xl font-extrabold text-blue-600 dark:text-blue-400">
+              Active
+            </div>
+            <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
+              Company Status
             </div>
           </div>
+        </div>
 
-          {/* Companies Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
-            {loading ? (
-              <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-              </div>
-            ) : (
-              <div className="min-w-[800px] md:min-w-0">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Logo
-                      </th>
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Company Name
-                      </th>
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Phone
-                      </th>
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Email
-                      </th>
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Address
-                      </th>
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Created At
-                      </th>
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pageCompanies.map((company) => {
-                      const hasValidLogo = company.logo && !failedImages[company.id];
-                      const logoUrl = hasValidLogo ? getFullLogoUrl(company.logo) : null;
+        {/* Actions Bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-5">
+          <EntriesSelector value={perPage} onChange={setPerPage} />
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <SearchBar
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Search by name, email..."
+            />
+          </div>
+        </div>
 
-                      return (
-                        <tr
-                          key={company.id}
-                          className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                        >
-                          <td className="px-3 md:px-4 py-2 md:py-3">
-                            {hasValidLogo && logoUrl ? (
-                              <img
-                                src={logoUrl}
-                                alt={company.name}
-                                className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-cover"
-                                onError={() => handleImageError(company.id)}
-                              />
-                            ) : (
-                              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center text-white">
-                                <i className="fas fa-building text-sm md:text-lg"></i>
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
-                            {company.name}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                            {company.phone !== "-" ? company.phone : "—"}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                            {company.email !== "-" ? company.email : "—"}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                            {company.address !== "-" ? company.address : "—"}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                            {company.createdAt}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3">
-                            <div className="flex gap-1 md:gap-2">
-                              <Link
-                                to={`/organizations/${organizationId}/edit-company/${company.id}`}
-                                state={{
-                                  organizationName:
-                                    currentOrganizationName || organization?.name,
-                                }}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
-                                title="Edit"
-                              >
-                                <i className="fas fa-edit text-xs md:text-sm"></i>
-                              </Link>
-                              <button
-                                onClick={() => handleDeleteClick(company)}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
-                                title="Delete"
-                              >
-                                <i className="fas fa-trash text-xs md:text-sm"></i>
-                              </button>
+        {/* Companies Table */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+            </div>
+          ) : (
+            <div className="min-w-[800px] md:min-w-0">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Logo
+                    </th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Company Name
+                    </th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Phone
+                    </th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Email
+                    </th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Address
+                    </th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Created At
+                    </th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageCompanies.map((company) => {
+                    const hasValidLogo =
+                      company.logo && !failedImages[company.id];
+                    const logoUrl = hasValidLogo
+                      ? getFullLogoUrl(company.logo)
+                      : null;
+
+                    return (
+                      <tr
+                        key={company.id}
+                        className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                      >
+                        <td className="px-3 md:px-4 py-2 md:py-3">
+                          {hasValidLogo && logoUrl ? (
+                            <img
+                              src={logoUrl}
+                              alt={company.name}
+                              className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-cover"
+                              onError={() => handleImageError(company.id)}
+                            />
+                          ) : (
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center text-white">
+                              <i className="fas fa-building text-sm md:text-lg"></i>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {pageCompanies.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan="7"
-                          className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
-                        >
-                          No companies found. Click "Add Company" to create one.
+                          )}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          {company.name}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                          {company.phone !== "-" ? company.phone : "—"}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                          {company.email !== "-" ? company.email : "—"}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                          {company.address !== "-" ? company.address : "—"}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                          {company.createdAt}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3">
+                          <div className="flex gap-1 md:gap-2">
+                            <Link
+                              to={`/organizations/${organizationId}/edit-company/${company.id}`}
+                              state={{
+                                organizationName:
+                                  currentOrganizationName || organization?.name,
+                              }}
+                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
+                              title="Edit"
+                            >
+                              <i className="fas fa-edit text-xs md:text-sm"></i>
+                            </Link>
+                            <button
+                              onClick={() => handleDeleteClick(company)}
+                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
+                              title="Delete"
+                            >
+                              <i className="fas fa-trash text-xs md:text-sm"></i>
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {totalCompanies > 0 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              totalItems={totalFiltered}
-              itemsPerPage={perPage}
-            />
+                    );
+                  })}
+                  {pageCompanies.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan="7"
+                        className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                      >
+                        No companies found. Click "Add Company" to create one.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
-          <ConfirmModal
-            isOpen={confirmOpen}
-            onClose={() => {
-              setConfirmOpen(false);
-              setSelectedCompany(null);
-            }}
-            onConfirm={handleConfirmDelete}
-            title="Delete Company"
-            message={`Are you sure you want to delete "${selectedCompany?.name}"? This action cannot be undone.`}
-            confirmText="Delete"
-            loading={deleteLoading}
+        </div>
+
+        {totalCompanies > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={totalFiltered}
+            itemsPerPage={perPage}
           />
-        </main>
-      </div>
+        )}
+        <ConfirmModal
+          isOpen={confirmOpen}
+          onClose={() => {
+            setConfirmOpen(false);
+            setSelectedCompany(null);
+          }}
+          onConfirm={handleConfirmDelete}
+          title="Delete Company"
+          message={`Are you sure you want to delete "${selectedCompany?.name}"? This action cannot be undone.`}
+          confirmText="Delete"
+          loading={deleteLoading}
+        />
+      </main>
     </div>
   );
 };

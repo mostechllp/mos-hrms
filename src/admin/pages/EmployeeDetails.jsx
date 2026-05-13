@@ -164,7 +164,7 @@ const EmployeeDetails = () => {
               Employee not found
             </h3>
             <button
-              onClick={() => navigate("/employees")}
+              onClick={() => navigate("/admin/employees")}
               className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
             >
               Back to Employees

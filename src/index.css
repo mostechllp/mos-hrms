@@ -12,6 +12,10 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  html {
+    font-size: 13px;
+  }
+
   body {
     @apply font-poppins bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300 min-h-screen overflow-x-hidden;
   }

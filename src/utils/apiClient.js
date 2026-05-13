@@ -1,3 +1,4 @@
+// src/utils/apiClient.js
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -8,6 +9,30 @@ const apiClient = axios.create({
     'Accept': 'application/json',
   },
 });
+
+// Helper function to get full storage URL for files
+export const getStorageUrl = (path) => {
+  if (!path) return null;
+  
+  // If it's already a full URL, return it
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  
+  // If it's a data URL, return it
+  if (path.startsWith('data:')) {
+    return path;
+  }
+  
+  // Remove /api from base URL if present
+  const baseUrl = API_BASE_URL?.replace('/api', '') || '';
+  
+  // Remove leading slash if present
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  
+  // Construct full URL
+  return `${baseUrl}/storage/${cleanPath}`;
+};
 
 // Request interceptor to add token (works for both admin and employee)
 apiClient.interceptors.request.use(
