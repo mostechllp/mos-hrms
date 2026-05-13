@@ -107,7 +107,7 @@ const LeaveTypeManagement = () => {
           {/* Breadcrumbs - Responsive */}
           <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
             <Link
-              to="/leaves"
+              to="/admin/leaves"
               className="text-green-500 hover:text-green-600 font-medium"
             >
               Leaves

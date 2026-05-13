@@ -203,12 +203,6 @@ const TaskReports = () => {
                           <i className="fas fa-eye text-xs md:text-sm"></i>
                         </button>
                         <button
-                          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
-                          title="Edit"
-                        >
-                          <i className="fas fa-edit text-xs md:text-sm"></i>
-                        </button>
-                        <button
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
                           title="Delete"
                         >

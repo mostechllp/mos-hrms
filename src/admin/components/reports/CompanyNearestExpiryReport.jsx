@@ -5,7 +5,7 @@ import SearchBar from "../common/SearchBar";
 import EntriesSelector from "../common/EntriesSelector";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
-import { fetchCompanies } from "../../store/slices/companySlice";
+import { fetchCompanyNearestExpiryReport } from "../../store/slices/reportSlice";
 
 const CompanyNearestExpiryReport = () => {
   const dispatch = useDispatch();
@@ -22,7 +22,14 @@ const CompanyNearestExpiryReport = () => {
   const [expiryDays, setExpiryDays] = useState(30); // Default to 30 days
 
   useEffect(() => {
-    dispatch(fetchCompanies());
+    dispatch(
+      fetchCompanyNearestExpiryReport({
+        page: currentPage,
+        per_page: perPage,
+        start_date: "2024-01-01",
+        end_date: "2024-01-31",
+      }),
+    );
   }, [dispatch]);
 
   // Reset to first page when filters change

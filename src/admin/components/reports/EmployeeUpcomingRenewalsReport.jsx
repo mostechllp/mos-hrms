@@ -5,7 +5,7 @@ import SearchBar from "../common/SearchBar";
 import EntriesSelector from "../common/EntriesSelector";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
-import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { fetchEmployeeUpcomingRenewalsReport } from "../../store/slices/reportSlice";
 
 const EmployeeUpcomingRenewalsReport = () => {
   const dispatch = useDispatch();
@@ -25,7 +25,14 @@ const EmployeeUpcomingRenewalsReport = () => {
   const [maxDays, setMaxDays] = useState(90);
 
   useEffect(() => {
-    dispatch(fetchEmployees());
+    dispatch(
+      fetchEmployeeUpcomingRenewalsReport({
+        page: currentPage,
+        per_page: perPage,
+        start_date: "2024-01-01",
+        end_date: "2024-01-31",
+      }),
+    );
   }, [dispatch]);
 
   // Reset to first page when filters change

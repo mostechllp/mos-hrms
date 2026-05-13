@@ -5,7 +5,8 @@ import SearchBar from "../common/SearchBar";
 import EntriesSelector from "../common/EntriesSelector";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
-import { clearError, fetchLeaves } from "../../store/slices/LeaveSlice";
+import { fetchLeavesReport } from "../../store/slices/reportSlice";
+import { clearError } from "../../store/slices/LeaveSlice";
 
 const LeaveRequestReports = () => {
   const dispatch = useDispatch();
@@ -28,7 +29,14 @@ const LeaveRequestReports = () => {
   const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
-    dispatch(fetchLeaves());
+    dispatch(
+      fetchLeavesReport({
+        page: currentPage,
+        per_page: perPage,
+        start_date: "2024-01-01",
+        end_date: "2024-01-31",
+      }),
+    );
   }, [dispatch]);
 
   // Handle errors
