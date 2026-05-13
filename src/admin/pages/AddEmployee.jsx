@@ -58,6 +58,8 @@ const AddEmployee = () => {
     watch,
     formState: { errors },
     trigger,
+    // eslint-disable-next-line no-unused-vars
+    setValue,
   } = useForm({
     defaultValues: {
       // Step 1: Basic Info
@@ -69,7 +71,6 @@ const AddEmployee = () => {
       department_id: "",
       employee_id: "",
       type: "employee",
-      total_leaves_allocated: 30,
       joining_date: "",
       dob: "",
       gender: "male",
@@ -205,7 +206,6 @@ const AddEmployee = () => {
           "designation_id",
           "department_id",
           "type",
-          "total_leaves_allocated",
         ];
       case 1:
         return ["passport_issued_date", "passport_expiry_date"];
@@ -219,7 +219,7 @@ const AddEmployee = () => {
       case 3:
         return ["eid_issued_date", "eid_expiry_date"];
       case 4:
-        return ["company_email", "personal_email", "type"];
+        return ["personal_email", "type"];
       default:
         return [];
     }
@@ -481,6 +481,9 @@ const AddEmployee = () => {
   };
 
   const onSubmit = async (data) => {
+    console.log("Full form data:", data);
+    console.log("Username value:", data.username);
+    console.log("Username type:", typeof data.username);
     setLoading(true);
 
     const submitData = { ...data };
@@ -490,7 +493,6 @@ const AddEmployee = () => {
       submitData.designation_id = parseInt(data.designation_id);
     if (data.department_id)
       submitData.department_id = parseInt(data.department_id);
-    submitData.total_leaves_allocated = parseInt(data.total_leaves_allocated);
 
     if (data.dependents !== undefined && data.dependents !== "") {
       submitData.dependents = String(data.dependents);
@@ -570,7 +572,7 @@ const AddEmployee = () => {
       required: "User type is required",
     },
     company_email: {
-      required: "Company email is required",
+      // required removed, now optional
       pattern: {
         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
         message: "Invalid email address format",
@@ -582,11 +584,6 @@ const AddEmployee = () => {
         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
         message: "Invalid email address format",
       },
-    },
-    total_leaves_allocated: {
-      required: "Leave allocation is required",
-      min: { value: 0, message: "Leave allocation cannot be negative" },
-      max: { value: 365, message: "Leave allocation cannot exceed 365 days" },
     },
     username: {
       required: "Username is required",
@@ -639,7 +636,7 @@ const AddEmployee = () => {
           {/* Breadcrumbs */}
           <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
             <Link
-              to="/employees"
+              to="/admin/employees"
               className="text-green-500 hover:text-green-600 font-medium"
             >
               Employees
@@ -1111,6 +1108,7 @@ const AddEmployee = () => {
                               <input
                                 {...field}
                                 type="text"
+                                value={field.value || ""}
                                 className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.username ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
                                 placeholder="Enter username"
                               />
@@ -1133,32 +1131,6 @@ const AddEmployee = () => {
                           name="dob"
                           control={control}
                           render={({ field }) => <DateInput field={field} />}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          <i className="fas fa-calendar-week text-green-500 mr-1"></i>{" "}
-                          Leave Allocation (Days) *
-                        </label>
-                        <Controller
-                          name="total_leaves_allocated"
-                          control={control}
-                          rules={validationRules.total_leaves_allocated}
-                          render={({ field }) => (
-                            <>
-                              <input
-                                {...field}
-                                type="number"
-                                className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.total_leaves_allocated ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
-                              />
-                              {errors.total_leaves_allocated && (
-                                <p className="mt-1 text-xs text-red-500">
-                                  {errors.total_leaves_allocated.message}
-                                </p>
-                              )}
-                            </>
-                          )}
                         />
                       </div>
 
@@ -2043,7 +2015,7 @@ const AddEmployee = () => {
                       <div>
                         <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                           <i className="fas fa-envelope text-green-500 mr-1"></i>{" "}
-                          Company Email *
+                          Company Email
                         </label>
                         <Controller
                           name="company_email"
@@ -2055,7 +2027,7 @@ const AddEmployee = () => {
                                 {...field}
                                 type="email"
                                 className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.company_email ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
-                                placeholder="name@company.com"
+                                placeholder="name@company.com (Optional)"
                               />
                               {errors.company_email && (
                                 <p className="mt-1 text-xs text-red-500">

@@ -120,7 +120,7 @@ export const updateLeaveAllocation = createAsyncThunk(
   "leaves/updateAllocation",
   async ({ employee_id, leave_type, allocated }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put(`/admin/leave-allocations/${employee_id}`, {
+      const response = await apiClient.post(`/admin/leave-allocations/${employee_id}`, {
         leave_type,
         allocated
       });
