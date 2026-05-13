@@ -1,6 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
-import Sidebar from "../components/common/Sidebar";
-import Header from "../components/common/Header";
+import React, { useState } from "react";
 import { showToast } from "../components/common/Toast";
 
 /** Frontend-only mock data — replace with API when backend is ready */
@@ -51,9 +49,6 @@ const defaultRolePermissions = () => {
 
 
 function RoleManagement() {
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
-
     const [roles, setRoles] = useState(MOCK_ROLES);
     const [rolePermissions, setRolePermissions] = useState(defaultRolePermissions);
 
@@ -64,12 +59,7 @@ function RoleManagement() {
 
     const [selectedPermRoleId, setSelectedPermRoleId] = useState(MOCK_ROLES[0]?.id || "");
 
-    useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth < 768);
-        checkMobile();
-        window.addEventListener("resize", checkMobile);
-        return () => window.removeEventListener("resize", checkMobile);
-    }, []);
+
 
     const handleCreateRole = (e) => {
         e.preventDefault();
@@ -157,13 +147,7 @@ function RoleManagement() {
     const permMatrix = rolePermissions[selectedPermRoleId] || emptyPermsForRole();
 
     return (
-        <div className="app flex min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
-            <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-            <div
-                className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}
-            >
-                <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-                <main className="content px-4 py-4 md:px-6 md:py-6 w-full max-w-7xl mx-auto">
+        <div className="w-full max-w-7xl mx-auto pb-10">
                     <div className="mb-6">
                         <h1 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-emerald-600 dark:from-gray-200 dark:to-emerald-400 bg-clip-text text-transparent">
                             Roles
@@ -380,9 +364,6 @@ function RoleManagement() {
                             </button>
                         </section>
                     </div>
-                </main>
-            </div>
-
             {/* Delete Confirmation Modal */}
             {roleToDelete && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
