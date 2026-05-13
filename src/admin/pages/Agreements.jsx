@@ -310,7 +310,7 @@ const Agreements = () => {
                           <i className="fas fa-eye text-xs md:text-sm"></i>
                         </button>
                         <Link 
-                          to={`/admin/documents/edit-document/${document.id}`}
+                          to={`/admin/agreements/edit-agreement/${document.id}`}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
                           title="Edit"
                         >

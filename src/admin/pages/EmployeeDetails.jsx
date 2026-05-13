@@ -164,7 +164,7 @@ const EmployeeDetails = () => {
               Employee not found
             </h3>
             <button
-              onClick={() => navigate("/employees")}
+              onClick={() => navigate("/admin/employees")}
               className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
             >
               Back to Employees
@@ -200,7 +200,7 @@ const EmployeeDetails = () => {
                 </div>
               </div>
               <Link
-                to={`/employees/edit/${currentEmployee.id}`}
+                to={`/admin/employees/edit/${currentEmployee.id}`}
                 className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
               >
                 <FiEdit /> Edit Employee
@@ -251,14 +251,6 @@ const EmployeeDetails = () => {
                     <FiPhone className="text-green-500" />{" "}
                     {currentEmployee.personal_number || "N/A"}
                   </div>
-                </div>
-              </div>
-              <div className="text-center md:text-right">
-                <div className="text-sm text-gray-500">
-                  Total Leaves Allocated
-                </div>
-                <div className="text-2xl font-bold text-green-600">
-                  {currentEmployee.total_leaves_allocated}
                 </div>
               </div>
             </div>

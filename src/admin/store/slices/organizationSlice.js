@@ -22,14 +22,23 @@ export const addOrganization = createAsyncThunk(
   "organizations/add",
   async (organizationData, { rejectWithValue }) => {
     try {
+      // organizationData is already FormData, so just send it
       const response = await apiClient.post(
         "/admin/organizations",
         organizationData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data", // Important for file upload
+          },
+        },
       );
       return response.data.data;
     } catch (error) {
+      console.error("Add organization error:", error.response?.data);
       return rejectWithValue(
-        error.response?.data?.message || "Failed to add organization",
+        error.response?.data?.message ||
+          error.response?.data?.errors ||
+          "Failed to add organization",
       );
     }
   },
@@ -93,12 +102,9 @@ const organizationSlice = createSlice({
           phone: org.phone || "-",
           email: org.email || "-",
           address: org.address || "-",
-          multi_company:
-            org.multi_company === 1 || org.multi_company === true
-              ? "Yes"
-              : "No",
+          multi_company: org.has_multiple_companies ? "Yes" : "No",
           parentOrganization: org.parent_organization?.name || "—",
-          logo: org.logo || null,
+          logo: org.logo || null, // Store the relative path as is
           createdAt: org.created_at
             ? new Date(org.created_at).toLocaleDateString()
             : "-",

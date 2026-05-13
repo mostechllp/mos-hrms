@@ -21,27 +21,31 @@ const Organizations = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  // Remove sidebar related state
-  // const [sidebarOpen, setSidebarOpen] = useState(false);
-  // const [isMobile, setIsMobile] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Remove mobile check useEffect - handled by AdminLayout
-  // useEffect(() => {
-  //   const checkMobile = () => {
-  //     setIsMobile(window.innerWidth < 768);
-  //   };
-  //   checkMobile();
-  //   window.addEventListener("resize", checkMobile);
-  //   return () => window.removeEventListener("resize", checkMobile);
-  // }, []);
-
   useEffect(() => {
     dispatch(fetchOrganizations());
   }, [dispatch]);
+
+  // Helper function to get full logo URL
+  const getLogoUrl = (logoPath) => {
+    if (!logoPath) return null;
+    
+    // If it's already a full URL, return it
+    if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) {
+      return logoPath;
+    }
+    
+    // Get base URL from environment or window location
+    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
+    
+    // Remove leading slash if present and construct full URL
+    const cleanPath = logoPath.startsWith('/') ? logoPath.slice(1) : logoPath;
+    return `${baseUrl}/storage/${cleanPath}`;
+  };
 
   const hasOrganization = organizations && organizations.length > 0;
 
@@ -93,8 +97,6 @@ const Organizations = () => {
   };
 
   return (
-    // Remove the outer div with Sidebar and flex layout
-    // Just return the main content directly
     <div className="w-full overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
@@ -218,66 +220,74 @@ const Organizations = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {pageOrganizations.map((org) => (
-                      <tr
-                        key={org.id}
-                        className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                      >
-                        <td className="px-3 md:px-4 py-2 md:py-3">
-                          {org.logo ? (
-                            <img
-                              src={org.logo}
-                              alt={org.name}
-                              className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-cover"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center text-white">
-                              <i className="fas fa-building text-sm md:text-lg"></i>
+                    {pageOrganizations.map((org) => {
+                      const logoUrl = getLogoUrl(org.logo);
+                      return (
+                        <tr
+                          key={org.id}
+                          className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                        >
+                          <td className="px-3 md:px-4 py-2 md:py-3">
+                            {logoUrl ? (
+                              <img
+                                src={logoUrl}
+                                alt={org.name}
+                                className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-cover"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.style.display = 'none';
+                                  e.target.parentElement.innerHTML = '<div class="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center text-white"><i class="fas fa-building text-sm md:text-lg"></i></div>';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center text-white">
+                                <i className="fas fa-building text-sm md:text-lg"></i>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                            {org.name}
+                          </td>
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                            {org.phone}
+                          </td>
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                            {org.email}
+                          </td>
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                            {org.address || '-'}
+                          </td>
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                            {org.createdAt}
+                          </td>
+                          <td className="px-3 md:px-4 py-2 md:py-3">
+                            <div className="flex gap-1 md:gap-2">
+                              <button
+                                onClick={() => handleManageCompanies(org)}
+                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-500 transition-colors"
+                                title="Manage Companies"
+                              >
+                                <i className="fas fa-building text-xs md:text-sm"></i>
+                              </button>
+                              <Link
+                                to={`/admin/organizations/edit-organization/${org.id}`}
+                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
+                                title="Edit"
+                              >
+                                <i className="fas fa-edit text-xs md:text-sm"></i>
+                              </Link>
+                              <button
+                                onClick={() => handleDeleteClick(org)}
+                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
+                                title="Delete"
+                              >
+                                <i className="fas fa-trash text-xs md:text-sm"></i>
+                              </button>
                             </div>
-                          )}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
-                          {org.name}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                          {org.phone}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                          {org.email}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                          {org.address}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                          {org.createdAt}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3">
-                          <div className="flex gap-1 md:gap-2">
-                            <button
-                              onClick={() => handleManageCompanies(org)}
-                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-500 transition-colors"
-                              title="Manage Companies"
-                            >
-                              <i className="fas fa-building text-xs md:text-sm"></i>
-                            </button>
-                            <Link
-                              to={`/admin/organizations/edit-organization/${org.id}`}
-                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
-                              title="Edit"
-                            >
-                              <i className="fas fa-edit text-xs md:text-sm"></i>
-                            </Link>
-                            <button
-                              onClick={() => handleDeleteClick(org)}
-                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
-                              title="Delete"
-                            >
-                              <i className="fas fa-trash text-xs md:text-sm"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {pageOrganizations.length === 0 && (
                       <tr>
                         <td

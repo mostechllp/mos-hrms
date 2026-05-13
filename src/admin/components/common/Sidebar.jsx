@@ -1,16 +1,9 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { logoutUser } from "../../store/slices/authSlice";
-import { useNavigate } from "react-router-dom";
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
-  const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
-  const navigate = useNavigate();
-
 
   useEffect(() => {
     const checkMobile = () => {
@@ -35,6 +28,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { path: "/admin/dashboard", icon: "fas fa-chart-line", label: "Dashboard" },
     { path: "/admin/employees", icon: "fas fa-users", label: "Employees" },
     {
+      path: "/admin/employees/onboarding",
+      icon: "fas fa-user-plus",
+      label: "Onboarding",
+    },
+    {
       path: "/admin/organizations",
       icon: "fas fa-briefcase",
       label: "Organizations",
@@ -45,44 +43,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { path: "/admin/designations", icon: "fas fa-tags", label: "Designations" },
     { path: "/admin/departments", icon: "fas fa-building", label: "Departments" },
     { path: "/admin/task-reports", icon: "fas fa-tasks", label: "Task Reports" },
-    {path: "/admin/wfh", icon: "fas fa-home", label: "WFH Requests"},
+    { path: "/admin/wfh", icon: "fas fa-home", label: "WFH Requests" },
     { path: "/admin/reports", icon: "fas fa-chart-line", label: "Reports" },
     { path: "/admin/settings", icon: "fas fa-gear", label: "Settings" },
   ];
-
-  const handleLogout = async () => {
-    try {
-      await dispatch(logoutUser()).unwrap();
-      navigate("/login");
-    } catch (err) {
-      console.error("Logout failed", err);
-    }
-  };
-
-  // Get user's display name
-  const getUserName = () => {
-    if (user?.employee?.name) return user.employee.name;
-    if (user?.name) return user.name;
-    if (user?.username) return user.username;
-    return "HR Admin";
-  };
-
-  // Get user's avatar URL
-  const getUserAvatar = () => {
-    if (user?.avatar) return user.avatar;
-    // Generate avatar from name if not available
-    const name = getUserName();
-    const encodedName = encodeURIComponent(name);
-    return `https://ui-avatars.com/api/?name=${encodedName}&color=ffffff&background=22c55e`;
-  };
-
-  // Get user's role
-  const getUserRole = () => {
-    if (user?.type) return user.type.charAt(0).toUpperCase() + user.type.slice(1);
-    if (user?.role) return user.role;
-    if (user?.roles && user.roles.length > 0) return user.roles[0];
-    return "Administrator";
-  };
 
   return (
     <>
@@ -125,6 +89,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <NavLink
               key={item.path}
               to={item.path}
+              end={item.path === "/admin/employees" || item.path === "/admin/dashboard"}
               onClick={() => isMobile && setIsOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-5 py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden ${
@@ -134,7 +99,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 }`
               }
             >
-              <i className={`${item.icon} w-6 text-lg flex-shrink-0`}></i>
+              <i className={item.icon + " w-6 text-lg flex-shrink-0"}></i>
+
               <span
                 className={`transition-opacity duration-200 ${
                   !isMobile && !isOpen
@@ -147,47 +113,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             </NavLink>
           ))}
         </nav>
-
-        {/* User Section - Fixed at bottom */}
-        <div className="flex-shrink-0 p-4 border-t border-white/10">
-          <div className="flex items-center gap-3 overflow-hidden">
-            {/* Avatar Image */}
-            <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-gradient-to-r from-green-500 to-green-600">
-              <img
-                src={getUserAvatar()}
-                alt={getUserName()}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  // Fallback to initials if image fails to load
-                  e.target.style.display = "none";
-                  e.target.parentElement.innerHTML = getUserName().charAt(0).toUpperCase();
-                  e.target.parentElement.classList.add("flex", "items-center", "justify-center", "font-bold", "text-white");
-                }}
-              />
-            </div>
-            <div
-              className={`transition-opacity duration-200 flex-1 min-w-0 ${
-                !isMobile && !isOpen
-                  ? "opacity-0 group-hover:opacity-100"
-                  : "opacity-100"
-              }`}
-            >
-              <h4 className="text-sm font-semibold text-white truncate">
-                {getUserName()}
-              </h4>
-              <p className="text-xs text-white/50 truncate">
-                {getUserRole()}
-              </p>
-              <button
-                onClick={handleLogout}
-                className="text-xs text-red-400 hover:text-red-300 mt-1 transition-colors flex items-center gap-1"
-              >
-                <i className="fas fa-sign-out-alt text-[10px]"></i>
-                <span>Logout</span>
-              </button>
-            </div>
-          </div>
-        </div>
       </aside>
     </>
   );

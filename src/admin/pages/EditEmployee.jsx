@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useForm, Controller } from "react-hook-form";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import Sidebar from "../components/common/Sidebar";
-import Header from "../components/common/Header";
 import { showToast } from "../../components/common/Toast";
 import {
   fetchEmployeeById,
@@ -22,8 +20,6 @@ const EditEmployee = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const [formInitialized, setFormInitialized] = useState(false);
   const [stepErrors, setStepErrors] = useState({});
 
@@ -153,17 +149,7 @@ const EditEmployee = () => {
     }
   }, [dispatch, id, formInitialized]);
 
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
   // Set form values when employee data is loaded
-  // Set form values when employee data is loaded - only once
   useEffect(() => {
     if (currentEmployee && dropdownsReady && !formInitialized) {
       console.log("Initializing form with employee data:", currentEmployee);
@@ -203,7 +189,10 @@ const EditEmployee = () => {
           : Number(resolvedDepartmentId),
       );
       setValue("employee_id", currentEmployee.employee_id || "");
-      setValue("type", currentEmployee.type || currentEmployee.user?.type || "employee");
+      setValue(
+        "type",
+        currentEmployee.type || currentEmployee.user?.type || "employee",
+      );
       setValue(
         "total_leaves_allocated",
         currentEmployee.total_leaves_allocated || 30,
@@ -214,8 +203,14 @@ const EditEmployee = () => {
       setValue("nationality", currentEmployee.nationality || "");
       setValue("marital_status", currentEmployee.marital_status || "");
       setValue("special_days", currentEmployee.special_days || "");
-      setValue("status", currentEmployee.status || currentEmployee.user?.status || "active");
-      setValue("username", currentEmployee.username || currentEmployee.user?.username || "");
+      setValue(
+        "status",
+        currentEmployee.status || currentEmployee.user?.status || "active",
+      );
+      setValue(
+        "username",
+        currentEmployee.username || currentEmployee.user?.username || "",
+      );
 
       // Passport details
       setValue("passport_full_name", currentEmployee.passport_full_name || "");
@@ -588,7 +583,8 @@ const EditEmployee = () => {
 
   const handleNext = async () => {
     const fieldsToValidate = getStepFields(currentStep);
-    const isValid = fieldsToValidate.length > 0 ? await trigger(fieldsToValidate) : true;
+    const isValid =
+      fieldsToValidate.length > 0 ? await trigger(fieldsToValidate) : true;
 
     if (isValid) {
       setStepErrors((prev) => ({ ...prev, [currentStep]: false }));
@@ -607,7 +603,8 @@ const EditEmployee = () => {
     }
 
     const fieldsToValidate = getStepFields(currentStep);
-    const isValid = fieldsToValidate.length > 0 ? await trigger(fieldsToValidate) : true;
+    const isValid =
+      fieldsToValidate.length > 0 ? await trigger(fieldsToValidate) : true;
 
     if (!isValid) {
       setStepErrors((prev) => ({ ...prev, [currentStep]: true }));
@@ -715,17 +712,29 @@ const EditEmployee = () => {
       (company) => company.id === parseInt(normalizedData.company_id),
     );
     if (selectedCompany?.organization_id) {
-      formDataToSend.set("organization_id", parseInt(selectedCompany.organization_id));
+      formDataToSend.set(
+        "organization_id",
+        parseInt(selectedCompany.organization_id),
+      );
     }
     if (normalizedData.designation_id)
-      formDataToSend.set("designation_id", parseInt(normalizedData.designation_id));
+      formDataToSend.set(
+        "designation_id",
+        parseInt(normalizedData.designation_id),
+      );
     if (normalizedData.department_id)
-      formDataToSend.set("department_id", parseInt(normalizedData.department_id));
+      formDataToSend.set(
+        "department_id",
+        parseInt(normalizedData.department_id),
+      );
     formDataToSend.set(
       "total_leaves_allocated",
       parseInt(normalizedData.total_leaves_allocated),
     );
-    if (normalizedData.dependents !== undefined && normalizedData.dependents !== "")
+    if (
+      normalizedData.dependents !== undefined &&
+      normalizedData.dependents !== ""
+    )
       formDataToSend.set("dependents", parseInt(normalizedData.dependents));
 
     // Add _method field for PUT request
@@ -765,18 +774,8 @@ const EditEmployee = () => {
 
   if (initialLoading || employeeLoading || !dropdownsReady) {
     return (
-      <div className="app flex min-h-screen bg-gray-50 overflow-x-hidden">
-        <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-        <div
-          className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}
-        >
-          <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-          <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
-            <div className="flex justify-center items-center h-96">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-            </div>
-          </main>
-        </div>
+      <div className="flex justify-center items-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
       </div>
     );
   }
@@ -853,7 +852,9 @@ const EditEmployee = () => {
                         {...field}
                         value={field.value ?? ""}
                         onChange={(e) =>
-                          field.onChange(e.target.value ? Number(e.target.value) : "")
+                          field.onChange(
+                            e.target.value ? Number(e.target.value) : "",
+                          )
                         }
                         className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.company_id ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
                       >
@@ -889,7 +890,9 @@ const EditEmployee = () => {
                         {...field}
                         value={field.value ?? ""}
                         onChange={(e) =>
-                          field.onChange(e.target.value ? Number(e.target.value) : "")
+                          field.onChange(
+                            e.target.value ? Number(e.target.value) : "",
+                          )
                         }
                         className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:ring-2 ${errors.designation_id ? "border-red-500" : "border-gray-200 focus:border-green-500 focus:ring-green-500/20"}`}
                       >
@@ -925,7 +928,9 @@ const EditEmployee = () => {
                         {...field}
                         value={field.value ?? ""}
                         onChange={(e) =>
-                          field.onChange(e.target.value ? Number(e.target.value) : "")
+                          field.onChange(
+                            e.target.value ? Number(e.target.value) : "",
+                          )
                         }
                         className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:ring-2 ${errors.department_id ? "border-red-500" : "border-gray-200 focus:border-green-500 focus:ring-green-500/20"}`}
                       >
@@ -1154,9 +1159,7 @@ const EditEmployee = () => {
                 <Controller
                   name="dob"
                   control={control}
-                  render={({ field }) => (
-                    <DateInput field={field} />
-                  )}
+                  render={({ field }) => <DateInput field={field} />}
                 />
               </div>
 
@@ -1194,9 +1197,7 @@ const EditEmployee = () => {
                 <Controller
                   name="joining_date"
                   control={control}
-                  render={({ field }) => (
-                    <DateInput field={field} />
-                  )}
+                  render={({ field }) => <DateInput field={field} />}
                 />
               </div>
 
@@ -1205,20 +1206,29 @@ const EditEmployee = () => {
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     <i className="fas fa-camera text-green-500 mr-2"></i>
                     Passport Size Photo
-                    <span className="text-xs text-gray-400 ml-2">(Optional)</span>
+                    <span className="text-xs text-gray-400 ml-2">
+                      (Optional)
+                    </span>
                   </label>
                   <div className="flex items-start gap-4 flex-wrap">
                     <input
                       type="file"
                       id="passport_size_photo_edit"
                       accept="image/png,image/jpeg,image/jpg,image/gif"
-                      onChange={(e) => handleFileChange("passport_size_photo", e.target.files[0])}
+                      onChange={(e) =>
+                        handleFileChange(
+                          "passport_size_photo",
+                          e.target.files[0],
+                        )
+                      }
                       className="hidden"
                     />
                     <button
                       type="button"
                       onClick={() =>
-                        document.getElementById("passport_size_photo_edit").click()
+                        document
+                          .getElementById("passport_size_photo_edit")
+                          .click()
                       }
                       className="h-40 w-32 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:border-green-400 transition-colors flex items-center justify-center overflow-hidden"
                     >
@@ -1231,7 +1241,9 @@ const EditEmployee = () => {
                       ) : existingDocuments.passport_size_photo &&
                         !removedDocuments.passport_size_photo ? (
                         <img
-                          src={getDocumentUrl(existingDocuments.passport_size_photo)}
+                          src={getDocumentUrl(
+                            existingDocuments.passport_size_photo,
+                          )}
                           alt="Passport size"
                           className="h-full w-full object-cover"
                         />
@@ -1246,7 +1258,9 @@ const EditEmployee = () => {
                       <button
                         type="button"
                         onClick={() =>
-                          document.getElementById("passport_size_photo_edit").click()
+                          document
+                            .getElementById("passport_size_photo_edit")
+                            .click()
                         }
                         className="px-4 py-2 bg-white border border-green-200 text-green-600 rounded-full text-sm font-semibold hover:bg-green-50 transition-colors flex items-center gap-2"
                       >
@@ -1254,15 +1268,17 @@ const EditEmployee = () => {
                       </button>
                       <p className="text-sm text-gray-500 mt-2 truncate">
                         {documents.passport_size_photo
-                          ? documents.passport_size_photo.name || "Photo selected"
+                          ? documents.passport_size_photo.name ||
+                            "Photo selected"
                           : existingDocuments.passport_size_photo &&
                               !removedDocuments.passport_size_photo
                             ? "Current photo available"
                             : "No photo chosen"}
                       </p>
                       <p className="text-xs text-gray-400 mt-2">
-                        <i className="fas fa-info-circle mr-1"></i> Accepted: JPG, PNG, GIF.
-                        Max 2MB. Recommended size: 35mm x 45mm (passport size).
+                        <i className="fas fa-info-circle mr-1"></i> Accepted:
+                        JPG, PNG, GIF. Max 2MB. Recommended size: 35mm x 45mm
+                        (passport size).
                       </p>
                       {(documents.passport_size_photo ||
                         (existingDocuments.passport_size_photo &&
@@ -1270,13 +1286,18 @@ const EditEmployee = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            setDocuments({ ...documents, passport_size_photo: null });
+                            setDocuments({
+                              ...documents,
+                              passport_size_photo: null,
+                            });
                             setDocumentPreviews({
                               ...documentPreviews,
                               passport_size_photo: null,
                             });
                             if (existingDocuments.passport_size_photo) {
-                              handleRemoveExistingDocument("passport_size_photo");
+                              handleRemoveExistingDocument(
+                                "passport_size_photo",
+                              );
                             }
                           }}
                           className="mt-2 text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
@@ -1377,7 +1398,10 @@ const EditEmployee = () => {
                   }}
                   render={({ field }) => (
                     <>
-                      <DateInput field={field} hasError={!!errors.passport_issued_date} />
+                      <DateInput
+                        field={field}
+                        hasError={!!errors.passport_issued_date}
+                      />
                       {errors.passport_issued_date && (
                         <p className="mt-1 text-xs text-red-500">
                           {errors.passport_issued_date.message}
@@ -1406,7 +1430,10 @@ const EditEmployee = () => {
                   }}
                   render={({ field }) => (
                     <>
-                      <DateInput field={field} hasError={!!errors.passport_expiry_date} />
+                      <DateInput
+                        field={field}
+                        hasError={!!errors.passport_expiry_date}
+                      />
                       {errors.passport_expiry_date && (
                         <p className="mt-1 text-xs text-red-500">
                           {errors.passport_expiry_date.message}
@@ -1514,7 +1541,8 @@ const EditEmployee = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                   <div className="md:col-span-2">
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-list text-green-500 mr-1"></i> Select Type of Visa
+                      <i className="fas fa-list text-green-500 mr-1"></i> Select
+                      Type of Visa
                     </label>
                     <Controller
                       name="visa_type"
@@ -1537,7 +1565,8 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-id-card text-green-500 mr-1"></i> Visa Number
+                      <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
+                      Visa Number
                     </label>
                     <Controller
                       name="visa_number"
@@ -1555,18 +1584,26 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-plus text-green-500 mr-1"></i> Visa Issued Date
+                      <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
+                      Visa Issued Date
                     </label>
                     <Controller
                       name="visa_issued_date"
                       control={control}
                       rules={{
                         validate: (value) =>
-                          validateIssueDate(value, visaExpiry, "Visa issued date"),
+                          validateIssueDate(
+                            value,
+                            visaExpiry,
+                            "Visa issued date",
+                          ),
                       }}
                       render={({ field }) => (
                         <>
-                          <DateInput field={field} hasError={!!errors.visa_issued_date} />
+                          <DateInput
+                            field={field}
+                            hasError={!!errors.visa_issued_date}
+                          />
                           {errors.visa_issued_date && (
                             <p className="mt-1 text-xs text-red-500">
                               {errors.visa_issued_date.message}
@@ -1579,18 +1616,26 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-times text-green-500 mr-1"></i> Visa Expiry Date
+                      <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
+                      Visa Expiry Date
                     </label>
                     <Controller
                       name="visa_expiry_date"
                       control={control}
                       rules={{
                         validate: (value) =>
-                          validateExpiryDate(value, visaIssued, "Visa expiry date"),
+                          validateExpiryDate(
+                            value,
+                            visaIssued,
+                            "Visa expiry date",
+                          ),
                       }}
                       render={({ field }) => (
                         <>
-                          <DateInput field={field} hasError={!!errors.visa_expiry_date} />
+                          <DateInput
+                            field={field}
+                            hasError={!!errors.visa_expiry_date}
+                          />
                           {errors.visa_expiry_date && (
                             <p className="mt-1 text-xs text-red-500">
                               {errors.visa_expiry_date.message}
@@ -1611,7 +1656,8 @@ const EditEmployee = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-briefcase text-green-500 mr-1"></i> Labor Number
+                      <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
+                      Labor Number
                     </label>
                     <Controller
                       name="labor_number"
@@ -1629,7 +1675,8 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-plus text-green-500 mr-1"></i> Labor Issued Date
+                      <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
+                      Labor Issued Date
                     </label>
                     <Controller
                       name="labor_issued_date"
@@ -1644,7 +1691,10 @@ const EditEmployee = () => {
                       }}
                       render={({ field }) => (
                         <>
-                          <DateInput field={field} hasError={!!errors.labor_issued_date} />
+                          <DateInput
+                            field={field}
+                            hasError={!!errors.labor_issued_date}
+                          />
                           {errors.labor_issued_date && (
                             <p className="mt-1 text-xs text-red-500">
                               {errors.labor_issued_date.message}
@@ -1657,7 +1707,8 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-times text-green-500 mr-1"></i> Labor Expiry Date
+                      <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
+                      Labor Expiry Date
                     </label>
                     <Controller
                       name="labor_expiry_date"
@@ -1672,7 +1723,10 @@ const EditEmployee = () => {
                       }}
                       render={({ field }) => (
                         <>
-                          <DateInput field={field} hasError={!!errors.labor_expiry_date} />
+                          <DateInput
+                            field={field}
+                            hasError={!!errors.labor_expiry_date}
+                          />
                           {errors.labor_expiry_date && (
                             <p className="mt-1 text-xs text-red-500">
                               {errors.labor_expiry_date.message}
@@ -1731,7 +1785,10 @@ const EditEmployee = () => {
                   }}
                   render={({ field }) => (
                     <>
-                      <DateInput field={field} hasError={!!errors.eid_issued_date} />
+                      <DateInput
+                        field={field}
+                        hasError={!!errors.eid_issued_date}
+                      />
                       {errors.eid_issued_date && (
                         <p className="mt-1 text-xs text-red-500">
                           {errors.eid_issued_date.message}
@@ -1756,7 +1813,10 @@ const EditEmployee = () => {
                   }}
                   render={({ field }) => (
                     <>
-                      <DateInput field={field} hasError={!!errors.eid_expiry_date} />
+                      <DateInput
+                        field={field}
+                        hasError={!!errors.eid_expiry_date}
+                      />
                       {errors.eid_expiry_date && (
                         <p className="mt-1 text-xs text-red-500">
                           {errors.eid_expiry_date.message}
@@ -2113,126 +2173,116 @@ const EditEmployee = () => {
   };
 
   return (
-    <div className="app flex min-h-screen bg-gray-50 overflow-x-hidden">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      <div
-        className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}
-      >
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
-          <div className="max-w-5xl mx-auto w-full">
-            {/* Breadcrumbs */}
-            <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
-              <Link
-                to="/employees"
-                className="text-green-500 hover:text-green-600 font-medium"
-              >
-                Employees
-              </Link>
-              <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
-              <span className="text-gray-500">Edit Employee</span>
-            </div>
+    <div className="w-full px-4 md:px-6">
+      {/* Breadcrumbs */}
+      <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
+        <Link
+          to="/employees"
+          className="text-green-500 hover:text-green-600 font-medium"
+        >
+          Employees
+        </Link>
+        <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
+        <span className="text-gray-500">Edit Employee</span>
+      </div>
 
-            {/* Page Header */}
-            <div className="mb-4 md:mb-6">
-              <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent">
-                <i className="fas fa-user-edit mr-2"></i> Edit Employee
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Update employee information
+      {/* Page Header */}
+      <div className="mb-4 md:mb-6">
+        <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent">
+          <i className="fas fa-user-edit mr-2"></i> Edit Employee
+        </h2>
+        <p className="text-sm text-gray-500 mt-1">
+          Update employee information
+        </p>
+      </div>
+
+      {/* Step Indicator */}
+      <div className="overflow-x-auto pb-2 mb-4 md:mb-8 -mx-4 px-4">
+        <div className="flex gap-2 min-w-max">
+          {steps.map((step, index) => (
+            <button
+              type="button"
+              key={step.number}
+              onClick={() => handleStepClick(index)}
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
+                currentStep === index
+                  ? "bg-green-500 text-white shadow-md"
+                  : stepErrors[index]
+                    ? "bg-red-50 text-red-600 border border-red-300"
+                    : index < currentStep
+                      ? "text-green-500"
+                      : "text-gray-500 bg-gray-100"
+              }`}
+            >
+              <i className={`${step.icon} mr-1 text-xs md:text-sm`}></i>
+              <span className="hidden sm:inline">
+                {step.number}. {step.title}
+              </span>
+              <span className="sm:hidden">{step.number}</span>
+              {stepErrors[index] && (
+                <i className="fas fa-exclamation-circle ml-1 text-xs"></i>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Form Container */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 lg:p-8 shadow-soft">
+        <form onSubmit={handleSubmit(onSubmit)}>
+          {stepErrors[currentStep] && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 mb-4">
+              <p className="text-xs md:text-sm text-red-600">
+                <i className="fas fa-exclamation-circle mr-1"></i>
+                Please complete required fields in this section.
               </p>
             </div>
+          )}
+          {renderStepContent()}
 
-            {/* Step Indicator */}
-            <div className="overflow-x-auto pb-2 mb-4 md:mb-8 -mx-4 px-4">
-              <div className="flex gap-2 min-w-max">
-                {steps.map((step, index) => (
-                  <button
-                    type="button"
-                    key={step.number}
-                    onClick={() => handleStepClick(index)}
-                    className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
-                      currentStep === index
-                        ? "bg-green-500 text-white shadow-md"
-                        : stepErrors[index]
-                          ? "bg-red-50 text-red-600 border border-red-300"
-                        : index < currentStep
-                          ? "text-green-500"
-                          : "text-gray-500 bg-gray-100"
-                    }`}
-                  >
-                    <i className={`${step.icon} mr-1 text-xs md:text-sm`}></i>
-                    <span className="hidden sm:inline">
-                      {step.number}. {step.title}
-                    </span>
-                    <span className="sm:hidden">{step.number}</span>
-                    {stepErrors[index] && (
-                      <i className="fas fa-exclamation-circle ml-1 text-xs"></i>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {/* Navigation Buttons */}
+          <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 mt-6 md:mt-8 pt-4 md:pt-6 border-t border-gray-200">
+            {currentStep > 0 && (
+              <button
+                type="button"
+                onClick={handlePrevious}
+                className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
+              >
+                <i className="fas fa-arrow-left text-xs md:text-sm"></i>
+                <span>Previous</span>
+              </button>
+            )}
 
-            {/* Form Container */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 lg:p-8 shadow-soft">
-              <form onSubmit={handleSubmit(onSubmit)}>
-                {stepErrors[currentStep] && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 mb-4">
-                    <p className="text-xs md:text-sm text-red-600">
-                      <i className="fas fa-exclamation-circle mr-1"></i>
-                      Please complete required fields in this section.
-                    </p>
-                  </div>
+            {currentStep < steps.length - 1 ? (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
+              >
+                <span>Next</span>
+                <i className="fas fa-arrow-right text-xs md:text-sm"></i>
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base disabled:opacity-70"
+              >
+                {loading ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin"></i>{" "}
+                    <span>Updating...</span>
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-save text-xs md:text-sm"></i>{" "}
+                    <span>Update Employee</span>
+                  </>
                 )}
-                {renderStepContent()}
-
-                {/* Navigation Buttons */}
-                <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 mt-6 md:mt-8 pt-4 md:pt-6 border-t border-gray-200">
-                  {currentStep > 0 && (
-                    <button
-                      type="button"
-                      onClick={handlePrevious}
-                      className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
-                    >
-                      <i className="fas fa-arrow-left text-xs md:text-sm"></i>
-                      <span>Previous</span>
-                    </button>
-                  )}
-
-                  {currentStep < steps.length - 1 ? (
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
-                    >
-                      <span>Next</span>
-                      <i className="fas fa-arrow-right text-xs md:text-sm"></i>
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base disabled:opacity-70"
-                    >
-                      {loading ? (
-                        <>
-                          <i className="fas fa-spinner fa-spin"></i>{" "}
-                          <span>Updating...</span>
-                        </>
-                      ) : (
-                        <>
-                          <i className="fas fa-save text-xs md:text-sm"></i>{" "}
-                          <span>Update Employee</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </form>
-            </div>
+              </button>
+            )}
           </div>
-        </main>
+        </form>
       </div>
     </div>
   );
