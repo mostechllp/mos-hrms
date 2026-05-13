@@ -90,7 +90,10 @@ const Header = ({ onMenuClick }) => {
       return "Settings";
     } else if (path.includes("/admin/employees/add-employee")) {
       return "Add Employee";
+    } else if (path.includes("/admin/employees/onboarding")) {
+      return "Onboarding";
     } else if (path.includes("/admin/employees/edit")) {
+
       return "Edit Employee";
     } else if (path.includes("/admin/employees/")) {
       return "Employee Details";
@@ -138,7 +141,10 @@ const Header = ({ onMenuClick }) => {
       return "Assign roles and module permissions";
     } else if (path === "/admin/settings") {
       return "Configure system settings";
+    } else if (path.includes("/admin/employees/onboarding")) {
+      return "Employee onboarding workflow";
     } else if (path.includes("/admin/reports/")) {
+
       return "Detailed report view";
     } else {
       return "HR Management System";

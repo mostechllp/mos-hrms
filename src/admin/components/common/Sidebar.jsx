@@ -36,6 +36,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { path: "/admin/dashboard", icon: "fas fa-chart-line", label: "Dashboard" },
     { path: "/admin/employees", icon: "fas fa-users", label: "Employees" },
     {
+      path: "/admin/employees/onboarding",
+      icon: "fas fa-user-plus",
+      label: "Onboarding",
+    },
+
+    {
       path: "/admin/organizations",
       icon: "fas fa-briefcase",
       label: "Organizations",
@@ -130,15 +136,18 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <NavLink
               key={item.path}
               to={item.path}
+              end={item.path === "/admin/employees" || item.path === "/admin/dashboard"}
               onClick={() => isMobile && setIsOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-5 py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden ${isActive
-                  ? "bg-green-500/20 text-white"
-                  : "text-gray-400 hover:text-white hover:bg-white/10"
+                  ? "bg-green-500/20 text-white border-l-4 border-green-500"
+                  : "text-gray-400 hover:text-white hover:bg-white/10 border-l-4 border-transparent"
                 }`
               }
             >
-              <i className={`${item.icon} w-6 text-lg flex-shrink-0`}></i>
+              <i className={item.icon + " w-6 text-lg flex-shrink-0"}></i>
+
+
               <span
                 className={`transition-opacity duration-200 ${!isMobile && !isOpen
                   ? "opacity-0 group-hover:opacity-100"
@@ -149,7 +158,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               </span>
             </NavLink>
           ))}
+
+
+
+
         </nav>
+
 
         {/* User Section - Fixed at bottom */}
         <div className="flex-shrink-0 p-4 border-t border-white/10">
