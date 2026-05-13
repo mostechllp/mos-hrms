@@ -12,6 +12,7 @@ import dashboardReducer from "./slices/dashboardSlice";
 import departmentReducer from "./slices/departmentSlice"
 import documentsReducer from "./slices/documentsSlice"
 import wfhReducer from "./slices/wfhSlice"
+import reportsReducer from "./slices/reportSlice"
 
 export const store = configureStore({
     reducer: {
@@ -27,7 +28,8 @@ export const store = configureStore({
         dashboard: dashboardReducer,
         departments: departmentReducer,
         documents: documentsReducer,
-        wfh: wfhReducer
+        wfh: wfhReducer,
+        reports: reportsReducer,
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({

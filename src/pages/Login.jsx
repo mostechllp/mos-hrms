@@ -26,12 +26,12 @@ const Login = () => {
     }
   }, []);
 
-  // Redirect based on user type after successful login
+  // Redirect based on user type after successful login - immediate redirect
   useEffect(() => {
     if (isAuthenticated && userType) {
       const redirectPath = userType === "admin" ? "/admin/dashboard" : "/employee/dashboard";
-      showToast(`Welcome back! Redirecting to ${userType} dashboard...`, "success");
-      setTimeout(() => navigate(redirectPath), 1000);
+      // Navigate immediately without showing extra loader
+      navigate(redirectPath, { replace: true });
     }
   }, [isAuthenticated, userType, navigate]);
 
@@ -54,11 +54,7 @@ const Login = () => {
     // Save remember me preference
     dispatch(setRememberMe(rememberMe));
     
-    const result = await dispatch(loginUser({ email, password }));
-    
-    if (loginUser.rejected.match(result)) {
-      setRememberMeState(false);
-    }
+    await dispatch(loginUser({ email, password }));
   };
 
   return (

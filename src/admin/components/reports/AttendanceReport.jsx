@@ -5,7 +5,7 @@ import SearchBar from "../common/SearchBar";
 import EntriesSelector from "../common/EntriesSelector";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
-import { fetchAttendanceRecords } from "../../store/slices/attendanceSlice";
+import { fetchAttendanceReport } from "../../store/slices/reportSlice";
 
 const AttendanceReport = () => {
   const dispatch = useDispatch();
@@ -36,7 +36,7 @@ const AttendanceReport = () => {
   useEffect(() => {
     const fetchData = async () => {
       await dispatch(
-        fetchAttendanceRecords({
+        fetchAttendanceReport({
           page: currentPage,
           per_page: perPage,
           company: companyFilter !== "all" ? companyFilter : undefined,

@@ -22,7 +22,12 @@ const AdminLayout = () => {
       <div
         className={`flex-1 min-w-0 w-full overflow-x-hidden ${!isMobile ? "md:ml-[72px]" : ""}`}
       >
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+        {/* Fixed header container */}
+        <div className="fixed top-0 right-0 z-40" style={{ left: !isMobile ? '72px' : '0' }}>
+          <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+        </div>
+        {/* Spacer to push content below fixed header */}
+        <div className="h-[72px] md:h-[76px]"></div>
         <main className="content px-4 py-4 md:px-6 md:py-6 max-w-[1600px] mx-auto w-full overflow-x-hidden">
           <Outlet />
         </main>
