@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+// Header.js - Updated with dynamic title and avatar
+import React, { useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { markAsRead, markAllRead } from "../../store/slices/notificationSlice";
@@ -51,9 +52,9 @@ const Header = ({ onMenuClick }) => {
   const getPageTitle = () => {
     const path = location.pathname;
 
-    if (path === "/admin/dashboard" || path === "/") {
+    if (path === "/admin/dashboard" || path === "/admin" || path === "/admin/") {
       return "Dashboard";
-    } else if (path === "//adminemployees") {
+    } else if (path === "/admin/employees") {
       return "Employees";
     } else if (path === "/admin/organizations") {
       return "Organizations";
@@ -81,6 +82,10 @@ const Header = ({ onMenuClick }) => {
       return "WFH Requests";
     } else if (path === "/admin/reports") {
       return "Reports";
+    } else if (path.includes("/admin/payroll")) {
+      return "Add New Payroll";
+    } else if (path === "/admin/role-management") {
+      return "Roles";
     } else if (path === "/admin/settings") {
       return "Settings";
     } else if (path.includes("/admin/employees/add-employee")) {
@@ -113,23 +118,27 @@ const Header = ({ onMenuClick }) => {
   const getPageSubtitle = () => {
     const path = location.pathname;
 
-    if (path === "/dashboard" || path === "/") {
+    if (path === "/admin/dashboard" || path === "/admin" || path === "/admin/") {
       return "Command Center";
-    } else if (path === "/employees") {
+    } else if (path === "/admin/employees") {
       return "Manage employee records";
-    } else if (path === "/organizations") {
+    } else if (path === "/admin/organizations") {
       return "Manage company profiles";
-    } else if (path === "/agreements") {
+    } else if (path === "/admin/agreements") {
       return "Manage contracts and agreements";
-    } else if (path === "/attendances") {
+    } else if (path === "/admin/attendances") {
       return "Track employee attendance";
-    } else if (path === "/leaves") {
+    } else if (path === "/admin/leaves") {
       return "Manage leave requests";
-    } else if (path === "/reports") {
+    } else if (path === "/admin/reports") {
       return "View analytics and reports";
-    } else if (path === "/settings") {
+    } else if (path.includes("/admin/payroll")) {
+      return "Configure employee salary, country-wise work splits, and deductions";
+    } else if (path === "/admin/role-management") {
+      return "Assign roles and module permissions";
+    } else if (path === "/admin/settings") {
       return "Configure system settings";
-    } else if (path.includes("/reports/")) {
+    } else if (path.includes("/admin/reports/")) {
       return "Detailed report view";
     } else {
       return "HR Management System";
@@ -222,21 +231,19 @@ const Header = ({ onMenuClick }) => {
           <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full p-1">
             <button
               onClick={() => toggleTheme("light")}
-              className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${
-                theme === "light"
-                  ? "bg-white dark:bg-gray-800 shadow-md text-green-500"
-                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
+              className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${theme === "light"
+                ? "bg-white dark:bg-gray-800 shadow-md text-green-500"
+                : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
             >
               <i className="fas fa-sun text-xs md:text-sm"></i>
             </button>
             <button
               onClick={() => toggleTheme("dark")}
-              className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${
-                theme === "dark"
-                  ? "bg-white dark:bg-gray-800 shadow-md text-green-500"
-                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
+              className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${theme === "dark"
+                ? "bg-white dark:bg-gray-800 shadow-md text-green-500"
+                : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
             >
               <i className="fas fa-moon text-xs md:text-sm"></i>
             </button>
@@ -279,11 +286,10 @@ const Header = ({ onMenuClick }) => {
                     notifications.map((notification) => (
                       <div
                         key={notification.id}
-                        className={`p-3 border-b border-gray-200 dark:border-gray-700 cursor-pointer transition-colors ${
-                          !notification.read
-                            ? "bg-green-50 dark:bg-green-900/20"
-                            : ""
-                        } hover:bg-gray-50 dark:hover:bg-gray-700`}
+                        className={`p-3 border-b border-gray-200 dark:border-gray-700 cursor-pointer transition-colors ${!notification.read
+                          ? "bg-green-50 dark:bg-green-900/20"
+                          : ""
+                          } hover:bg-gray-50 dark:hover:bg-gray-700`}
                         onClick={() => handleMarkAsRead(notification.id)}
                       >
                         <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
