@@ -6,6 +6,9 @@ import EntriesSelector from "../common/EntriesSelector";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
 import { fetchEmployeeDetailsReport } from "../../store/slices/reportSlice";
+import { exportToCSV, formatDate } from "../../../utils/reportUtils";
+import { generateEmployeeDetailsPDF } from "../../../utils/reportPDFConfigs";
+import ExportModal from "../../../components/common/ExportModal";
 
 const EmployeeDetailsReport = () => {
   const dispatch = useDispatch();
@@ -157,6 +160,29 @@ const EmployeeDetailsReport = () => {
   const start = (currentPage - 1) * perPage;
   const pageEmployees = filteredEmployees.slice(start, start + perPage);
 
+    const getExportData = () => {
+    // Use the same filteredEmployees data
+    return filteredEmployees.map(emp => ({
+      emp_id: emp.emp_id,
+      name: emp.name,
+      company_name: emp.company_name,
+      department_name: emp.department_name,
+      designation_name: emp.designation_name,
+      passport_no: emp.passport_no,
+      passport_expiry: emp.passport_expiry ? new Date(emp.passport_expiry).toLocaleDateString() : "-",
+      visa_no: emp.visa_no,
+      visa_expiry: emp.visa_expiry ? new Date(emp.visa_expiry).toLocaleDateString() : "-",
+      labor_no: emp.labor_no,
+      labor_expiry: emp.labor_expiry ? new Date(emp.labor_expiry).toLocaleDateString() : "-",
+      eid_no: emp.eid_no,
+      eid_expiry: emp.eid_expiry ? new Date(emp.eid_expiry).toLocaleDateString() : "-",
+      joining_date: emp.joining_date ? new Date(emp.joining_date).toLocaleDateString() : "-",
+      email: emp.email,
+      phone: emp.phone,
+      status: emp.status,
+    }));
+  };
+
   const handleResetFilters = () => {
     setSelectedCompany("");
     setSelectedDepartment("");
@@ -166,98 +192,37 @@ const EmployeeDetailsReport = () => {
     showToast("Filters reset successfully", "success");
   };
 
-  const handleExport = () => {
-    try {
-      const dataToExport = filteredEmployees;
+  const handleExport = async (format) => {
+    const exportData = getExportData();
+    const headers = [
+      { key: "emp_id", label: "Emp ID" },
+      { key: "name", label: "Name" },
+      { key: "company_name", label: "Company" },
+      { key: "department_name", label: "Department" },
+      { key: "designation_name", label: "Designation" },
+      { key: "passport_no", label: "Passport No" },
+      { key: "passport_expiry", label: "Passport Expiry" },
+      { key: "visa_no", label: "Visa No" },
+      { key: "visa_expiry", label: "Visa Expiry" },
+      { key: "labor_no", label: "Labor No" },
+      { key: "labor_expiry", label: "Labor Expiry" },
+      { key: "eid_no", label: "EID No" },
+      { key: "eid_expiry", label: "EID Expiry" },
+      { key: "joining_date", label: "Joining Date" },
+      { key: "email", label: "Email" },
+      { key: "phone", label: "Phone" },
+      { key: "status", label: "Status" },
+    ];
 
-      if (dataToExport.length === 0) {
-        showToast("No data to export", "warning");
-        return;
-      }
-
-      const headers = [
-        "Emp ID",
-        "Name",
-        "Company",
-        "Department",
-        "Designation",
-        "Passport No",
-        "Passport Expiry",
-        "Visa No",
-        "Visa Expiry",
-        "Labor No",
-        "Labor Expiry",
-        "EID No",
-        "EID Expiry",
-        "Joining Date",
-        "Email",
-        "Phone",
-        "Status",
-      ];
-
-      const rows = dataToExport.map((emp) => [
-        emp.emp_id,
-        emp.name,
-        emp.company_name,
-        emp.department_name,
-        emp.designation_name,
-        emp.passport_no,
-        emp.passport_expiry
-          ? new Date(emp.passport_expiry).toLocaleDateString()
-          : "-",
-        emp.visa_no,
-        emp.visa_expiry ? new Date(emp.visa_expiry).toLocaleDateString() : "-",
-        emp.labor_no,
-        emp.labor_expiry
-          ? new Date(emp.labor_expiry).toLocaleDateString()
-          : "-",
-        emp.eid_no,
-        emp.eid_expiry ? new Date(emp.eid_expiry).toLocaleDateString() : "-",
-        emp.joining_date
-          ? new Date(emp.joining_date).toLocaleDateString()
-          : "-",
-        emp.email,
-        emp.phone,
-        emp.status,
-      ]);
-
-      const csvContent = [
-        headers.join(","),
-        ...rows.map((row) =>
-          row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
-        ),
-      ].join("\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute(
-        "download",
-        `employee_details_${new Date().toISOString().split("T")[0]}.csv`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      showToast("Employee details exported successfully!", "success");
-      setShowExportModal(false);
-    } catch (error) {
-      console.error("Export error:", error);
-      showToast("Failed to export data", "error");
+    if (format === "csv") {
+      exportToCSV(exportData, headers, `employee_details_${new Date().toISOString().split("T")[0]}.csv`);
+    } else if (format === "pdf") {
+      generateEmployeeDetailsPDF(filteredEmployees, {
+        company: selectedCompany,
+        department: selectedDepartment,
+        status: selectedStatus !== "all" ? selectedStatus : null,
+      });
     }
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "-";
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return "-";
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
   };
 
   const getExpiryClass = (expiryDate) => {
@@ -672,6 +637,14 @@ const EmployeeDetailsReport = () => {
           </div>
         </div>
       )}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        onExport={handleExport}
+        title="Export Employee Details"
+        totalRecords={filteredEmployees.length}
+        formats={["csv", "pdf"]}
+      />
     </div>
   );
 };
