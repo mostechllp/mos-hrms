@@ -11,6 +11,7 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import { useSelector } from "react-redux";
+import { useAppTheme } from "../../../context/ThemeContext";
 
 ChartJS.register(
   CategoryScale,
@@ -25,18 +26,56 @@ ChartJS.register(
 
 const AttendanceChart = () => {
   const { charts } = useSelector((state) => state.dashboard);
+  const { primaryColor, themeMode } = useAppTheme();
+  
+  // Helper function to adjust color brightness for better contrast
+  const adjustColor = (color, percent) => {
+    let r, g, b;
+    if (color.startsWith('#')) {
+      r = parseInt(color.slice(1, 3), 16);
+      g = parseInt(color.slice(3, 5), 16);
+      b = parseInt(color.slice(5, 7), 16);
+    } else {
+      return color;
+    }
+    
+    r = Math.max(0, Math.min(255, r + (r * percent) / 100));
+    g = Math.max(0, Math.min(255, g + (g * percent) / 100));
+    b = Math.max(0, Math.min(255, b + (b * percent) / 100));
+    
+    return `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`;
+  };
+
+  // Create dynamic colors based on primary theme color
+  const lineColor = primaryColor;
+  const fillColor = `${primaryColor}33`; // 20% opacity
+  const pointColor = primaryColor;
+  const pointBorderColor = primaryColor;
+  const tooltipBgColor = primaryColor;
+  
+  // For dark mode, adjust grid color
+  const gridColor = themeMode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+  
+  // For axis text color
+  const axisTextColor = themeMode === 'dark' ? '#9ca3af' : '#6b7280';
+
   const data = {
     labels: charts?.weekly_attendance?.labels || [],
     datasets: [
       {
         label: "Present",
         data: charts?.weekly_attendance?.data || [],
-        borderColor: "#22c55e", //line color
-        backgroundColor: "#22c55e33", //light fill under line
-        fill: true, // enables area fill
-        tension: 0.4, // smooth curve
-        pointBackgroundColor: "#22c55e",
-        pointBorderColor: "#22c55e",
+        borderColor: lineColor,
+        backgroundColor: fillColor,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: pointColor,
+        pointBorderColor: pointBorderColor,
+        pointHoverBackgroundColor: adjustColor(primaryColor, -20),
+        pointHoverBorderColor: adjustColor(primaryColor, -20),
+        borderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
       },
     ],
   };
@@ -49,18 +88,25 @@ const AttendanceChart = () => {
         display: false,
       },
       tooltip: {
-        backgroundColor: "#2ecc71",
+        backgroundColor: tooltipBgColor,
+        titleColor: '#ffffff',
+        bodyColor: '#ffffff',
+        padding: 8,
+        cornerRadius: 8,
+        displayColors: false,
       },
     },
     scales: {
       x: {
         grid: {
           display: false,
+          drawBorder: true,
         },
         ticks: {
           font: {
             size: 10,
           },
+          color: axisTextColor,
         },
       },
       y: {
@@ -70,9 +116,11 @@ const AttendanceChart = () => {
           font: {
             size: 10,
           },
+          color: axisTextColor,
         },
         grid: {
-          color: "rgba(0,0,0,0.05)",
+          color: gridColor,
+          drawBorder: true,
         },
       },
     },
@@ -89,7 +137,13 @@ const AttendanceChart = () => {
             Daily presence trend for the last 7 days
           </p>
         </div>
-        <select className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300">
+        <select 
+          className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300"
+          style={{ 
+            borderColor: primaryColor,
+            outline: `none`
+          }}
+        >
           <option>Last 7 Days</option>
         </select>
       </div>

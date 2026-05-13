@@ -13,6 +13,11 @@ export default {
   theme: {
     extend: {
       colors: {
+        green: {
+          50: 'var(--primary-very-light)',
+          500: 'var(--primary-color)',
+          600: 'var(--primary-dark)',
+        },
         // Admin theme colors
         primary: {
           50: '#e8f5e9',

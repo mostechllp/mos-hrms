@@ -218,7 +218,7 @@ const EmployeeDetails = () => {
                   className="w-24 h-24 rounded-full object-cover border-2 border-green-100 shadow-md"
                 />
               ) : (
-                <div className="w-24 h-24 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-md">
+                <div className="w-24 h-24 gradient-heading rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-md">
                   {currentEmployee.first_name?.charAt(0)}
                   {currentEmployee.last_name?.charAt(0)}
                 </div>

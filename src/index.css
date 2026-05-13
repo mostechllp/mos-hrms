@@ -40,6 +40,28 @@
 }
 
 @layer components {
+  /* Dynamic gradient text - FIXED VERSION */
+  .gradient-heading {
+    background: linear-gradient(
+      135deg,
+      #1f2937,
+      var(--primary-color)
+    ) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    color: transparent !important;
+  }
+
+  .dark .gradient-heading {
+    background: linear-gradient(
+      135deg,
+      #e5e7eb,
+      var(--primary-color)
+    ) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    color: transparent !important;
+  }
   .sidebar-item {
     @apply flex items-center gap-3 px-5 py-3 mx-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden;
   }
@@ -61,7 +83,12 @@
   }
 
   .btn-primary {
-    @apply bg-green-500 hover:bg-green-600 text-white font-semibold px-5 py-2.5 rounded-full transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow;
+    @apply text-white font-semibold px-5 py-2.5 rounded-full transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow;
+    background-color: var(--primary-color);
+  }
+
+  .btn-primary:hover {
+    background-color: var(--primary-dark);
   }
 
   .btn-secondary {
@@ -99,11 +126,15 @@
     max-height: 200px !important;
   }
 
-  h1, h2, h3 {
+  h1,
+  h2,
+  h3 {
     word-break: break-word;
   }
 
-  button, [role="button"], .clickable {
+  button,
+  [role="button"],
+  .clickable {
     min-height: 44px;
     min-width: 44px;
   }
@@ -126,7 +157,9 @@
 
 /* Prevent zoom on input focus for mobile */
 @media (max-width: 768px) {
-  input, select, textarea {
+  input,
+  select,
+  textarea {
     font-size: 16px !important;
   }
 }
@@ -192,7 +225,6 @@
   color: #e74c3c;
 }
 
-
 @layer base {
   :root {
     --green: #2ecc71;
@@ -219,6 +251,12 @@
     --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
     --radius: 18px;
     --radius-sm: 10px;
+    --primary-color: #2ecc71;
+    --primary-dark: #1a9e52;
+    --primary-light: #6fdf93;
+    --primary-very-light: #d4f7e4;
+    --primary-gradient: linear-gradient(135deg, #2ecc71, #1a9e52);
+    --primary-glow: rgba(46, 204, 113, 0.12);
   }
 
   [data-theme="dark"] {
@@ -233,6 +271,76 @@
     --sidebar-text: rgba(255, 255, 255, 0.65);
     --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  .bg-green-500 {
+    background-color: var(--primary-color) !important;
+  }
+
+  .bg-green-600 {
+    background-color: var(--primary-dark) !important;
+  }
+
+  .bg-green-50 {
+    background-color: var(--primary-very-light) !important;
+  }
+
+  .bg-gradient-to-r.from-green-500.to-green-600 {
+    background: var(--primary-gradient) !important;
+  }
+
+  .text-green-500,
+  .text-green-600,
+  i.text-green-500,
+  i.text-green-600 {
+    color: var(--primary-color) !important;
+  }
+
+  .text-green-500.hover\:text-green-600:hover {
+    color: var(--primary-dark) !important;
+  }
+
+  .border-green-500 {
+    border-color: var(--primary-color) !important;
+  }
+
+  .focus\:ring-green-500:focus {
+    --tw-ring-color: var(--primary-color) !important;
+  }
+
+  .focus\:border-green-500:focus {
+    border-color: var(--primary-color) !important;
+  }
+
+  .ring-green-500 {
+    --tw-ring-color: var(--primary-color) !important;
+  }
+
+  .accent-green-500 {
+    accent-color: var(--primary-color) !important;
+  }
+
+  /* Sidebar active state */
+  .sidebar-item.active i {
+    color: var(--primary-color) !important;
+  }
+
+  .sidebar-item.active {
+    background-color: var(--primary-glow) !important;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    background-color: var(--primary-color) !important;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--primary-dark) !important;
+  }
+
+  /* Notification badge */
+  .notification-badge {
+    background-color: var(--primary-color) !important;
   }
 
   * {
@@ -255,6 +363,29 @@
 }
 
 @layer components {
+  /* Dynamic gradient text - FIXED VERSION */
+  .gradient-heading {
+    background: linear-gradient(
+      135deg,
+      #1f2937,
+      var(--primary-color)
+    ) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    color: transparent !important;
+  }
+
+  .dark .gradient-heading {
+    background: linear-gradient(
+      135deg,
+      #e5e7eb,
+      var(--primary-color)
+    ) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    color: transparent !important;
+  }
+
   /* Sidebar Styles */
   .sidebar {
     width: 72px;
