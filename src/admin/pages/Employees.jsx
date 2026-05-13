@@ -1,10 +1,6 @@
-// src/admin/pages/Employees.jsx (Fixed - without duplicate header)
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-// Remove these imports - they're now in AdminLayout
-// import Sidebar from "../components/common/Sidebar";
-// import Header from "../components/common/Header";
 import SearchBar from "../components/common/SearchBar";
 import EntriesSelector from "../components/common/EntriesSelector";
 import { showToast } from "../../components/common/Toast";
