@@ -50,6 +50,7 @@ const AdminWFH = lazy(() => import("./admin/pages/WFH"));
 const Settings = lazy(() => import("./admin/pages/Settings"));
 const RoleManagement = lazy(() => import("./admin/pages/RoleManagement"));
 const AddPayroll = lazy(() => import("./admin/pages/AddPayroll"));
+const Onboarding = lazy(() => import("./pages/onboarding/Onboarding"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -112,6 +113,7 @@ function App() {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="employees" element={<Employees />} />
         <Route path="employees/add-employee" element={<AddEmployee />} />
+        <Route path="employees/onboarding" element={<Onboarding />} /> {/* Added from onboarding/jeevan branch */}
         <Route path="employees/edit/:id" element={<EditEmployee />} />
         <Route path="employees/:id" element={<EmployeeDetails />} />
         <Route path="organizations" element={<Organizations />} />
