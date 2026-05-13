@@ -176,16 +176,7 @@ const Companies = () => {
           </div>
           <Link
             to={`/admin/organizations/${organizationId}/add-company`}
-            state={{
-              organizationId,
-              organizationName: currentOrganizationName || organization?.name,
-            }}
-            className="bg-green-500 hover:bg-green-600 text-white 
-             px-3 py-1.5 md:px-4 md:py-2 
-             text-xs md:text-sm 
-             rounded-full font-semibold 
-             flex items-center gap-1.5 md:gap-2 
-             transition-all shadow-md hover:shadow-lg"
+            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm rounded-full font-semibold flex items-center gap-1.5 md:gap-2 transition-all shadow-md hover:shadow-lg"
           >
             <i className="fas fa-plus-circle text-xs md:text-sm"></i>
             <span className="hidden sm:inline">Add Company</span>
@@ -315,7 +306,7 @@ const Companies = () => {
                         <td className="px-3 md:px-4 py-2 md:py-3">
                           <div className="flex gap-1 md:gap-2">
                             <Link
-                              to={`/organizations/${organizationId}/edit-company/${company.id}`}
+                              to={`/admin/organizations/${organizationId}/edit-company/${company.id}`}
                               state={{
                                 organizationName:
                                   currentOrganizationName || organization?.name,
