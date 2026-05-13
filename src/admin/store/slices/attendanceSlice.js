@@ -122,7 +122,7 @@ export const fetchAttendanceRecords = createAsyncThunk(
   "attendance/fetchAll",
   async (params = {}, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get(`/admin/attendance`, { params });
+      const response = await apiClient.get(`/admin/reports/attendance`, { params });
       console.log("Attendance records response:", response.data);
       const result = extractAttendanceRecords(response);
       const stats = extractStats(response);
