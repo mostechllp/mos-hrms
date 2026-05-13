@@ -6,11 +6,8 @@ import EntriesSelector from "../common/EntriesSelector";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
 import ConfirmModal from "../common/ConfirmModal";
-import {
-  clearError,
-  fetchLeaves,
-  updateLeaveStatus,
-} from "../../store/slices/LeaveSlice";
+import { clearError, updateLeaveStatus } from "../../store/slices/LeaveSlice";
+import { fetchPendingLeavesReport } from "../../store/slices/reportSlice";
 
 const PendingLeavesReport = () => {
   const dispatch = useDispatch();
@@ -39,7 +36,14 @@ const PendingLeavesReport = () => {
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchLeaves());
+    dispatch(
+      fetchPendingLeavesReport({
+        page: currentPage,
+        per_page: perPage,
+        start_date: "2024-01-01",
+        end_date: "2024-01-31",
+      }),
+    );
   }, [dispatch]);
 
   // Handle errors
@@ -200,7 +204,14 @@ const PendingLeavesReport = () => {
       setRejectionReason("");
       setActionType(null);
       // Refresh the list
-      dispatch(fetchLeaves());
+      dispatch(
+        fetchPendingLeavesReport({
+          page: currentPage,
+          per_page: perPage,
+          start_date: "2024-01-01",
+          end_date: "2024-01-31",
+        }),
+      );
     } else {
       showToast(
         result.payload || `Failed to ${actionType} leave request`,
