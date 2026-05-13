@@ -104,6 +104,33 @@ export const updateLeaveStatus = createAsyncThunk(
   },
 );
 
+export const fetchLeaveBalances = createAsyncThunk(
+  "leaves/fetchBalances",
+  async ({ employee_id }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(`/admin/leave-allocations/${employee_id}`);
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch leave balances");
+    }
+  }
+);
+
+export const updateLeaveAllocation = createAsyncThunk(
+  "leaves/updateAllocation",
+  async ({ employee_id, leave_type, allocated }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.put(`/admin/leave-allocations/${employee_id}`, {
+        leave_type,
+        allocated
+      });
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to update allocation");
+    }
+  }
+);
+
 // Leave Types
 export const fetchLeaveTypes = createAsyncThunk(
   "leaves/fetchTypes",

@@ -32,6 +32,8 @@ const AddDocument = lazy(() => import("./admin/pages/AddDocument"));
 const Attendances = lazy(() => import("./admin/pages/Attendances"));
 const Leaves = lazy(() => import("./admin/pages/Leaves"));
 const LeaveTypeManagement = lazy(() => import("./admin/pages/LeaveTypeManagement"));
+const LeaveAllocations = lazy(() => import("./admin/pages/LeaveAllocations"));
+const EditLeaveAllocation = lazy(() => import("./admin/pages/EditLeaveAllocation"));
 const Designations = lazy(() => import("./admin/pages/Designations"));
 const Departments = lazy(() => import("./admin/pages/Departments"));
 const TaskReports = lazy(() => import("./admin/pages/TaskReports"));
@@ -119,6 +121,8 @@ function App() {
             <Route path="reports/organization-upcoming-renewals" element={<OrgUpcomingRenewalReport />} />
             <Route path="leaves" element={<Leaves />} />
             <Route path="leaves/leave-types" element={<LeaveTypeManagement />} />
+            <Route path="leaves/allocations" element={<LeaveAllocations />} />
+            <Route path="leaves/allocations/:id" element={<EditLeaveAllocation />} />
             <Route path="wfh" element={<AdminWFH />} />
             <Route path="settings" element={<Settings />} />
           </Route>
