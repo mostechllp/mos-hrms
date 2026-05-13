@@ -1,10 +1,6 @@
-// src/admin/pages/Employees.jsx (Fixed - without duplicate header)
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-// Remove these imports - they're now in AdminLayout
-// import Sidebar from "../components/common/Sidebar";
-// import Header from "../components/common/Header";
 import SearchBar from "../components/common/SearchBar";
 import EntriesSelector from "../components/common/EntriesSelector";
 import { showToast } from "../../components/common/Toast";
@@ -21,17 +17,17 @@ const Employees = () => {
   const { employees = [], loading } = useSelector(
     (state) => state.employees || { employees: [] },
   );
-  
+
   // Local state for filtering and pagination
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  
+
   // Remove sidebar related state
   // const [sidebarOpen, setSidebarOpen] = useState(false);
   // const [isMobile, setIsMobile] = useState(false);
-  
+
   // Confirm modal states
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -54,7 +50,7 @@ const Employees = () => {
   // Filter employees based on status and search term
   const getFilteredEmployees = () => {
     let filtered = Array.isArray(employees) ? employees : [];
-    
+
     if (statusFilter !== "all") {
       filtered = filtered.filter((emp) => emp.status === statusFilter);
     }
@@ -97,10 +93,10 @@ const Employees = () => {
 
   const handleConfirmDelete = async () => {
     if (!selectedEmployee) return;
-    
+
     setDeleteLoading(true);
     const result = await dispatch(deleteEmployee(selectedEmployee.id));
-    
+
     if (deleteEmployee.fulfilled.match(result)) {
       showToast(`${selectedEmployee.name} deleted successfully`, "success");
       setConfirmOpen(false);
@@ -109,7 +105,7 @@ const Employees = () => {
     } else {
       showToast("Failed to delete employee", "error");
     }
-    
+
     setDeleteLoading(false);
   };
 
@@ -202,31 +198,28 @@ const Employees = () => {
         <div className="flex gap-2 w-full sm:w-auto">
           <button
             onClick={() => handleStatusFilter("all")}
-            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${
-              statusFilter === "all"
+            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${statusFilter === "all"
                 ? "bg-green-500 text-white shadow-md"
                 : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
+              }`}
           >
             All
           </button>
           <button
             onClick={() => handleStatusFilter("Active")}
-            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${
-              statusFilter === "Active"
+            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${statusFilter === "Active"
                 ? "bg-green-500 text-white shadow-md"
                 : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
+              }`}
           >
             Active
           </button>
           <button
             onClick={() => handleStatusFilter("Inactive")}
-            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${
-              statusFilter === "Inactive"
+            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${statusFilter === "Inactive"
                 ? "bg-green-500 text-white shadow-md"
                 : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
+              }`}
           >
             Inactive
           </button>
@@ -249,11 +242,18 @@ const Employees = () => {
             placeholder="Search by name, designation or department..."
           />
           <Link
+            to="/admin/employees/onboarding"
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+          >
+            <i className="fas fa-user-plus"></i> Onboarding
+          </Link>
+          <Link
             to="/admin/employees/add-employee"
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
           >
             <i className="fas fa-plus-circle"></i> Add Employee
           </Link>
+
         </div>
       </div>
 

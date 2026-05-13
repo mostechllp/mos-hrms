@@ -87,7 +87,10 @@ const Header = ({ onMenuClick }) => {
       return "Settings";
     } else if (path.includes("/admin/employees/add-employee")) {
       return "Add Employee";
+    } else if (path.includes("/admin/employees/onboarding")) {
+      return "Onboarding";
     } else if (path.includes("/admin/employees/edit")) {
+
       return "Edit Employee";
     } else if (path.includes("/admin/employees/")) {
       return "Employee Details";

@@ -69,6 +69,9 @@ const OrgUpcomingRenewalReport = lazy(
 );
 const AdminWFH = lazy(() => import("./admin/pages/WFH"));
 const Settings = lazy(() => import("./admin/pages/Settings"));
+const RoleManagement = lazy(() => import("./admin/pages/RoleManagement"));
+const AddPayroll = lazy(() => import("./admin/pages/AddPayroll"));
+const Onboarding = lazy(() => import("./pages/onboarding/Onboarding"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -136,6 +139,7 @@ function App() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="employees" element={<Employees />} />
           <Route path="employees/add-employee" element={<AddEmployee />} />
+          <Route path="employees/onboarding" element={<Onboarding />} />
           <Route path="employees/edit/:id" element={<EditEmployee />} />
           <Route path="employees/:id" element={<EmployeeDetails />} />
           <Route path="organizations" element={<Organizations />} />
@@ -210,8 +214,10 @@ function App() {
             path="leaves/allocations/:id"
             element={<EditLeaveAllocation />}
           />
+          <Route path="payroll/add" element={<AddPayroll />} />
           <Route path="wfh" element={<AdminWFH />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="role-management" element={<RoleManagement />} />
         </Route>
 
         {/* Employee Routes */}

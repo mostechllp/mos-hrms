@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
@@ -19,7 +19,6 @@ const AddEmployee = () => {
   const [loading, setLoading] = useState(false);
   const [, setVisitedSteps] = useState([0]);
   const [stepErrors, setStepErrors] = useState({});
-  // Add this state at the top of AddEmployee component
   const [uploadingFiles, setUploadingFiles] = useState({});
   // Document file states
   const [documents, setDocuments] = useState({
@@ -58,8 +57,6 @@ const AddEmployee = () => {
     watch,
     formState: { errors },
     trigger,
-    // eslint-disable-next-line no-unused-vars
-    setValue,
   } = useForm({
     defaultValues: {
       // Step 1: Basic Info
@@ -71,12 +68,13 @@ const AddEmployee = () => {
       department_id: "",
       employee_id: "",
       type: "employee",
+      total_leaves_allocated: 30,
       joining_date: "",
       dob: "",
       gender: "male",
       nationality: "",
       marital_status: "",
-      special_days: [{ name: "", date: "" }], // Changed to array of objects
+      special_days: [{ name: "", date: "" }],
       username: "",
 
       // Step 2: Passport Details
@@ -141,16 +139,6 @@ const AddEmployee = () => {
     dispatch(fetchDepartments());
   }, [dispatch]);
 
-  // useEffect(() => {
-  //   if (currentEmployee) {
-  //     console.log("Photo fields:", {
-  //       passport_size_photo: currentEmployee.passport_size_photo,
-  //       profile_photo: currentEmployee.profile_photo,
-  //       photo: currentEmployee.photo,
-  //       user_photo: currentEmployee.user?.photo,
-  //     });
-  //   }
-  // }, [currentEmployee]);
   // Fetch companies when organization changes
   useEffect(() => {
     if (watchOrganizationId) {
@@ -206,6 +194,7 @@ const AddEmployee = () => {
           "designation_id",
           "department_id",
           "type",
+          "total_leaves_allocated",
         ];
       case 1:
         return ["passport_issued_date", "passport_expiry_date"];
@@ -219,7 +208,7 @@ const AddEmployee = () => {
       case 3:
         return ["eid_issued_date", "eid_expiry_date"];
       case 4:
-        return ["personal_email", "type"];
+        return ["company_email", "personal_email", "type"];
       default:
         return [];
     }
@@ -295,21 +284,17 @@ const AddEmployee = () => {
             className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors flex items-center gap-2 disabled:opacity-60"
           >
             {isUploading ? (
-              <>
-                <i className="fas fa-spinner fa-spin"></i> Uploading...
-              </>
+              <><i className="fas fa-spinner fa-spin"></i> Uploading...</>
             ) : (
-              <>
-                <i className="fas fa-upload"></i> Choose File
-              </>
+              <><i className="fas fa-upload"></i> Choose File</>
             )}
           </button>
           <span className="text-sm text-gray-500 truncate flex-1">
             {isUploading
               ? "Uploading file..."
               : documents[fieldKey]
-                ? "File uploaded ✓"
-                : "No file chosen"}
+              ? "File uploaded ✓"
+              : "No file chosen"}
           </span>
         </div>
         {documentPreviews[fieldKey] && documentPreviews[fieldKey] !== "pdf" && (
@@ -349,92 +334,55 @@ const AddEmployee = () => {
           </div>
         )}
         <p className="text-xs text-gray-400 mt-2">
-          <i className="fas fa-info-circle mr-1"></i> Max size: 5MB. Allowed:
-          JPG, PNG, PDF
+          <i className="fas fa-info-circle mr-1"></i> Max size: 5MB. Allowed: JPG, PNG, PDF
         </p>
       </div>
     );
   };
 
-  // const handleFileChange = (fieldKey, file) => {
-  //   if (file) {
-  //     const fileSize = file.size / 1024 / 1024;
-  //     if (fileSize > 5) {
-  //       showToast(`${fieldKey} file must be less than 5MB`, "error");
-  //       return;
-  //     }
-
-  //     setDocuments({ ...documents, [fieldKey]: file });
-
-  //     const reader = new FileReader();
-  //     reader.onload = (event) => {
-  //       const base64String = event.target.result;
-  //       setDocumentPreviews({
-  //         ...documentPreviews,
-  //         [fieldKey]: base64String,
-  //       });
-  //       setDocuments((prev) => ({
-  //         ...prev,
-  //         [fieldKey]: base64String,
-  //       }));
-  //     };
-  //     reader.readAsDataURL(file);
-  //   }
-  // };
-
-  // Replace the entire handleFileChange function
-  // Replace the fetch call with apiClient
   const handleFileChange = async (fieldKey, file) => {
     if (!file) return;
-
+    
     const fileSize = file.size / 1024 / 1024;
-    const maxSize = fieldKey === "avatar" ? 2 : 5;
+    const maxSize = fieldKey === 'avatar' ? 2 : 5;
     if (fileSize > maxSize) {
-      showToast(`File must be less than ${maxSize}MB`, "error");
+      showToast(`File must be less than ${maxSize}MB`, 'error');
       return;
     }
 
-    if (file.type.startsWith("image/")) {
+    if (file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setDocumentPreviews((prev) => ({
-          ...prev,
-          [fieldKey]: e.target.result,
-        }));
+        setDocumentPreviews(prev => ({ ...prev, [fieldKey]: e.target.result }));
       };
       reader.readAsDataURL(file);
     } else {
-      setDocumentPreviews((prev) => ({ ...prev, [fieldKey]: "pdf" }));
+      setDocumentPreviews(prev => ({ ...prev, [fieldKey]: 'pdf' }));
     }
 
-    setUploadingFiles((prev) => ({ ...prev, [fieldKey]: true }));
+    setUploadingFiles(prev => ({ ...prev, [fieldKey]: true }));
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append('file', file);
 
-      const response = await apiClient.post(
-        "/admin/employees/upload-temp",
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        },
-      );
+      const response = await apiClient.post('/admin/employees/upload-temp', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
 
       const result = response.data;
 
       if (result.status && result.path) {
-        console.log("Setting document path:", fieldKey, result.path);
-        setDocuments((prev) => ({ ...prev, [fieldKey]: result.path }));
-        showToast(`Uploaded successfully`, "success");
+        setDocuments(prev => ({ ...prev, [fieldKey]: result.path }));
+        showToast(`Uploaded successfully`, 'success');
       } else {
-        showToast(`Failed to upload`, "error");
-        setDocumentPreviews((prev) => ({ ...prev, [fieldKey]: null }));
+        showToast(`Failed to upload`, 'error');
+        setDocumentPreviews(prev => ({ ...prev, [fieldKey]: null }));
       }
     } catch (error) {
-      showToast(`Upload failed: ${error.message}`, "error");
-      setDocumentPreviews((prev) => ({ ...prev, [fieldKey]: null }));
+      showToast(`Upload failed: ${error.message}`, 'error');
+      setDocumentPreviews(prev => ({ ...prev, [fieldKey]: null }));
     } finally {
-      setUploadingFiles((prev) => ({ ...prev, [fieldKey]: false }));
+      setUploadingFiles(prev => ({ ...prev, [fieldKey]: false }));
     }
   };
 
@@ -481,35 +429,29 @@ const AddEmployee = () => {
   };
 
   const onSubmit = async (data) => {
-    console.log("Full form data:", data);
-    console.log("Username value:", data.username);
-    console.log("Username type:", typeof data.username);
     setLoading(true);
 
     const submitData = { ...data };
     submitData.organization_id = parseInt(data.organization_id);
     submitData.company_id = parseInt(data.company_id);
-    if (data.designation_id)
-      submitData.designation_id = parseInt(data.designation_id);
-    if (data.department_id)
-      submitData.department_id = parseInt(data.department_id);
+    if (data.designation_id) submitData.designation_id = parseInt(data.designation_id);
+    if (data.department_id) submitData.department_id = parseInt(data.department_id);
+    submitData.total_leaves_allocated = parseInt(data.total_leaves_allocated);
 
-    if (data.dependents !== undefined && data.dependents !== "") {
+    if (data.dependents !== undefined && data.dependents !== '') {
       submitData.dependents = String(data.dependents);
     }
 
     if (data.special_days && data.special_days.length > 0) {
-      const validSpecialDays = data.special_days.filter(
-        (day) => day.name && day.date,
-      );
+      const validSpecialDays = data.special_days.filter(day => day.name && day.date);
       submitData.special_days = JSON.stringify(validSpecialDays);
     } else {
       submitData.special_days = null;
     }
 
-    // ✅ Include temp paths directly in the main employee save
+    // Include temp paths directly in the main employee save
     const keyMap = {
-      avatar: "avatar_path", // change 'avatar_path' to whatever your backend expects
+      avatar: 'avatar_path',
     };
 
     Object.keys(documents).forEach((key) => {
@@ -523,17 +465,13 @@ const AddEmployee = () => {
     setLoading(false);
 
     if (addEmployee.fulfilled.match(result)) {
-      showToast(
-        `✓ Employee "${data.first_name} ${data.last_name || ""}" added successfully!`,
-        "success",
-      );
+      showToast(`✓ Employee "${data.first_name} ${data.last_name || ""}" added successfully!`, "success");
       navigate("/employees");
     } else {
       const errorPayload = result.payload;
       if (errorPayload && errorPayload.errors) {
         const errorMessages = Object.entries(errorPayload.errors).map(
-          ([field, messages]) =>
-            `${field}: ${Array.isArray(messages) ? messages[0] : messages}`,
+          ([field, messages]) => `${field}: ${Array.isArray(messages) ? messages[0] : messages}`
         );
         showToast(errorMessages.join("\n"), "error");
       } else if (typeof errorPayload === "string") {
@@ -572,7 +510,6 @@ const AddEmployee = () => {
       required: "User type is required",
     },
     company_email: {
-      // required removed, now optional
       pattern: {
         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
         message: "Invalid email address format",
@@ -584,6 +521,11 @@ const AddEmployee = () => {
         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
         message: "Invalid email address format",
       },
+    },
+    total_leaves_allocated: {
+      required: "Leave allocation is required",
+      min: { value: 0, message: "Leave allocation cannot be negative" },
+      max: { value: 365, message: "Leave allocation cannot exceed 365 days" },
     },
     username: {
       required: "Username is required",
@@ -1152,23 +1094,6 @@ const AddEmployee = () => {
                         </span>
                       </label>
                       <div className="flex items-start gap-4 flex-wrap">
-                        {/* <input
-                                type="file"
-                                id="doc_passport_size_photo"
-                                accept="image/png,image/jpeg,image/jpg,image/gif"
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  const file = e.target.files[0];
-                                  if (!file) return;
-                                  const fileSize = file.size / 1024 / 1024;
-                                  if (fileSize > 2) {
-                                    showToast("Passport size photo must be less than 2MB", "error");
-                                    return;
-                                  }
-                                  handleFileChange("passport_size_photo", file);
-                                }}
-                                className="hidden"
-                              /> */}
                         <input
                           type="file"
                           id="doc_avatar"
@@ -1192,15 +1117,11 @@ const AddEmployee = () => {
                         <button
                           type="button"
                           onClick={() =>
-                            // document.getElementById("doc_passport_size_photo").click()
                             document.getElementById("doc_avatar").click()
                           }
                           className="h-40 w-32 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:border-green-400 transition-colors flex items-center justify-center overflow-hidden"
                           aria-label="Upload passport size photo"
                         >
-                          {/* {documentPreviews.passport_size_photo ? (
-                                  <img
-                                    src={documentPreviews.passport_size_photo} */}
                           {documentPreviews.avatar ? (
                             <img
                               src={documentPreviews.avatar}
@@ -1218,7 +1139,6 @@ const AddEmployee = () => {
                           <button
                             type="button"
                             onClick={() =>
-                              // document.getElementById("doc_passport_size_photo").click()
                               document.getElementById("doc_avatar").click()
                             }
                             className="px-4 py-2 bg-white border border-green-200 text-green-600 rounded-full text-sm font-semibold hover:bg-green-50 transition-colors flex items-center gap-2"
@@ -1226,9 +1146,6 @@ const AddEmployee = () => {
                             <i className="fas fa-upload"></i> Upload Photo
                           </button>
                           <p className="text-sm text-gray-500 mt-2 truncate">
-                            {/* {documents.passport_size_photo
-                                    ? documents.passport_size_photo.name || "Photo selected"
-                                    : "No photo chosen"} */}
                             {documents.avatar
                               ? documents.avatar.name || "Photo selected"
                               : "No photo chosen"}
@@ -1243,13 +1160,6 @@ const AddEmployee = () => {
                       {documentPreviews.avatar && (
                         <button
                           type="button"
-                          // onClick={() => {
-                          //   setDocuments({ ...documents, passport_size_photo: null });
-                          //   setDocumentPreviews({
-                          //     ...documentPreviews,
-                          //     passport_size_photo: null,
-                          //   });
-                          // }}
                           onClick={() => {
                             setDocuments({ ...documents, avatar: null });
                             setDocumentPreviews({
