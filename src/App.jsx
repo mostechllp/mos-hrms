@@ -48,6 +48,8 @@ const OrgNearestExpiryReport = lazy(() => import("./admin/components/reports/Com
 const OrgUpcomingRenewalReport = lazy(() => import("./admin/components/reports/CompanyUpcomingRenewalsReport"));
 const AdminWFH = lazy(() => import("./admin/pages/WFH"));
 const Settings = lazy(() => import("./admin/pages/Settings"));
+const RoleManagement = lazy(() => import("./admin/pages/RoleManagement"));
+const AddPayroll = lazy(() => import("./admin/pages/AddPayroll"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -123,8 +125,10 @@ function App() {
             <Route path="leaves/leave-types" element={<LeaveTypeManagement />} />
             <Route path="leaves/allocations" element={<LeaveAllocations />} />
             <Route path="leaves/allocations/:id" element={<EditLeaveAllocation />} />
+            <Route path="payroll/add" element={<AddPayroll />} />
             <Route path="wfh" element={<AdminWFH />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="role-management" element={<RoleManagement />} />
           </Route>
 
           {/* Employee Routes - with EmployeeLayout */}
