@@ -192,7 +192,7 @@ const Employees = () => {
 
       {/* Header with Filters - Responsive */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
-        <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+        <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
           Employee Directory
         </h2>
         <div className="flex gap-2 w-full sm:w-auto">

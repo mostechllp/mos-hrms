@@ -3,9 +3,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { markAsRead, markAllRead } from "../../store/slices/notificationSlice";
 import { logoutUser } from "../../store/slices/authSlice";
-import { useTheme } from "../../hooks/useTheme";
 import { fetchNotifications } from "../../store/slices/notificationSlice";
 import ConfirmModal from "./ConfirmModal"; // Import the ConfirmModal component
+import ThemeCustomizer from "../../../components/common/ThemeCustomizer";
 
 const Header = ({ onMenuClick }) => {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -23,7 +23,6 @@ const Header = ({ onMenuClick }) => {
   const { notifications, unreadCount } = useSelector(
     (state) => state.notifications,
   );
-  const { theme, toggleTheme } = useTheme();
 
   // Get user's avatar URL
   const getUserAvatar = () => {
@@ -204,30 +203,7 @@ const Header = ({ onMenuClick }) => {
               <i className="far fa-calendar-alt mr-2"></i>
               <span>{currentDate}</span>
             </div>
-
-            {/* Theme Toggle */}
-            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full p-1">
-              <button
-                onClick={() => toggleTheme("light")}
-                className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${
-                  theme === "light"
-                    ? "bg-white dark:bg-gray-800 shadow-md text-green-500"
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                <i className="fas fa-sun text-xs md:text-sm"></i>
-              </button>
-              <button
-                onClick={() => toggleTheme("dark")}
-                className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${
-                  theme === "dark"
-                    ? "bg-white dark:bg-gray-800 shadow-md text-green-500"
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                <i className="fas fa-moon text-xs md:text-sm"></i>
-              </button>
-            </div>
+            <ThemeCustomizer />
 
             {/* Notification Bell */}
             <div className="relative" ref={notificationRef}>
