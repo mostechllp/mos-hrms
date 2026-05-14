@@ -86,8 +86,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   // Get user's role
   const getUserRole = () => {
     if (user?.type) return user.type.charAt(0).toUpperCase() + user.type.slice(1);
-    if (user?.role) return user.role;
-    if (user?.roles && user.roles.length > 0) return user.roles[0];
+    if (user?.role?.name) return user.role.name;        // ← fix: use .name
+    if (user?.role && typeof user.role === 'string') return user.role;
+    if (user?.roles && user.roles.length > 0) return typeof user.roles[0] === 'object' ? user.roles[0].name : user.roles[0];
     return "Administrator";
   };
 
