@@ -10,8 +10,6 @@ import {
   FiSave,
   FiRefreshCw,
   FiEdit2,
-  FiBriefcase,
-  FiCalendar,
   FiCheckCircle,
   FiLoader,
   FiAlertCircle,
