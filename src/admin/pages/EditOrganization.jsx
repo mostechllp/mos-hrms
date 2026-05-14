@@ -38,38 +38,38 @@ const EditOrganization = () => {
   useEffect(() => {
     if (organizations && organizations.length > 0 && id && !initialized) {
       const organization = organizations.find((org) => org.id === parseInt(id));
-      console.log("Found organization:", organization);
 
       if (organization) {
         const rawOrg = organization.raw || organization;
-
         // Handle multi_company value from API
         let multiCompanyValue = "No";
-        const multiCompany =
-          rawOrg.multi_company || rawOrg.has_multiple_companies;
 
-        if (
-          multiCompany === 1 ||
-          multiCompany === "1" ||
-          multiCompany === true ||
-          multiCompany === "true" ||
-          multiCompany === "Yes" ||
-          multiCompany === "yes"
-        ) {
-          multiCompanyValue = "Yes";
+        // Check has_multiple_companies (API field)
+        if (rawOrg.has_multiple_companies !== undefined) {
+          const val = rawOrg.has_multiple_companies;
+          if (val === true || val === 1 || val === "1" || val === "true") {
+            multiCompanyValue = "Yes";
+          }
+        }
+        // Fallback to multi_company (Redux field)
+        else if (rawOrg.multi_company !== undefined) {
+          const val = rawOrg.multi_company;
+          if (val === "Yes" || val === true || val === 1 || val === "1") {
+            multiCompanyValue = "Yes";
+          }
         }
 
         // Get existing logo URL
         let existingLogoUrl = null;
-        if (rawOrg.logo) {
-          existingLogoUrl = getStorageUrl(rawOrg.logo);
+        if (organization.logo) {
+          existingLogoUrl = getStorageUrl(organization.logo);
         }
 
         const newFormData = {
-          name: rawOrg.name || "",
-          phone: rawOrg.phone || "",
-          email: rawOrg.email || "",
-          address: rawOrg.address || "",
+          name: organization.name || "",
+          phone: organization.phone || "",
+          email: organization.email || "",
+          address: organization.address || "",
           multi_company: multiCompanyValue,
           logo: null,
           existingLogo: existingLogoUrl,

@@ -168,10 +168,10 @@ const EditLeaveAllocation = () => {
                 {currentEmployee.first_name} {currentEmployee.last_name}
               </h4>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {currentEmployee.designation?.name || 'N/A'}
+                {currentEmployee?.user?.designation?.name || 'N/A'}
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                {currentEmployee.department?.name || 'N/A'}
+                {currentEmployee.user?.department?.name || 'N/A'}
               </p>
             </div>
           </div>
