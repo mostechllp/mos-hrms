@@ -5,7 +5,7 @@ import SearchBar from "../common/SearchBar";
 import EntriesSelector from "../common/EntriesSelector";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
-import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { fetchEmployeeNearestExpiryReport } from "../../store/slices/reportSlice";
 
 const EmployeeNearestExpiryReport = () => {
   const dispatch = useDispatch();
@@ -24,7 +24,14 @@ const EmployeeNearestExpiryReport = () => {
   const [expiryDays, setExpiryDays] = useState(30); // Default to 30 days
 
   useEffect(() => {
-    dispatch(fetchEmployees());
+    dispatch(
+      fetchEmployeeNearestExpiryReport({
+        page: currentPage,
+        per_page: perPage,
+        start_date: "2024-01-01",
+        end_date: "2024-01-31",
+      }),
+    );
   }, [dispatch]);
 
   // Reset to first page when filters change

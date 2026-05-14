@@ -200,7 +200,7 @@ const EmployeeDetails = () => {
                 </div>
               </div>
               <Link
-                to={`/employees/edit/${currentEmployee.id}`}
+                to={`/admin/employees/edit/${currentEmployee.id}`}
                 className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
               >
                 <FiEdit /> Edit Employee
@@ -218,7 +218,7 @@ const EmployeeDetails = () => {
                   className="w-24 h-24 rounded-full object-cover border-2 border-green-100 shadow-md"
                 />
               ) : (
-                <div className="w-24 h-24 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-md">
+                <div className="w-24 h-24 gradient-heading rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-md">
                   {currentEmployee.first_name?.charAt(0)}
                   {currentEmployee.last_name?.charAt(0)}
                 </div>
@@ -251,14 +251,6 @@ const EmployeeDetails = () => {
                     <FiPhone className="text-green-500" />{" "}
                     {currentEmployee.personal_number || "N/A"}
                   </div>
-                </div>
-              </div>
-              <div className="text-center md:text-right">
-                <div className="text-sm text-gray-500">
-                  Total Leaves Allocated
-                </div>
-                <div className="text-2xl font-bold text-green-600">
-                  {currentEmployee.total_leaves_allocated}
                 </div>
               </div>
             </div>

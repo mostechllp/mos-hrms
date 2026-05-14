@@ -109,7 +109,7 @@ const TaskReports = () => {
 
         {/* Header */}
         <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
-          <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+          <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
             Task Reports
           </h2>
         </div>
@@ -201,12 +201,6 @@ const TaskReports = () => {
                           title="View"
                         >
                           <i className="fas fa-eye text-xs md:text-sm"></i>
-                        </button>
-                        <button
-                          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
-                          title="Edit"
-                        >
-                          <i className="fas fa-edit text-xs md:text-sm"></i>
                         </button>
                         <button
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"

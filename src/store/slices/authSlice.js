@@ -2,12 +2,14 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import apiClient from "../../utils/apiClient"; // Updated path
 
+// src/store/slices/authSlice.js - Update the loginUser thunk
 export const loginUser = createAsyncThunk(
   "auth/login",
   async ({ email, password }, { rejectWithValue }) => {
     try {
+      // The API expects 'username' not 'email'
       const response = await apiClient.post("/auth/login", {
-        username: email,
+        username: email,  // This was likely the issue
         password,
       });
 
@@ -38,6 +40,7 @@ export const loginUser = createAsyncThunk(
 
       return data;
     } catch (error) {
+      console.error("Login error:", error.response?.data);
       return rejectWithValue(error.response?.data?.message || "Login failed");
     }
   }

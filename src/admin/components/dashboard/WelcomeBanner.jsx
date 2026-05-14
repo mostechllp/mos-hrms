@@ -1,10 +1,40 @@
+import { useAppTheme } from '../../../context/ThemeContext';
+
 const WelcomeBanner = ({ stats, user }) => {
+  const { primaryColor, primaryDark } = useAppTheme();
+  
   if (!stats) return null;
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening';
 
+  // Helper function to adjust color brightness - MOVE THIS BEFORE USING IT
+  const adjustColor = (color, percent) => {
+    let r, g, b;
+    if (color.startsWith('#')) {
+      r = parseInt(color.slice(1, 3), 16);
+      g = parseInt(color.slice(3, 5), 16);
+      b = parseInt(color.slice(5, 7), 16);
+    } else {
+      return color;
+    }
+    
+    r = Math.max(0, Math.min(255, r + (r * percent) / 100));
+    g = Math.max(0, Math.min(255, g + (g * percent) / 100));
+    b = Math.max(0, Math.min(255, b + (b * percent) / 100));
+    
+    return `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`;
+  };
+
+  // Create gradient based on primary color - NOW USE adjustColor AFTER it's defined
+  const gradientStyle = {
+    background: `linear-gradient(135deg, ${primaryColor}, ${primaryDark || adjustColor(primaryColor, -20)})`
+  };
+
   return (
-    <div className="welcome-banner bg-gradient-to-r from-green-600 to-green-500 rounded-xl p-5 md:p-8 mb-6">
+    <div 
+      className="welcome-banner rounded-xl p-5 md:p-8 mb-6"
+      style={gradientStyle}
+    >
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="welcome-text">
           <h2 className="text-xl md:text-2xl font-bold text-white">{greeting}, {user?.employee?.name}! 👋</h2>

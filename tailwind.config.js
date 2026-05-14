@@ -1,4 +1,3 @@
-// tailwind.config.js
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -13,6 +12,11 @@ export default {
   theme: {
     extend: {
       colors: {
+        green: {
+          50: '#e8f5e9',  
+          500: '#2ecc71', 
+          600: '#1a9e52', 
+        },
         // Admin theme colors
         primary: {
           50: '#e8f5e9',
@@ -41,21 +45,21 @@ export default {
         // Employee theme colors
         'primary-dark': '#1a9e52',
         'primary-light': '#d4f7e4',
-        'danger': '#e74c3c',
-        'warning': '#f39c12',
-        'info': '#3498db',
-        'purple': '#9b59b6',
-        'yellow': '#f1c40f',
+        danger: '#e74c3c',
+        warning: '#f39c12',
+        info: '#3498db',
+        purple: '#9b59b6',
+        yellow: '#f1c40f',
       },
       fontFamily: {
         poppins: ['Poppins', 'sans-serif'],
       },
       borderRadius: {
-        'xl': '18px',
-        'lg': '10px',
+        xl: '18px',
+        lg: '10px',
       },
       boxShadow: {
-        'soft': '0 4px 20px rgba(0, 0, 0, 0.05)',
+        soft: '0 4px 20px rgba(0, 0, 0, 0.05)',
         'soft-lg': '0 12px 32px rgba(0, 0, 0, 0.12)',
       },
       animation: {
@@ -63,8 +67,8 @@ export default {
       },
       keyframes: {
         slideUp: {
-          'from': { opacity: '0', transform: 'translateY(20px)' },
-          'to': { opacity: '1', transform: 'translateY(0)' },
+          from: { opacity: '0', transform: 'translateY(20px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
         },
       },
     },

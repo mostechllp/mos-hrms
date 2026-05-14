@@ -330,7 +330,7 @@ const Attendances = () => {
 
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
-        <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent flex flex-wrap items-center gap-2">
+        <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent flex flex-wrap items-center gap-2">
           Attendance Records
           <span className="text-[10px] md:text-sm bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 md:px-3 py-0.5 md:py-1 rounded-full">
             <i className="fas fa-calendar-check mr-1"></i> Daily Log

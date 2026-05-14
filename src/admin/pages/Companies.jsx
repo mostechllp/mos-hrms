@@ -166,7 +166,7 @@ const Companies = () => {
         {/* Header */}
         <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
           <div>
-            <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+            <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
               Company Management
             </h2>
             <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -176,16 +176,7 @@ const Companies = () => {
           </div>
           <Link
             to={`/admin/organizations/${organizationId}/add-company`}
-            state={{
-              organizationId,
-              organizationName: currentOrganizationName || organization?.name,
-            }}
-            className="bg-green-500 hover:bg-green-600 text-white 
-             px-3 py-1.5 md:px-4 md:py-2 
-             text-xs md:text-sm 
-             rounded-full font-semibold 
-             flex items-center gap-1.5 md:gap-2 
-             transition-all shadow-md hover:shadow-lg"
+            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm rounded-full font-semibold flex items-center gap-1.5 md:gap-2 transition-all shadow-md hover:shadow-lg"
           >
             <i className="fas fa-plus-circle text-xs md:text-sm"></i>
             <span className="hidden sm:inline">Add Company</span>
@@ -315,7 +306,7 @@ const Companies = () => {
                         <td className="px-3 md:px-4 py-2 md:py-3">
                           <div className="flex gap-1 md:gap-2">
                             <Link
-                              to={`/organizations/${organizationId}/edit-company/${company.id}`}
+                              to={`/admin/organizations/${organizationId}/edit-company/${company.id}`}
                               state={{
                                 organizationName:
                                   currentOrganizationName || organization?.name,

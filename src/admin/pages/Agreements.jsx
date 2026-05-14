@@ -13,10 +13,10 @@ const Agreements = () => {
   const { documents: documentsState = [], folders = [], error = null } = useSelector(
     (state) => state.documents || { documents: [], folders: [], loading: false, error: null }
   );
-
+  
   // Ensure documents is always an array
   const documents = Array.isArray(documentsState) ? documentsState : [];
-
+  
   const [currentFolder, setCurrentFolder] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);

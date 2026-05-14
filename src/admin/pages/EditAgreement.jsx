@@ -1,35 +1,36 @@
 import { useState, useRef, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { showToast } from "../../components/common/Toast";
 import {
   fetchDocumentFolders,
   fetchShareableUsers,
   fetchParties,
-  uploadDocument,
+  fetchDocumentById,
+  updateDocument,
 } from "../store/slices/documentsSlice";
 import { clearError } from "../store/slices/authSlice";
 import AddFolderModal from "../components/documents/AddFolderModal";
 import AddPartyModal from "../components/documents/AddPartyModal";
 
-const AddAgreement = () => {
+const EditAgreement = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { id } = useParams();
   const {
     shareableUsers = [],
     folders = [],
     parties = [],
+    currentDocument,
     loading,
     error,
   } = useSelector(
     (state) =>
-      state.documents || { shareableUsers: [], folders: [], parties: [] },
+      state.documents || { shareableUsers: [], folders: [], parties: [], currentDocument: null },
   );
-  const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [updating, setUpdating] = useState(false);
   const [selectedShareWith, setSelectedShareWith] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const fileInputRef = useRef(null);
   const dropdownRef = useRef(null);
 
   // Modal states
@@ -40,16 +41,42 @@ const AddAgreement = () => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    folder: "",
+    folder_id: "",
     party_id: "",
     expiryDate: "",
   });
 
+  // Fetch initial data
   useEffect(() => {
     dispatch(fetchShareableUsers());
     dispatch(fetchDocumentFolders());
     dispatch(fetchParties());
-  }, [dispatch]);
+    if (id) {
+      dispatch(fetchDocumentById(id));
+    }
+  }, [dispatch, id]);
+
+  // Set form data when currentDocument is loaded
+  useEffect(() => {
+    if (currentDocument) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFormData({
+        name: currentDocument.name || "",
+        description: currentDocument.description || "",
+        folder_id: currentDocument.folder_id || currentDocument.folder || "",
+        party_id: currentDocument.party_id || "",
+        expiryDate: currentDocument.expiry_date || "",
+      });
+
+      // Set selected share with users/parties
+      if (currentDocument.shared_users && currentDocument.shared_users.length > 0) {
+        const shareNames = currentDocument.shared_users.map(user => user.name);
+        setSelectedShareWith(shareNames);
+      } else if (currentDocument.share_with && currentDocument.share_with.length > 0) {
+        setSelectedShareWith(currentDocument.share_with);
+      }
+    }
+  }, [currentDocument]);
 
   // Refresh parties when refreshParties flag changes
   useEffect(() => {
@@ -68,11 +95,6 @@ const AddAgreement = () => {
     }
   }, [error, dispatch]);
 
-  // Debug: Log parties when they change
-  useEffect(() => {
-    console.log("Parties updated:", parties);
-  }, [parties]);
-
   const handleChange = (e) => {
     if (e.target.id === "party_id" && e.target.value === "__add_new__") {
       setFormData({ ...formData, party_id: "" });
@@ -80,64 +102,6 @@ const AddAgreement = () => {
       return;
     }
     setFormData({ ...formData, [e.target.id]: e.target.value });
-  };
-
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const fileSize = file.size / 1024 / 1024;
-      if (fileSize > 10) {
-        showToast("File size must be less than 10MB", "error");
-        return;
-      }
-      setSelectedFile(file);
-      if (!formData.name) {
-        setFormData({ ...formData, name: file.name.replace(/\.[^/.]+$/, "") });
-      }
-    }
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.currentTarget.classList.add(
-      "border-green-500",
-      "bg-green-50",
-      "dark:bg-green-900/20",
-    );
-  };
-
-  const handleDragLeave = (e) => {
-    e.currentTarget.classList.remove(
-      "border-green-500",
-      "bg-green-50",
-      "dark:bg-green-900/20",
-    );
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove(
-      "border-green-500",
-      "bg-green-50",
-      "dark:bg-green-900/20",
-    );
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      const fileSize = file.size / 1024 / 1024;
-      if (fileSize > 10) {
-        showToast("File size must be less than 10MB", "error");
-        return;
-      }
-      setSelectedFile(file);
-      if (!formData.name) {
-        setFormData({ ...formData, name: file.name.replace(/\.[^/.]+$/, "") });
-      }
-    }
-  };
-
-  const removeFile = () => {
-    setSelectedFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const toggleShareItem = (value) => {
@@ -154,13 +118,8 @@ const AddAgreement = () => {
 
   const handlePartyAdded = async (newParty) => {
     console.log("Party added callback received:", newParty);
-
-    // Set refresh flag to trigger useEffect
     setRefreshParties(true);
-
-    // If we have the new party, select it automatically after refresh
     if (newParty && newParty.id) {
-      // Wait a bit for the refresh to complete
       setTimeout(() => {
         setFormData((prev) => ({ ...prev, party_id: String(newParty.id) }));
         showToast(`Party "${newParty.name}" added and selected`, "success");
@@ -169,10 +128,9 @@ const AddAgreement = () => {
   };
 
   const handleFolderAdded = async (newFolder) => {
-    // Refresh folders list
     await dispatch(fetchDocumentFolders());
-    if (newFolder && newFolder.name) {
-      setFormData({ ...formData, folder: newFolder.name });
+    if (newFolder && newFolder.id) {
+      setFormData({ ...formData, folder_id: String(newFolder.id) });
       showToast(`Folder "${newFolder.name}" added and selected`, "success");
     }
   };
@@ -198,23 +156,15 @@ const AddAgreement = () => {
       showToast("Please select at least one recipient to share with", "error");
       return;
     }
-    if (!formData.folder) {
+    if (!formData.folder_id) {
       showToast("Please select a folder", "error");
       return;
     }
-    if (!selectedFile) {
-      showToast("Please upload a file", "error");
-      return;
-    }
 
-    setUploading(true);
+    setUpdating(true);
 
     const partiesList = Array.isArray(parties) ? parties : [];
     const usersList = Array.isArray(shareableUsers) ? shareableUsers : [];
-
-    const selectedFolder = folders.find(
-      (f) => (f.name || f) === formData.folder,
-    );
 
     const shareWithIds = selectedShareWith.map((selectedName) => {
       const user = usersList.find((u) => (u.name || u.email) === selectedName);
@@ -226,30 +176,43 @@ const AddAgreement = () => {
       name: formData.name,
       description: formData.description,
       share_with: shareWithIds,
-      folder_id: selectedFolder?.id || formData.folder,
+      folder_id: formData.folder_id,
       type: "agreements",
       party_id: formData.party_id,
       expiry_date: formData.expiryDate,
     };
 
     const result = await dispatch(
-      uploadDocument({ formData: documentData, file: selectedFile }),
+      updateDocument({ id: id, formData: documentData, file: null })
     );
 
-    setUploading(false);
+    setUpdating(false);
 
-    if (uploadDocument.fulfilled.match(result)) {
+    if (updateDocument.fulfilled.match(result)) {
       showToast(
-        `✓ Document "${formData.name}" uploaded successfully!`,
+        `✓ Document "${formData.name}" updated successfully!`,
         "success",
       );
       setTimeout(() => {
         navigate("/admin/agreements");
       }, 1200);
     } else {
-      showToast(result.payload || "Failed to upload agreement", "error");
+      showToast(result.payload || "Failed to update agreement", "error");
     }
   };
+
+  if (loading && !currentDocument) {
+    return (
+      <div className="w-full overflow-x-hidden px-4 md:px-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Get selected folder name
+  const selectedFolder = folders.find(f => String(f.id) === String(formData.folder_id));
 
   return (
     <div className="w-full overflow-x-hidden px-4 md:px-6">
@@ -263,79 +226,23 @@ const AddAgreement = () => {
         </Link>
         <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
         <span className="text-gray-500 dark:text-gray-400">
-          Upload Agreement
+          Edit Agreement
         </span>
       </div>
 
       {/* Page Header */}
       <div className="mb-4 md:mb-6">
         <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
-          <i className="fas fa-file-upload mr-2"></i> Upload Agreement
+          <i className="fas fa-edit mr-2"></i> Edit Agreement
         </h2>
+        <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Update agreement details
+        </p>
       </div>
 
       {/* Form Container */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 md:p-6 lg:p-8 shadow-soft">
         <form onSubmit={handleSubmit}>
-          {/* Upload File Section */}
-          <div className="mb-6 md:mb-8">
-            <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
-              <i className="fas fa-cloud-upload-alt text-green-500 text-base md:text-lg"></i>
-              <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
-                Upload File
-              </h3>
-            </div>
-
-            <div
-              onClick={() => fileInputRef.current.click()}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 md:p-12 text-center cursor-pointer hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all"
-            >
-              <div className="mb-3 md:mb-4">
-                <i className="fas fa-file-upload text-4xl md:text-6xl text-green-500"></i>
-              </div>
-              <div className="text-sm md:text-base font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                Drag & Drop files here or click to upload
-              </div>
-              <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400">
-                All standard document file types such as .pdf .docx .xls can be
-                uploaded with a maximum file size of 10 MB
-              </div>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.png"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-
-            {selectedFile && (
-              <div className="mt-3 md:mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <i className="fas fa-file-pdf text-xl md:text-2xl text-green-500"></i>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs md:text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                      {selectedFile.name}
-                    </div>
-                    <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400">
-                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={removeFile}
-                  className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700 text-red-500 transition-colors self-start sm:self-center"
-                >
-                  <i className="fas fa-times"></i>
-                </button>
-              </div>
-            )}
-          </div>
-
           {/* Document Details Section */}
           <div className="mb-6 md:mb-8">
             <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
@@ -361,6 +268,7 @@ const AddAgreement = () => {
                   required
                 />
               </div>
+
               <div>
                 <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                   <i className="fas fa-align-left text-green-500 mr-1"></i>{" "}
@@ -375,6 +283,7 @@ const AddAgreement = () => {
                   placeholder="Enter description about this document"
                 ></textarea>
               </div>
+
               <div>
                 <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                   <i className="fas fa-share-alt text-green-500 mr-1"></i> Share
@@ -428,17 +337,13 @@ const AddAgreement = () => {
                           {shareableUsers.map((user) => (
                             <div
                               key={user.id || user.name}
-                              onClick={() =>
-                                toggleShareItem(user.name || user.email)
-                              }
+                              onClick={() => toggleShareItem(user.name || user.email)}
                               className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedShareWith.includes(
-                                  user.name || user.email,
-                                )}
-                                onChange={() => { }}
+                                checked={selectedShareWith.includes(user.name || user.email)}
+                                onChange={() => {}}
                                 className="w-3.5 h-3.5 md:w-4 md:h-4 accent-green-500"
                               />
                               <div className="flex-1 min-w-0">
@@ -473,7 +378,7 @@ const AddAgreement = () => {
                               <input
                                 type="checkbox"
                                 checked={selectedShareWith.includes(party.name)}
-                                onChange={() => { }}
+                                onChange={() => {}}
                                 className="w-3.5 h-3.5 md:w-4 md:h-4 accent-green-500"
                               />
                               <div className="flex-1 min-w-0">
@@ -494,6 +399,7 @@ const AddAgreement = () => {
                   )}
                 </div>
               </div>
+
               {/* Party Field */}
               <div>
                 <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
@@ -520,14 +426,15 @@ const AddAgreement = () => {
                     <option value="__add_new__">+ Add New Party</option>
                   </select>
                 </div>
+
                 {/* Selected Party Details */}
                 {formData.party_id &&
                   formData.party_id !== "__add_new__" &&
                   (() => {
                     const selectedParty = Array.isArray(parties)
                       ? parties.find(
-                        (p) => String(p.id) === String(formData.party_id),
-                      )
+                          (p) => String(p.id) === String(formData.party_id),
+                        )
                       : null;
                     return selectedParty ? (
                       <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
@@ -571,6 +478,7 @@ const AddAgreement = () => {
                     ) : null;
                   })()}
               </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
@@ -579,8 +487,8 @@ const AddAgreement = () => {
                   </label>
                   <div className="relative">
                     <select
-                      id="folder"
-                      value={formData.folder}
+                      id="folder_id"
+                      value={formData.folder_id}
                       onChange={handleChange}
                       className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 appearance-none pr-10"
                       required
@@ -589,20 +497,14 @@ const AddAgreement = () => {
                       {folders.length > 0 ? (
                         folders.map((folder) => (
                           <option
-                            key={folder.id || folder.name}
-                            value={folder.name || folder}
+                            key={folder.id}
+                            value={folder.id}
                           >
-                            {folder.name || folder}
+                            {folder.name}
                           </option>
                         ))
                       ) : (
-                        <>
-                          <option value="agreements">Agreements</option>
-                          <option value="hr">HR Documents</option>
-                          <option value="it">IT Documents</option>
-                          <option value="finance">Finance Documents</option>
-                          <option value="legal">Legal Documents</option>
-                        </>
+                        <option disabled>No folders available</option>
                       )}
                     </select>
 
@@ -616,6 +518,12 @@ const AddAgreement = () => {
                       <i className="fas fa-plus-circle text-lg"></i>
                     </button>
                   </div>
+                  {selectedFolder && (
+                    <p className="text-[10px] md:text-xs text-green-600 dark:text-green-400 mt-1">
+                      <i className="fas fa-info-circle mr-1"></i>
+                      Current folder: {selectedFolder.name}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -646,18 +554,18 @@ const AddAgreement = () => {
             </Link>
             <button
               type="submit"
-              disabled={uploading || loading}
+              disabled={updating || loading}
               className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base disabled:opacity-70"
             >
-              {uploading ? (
+              {updating ? (
                 <>
                   <i className="fas fa-spinner fa-spin"></i>{" "}
-                  <span>Uploading...</span>
+                  <span>Updating...</span>
                 </>
               ) : (
                 <>
-                  <i className="fas fa-upload text-xs md:text-sm"></i>{" "}
-                  <span>Upload Agreement</span>
+                  <i className="fas fa-save text-xs md:text-sm"></i>{" "}
+                  <span>Update Agreement</span>
                 </>
               )}
             </button>
@@ -683,4 +591,4 @@ const AddAgreement = () => {
   );
 };
 
-export default AddAgreement;
+export default EditAgreement;

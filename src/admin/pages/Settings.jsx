@@ -187,7 +187,7 @@ const Settings = () => {
         <div className="max-w-6xl mx-auto w-full">
           {/* Header */}
           <div className="mb-4 md:mb-6">
-            <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+            <h2 className="text-xl md:text-3xl font-bold gradient-heading bg-clip-text text-transparent">
               Account Settings
             </h2>
             <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">

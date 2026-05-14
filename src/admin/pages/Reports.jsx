@@ -161,7 +161,7 @@ const Reports = () => {
       <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
         {/* Page Header */}
         <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
-          <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+          <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
             Reports
           </h2>
         </div>

@@ -132,11 +132,23 @@ export const updateEmployee = createAsyncThunk(
   "employees/update",
   async ({ id, data }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put(`/admin/employees/${id}`, data);
+      let response;
+      
+      // Check if data is FormData or plain object
+      if (data instanceof FormData) {
+        response = await apiClient.post(`/admin/employees/${id}`, data, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      } else {
+        response = await apiClient.put(`/admin/employees/${id}`, data);
+      }
+      
       console.log("Update employee response:", response.data);
 
       if (response.data && response.data.status === "success") {
-        return response.data.data;
+        return response.data;
       } else {
         return rejectWithValue(
           response.data?.message || "Failed to update employee",
