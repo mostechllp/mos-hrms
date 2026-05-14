@@ -12,7 +12,7 @@ import dashboardReducer from "../admin/store/slices/dashboardSlice";
 import departmentReducer from "../admin/store/slices/departmentSlice";
 import documentsReducer from "../admin/store/slices/documentsSlice";
 import wfhReducer from "../admin/store/slices/wfhSlice";
-import onboardingReducer from "./slices/onboardingSlice";
+import onboardingReducer from "../admin/store/slices/onboardingSlice";
 
 
 // Employee reducers

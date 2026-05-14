@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
 import { FiEdit3, FiInfo, FiChevronRight, FiChevronLeft, FiSave } from "react-icons/fi";
-import { setStep, updateEmployeeDetails } from "../../store/slices/onboardingSlice";
+import { setStep, updateEmployeeDetails } from "../store/slices/onboardingSlice";
 
 const EmployeeDetailsForm = () => {
   const dispatch = useDispatch();

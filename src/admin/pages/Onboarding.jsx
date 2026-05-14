@@ -9,7 +9,7 @@ import ResumeUpload from "./ResumeUpload";
 import EmployeeDetailsForm from "./EmployeeDetailsForm";
 import OfferLetterPreview from "./OfferLetterPreview";
 import OnboardingReview from "./OnboardingReview";
-import { resetOnboarding } from "../../store/slices/onboardingSlice";
+import { resetOnboarding } from "../store/slices/onboardingSlice";
 
 const Onboarding = () => {
 

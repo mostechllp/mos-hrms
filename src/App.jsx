@@ -50,7 +50,7 @@ const AdminWFH = lazy(() => import("./admin/pages/WFH"));
 const Settings = lazy(() => import("./admin/pages/Settings"));
 const RoleManagement = lazy(() => import("./admin/pages/RoleManagement"));
 const AddPayroll = lazy(() => import("./admin/pages/AddPayroll"));
-const Onboarding = lazy(() => import("./pages/onboarding/Onboarding"));
+const Onboarding = lazy(() => import("./admin/pages/Onboarding"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
