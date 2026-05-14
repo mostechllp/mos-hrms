@@ -96,7 +96,7 @@ const Header = ({ onMenuClick }) => {
     } else if (path === "/admin/settings") {
       return "Settings";
     } else if (path.includes("/admin/role-management")) {
-      return "Role Management";
+      return "Roles";
     } else if (path.includes("/admin/payroll/add")) {
       return "Add Payroll";
     } else if (path.includes("/admin/employees/add-employee")) {
@@ -259,11 +259,10 @@ const Header = ({ onMenuClick }) => {
                       notifications.map((notification) => (
                         <div
                           key={notification.id}
-                          className={`p-3 border-b border-gray-200 dark:border-gray-700 cursor-pointer transition-colors ${
-                            !notification.read
-                              ? "bg-green-50 dark:bg-green-900/20"
-                              : ""
-                          } hover:bg-gray-50 dark:hover:bg-gray-700`}
+                          className={`p-3 border-b border-gray-200 dark:border-gray-700 cursor-pointer transition-colors ${!notification.read
+                            ? "bg-green-50 dark:bg-green-900/20"
+                            : ""
+                            } hover:bg-gray-50 dark:hover:bg-gray-700`}
                           onClick={() => handleMarkAsRead(notification.id)}
                         >
                           <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
