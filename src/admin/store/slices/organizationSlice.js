@@ -18,30 +18,39 @@ export const fetchOrganizations = createAsyncThunk(
 );
 
 // Add organization
+// Add this before the API call in your addOrganization thunk
 export const addOrganization = createAsyncThunk(
   "organizations/add",
   async (organizationData, { rejectWithValue }) => {
     try {
-      // organizationData is already FormData, so just send it
+      // Debug: Log all FormData entries
+      console.log("=== FormData contents being sent ===");
+      for (let pair of organizationData.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+      
       const response = await apiClient.post(
         "/admin/organizations",
         organizationData,
         {
           headers: {
-            "Content-Type": "multipart/form-data", // Important for file upload
+            "Content-Type": "multipart/form-data",
           },
-        },
+        }
       );
+      
+      console.log("=== Server Response ===", response.data);
       return response.data.data;
     } catch (error) {
       console.error("Add organization error:", error.response?.data);
+      console.error("Request that was sent:", organizationData);
       return rejectWithValue(
         error.response?.data?.message ||
           error.response?.data?.errors ||
           "Failed to add organization",
       );
     }
-  },
+  }
 );
 
 // Update organization
@@ -118,6 +127,7 @@ const organizationSlice = createSlice({
         state.error = action.payload || action.error.message;
       })
       // Add Organization
+      // Add Organization
       .addCase(addOrganization.pending, (state) => {
         state.loading = true;
       })
@@ -130,11 +140,7 @@ const organizationSlice = createSlice({
           email: action.payload.email || "-",
           address: action.payload.address || "-",
           logo: action.payload.logo || null,
-          // Map the response field correctly
-          multi_company:
-            action.payload.multi_company ||
-            action.payload.multiCompany ||
-            "Yes",
+          multi_company: action.payload.has_multiple_companies ? "Yes" : "No",
           createdAt: action.payload.created_at
             ? new Date(action.payload.created_at).toLocaleDateString("en-GB", {
                 day: "numeric",
@@ -167,11 +173,8 @@ const organizationSlice = createSlice({
             phone: action.payload.phone || "-",
             email: action.payload.email || "-",
             address: action.payload.address || "-",
-            multi_company:
-              action.payload.multi_company === 1 ||
-              action.payload.multi_company === true
-                ? "Yes"
-                : "No",
+            multi_company: action.payload.has_multiple_companies ? "Yes" : "No",
+            logo: action.payload.logo || state.organizations[index].logo,
             raw: action.payload,
           };
         }
