@@ -1,18 +1,30 @@
-import { useState, useRef, useEffect } from "react";
-import { useSelector } from "react-redux";
+import { useState, useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
 import { showToast } from "../../components/common/Toast";
 import apiClient from "../../utils/apiClient";
-// import { updateUserProfile, changePassword } from '@admin/store/slices/authSlice';
+import { fetchOrganizations } from "@admin/store/slices/organizationSlice";
 
 const Settings = () => {
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
+  const { organizations } = useSelector((state) => state.organizations);
   const [loading, setLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [logoPreview, setLogoPreview] = useState(null);
-  const fileInputRef = useRef(null);
+
+  // Get the first organization (or find the current user's organization)
+  const currentOrganization = organizations?.[0] || null;
+  
+  // Construct full logo URL
+  const getLogoUrl = () => {
+    if (currentOrganization?.logo) {
+      const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || window.location.origin;
+      return `${baseUrl}/storage/${currentOrganization.logo}`;
+    }
+    return null;
+  };
 
   const [profileData, setProfileData] = useState({
     fullName: user?.employee?.name || user?.name || "HR Admin",
@@ -24,6 +36,11 @@ const Settings = () => {
     password: "",
     password_confirmation: "",
   });
+
+  // Fetch organizations on component mount
+  useEffect(() => {
+    dispatch(fetchOrganizations());
+  }, [dispatch]);
 
   // Update profile data when user changes
   useEffect(() => {
@@ -44,36 +61,6 @@ const Settings = () => {
     setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
   };
 
-  const handleLogoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (
-        !["image/jpeg", "image/png", "image/gif", "image/webp"].includes(
-          file.type,
-        )
-      ) {
-        showToast(
-          "Invalid file type. Please upload JPG, PNG, GIF, or WEBP images.",
-          "error",
-        );
-        return;
-      }
-      if (file.size > 2 * 1024 * 1024) {
-        showToast(
-          "File size exceeds 2MB limit. Please choose a smaller image.",
-          "error",
-        );
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setLogoPreview(event.target.result);
-        showToast("Profile image updated successfully!", "success");
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (!profileData.fullName) {
@@ -90,20 +77,13 @@ const Settings = () => {
     }
 
     setLoading(true);
-    // const result = await dispatch(updateUserProfile(profileData));
+    // Implement profile update API call here
     setLoading(false);
-
-    // if (updateUserProfile.fulfilled.match(result)) {
-    //   showToast('Profile updated successfully!', 'success');
-    // } else {
-    //   showToast('Failed to update profile', 'error');
-    // }
   };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
 
-    // Validation
     if (!passwordData.current_password) {
       showToast("Please enter your current password", "error");
       return;
@@ -124,18 +104,14 @@ const Settings = () => {
     setPasswordLoading(true);
 
     try {
-      // Make POST request to change password endpoint
       const response = await apiClient.post("/employee/change-password", {
         current_password: passwordData.current_password,
         password: passwordData.password,
         password_confirmation: passwordData.password_confirmation,
       });
 
-      console.log("Password change response:", response.data);
-
       if (response.data.status === "success" || response.status === 200) {
         showToast("Password changed successfully!", "success");
-        // Reset form
         setPasswordData({
           current_password: "",
           password: "",
@@ -149,14 +125,10 @@ const Settings = () => {
       }
     } catch (error) {
       console.error("Password change error:", error);
-      console.error("Error response:", error.response?.data);
-
-      // Handle different error scenarios
+      
       if (error.response?.status === 422) {
-        // Validation errors
         const errors = error.response.data.errors;
         if (errors) {
-          // Get the first error message
           const firstError = Object.values(errors)[0];
           const errorMessage = Array.isArray(firstError)
             ? firstError[0]
@@ -181,6 +153,9 @@ const Settings = () => {
     }
   };
 
+  const logoUrl = getLogoUrl();
+  const organizationName = currentOrganization?.name || "Organization";
+
   return (
     <div className="w-full overflow-x-hidden">
       <main className="content px-4 py-4 md:px-6 md:py-6">
@@ -201,47 +176,40 @@ const Settings = () => {
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 md:p-6 shadow-soft">
               <div className="flex items-center gap-3 pb-3 md:pb-4 border-b border-gray-200 dark:border-gray-700 mb-4 md:mb-6">
                 <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                  <i className="fas fa-user-circle text-green-600 dark:text-green-400 text-base md:text-xl"></i>
+                  <i className="fas fa-building text-green-600 dark:text-green-400 text-base md:text-xl"></i>
                 </div>
                 <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
-                  Profile Details
+                  Organization Profile
                 </h3>
               </div>
 
-              {/* Profile Image Section - Responsive */}
+              {/* Organization Logo Section */}
               <div className="flex flex-col sm:flex-row gap-4 md:gap-6 mb-4 md:mb-6">
                 <div className="text-center">
-                  <img
-                    src={
-                      logoPreview ||
-                      user?.avatar ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(profileData.fullName)}&color=ffffff&background=22c55e`
-                    }
-                    alt="Profile"
-                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-green-500 shadow-md mx-auto"
-                  />
+                  {logoUrl ? (
+                    <img
+                      src={logoUrl}
+                      alt={`${organizationName} Logo`}
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover border-4 border-green-500 shadow-md mx-auto"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center border-4 border-green-500 shadow-md mx-auto">
+                      <i className="fas fa-building text-white text-3xl md:text-4xl"></i>
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 text-center sm:text-left">
-                  <button
-                    onClick={() => fileInputRef.current.click()}
-                    className="inline-flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-gray-100 dark:bg-gray-700 rounded-full text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
-                  >
-                    <i className="fas fa-camera text-xs md:text-sm"></i>
-                    <span>Choose Image</span>
-                  </button>
+                  <h4 className="text-sm md:text-base font-semibold text-gray-800 dark:text-gray-200 mb-1">
+                    {organizationName}
+                  </h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Organization Logo
+                  </p>
                   <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    <i className="fas fa-info-circle"></i> Allowed: JPG, PNG,
-                    GIF. Max 2MB.
+                    <i className="fas fa-info-circle"></i> Note: Change logo from organizations tab
                   </div>
                 </div>
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/gif"
-                onChange={handleLogoChange}
-                className="hidden"
-              />
 
               <form onSubmit={handleSaveProfile}>
                 <div className="mb-3 md:mb-4">

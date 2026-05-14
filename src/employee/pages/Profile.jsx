@@ -242,12 +242,12 @@ const Profile = () => {
   return (
     <div className="w-full max-w-6xl mx-auto pb-10 px-2 sm:px-4">
       {/* Top Header Card */}
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+      <div className="bg-[var(--surface)] rounded-3xl shadow-sm border border-[var(--border)] overflow-hidden mb-6">
         {/* Green Banner */}
         <div className="h-32 md:h-48 bg-gradient-to-r from-[#22c55e] to-[#10b981] w-full"></div>
-        
+
         {/* White Area */}
-        <div className="relative px-6 md:px-12 pb-8 bg-white flex flex-col md:flex-row justify-between md:items-end">
+        <div className="relative px-6 md:px-12 pb-8 bg-[var(--surface)] flex flex-col md:flex-row justify-between md:items-end">
           <div className="flex flex-col md:flex-row items-center md:items-end gap-5 md:gap-8">
             {/* Avatar */}
             <div className="relative -mt-16 md:-mt-24 group z-10">
@@ -260,8 +260,10 @@ const Profile = () => {
                     e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.fullName || "User")}&background=2ecc71&color=fff&rounded=true&size=128`;
                   }}
                 />
-                <div 
-                  onClick={() => document.getElementById("profilePhoto").click()}
+                <div
+                  onClick={() =>
+                    document.getElementById("profilePhoto").click()
+                  }
                   className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                 >
                   <FiCamera className="text-white text-3xl" />
@@ -276,32 +278,42 @@ const Profile = () => {
                 onChange={handlePhotoChange}
               />
             </div>
-            
+
             {/* Name and Designation */}
             <div className="text-center md:text-left mb-2 md:mb-1">
-              <h2 className="text-2xl md:text-3xl font-extrabold text-gray-800 tracking-tight">
+              <h2 className="text-2xl md:text-3xl font-extrabold text-[var(--text)] tracking-tight">
                 {formData.fullName || employee?.name || "User Name"}
               </h2>
               <div className="text-green-600 font-bold text-sm flex items-center justify-center md:justify-start gap-2 mt-1.5">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
                 {authUser?.type || "employee"}
                 <span className="text-gray-300 mx-1">•</span>
-                <span className="text-green-600">{employee?.employee_id || "1"}</span>
+                <span className="text-green-600">
+                  {employee?.employee_id || "1"}
+                </span>
               </div>
             </div>
           </div>
-          
+
           {/* Stats on Right */}
           <div className="flex justify-center md:justify-end gap-10 mt-6 md:mt-0 mb-2">
             <div className="text-center">
-              <div className="text-gray-900 font-extrabold text-xl">Active</div>
-              <div className="text-gray-400 text-xs font-semibold tracking-wide uppercase mt-0.5">Status</div>
+              <div className="text-[var(--text)] font-extrabold text-xl">
+                Active
+              </div>
+              <div className="text-gray-400 text-xs font-semibold tracking-wide uppercase mt-0.5">
+                Status
+              </div>
             </div>
             <div className="text-center">
               <div className="text-gray-900 font-extrabold text-xl">
-                {employee?.joining_date ? new Date(employee.joining_date).getFullYear() : new Date().getFullYear()}
+                {employee?.joining_date
+                  ? new Date(employee.joining_date).getFullYear()
+                  : new Date().getFullYear()}
               </div>
-              <div className="text-gray-400 text-xs font-semibold tracking-wide uppercase mt-0.5">Joined</div>
+              <div className="text-gray-400 text-xs font-semibold tracking-wide uppercase mt-0.5">
+                Joined
+              </div>
             </div>
           </div>
         </div>
@@ -310,28 +322,30 @@ const Profile = () => {
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
         {/* Left Sidebar Menu */}
         <div className="flex flex-col gap-6">
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-xs font-bold text-gray-400 mb-5 tracking-wider uppercase ml-2">SETTINGS MENU</h3>
+          <div className="bg-[var(--surface)] rounded-3xl shadow-sm border border-[var(--border)] p-6">
+            <h3 className="text-xs font-bold text-[var(--muted)] mb-5 tracking-wider uppercase ml-2">
+              SETTINGS MENU
+            </h3>
             <div className="flex flex-col gap-2">
-              <button 
+              <button
                 type="button"
-                onClick={() => setActiveTab('personal')}
+                onClick={() => setActiveTab("personal")}
                 className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl text-sm font-bold transition-all ${
-                  activeTab === 'personal' 
-                    ? 'bg-green-50 text-green-600 shadow-sm' 
-                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                  activeTab === "personal"
+                    ? "bg-[var(--surface2)] text-[var(--text)] shadow-sm border border-[var(--border)]"
+                    : "text-[var(--text-secondary)] hover:bg-[var(--surface2)] hover:text-[var(--text)]"
                 }`}
               >
                 <FiUser className="text-lg" />
                 Personal Details
               </button>
-              <button 
+              <button
                 type="button"
-                onClick={() => setActiveTab('security')}
+                onClick={() => setActiveTab("security")}
                 className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl text-sm font-bold transition-all ${
-                  activeTab === 'security' 
-                    ? 'bg-green-50 text-green-600 shadow-sm' 
-                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                  activeTab === "security"
+                    ? "bg-[var(--surface2)] text-[var(--text)] shadow-sm border border-[var(--border)]"
+                    : "text-[var(--text-secondary)] hover:bg-[var(--surface2)] hover:text-[var(--text)]"
                 }`}
               >
                 <FiLock className="text-lg" />
@@ -339,15 +353,18 @@ const Profile = () => {
               </button>
             </div>
 
-            <div className="mt-8 bg-[#f0fdf4] rounded-2xl p-5 border border-green-100/50">
+            <div className="mt-8 bg-[var(--surface2)] rounded-2xl p-5 border border-[var(--border)]">
               <div className="flex items-start gap-3.5">
-                <div className="mt-0.5 flex-shrink-0 w-7 h-7 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                <div className="mt-0.5 flex-shrink-0 w-7 h-7 rounded-full bg-[var(--surface)] flex items-center justify-center text-[var(--muted)]">
                   <FiCheckCircle className="text-sm" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-gray-800 text-sm mb-1.5">Profile Complete</h4>
-                  <p className="text-xs text-gray-500 leading-relaxed font-medium">
-                    Your profile is up to date and verified by the HR administration.
+                  <h4 className="font-bold text-[var(--text)] text-sm mb-1.5">
+                    Profile Complete
+                  </h4>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+                    Your profile is up to date and verified by the HR
+                    administration.
                   </p>
                 </div>
               </div>
@@ -356,19 +373,19 @@ const Profile = () => {
         </div>
 
         {/* Right Content Area */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-10">
-          {activeTab === 'personal' && (
+        <div className="bg-[var(--surface)] rounded-3xl shadow-sm border border-[var(--border)] p-6 md:p-10">
+          {activeTab === "personal" && (
             <form onSubmit={handleUpdateProfile}>
-              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-2">
+              <h3 className="text-xl font-bold text-[var(--text)] flex items-center gap-2 mb-2">
                 <FiEdit2 className="text-green-500" /> Personal Information
               </h3>
-              <p className="text-sm text-gray-500 mb-8 font-medium">
+              <p className="text-sm text-[var(--text-secondary)] mb-8 font-medium">
                 Update your personal details, email, and home address.
               </p>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div className="form-field md:col-span-2 flex flex-col gap-2">
-                  <label className="text-xs font-extrabold text-gray-700 ml-1">
+                  <label className="text-xs font-extrabold text-[var(--text-secondary)] ml-1">
                     Full Name <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
@@ -378,16 +395,21 @@ const Profile = () => {
                     <input
                       type="text"
                       value={formData.fullName}
-                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-semibold text-gray-800 focus:bg-white focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      onChange={(e) =>
+                        setFormData({ ...formData, fullName: e.target.value })
+                      }
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
                       placeholder="Enter full name"
                     />
                   </div>
                 </div>
 
                 <div className="form-field flex flex-col gap-2">
-                  <label className="text-xs font-extrabold text-gray-700 ml-1">
-                    Company Email <span className="text-gray-400 font-medium">(Read-only)</span>
+                  <label className="text-xs font-extrabold text-[var(--text-secondary)] ml-1">
+                    Company Email{" "}
+                    <span className="text-gray-400 font-medium">
+                      (Read-only)
+                    </span>
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -397,13 +419,13 @@ const Profile = () => {
                       type="email"
                       value={employee?.company_email || authUser?.email || ""}
                       disabled
-                      className="w-full pl-12 pr-4 py-3.5 bg-gray-100/70 border border-gray-100 rounded-2xl text-sm font-semibold text-gray-500 cursor-not-allowed"
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)]/70 border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--muted)] cursor-not-allowed"
                     />
                   </div>
                 </div>
 
                 <div className="form-field flex flex-col gap-2">
-                  <label className="text-xs font-extrabold text-gray-700 ml-1">
+                  <label className="text-xs font-extrabold text-[var(--text-secondary)] ml-1">
                     Personal Email
                   </label>
                   <div className="relative">
@@ -413,15 +435,20 @@ const Profile = () => {
                     <input
                       type="email"
                       value={formData.personalEmail}
-                      onChange={(e) => setFormData({ ...formData, personalEmail: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-semibold text-gray-800 focus:bg-white focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          personalEmail: e.target.value,
+                        })
+                      }
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
                       placeholder="Enter personal email"
                     />
                   </div>
                 </div>
 
                 <div className="form-field flex flex-col gap-2 md:col-span-2">
-                  <label className="text-xs font-extrabold text-gray-700 ml-1">
+                  <label className="text-xs font-extrabold text-[var(--text-secondary)] ml-1">
                     Phone Number
                   </label>
                   <div className="relative">
@@ -431,15 +458,20 @@ const Profile = () => {
                     <input
                       type="tel"
                       value={formData.personalNumber}
-                      onChange={(e) => setFormData({ ...formData, personalNumber: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-semibold text-gray-800 focus:bg-white focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          personalNumber: e.target.value,
+                        })
+                      }
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
                       placeholder="Enter phone number"
                     />
                   </div>
                 </div>
 
                 <div className="form-field flex flex-col gap-2 md:col-span-2">
-                  <label className="text-xs font-extrabold text-gray-700 ml-1">
+                  <label className="text-xs font-extrabold text-[var(--text-secondary)] ml-1">
                     Home Address
                   </label>
                   <div className="relative">
@@ -448,7 +480,9 @@ const Profile = () => {
                     </div>
                     <textarea
                       value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, address: e.target.value })
+                      }
                       rows="3"
                       className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-semibold text-gray-800 focus:bg-white focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all resize-none"
                       placeholder="Enter full address"
@@ -461,7 +495,7 @@ const Profile = () => {
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="py-3 px-8 rounded-full font-bold bg-white border-2 border-gray-100 text-gray-600 hover:bg-gray-50 hover:border-gray-200 transition-all flex items-center justify-center gap-2"
+                  className="py-3 px-8 rounded-full font-bold bg-[var(--surface)] border-2 border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface2)] hover:border-[var(--border)] transition-all flex items-center justify-center gap-2"
                 >
                   <FiRefreshCw /> Reset
                 </button>
@@ -470,25 +504,29 @@ const Profile = () => {
                   disabled={updating}
                   className="py-3 px-10 rounded-full font-bold bg-[#22c55e] text-white hover:bg-[#16a34a] shadow-md shadow-green-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none"
                 >
-                  {updating ? <FiLoader className="animate-spin" /> : <FiSave />}
+                  {updating ? (
+                    <FiLoader className="animate-spin" />
+                  ) : (
+                    <FiSave />
+                  )}
                   {updating ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </form>
           )}
 
-          {activeTab === 'security' && (
+          {activeTab === "security" && (
             <form onSubmit={handleChangePassword}>
-              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-2">
+              <h3 className="text-xl font-bold text-[var(--text)] flex items-center gap-2 mb-2">
                 <FiLock className="text-green-500" /> Security & Password
               </h3>
-              <p className="text-sm text-gray-500 mb-8 font-medium">
+              <p className="text-sm text-[var(--text-secondary)] mb-8 font-medium">
                 Update your account password to stay secure.
               </p>
-              
+
               <div className="grid grid-cols-1 gap-6 mb-8 max-w-lg">
                 <div className="form-field flex flex-col gap-2">
-                  <label className="text-xs font-extrabold text-gray-700 ml-1">
+                  <label className="text-xs font-extrabold text-[var(--text-secondary)] ml-1">
                     Current Password <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
@@ -498,15 +536,20 @@ const Profile = () => {
                     <input
                       type="password"
                       value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-semibold text-gray-800 focus:bg-white focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      onChange={(e) =>
+                        setPasswordData({
+                          ...passwordData,
+                          currentPassword: e.target.value,
+                        })
+                      }
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
                       placeholder="Enter current password"
                     />
                   </div>
                 </div>
 
                 <div className="form-field flex flex-col gap-2">
-                  <label className="text-xs font-extrabold text-gray-700 ml-1">
+                  <label className="text-xs font-extrabold text-[var(--text-secondary)] ml-1">
                     New Password <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
@@ -516,15 +559,20 @@ const Profile = () => {
                     <input
                       type="password"
                       value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-semibold text-gray-800 focus:bg-white focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      onChange={(e) =>
+                        setPasswordData({
+                          ...passwordData,
+                          newPassword: e.target.value,
+                        })
+                      }
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
                       placeholder="Min. 8 characters"
                     />
                   </div>
                 </div>
 
                 <div className="form-field flex flex-col gap-2">
-                  <label className="text-xs font-extrabold text-gray-700 ml-1">
+                  <label className="text-xs font-extrabold text-[var(--text-secondary)] ml-1">
                     Confirm New Password <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
@@ -534,8 +582,13 @@ const Profile = () => {
                     <input
                       type="password"
                       value={passwordData.confirmPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-semibold text-gray-800 focus:bg-white focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      onChange={(e) =>
+                        setPasswordData({
+                          ...passwordData,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
                       placeholder="Repeat new password"
                     />
                   </div>
@@ -548,7 +601,11 @@ const Profile = () => {
                   disabled={updating}
                   className="py-3 px-10 rounded-full font-bold bg-[#22c55e] text-white hover:bg-[#16a34a] shadow-md shadow-green-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none"
                 >
-                  {updating ? <FiLoader className="animate-spin" /> : <FiLock />}
+                  {updating ? (
+                    <FiLoader className="animate-spin" />
+                  ) : (
+                    <FiLock />
+                  )}
                   {updating ? "Updating..." : "Update Password"}
                 </button>
               </div>
@@ -560,7 +617,7 @@ const Profile = () => {
       {/* Toast Notification */}
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 bg-white text-gray-800 py-3.5 px-6 rounded-full text-sm font-bold shadow-xl border-l-4 z-50 flex items-center gap-3 animate-slide-up ${
+          className={`fixed bottom-6 right-6 bg-[var(--surface)] text-[var(--text)] py-3.5 px-6 rounded-full text-sm font-bold shadow-xl border-l-4 z-50 flex items-center gap-3 animate-slide-up ${
             toast.type === "success"
               ? "border-green-500"
               : toast.type === "error"

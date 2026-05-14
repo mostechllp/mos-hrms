@@ -24,51 +24,8 @@ export const ThemeProvider = ({ children }) => {
     return localStorage.getItem('themeMode') || 'light';
   });
 
-  // Apply colors globally using CSS custom properties and inline styles
-useEffect(() => {
-  // Set CSS custom properties on root element
-  const root = document.documentElement;
-
-  // Set gray colors based on theme mode
-  if (themeMode === 'dark') {
-    root.style.setProperty('--gray-800', '#1f2937');
-    root.style.setProperty('--gray-700', '#374151');
-    root.style.setProperty('--gray-200', '#e5e7eb');
-    root.style.setProperty('--gray-100', '#f3f4f6');
-  } else {
-    root.style.setProperty('--gray-800', '#1f2937');
-    root.style.setProperty('--gray-700', '#374151');
-    root.style.setProperty('--gray-200', '#e5e7eb');
-    root.style.setProperty('--gray-100', '#f3f4f6');
-  }
-  
-  // Calculate darker and lighter shades
-  // eslint-disable-next-line react-hooks/immutability
-  const darkerShade = adjustColor(primaryColor, -30);
-  const lighterShade = adjustColor(primaryColor, 30);
-  const veryLightShade = adjustColor(primaryColor, 60);
-  
-  root.style.setProperty('--primary-color', primaryColor);
-  root.style.setProperty('--primary-dark', darkerShade);
-  root.style.setProperty('--primary-light', lighterShade);
-  root.style.setProperty('--primary-very-light', veryLightShade);
-  
-  // Generate gradient
-  root.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${primaryColor}, ${darkerShade})`);
-  
-  // Generate glow
-  root.style.setProperty('--primary-glow', `${primaryColor}20`);
-  
-  // Also create specific theme classes for Tailwind
-  // eslint-disable-next-line react-hooks/immutability
-  updateTailwindTheme(primaryColor);
-  
-  localStorage.setItem('primaryColor', primaryColor);
-}, [primaryColor, themeMode]); // Add themeMode to dependency array
-
   // Helper function to adjust color brightness
   const adjustColor = (color, percent) => {
-    // Convert hex to RGB
     let r, g, b;
     if (color.startsWith('#')) {
       r = parseInt(color.slice(1, 3), 16);
@@ -78,24 +35,85 @@ useEffect(() => {
       return color;
     }
     
-    // Adjust
     r = Math.max(0, Math.min(255, r + (r * percent) / 100));
     g = Math.max(0, Math.min(255, g + (g * percent) / 100));
     b = Math.max(0, Math.min(255, b + (b * percent) / 100));
     
-    // Convert back to hex
     return `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`;
   };
 
+  // Apply theme mode and CSS variables
+  useEffect(() => {
+    const root = document.documentElement;
+    
+    // Apply theme class
+    if (themeMode === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    
+    if (themeMode === 'dark') {
+      root.style.setProperty('--bg', '#0f1412');
+      root.style.setProperty('--surface', '#1a241f');
+      root.style.setProperty('--surface2', '#1f2c26');
+      root.style.setProperty('--border', '#2a3a32');
+      root.style.setProperty('--text', '#ecfdf5');
+      root.style.setProperty('--text-secondary', '#b8d9cc');
+      root.style.setProperty('--muted', '#7e9a8c');
+      root.style.setProperty('--sidebar-bg', '#0a100e');
+      root.style.setProperty('--sidebar-text', 'rgba(255, 255, 255, 0.65)');
+      root.style.setProperty('--shadow', '0 4px 20px rgba(0, 0, 0, 0.3)');
+      root.style.setProperty('--shadow-lg', '0 12px 32px rgba(0, 0, 0, 0.4)');
+    } else {
+      root.style.setProperty('--bg', '#eef2ef');
+      root.style.setProperty('--surface', '#ffffff');
+      root.style.setProperty('--surface2', '#eef3ef');
+      root.style.setProperty('--border', '#d6e2da');
+      root.style.setProperty('--text', '#1a2e22');
+      root.style.setProperty('--text-secondary', '#4a5f52');
+      root.style.setProperty('--muted', '#7a9486');
+      root.style.setProperty('--sidebar-bg', '#1a2e22');
+      root.style.setProperty('--sidebar-text', 'rgba(255, 255, 255, 0.7)');
+      root.style.setProperty('--shadow', '0 4px 20px rgba(0, 0, 0, 0.05)');
+      root.style.setProperty('--shadow-lg', '0 12px 32px rgba(0, 0, 0, 0.12)');
+    }
+    
+    localStorage.setItem('themeMode', themeMode);
+  }, [themeMode]);
+
+  // Apply primary color
+  useEffect(() => {
+    const root = document.documentElement;
+    
+    const darkerShade = adjustColor(primaryColor, -30);
+    const lighterShade = adjustColor(primaryColor, 30);
+    const veryLightShade = adjustColor(primaryColor, 60);
+    
+    root.style.setProperty('--primary-color', primaryColor);
+    root.style.setProperty('--primary-dark', darkerShade);
+    root.style.setProperty('--primary-light', lighterShade);
+    root.style.setProperty('--primary-very-light', veryLightShade);
+    root.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${primaryColor}, ${darkerShade})`);
+    root.style.setProperty('--primary-glow', `${primaryColor}20`);
+    
+    // Update Tailwind theme
+    // eslint-disable-next-line react-hooks/immutability
+    updateTailwindTheme(primaryColor);
+    
+    localStorage.setItem('primaryColor', primaryColor);
+  }, [primaryColor]);
+
   // Update dynamic Tailwind theme
   const updateTailwindTheme = (color) => {
-    // Inject a style tag with dynamic classes
     let styleTag = document.getElementById('dynamic-theme');
     if (!styleTag) {
       styleTag = document.createElement('style');
       styleTag.id = 'dynamic-theme';
       document.head.appendChild(styleTag);
     }
+    
+    const darkerShade = adjustColor(color, -20);
     
     styleTag.innerHTML = `
       /* Dynamic Theme Classes */
@@ -111,7 +129,7 @@ useEffect(() => {
       .text-primary-light-custom { color: ${adjustColor(color, 20)} !important; }
       
       .bg-gradient-primary-custom { 
-        background: linear-gradient(135deg, ${color}, ${adjustColor(color, -20)}) !important; 
+        background: linear-gradient(135deg, ${color}, ${darkerShade}) !important; 
       }
       
       /* Focus rings */
@@ -143,24 +161,6 @@ useEffect(() => {
         background-color: ${color} !important;
         color: white !important;
       }
-      
-      /* Links */
-      a:not([class*="text-"]):not([class*="hover:"]) {
-        color: ${color} !important;
-      }
-      
-      a:not([class*="text-"]):not([class*="hover:"]):hover {
-        color: ${adjustColor(color, -20)} !important;
-      }
-      
-      /* Buttons with no explicit color */
-      button:not([class*="bg-"]):not([class*="text-"]):not([class*="border-"]):not([class*="hover:"]):not([class*="focus:"]) {
-        background-color: ${color} !important;
-      }
-      
-      button:not([class*="bg-"]):not([class*="text-"]):not([class*="border-"]):not([class*="hover:"]):not([class*="focus:"]):hover {
-        background-color: ${adjustColor(color, -10)} !important;
-      }
     `;
   };
 
@@ -169,16 +169,6 @@ useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}px`;
     localStorage.setItem('fontSize', fontSize);
   }, [fontSize]);
-
-  // Apply theme mode (light/dark)
-  useEffect(() => {
-    if (themeMode === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('themeMode', themeMode);
-  }, [themeMode]);
 
   const handleColorChange = (color) => {
     setPrimaryColor(color);
