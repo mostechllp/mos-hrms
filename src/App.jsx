@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { useTheme } from "./admin/hooks/useTheme";
 import GlobalUploadStatus from "./admin/components/common/GlobalUploadStatus";
-import { useSelector } from "react-redux";
 import Loader from "./admin/components/common/Loader";
 import { initializeAuth } from "./store/slices/authSlice";
 
