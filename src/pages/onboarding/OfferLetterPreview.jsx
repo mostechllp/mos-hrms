@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { FiFileText, FiDownload, FiChevronRight, FiChevronLeft, FiPrinter, FiSettings, FiEdit } from "react-icons/fi";
-import { setStep, updateOfferLetter } from "../store/slices/onboardingSlice";
+import { setStep, updateOfferLetter } from "../../store/slices/onboardingSlice";
 
 const OfferLetterPreview = () => {
   const dispatch = useDispatch();

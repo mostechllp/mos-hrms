@@ -1,8 +1,8 @@
 import React from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { FiCheckCircle, FiFileText, FiUser, FiChevronLeft, FiSend, FiShield, FiGlobe, FiBriefcase } from "react-icons/fi";
-import { setStep, completeOnboarding } from "../store/slices/onboardingSlice";
-import { showToast } from "../components/common/Toast";
+import { setStep, completeOnboarding } from "../../store/slices/onboardingSlice";
+import { showToast } from "../../components/common/Toast";
 
 const OnboardingReview = () => {
   const dispatch = useDispatch();

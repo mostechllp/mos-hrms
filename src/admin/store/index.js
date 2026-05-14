@@ -13,7 +13,6 @@ import departmentReducer from "./slices/departmentSlice"
 import documentsReducer from "./slices/documentsSlice"
 import wfhReducer from "./slices/wfhSlice"
 import reportsReducer from "./slices/reportSlice"
-import onboardingReducer from "./slices/onboardingSlice"
 
 export const store = configureStore({
     reducer: {
@@ -31,7 +30,6 @@ export const store = configureStore({
         documents: documentsReducer,
         wfh: wfhReducer,
         reports: reportsReducer,
-        onboarding: onboardingReducer,
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
