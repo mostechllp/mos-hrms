@@ -13,7 +13,7 @@ import departmentReducer from "../admin/store/slices/departmentSlice";
 import documentsReducer from "../admin/store/slices/documentsSlice";
 import wfhReducer from "../admin/store/slices/wfhSlice";
 import onboardingReducer from "./slices/onboardingSlice";
-
+import roleReducer from "../admin/store/slices/roleSlice";
 
 // Employee reducers
 import leavesReducer from "../employee/store/slices/leavesSlice";
@@ -40,7 +40,7 @@ export const store = configureStore({
     documents: documentsReducer,
     wfh: wfhReducer,
     onboarding: onboardingReducer,
-
+    roles: roleReducer,
 
     // Employee
     EmpLeaves: leavesReducer,
