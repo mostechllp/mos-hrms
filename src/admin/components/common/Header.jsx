@@ -55,7 +55,7 @@ const Header = ({ onMenuClick }) => {
 
     if (path === "/admin/dashboard" || path === "/") {
       return "Dashboard";
-    } else if (path === "//adminemployees") {
+    } else if (path === "/admin/employees") {
       return "Employees";
     } else if (path === "/admin/organizations") {
       return "Organizations";
@@ -85,12 +85,15 @@ const Header = ({ onMenuClick }) => {
       return "Reports";
     } else if (path === "/admin/settings") {
       return "Settings";
+    } else if (path.includes("/admin/role-management")) {
+      return "Role Management";
+    } else if (path.includes("/admin/payroll/add")) {
+      return "Add Payroll";
     } else if (path.includes("/admin/employees/add-employee")) {
       return "Add Employee";
     } else if (path.includes("/admin/employees/onboarding")) {
       return "Onboarding";
     } else if (path.includes("/admin/employees/edit")) {
-
       return "Edit Employee";
     } else if (path.includes("/admin/employees/")) {
       return "Employee Details";
