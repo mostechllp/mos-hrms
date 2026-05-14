@@ -23,7 +23,7 @@ import apiClient from "../../../utils/apiClient";
 //     const shareArray = Array.isArray(formData.share_with)
 //       ? formData.share_with
 //       : formData.share_with.split(",");
-  
+
 //     shareArray.forEach((id, index) => {
 //       formDataToSend.append(`share_with[${index}]`, id);
 //     });
@@ -39,17 +39,17 @@ const transformDocumentForAPI = (formData, file) => {
 
   formDataToSend.append("name", formData.name);
   formDataToSend.append("type", formData.type || "agreements");
-  
+
   if (formData.description) {
     formDataToSend.append("description", formData.description);
   }
-  
+
   formDataToSend.append("folder_id", formData.folder_id || "");
-  
+
   if (formData.expiry_date) {
     formDataToSend.append("expiry_date", formData.expiry_date);
   }
-  
+
   // Only append party_id if it has a value
   if (formData.party_id) {
     formDataToSend.append("party_id", formData.party_id);
@@ -299,7 +299,7 @@ export const fetchParties = createAsyncThunk(
     try {
       const response = await apiClient.get("/admin/parties");
       console.log("Fetch parties response:", response.data);
-      
+
       // Handle paginated response: { status, message, data: { current_page, data: [...] } }
       if (response.data?.data?.data) {
         return response.data.data.data;

@@ -48,6 +48,41 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { path: "/admin/settings", icon: "fas fa-gear", label: "Settings" },
   ];
 
+  const handleLogout = async () => {
+    try {
+      await dispatch(logoutUser()).unwrap();
+      navigate("/login");
+    } catch (err) {
+      console.error("Logout failed", err);
+    }
+  };
+
+  // Get user's display name
+  const getUserName = () => {
+    if (user?.employee?.name) return user.employee.name;
+    if (user?.name) return user.name;
+    if (user?.username) return user.username;
+    return "HR Admin";
+  };
+
+  // Get user's avatar URL
+  const getUserAvatar = () => {
+    if (user?.avatar) return user.avatar;
+    // Generate avatar from name if not available
+    const name = getUserName();
+    const encodedName = encodeURIComponent(name);
+    return `https://ui-avatars.com/api/?name=${encodedName}&color=ffffff&background=22c55e`;
+  };
+
+  // Get user's role
+  const getUserRole = () => {
+    if (user?.type) return user.type.charAt(0).toUpperCase() + user.type.slice(1);
+    if (user?.role?.name) return user.role.name;        // ← fix: use .name
+    if (user?.role && typeof user.role === 'string') return user.role;
+    if (user?.roles && user.roles.length > 0) return typeof user.roles[0] === 'object' ? user.roles[0].name : user.roles[0];
+    return "Administrator";
+  };
+
   return (
     <>
       {/* Mobile overlay */}

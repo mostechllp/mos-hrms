@@ -57,10 +57,32 @@ export const logoutUser = createAsyncThunk("auth/logout", async () => {
   localStorage.removeItem("employee-user");
   localStorage.removeItem("remember-me");
   localStorage.removeItem("remembered-email");
-  
+
   return null;
 });
 
+export const initializeAuth = createAsyncThunk(
+  "auth/initialize",
+  async (_, { rejectWithValue }) => {
+    const token = localStorage.getItem("auth-token");
+    if (!token) return rejectWithValue("No token");
+
+    try {
+      const response = await apiClient.get("/auth/me"); // or whatever your verify endpoint is
+      return response.data.data;
+    } catch {
+      // Token is invalid/expired — clear everything
+      localStorage.removeItem("auth-token");
+      localStorage.removeItem("user-type");
+      localStorage.removeItem("user-data");
+      localStorage.removeItem("hr-token");
+      localStorage.removeItem("hr-user");
+      localStorage.removeItem("employee-token");
+      localStorage.removeItem("employee-user");
+      return rejectWithValue("Invalid token");
+    }
+  }
+);
 const getUserFromStorage = () => {
   const userData = localStorage.getItem("user-data");
   if (userData) {
@@ -118,6 +140,25 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
         state.isAuthenticated = false;
+      })
+      .addCase(initializeAuth.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(initializeAuth.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isAuthenticated = true;
+        state.userType = action.payload.user?.type;
+        state.user = {
+          ...action.payload.user,
+          name: action.payload.user?.employee?.name || action.payload.user?.username,
+        };
+      })
+      .addCase(initializeAuth.rejected, (state) => {
+        state.loading = false;
+        state.isAuthenticated = false;
+        state.user = null;
+        state.token = null;
+        state.userType = null;
       })
       .addCase(logoutUser.fulfilled, (state) => {
         state.user = null;
