@@ -202,7 +202,7 @@ function RoleManagement() {
                                 <div className="flex gap-2">
                                     <button
                                         type="submit"
-                                        className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition shadow-md"
+                                        className="flex-1 py-2.5 rounded-full bg-[#22c55e] hover:bg-[#1ba34a] text-white text-sm font-semibold transition shadow-md"
                                     >
                                         <i className="fas fa-check mr-2"></i>
                                         {editingRoleId ? "Update role" : "Create role"}
@@ -211,7 +211,7 @@ function RoleManagement() {
                                         <button
                                             type="button"
                                             onClick={handleCancelEdit}
-                                            className="px-4 py-2.5 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-sm font-semibold transition shadow-md"
+                                            className="px-5 py-2.5 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-sm font-semibold transition shadow-md"
                                         >
                                             Cancel
                                         </button>
@@ -294,19 +294,19 @@ function RoleManagement() {
                             </div>
 
                             <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
-                                <table className="w-full text-left text-xs md:text-sm border-collapse min-w-[520px]">
+                                <table className="w-full text-left text-xs md:text-sm border-collapse">
                                     <thead>
                                         <tr className="bg-gray-50 dark:bg-gray-700/80 border-b border-gray-200 dark:border-gray-600">
-                                            <th className="px-3 py-3 font-semibold text-gray-600 dark:text-gray-300">
+                                            <th className="px-2 md:px-3 py-3 font-semibold text-gray-600 dark:text-gray-300">
                                                 Module
                                             </th>
-                                            <th className="px-3 py-3 font-semibold text-center text-gray-600 dark:text-gray-300 w-24">
+                                            <th className="px-2 py-3 font-semibold text-center text-gray-600 dark:text-gray-300 w-14 md:w-20">
                                                 Read
                                             </th>
-                                            <th className="px-3 py-3 font-semibold text-center text-gray-600 dark:text-gray-300 w-24">
+                                            <th className="px-2 py-3 font-semibold text-center text-gray-600 dark:text-gray-300 w-14 md:w-20">
                                                 Edit
                                             </th>
-                                            <th className="px-3 py-3 font-semibold text-center text-gray-600 dark:text-gray-300 w-24">
+                                            <th className="px-2 py-3 font-semibold text-center text-gray-600 dark:text-gray-300 w-14 md:w-20">
                                                 Delete
                                             </th>
                                         </tr>
@@ -323,11 +323,11 @@ function RoleManagement() {
                                                     key={m.key}
                                                     className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50/80 dark:hover:bg-gray-700/30"
                                                 >
-                                                    <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-200">
+                                                    <td className="px-2 md:px-3 py-2.5 font-medium text-gray-800 dark:text-gray-200">
                                                         {m.label}
                                                     </td>
                                                     {["read", "edit", "delete"].map((field) => (
-                                                        <td key={field} className="px-3 py-2 text-center">
+                                                        <td key={field} className="px-2 py-2 text-center">
                                                             <label className="inline-flex items-center justify-center cursor-pointer">
                                                                 <input
                                                                     type="checkbox"
@@ -335,7 +335,7 @@ function RoleManagement() {
                                                                     onChange={() =>
                                                                         togglePermission(selectedPermRoleId, m.key, field)
                                                                     }
-                                                                    className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600"
+                                                                    className="custom-checkbox"
                                                                 />
                                                             </label>
                                                         </td>
@@ -357,7 +357,7 @@ function RoleManagement() {
                             <button
                                 type="button"
                                 onClick={handleSavePermissions}
-                                className="mt-4 w-full sm:w-auto px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition"
+                                className="mt-4 w-full sm:w-auto px-6 py-2.5 rounded-full bg-[#22c55e] hover:bg-[#1ba34a] text-white text-sm font-semibold transition"
                             >
                                 <i className="fas fa-save mr-2"></i>
                                 Save permissions
@@ -377,13 +377,13 @@ function RoleManagement() {
                         <div className="flex gap-3 justify-end">
                             <button
                                 onClick={() => setRoleToDelete(null)}
-                                className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition"
+                                className="px-5 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-full transition"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleDeleteConfirm}
-                                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition"
+                                className="px-5 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-full transition"
                             >
                                 Delete
                             </button>

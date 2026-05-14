@@ -11,7 +11,7 @@ const Dashboard = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { isPunchedIn, punchInTime, loading, dashboardData } = useSelector((state) => state.attendance);
-  
+
   const [currentTime, setCurrentTime] = useState('');
   const [currentDate, setCurrentDate] = useState('');
   const [showPunchOutModal, setShowPunchOutModal] = useState(false);
@@ -38,7 +38,7 @@ const Dashboard = () => {
     };
     updateDateTime();
     const interval = setInterval(updateDateTime, 1000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -47,7 +47,7 @@ const Dashboard = () => {
     if (!isPunchedIn) {
       // Punch In
       const result = await dispatch(punchIn());
-      
+
       if (punchIn.fulfilled.match(result)) {
         showToast("✅ Punched in successfully!", "success");
         // Refresh dashboard data after punch in
@@ -64,7 +64,7 @@ const Dashboard = () => {
   // Handle Punch Out Submit
   const handlePunchOutSubmit = async (data) => {
     const result = await dispatch(punchOut(data));
-    
+
     if (punchOut.fulfilled.match(result)) {
       showToast("✅ Punched out successfully!", "success");
       setShowPunchOutModal(false);
@@ -93,14 +93,14 @@ const Dashboard = () => {
     // Get last 7 days
     const last7Days = [];
     const hoursWorked = [];
-    
+
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
       const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
       last7Days.push(dayName);
-      
+
       // Find attendance for this date
       const attendance = dashboardData.attendance_history.find(a => a.log_date === dateStr);
       if (attendance && attendance.punch_in && attendance.punch_out) {
@@ -112,7 +112,7 @@ const Dashboard = () => {
         hoursWorked.push(0);
       }
     }
-    
+
     return {
       labels: last7Days,
       datasets: [{
@@ -132,7 +132,7 @@ const Dashboard = () => {
       legend: { display: false },
       tooltip: {
         backgroundColor: '#2ecc71',
-        callbacks: { 
+        callbacks: {
           label: (context) => {
             const hours = context.raw;
             return hours > 0 ? `${hours} hours` : 'No data';
@@ -141,9 +141,9 @@ const Dashboard = () => {
       },
     },
     scales: {
-      y: { 
-        beginAtZero: true, 
-        max: 9, 
+      y: {
+        beginAtZero: true,
+        max: 9,
         title: { display: true, text: 'Hours', font: { size: 11 } },
         ticks: { stepSize: 2 }
       },
@@ -171,7 +171,7 @@ const Dashboard = () => {
     if (dashboardData?.employee) {
       return `Employee ID: ${dashboardData.employee.employee_id}`;
     }
-    return user?.role || 'Employee';
+    return user?.role?.name || user?.role || 'Employee';
   };
 
   return (
@@ -221,7 +221,7 @@ const Dashboard = () => {
           disabled={loading || dashboardData?.can_punch === false}
           className="punch-btn bg-green-500 border-none text-white py-3 px-8 rounded-full font-semibold text-sm cursor-pointer transition-all flex items-center gap-2 hover:bg-green-600 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <i className="fas fa-fingerprint"></i> 
+          <i className="fas fa-fingerprint"></i>
           {loading ? 'Processing...' : (isPunchedIn ? 'Punch Out' : 'Punch In')}
         </button>
       </div>
@@ -285,7 +285,7 @@ const Dashboard = () => {
               </thead>
               <tbody>
                 {dashboardData.attendance_history.slice(0, 5).map((attendance, index) => {
-                  const hours = attendance.punch_in && attendance.punch_out 
+                  const hours = attendance.punch_in && attendance.punch_out
                     ? ((new Date(attendance.punch_out) - new Date(attendance.punch_in)) / (1000 * 60 * 60)).toFixed(1)
                     : '-';
                   return (
@@ -320,9 +320,8 @@ const Dashboard = () => {
       {/* Toast Notification */}
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 bg-[var(--surface)] text-[var(--text)] py-3 px-5 rounded-full text-sm font-medium shadow-lg border-l-4 z-50 flex items-center gap-2 animate-slide-up ${
-            toast.type === 'success' ? 'border-green-500' : 'border-red-500'
-          }`}
+          className={`fixed bottom-6 right-6 bg-[var(--surface)] text-[var(--text)] py-3 px-5 rounded-full text-sm font-medium shadow-lg border-l-4 z-50 flex items-center gap-2 animate-slide-up ${toast.type === 'success' ? 'border-green-500' : 'border-red-500'
+            }`}
         >
           <i className={`fas ${toast.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} ${toast.type === 'success' ? 'text-green-500' : 'text-red-500'}`}></i>
           {toast.message}
