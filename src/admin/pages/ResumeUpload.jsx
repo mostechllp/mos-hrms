@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { FiUploadCloud, FiFileText, FiCheckCircle, FiLoader, FiAlertCircle } from "react-icons/fi";
-import { parseResume } from "../../store/slices/onboardingSlice";
+import { parseResume } from "../store/slices/onboardingSlice";
 
 const ResumeUpload = () => {
   const dispatch = useDispatch();
