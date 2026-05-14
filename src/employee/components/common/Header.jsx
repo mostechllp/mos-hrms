@@ -1,15 +1,13 @@
-// src/employee/components/common/Header.jsx
 import { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import {useAppSelector } from '../../store/hooks';
-import { setTheme } from '../../store/slices/themeSlice';
 import { logoutUser } from '../../../store/slices/authSlice';
+import ThemeCustomizer from '../../../components/common/ThemeCustomizer';
 
 const Header = ({ onMenuClick }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { theme } = useAppSelector((state) => state.theme);
   const { user } = useAppSelector((state) => state.auth);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
@@ -65,24 +63,7 @@ const Header = ({ onMenuClick }) => {
           <i className="far fa-calendar-alt"></i> {currentDate}
         </div>
         
-        <div className="theme-toggle flex bg-[var(--surface2)] border border-[var(--border)] rounded-full p-0.5 gap-0.5">
-          <button
-            onClick={() => dispatch(setTheme('light'))}
-            className={`theme-btn w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all ${
-              theme === 'light' ? 'bg-[var(--surface)] shadow-md text-green-500' : 'text-[var(--text-secondary)]'
-            }`}
-          >
-            <i className="fas fa-sun"></i>
-          </button>
-          <button
-            onClick={() => dispatch(setTheme('dark'))}
-            className={`theme-btn w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all ${
-              theme === 'dark' ? 'bg-[var(--surface)] shadow-md text-green-500' : 'text-[var(--text-secondary)]'
-            }`}
-          >
-            <i className="fas fa-moon"></i>
-          </button>
-        </div>
+        <ThemeCustomizer />
         
         <div className="avatar-wrapper relative">
           <div 
