@@ -1,9 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAppSelector } from "../../store/hooks";
 import { useState } from "react";
-import { useDispatch } from "react-redux";                          // ← add
-import { logoutUser } from "../../../store/slices/authSlice";        // ← add
-import { useNavigate } from "react-router-dom";
 import MissedPunchOutModal from "../modals/MissedPunchoutModal";
 import MissedPunchInModal from "../modals/MissedPunchInModal";
 import LateCheckinModal from "../modals/LateCheckinModal";
@@ -13,8 +10,6 @@ import EarlyCheckinModal from "../modals/EarlyCheckinModal";
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { user } = useAppSelector((state) => state.auth);
-  const dispatch = useDispatch();    // ← add
-  const navigate = useNavigate();
   console.log("User: ", user)
 
   // Modal states
@@ -22,13 +17,6 @@ const Sidebar = ({ isOpen, onClose }) => {
   const [showLateCheckin, setShowLateCheckin] = useState(false);
   const [showMissedPunchIn, setShowMissedPunchIn] = useState(false);
   const [showMissedPunchOut, setShowMissedPunchOut] = useState(false);
-
-  const handleLogout = async () => {
-    await dispatch(logoutUser());
-    navigate("/login");
-    onClose();
-  };
-
   const navItems = [
     { path: "/employee/dashboard", icon: "fas fa-chart-line", label: "Dashboard" },
     { path: "/employee/leaves", icon: "fas fa-calendar-check", label: "My Leaves" },
@@ -123,21 +111,6 @@ const Sidebar = ({ isOpen, onClose }) => {
             </div>
           </div>
         </nav>
-
-        <div className="sidebar-footer">
-          <button className="nav-item" onClick={handleLogout}>
-            <i className="fas fa-sign-out-alt"></i>
-            <span>Sign Out</span>
-          </button>
-
-          <div className="user-info">
-            <div className="user-avatar">{user?.employee?.name?.charAt(0)}</div>
-            <div className="user-details">
-              <h4>{user?.employee?.name}</h4>
-              <p>{user?.role?.name}</p>
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* Modals */}
