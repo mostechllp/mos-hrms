@@ -93,7 +93,7 @@ const LazyWrapper = ({ children }) => {
 
 function App() {
   const { theme } = useTheme();
-  const dispatch = useDispatch(); // ADD THIS LINE - it was missing!
+  const dispatch = useDispatch();
   const { loading: authLoading, isAuthenticated } = useSelector(
     (state) => state.auth,
   );
