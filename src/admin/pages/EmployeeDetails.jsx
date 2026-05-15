@@ -265,7 +265,7 @@ const EmployeeDetails = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`px-5 py-3 flex items-center gap-2 text-sm font-medium transition-all ${
                     activeTab === tab.id
-                      ? "text-green-600 border-b-2 border-green-600 bg-green-50"
+                      ? "text-green-600 border-b-2 border-green-600 bg-gray-50" // Changed from bg-green-50 to bg-gray-50
                       : "text-gray-600 hover:text-green-600 hover:bg-gray-50"
                   }`}
                 >

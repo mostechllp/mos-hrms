@@ -3,10 +3,11 @@ import { useSelector, useDispatch } from "react-redux";
 import { showToast } from "../../components/common/Toast";
 import apiClient from "../../utils/apiClient";
 import { fetchOrganizations } from "@admin/store/slices/organizationSlice";
+import { updateUserProfile, fetchCurrentUser } from "../../store/slices/authSlice";
 
 const Settings = () => {
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
+  const { user, profileUpdateLoading } = useSelector((state) => state.auth);
   const { organizations } = useSelector((state) => state.organizations);
   const [loading, setLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -27,7 +28,7 @@ const Settings = () => {
   };
 
   const [profileData, setProfileData] = useState({
-    fullName: user?.employee?.name || user?.name || "HR Admin",
+    fullName: user?.name || user?.employee?.name || "HR Admin",
     email: user?.email || "hr@thesay.ae",
   });
 
@@ -42,12 +43,20 @@ const Settings = () => {
     dispatch(fetchOrganizations());
   }, [dispatch]);
 
+  // Fetch fresh user data on component mount to ensure latest data
+  useEffect(() => {
+    const fetchUserData = async () => {
+      await dispatch(fetchCurrentUser());
+    };
+    fetchUserData();
+  }, [dispatch]);
+
   // Update profile data when user changes
   useEffect(() => {
     if (user) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setProfileData({
-        fullName: user?.employee?.name || user?.name || "HR Admin",
+        fullName: user?.name || user?.employee?.name || user?.full_name || "HR Admin",
         email: user?.email || "hr@thesay.ae",
       });
     }
@@ -63,6 +72,7 @@ const Settings = () => {
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+    
     if (!profileData.fullName) {
       showToast("Please enter your full name", "error");
       return;
@@ -77,8 +87,27 @@ const Settings = () => {
     }
 
     setLoading(true);
-    // Implement profile update API call here
-    setLoading(false);
+    
+    try {
+      const result = await dispatch(updateUserProfile(profileData)).unwrap();
+      
+      if (result) {
+        showToast("Profile updated successfully!", "success");
+        
+        // Fetch fresh user data from server to ensure consistency
+        await dispatch(fetchCurrentUser());
+        
+        // Update local form state
+        setProfileData({
+          fullName: result.name || profileData.fullName,
+          email: result.email || profileData.email,
+        });
+      }
+    } catch (error) {
+      showToast(error || "Failed to update profile", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChangePassword = async (e) => {
@@ -176,39 +205,11 @@ const Settings = () => {
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 md:p-6 shadow-soft">
               <div className="flex items-center gap-3 pb-3 md:pb-4 border-b border-gray-200 dark:border-gray-700 mb-4 md:mb-6">
                 <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                  <i className="fas fa-building text-green-600 dark:text-green-400 text-base md:text-xl"></i>
+                  <i className="fas fa-user text-green-600 dark:text-green-400 text-base md:text-xl"></i>
                 </div>
                 <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
-                  Organization Profile
+                  Profile Information
                 </h3>
-              </div>
-
-              {/* Organization Logo Section */}
-              <div className="flex flex-col sm:flex-row gap-4 md:gap-6 mb-4 md:mb-6">
-                <div className="text-center">
-                  {logoUrl ? (
-                    <img
-                      src={logoUrl}
-                      alt={`${organizationName} Logo`}
-                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover border-4 border-green-500 shadow-md mx-auto"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center border-4 border-green-500 shadow-md mx-auto">
-                      <i className="fas fa-building text-white text-3xl md:text-4xl"></i>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 text-center sm:text-left">
-                  <h4 className="text-sm md:text-base font-semibold text-gray-800 dark:text-gray-200 mb-1">
-                    {organizationName}
-                  </h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                    Organization Logo
-                  </p>
-                  <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    <i className="fas fa-info-circle"></i> Note: Change logo from organizations tab
-                  </div>
-                </div>
               </div>
 
               <form onSubmit={handleSaveProfile}>
@@ -242,10 +243,10 @@ const Settings = () => {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || profileUpdateLoading}
                   className="w-full sm:w-auto px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base disabled:opacity-70"
                 >
-                  {loading ? (
+                  {loading || profileUpdateLoading ? (
                     <>
                       <i className="fas fa-spinner fa-spin"></i>{" "}
                       <span>Saving...</span>
@@ -379,6 +380,45 @@ const Settings = () => {
                     be easily guessable.
                   </span>
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Organization Info Section */}
+          <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 md:p-6 shadow-soft">
+            <div className="flex items-center gap-3 pb-3 md:pb-4 border-b border-gray-200 dark:border-gray-700 mb-4 md:mb-6">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                <i className="fas fa-building text-green-600 dark:text-green-400 text-base md:text-xl"></i>
+              </div>
+              <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
+                Organization Information
+              </h3>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
+              <div className="text-center">
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt={`${organizationName} Logo`}
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover border-4 border-green-500 shadow-md mx-auto"
+                  />
+                ) : (
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center border-4 border-green-500 shadow-md mx-auto">
+                    <i className="fas fa-building text-white text-3xl md:text-4xl"></i>
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 text-center sm:text-left">
+                <h4 className="text-sm md:text-base font-semibold text-gray-800 dark:text-gray-200 mb-1">
+                  {organizationName}
+                </h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Organization Logo
+                </p>
+                <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  <i className="fas fa-info-circle"></i> Note: Change logo from organizations tab
+                </div>
               </div>
             </div>
           </div>
