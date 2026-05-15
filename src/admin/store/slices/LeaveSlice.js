@@ -118,11 +118,10 @@ export const fetchLeaveBalances = createAsyncThunk(
 
 export const updateLeaveAllocation = createAsyncThunk(
   "leaves/updateAllocation",
-  async ({ employee_id, leave_type, allocated }, { rejectWithValue }) => {
+  async ({ employee_id, allocations }, { rejectWithValue }) => {
     try {
       const response = await apiClient.post(`/admin/leave-allocations/${employee_id}`, {
-        leave_type,
-        allocated
+        allocations
       });
       return response.data.data;
     } catch (error) {

@@ -7,7 +7,6 @@ export const fetchOrganizations = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await apiClient.get("/admin/organizations");
-      console.log("Organizations response: ", response.data);
       return response.data.data;
     } catch (error) {
       return rejectWithValue(
@@ -18,16 +17,10 @@ export const fetchOrganizations = createAsyncThunk(
 );
 
 // Add organization
-// Add this before the API call in your addOrganization thunk
 export const addOrganization = createAsyncThunk(
   "organizations/add",
   async (organizationData, { rejectWithValue }) => {
     try {
-      // Debug: Log all FormData entries
-      console.log("=== FormData contents being sent ===");
-      for (let pair of organizationData.entries()) {
-        console.log(pair[0], pair[1]);
-      }
       
       const response = await apiClient.post(
         "/admin/organizations",
@@ -39,7 +32,6 @@ export const addOrganization = createAsyncThunk(
         }
       );
       
-      console.log("=== Server Response ===", response.data);
       return response.data.data;
     } catch (error) {
       console.error("Add organization error:", error.response?.data);
@@ -53,14 +45,44 @@ export const addOrganization = createAsyncThunk(
   }
 );
 
-// Update organization
+// Update the updateOrganization thunk
 export const updateOrganization = createAsyncThunk(
   "organizations/update",
-  async ({ id, data }, { rejectWithValue }) => {
+  async ({ id, data, isFormData = false }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put(`/admin/organizations/${id}`, data);
+      
+      let requestData = data;
+      let requestMethod = "put";
+      
+      // If it's FormData, use POST with _method=PUT (Laravel workaround)
+      if (isFormData || data instanceof FormData) {
+        requestMethod = "post";
+        requestData = data;
+        requestData.append("_method", "PUT");
+      }
+      
+      const config = {
+        headers: (data instanceof FormData) ? {
+          "Content-Type": "multipart/form-data",
+        } : {},
+      };
+      
+      const response = await apiClient({
+        method: requestMethod,
+        url: `/admin/organizations/${id}`,
+        data: requestData,
+        ...config
+      });
+      
       return response.data.data;
     } catch (error) {
+      console.error("Update organization error:", error.response?.data);
+      
+      if (error.response?.data?.errors) {
+        const errorMessages = Object.values(error.response.data.errors).flat();
+        return rejectWithValue(errorMessages.join(", "));
+      }
+      
       return rejectWithValue(
         error.response?.data?.message || "Failed to update organization",
       );

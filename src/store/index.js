@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/authSlice";
+import adminProfileAuthReducer from "../admin/store/slices/authSlice"
 import employeeReducer from "../admin/store/slices/employeeSlice";
 import notificationReducer from "../admin/store/slices/notificationSlice";
 import organizationReducer from "../admin/store/slices/organizationSlice";
@@ -27,6 +28,7 @@ import EmpAttendanceReducer from "../employee/store/slices/attendanceSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    adminProfileAuth: adminProfileAuthReducer,
     employees: employeeReducer,
     notifications: notificationReducer,
     organizations: organizationReducer,
