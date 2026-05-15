@@ -24,37 +24,36 @@ const EditLeaveAllocation = () => {
   }, [dispatch, id]);
 
   useEffect(() => {
-    if (currentEmployee) {
+    if (currentEmployee && leaveTypes.length > 0) {
       const initialAllocs = {};
       
-      const availableLeaveTypes = leaveTypes.filter(type => 
-        ['Sick Leave', 'Casual Leave', 'Annual Leave'].includes(type.name)
-      );
+      // Map leave allocations by leave_type_id
+      currentEmployee.leave_allocations?.forEach(alloc => {
+        const leaveTypeId = alloc.leave_type_id || alloc.leave_type?.id;
+        if (leaveTypeId) {
+          initialAllocs[leaveTypeId] = alloc.allocated || alloc.allocated_days || 0;
+        }
+      });
       
-      const typesToShow = availableLeaveTypes.length > 0 ? availableLeaveTypes : [
-        { name: 'Sick Leave' },
-        { name: 'Casual Leave' },
-        { name: 'Annual Leave' }
-      ];
-      
-      typesToShow.forEach(type => {
-        const allocation = currentEmployee.leave_allocations?.find(
-          a => a.leave_type?.name === type.name || a.leave_type_name === type.name
-        );
-        initialAllocs[type.name] = allocation?.allocated || 0;
+      // Set allocations for all leave types (with 0 for those without allocations)
+      leaveTypes.forEach(type => {
+        if (!initialAllocs[type.id]) {
+          initialAllocs[type.id] = 0;
+        }
       });
       
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAllocations(initialAllocs);
       
+      // Set leave balances
       const balances = {};
       currentEmployee.leave_allocations?.forEach(alloc => {
-        const typeName = alloc.leave_type?.name || alloc.leave_type_name;
-        if (typeName) {
-          balances[typeName] = {
-            allocated: alloc.allocated || 0,
+        const leaveTypeId = alloc.leave_type_id || alloc.leave_type?.id;
+        if (leaveTypeId) {
+          balances[leaveTypeId] = {
+            allocated: alloc.allocated || alloc.allocated_days || 0,
             used: alloc.used || 0,
-            remaining: (alloc.allocated || 0) - (alloc.used || 0)
+            remaining: (alloc.allocated || alloc.allocated_days || 0) - (alloc.used || 0)
           };
         }
       });
@@ -62,29 +61,34 @@ const EditLeaveAllocation = () => {
     }
   }, [currentEmployee, leaveTypes]);
 
-  const handleAllocationChange = (leaveType, value) => {
+  const handleAllocationChange = (leaveTypeId, value) => {
     const numValue = parseInt(value) || 0;
     if (numValue < 0) {
       showToast('Allocated days cannot be negative', 'error');
       return;
     }
-    setAllocations(prev => ({ ...prev, [leaveType]: numValue }));
+    setAllocations(prev => ({ ...prev, [leaveTypeId]: numValue }));
   };
 
   const handleSave = async () => {
     setUpdating(true);
     try {
-      const promises = Object.entries(allocations).map(([leaveType, allocated]) => {
-        return dispatch(updateLeaveAllocation({
-          employee_id: parseInt(id),
-          leave_type: leaveType,
-          allocated: allocated
-        })).unwrap();
+      // Prepare allocations object with leave_type_id as key
+      const allocationsData = {};
+      Object.entries(allocations).forEach(([leaveTypeId, allocated]) => {
+        allocationsData[leaveTypeId] = allocated;
       });
       
-      await Promise.all(promises);
-      showToast('Leave allocations updated successfully', 'success');
-      navigate('/admin/leaves/allocations');
+      // Send single request with all allocations
+      const result = await dispatch(updateLeaveAllocation({
+        employee_id: parseInt(id),
+        allocations: allocationsData
+      })).unwrap();
+      
+      if (result) {
+        showToast('Leave allocations updated successfully', 'success');
+        navigate('/admin/leaves/allocations');
+      }
     } catch (error) {
       showToast(error || 'Failed to update allocations', 'error');
     } finally {
@@ -92,27 +96,20 @@ const EditLeaveAllocation = () => {
     }
   };
 
-  const getCurrentBalance = (leaveType) => {
-    const balance = leaveBalances[leaveType];
+  const getCurrentBalance = (leaveTypeId) => {
+    const balance = leaveBalances[leaveTypeId];
     if (balance) {
       return balance.remaining;
     }
-    return allocations[leaveType] || 0;
+    return allocations[leaveTypeId] || 0;
   };
 
-  const getUsedDays = (leaveType) => {
-    const balance = leaveBalances[leaveType];
+  const getUsedDays = (leaveTypeId) => {
+    const balance = leaveBalances[leaveTypeId];
     return balance?.used || 0;
   };
 
-  const leaveTypesToDisplay = leaveTypes.filter(type => 
-    ['Sick Leave', 'Casual Leave', 'Annual Leave'].includes(type.name)
-  );
-  
-  const defaultLeaveTypes = ['Sick Leave', 'Casual Leave', 'Annual Leave'];
-  const displayTypes = leaveTypesToDisplay.length > 0 ? leaveTypesToDisplay : defaultLeaveTypes.map(name => ({ name }));
-
-  if (loading || !currentEmployee) {
+  if (loading || !currentEmployee || leaveTypes.length === 0) {
     return (
       <div className="w-full px-4 md:px-6">
         <div className="flex justify-center items-center h-64">
@@ -168,10 +165,10 @@ const EditLeaveAllocation = () => {
                 {currentEmployee.first_name} {currentEmployee.last_name}
               </h4>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {currentEmployee.designation?.name || 'N/A'}
+                {currentEmployee?.user?.designation?.name || 'N/A'}
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                {currentEmployee.department?.name || 'N/A'}
+                {currentEmployee.user?.department?.name || 'N/A'}
               </p>
             </div>
           </div>
@@ -227,28 +224,27 @@ const EditLeaveAllocation = () => {
           </div>
 
           <div className="space-y-3">
-            {displayTypes.map((type) => {
-              const leaveTypeName = type.name;
+            {leaveTypes.map((type) => {
               const getIcon = () => {
-                if (leaveTypeName === 'Sick Leave') return 'fas fa-thermometer-half';
-                if (leaveTypeName === 'Casual Leave') return 'fas fa-umbrella-beach';
-                if (leaveTypeName === 'Annual Leave') return 'fas fa-suitcase';
+                if (type.name === 'Sick Leave') return 'fas fa-thermometer-half';
+                if (type.name === 'Casual Leave') return 'fas fa-umbrella-beach';
+                if (type.name === 'Annual Leave') return 'fas fa-suitcase';
                 return 'fas fa-calendar-alt';
               };
               
               return (
-                <div key={leaveTypeName} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                <div key={type.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
                   <div className="flex items-center gap-2 w-1/3">
                     <i className={`${getIcon()} text-green-500 text-xs w-4`}></i>
                     <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      {leaveTypeName}
+                      {type.name}
                     </span>
                   </div>
                   <div className="w-20">
                     <input
                       type="number"
-                      value={allocations[leaveTypeName] || 0}
-                      onChange={(e) => handleAllocationChange(leaveTypeName, e.target.value)}
+                      value={allocations[type.id] || 0}
+                      onChange={(e) => handleAllocationChange(type.id, e.target.value)}
                       min="0"
                       className="w-full px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20"
                       placeholder="Days"
@@ -256,13 +252,13 @@ const EditLeaveAllocation = () => {
                   </div>
                   <div className="w-24 text-right">
                     <span className="text-xs text-gray-500">
-                      Balance: <span className="font-medium text-green-600">{getCurrentBalance(leaveTypeName)}</span>
+                      Balance: <span className="font-medium text-green-600">{getCurrentBalance(type.id)}</span>
                     </span>
                   </div>
-                  {getUsedDays(leaveTypeName) > 0 && (
+                  {getUsedDays(type.id) > 0 && (
                     <div className="w-16 text-right">
                       <span className="text-xs text-gray-400">
-                        Used: {getUsedDays(leaveTypeName)}
+                        Used: {getUsedDays(type.id)}
                       </span>
                     </div>
                   )}

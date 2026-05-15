@@ -66,10 +66,10 @@ export const addEmployee = createAsyncThunk(
         });
       }
       return rejectWithValue(
-        error.response?.data?.message || "Failed to add employee"
+        error.response?.data?.message || "Failed to add employee",
       );
     }
-  }
+  },
 );
 
 export const deleteEmployee = createAsyncThunk(
@@ -133,7 +133,17 @@ export const updateEmployee = createAsyncThunk(
   async ({ id, data }, { rejectWithValue }) => {
     try {
       let response;
-      
+
+      // Log the data being sent for debugging
+      if (data instanceof FormData) {
+        console.log("=== Sending FormData ===");
+        for (let pair of data.entries()) {
+          console.log(pair[0], ":", pair[1]);
+        }
+      } else {
+        console.log("Sending data:", data);
+      }
+
       // Check if data is FormData or plain object
       if (data instanceof FormData) {
         response = await apiClient.post(`/admin/employees/${id}`, data, {
@@ -144,7 +154,7 @@ export const updateEmployee = createAsyncThunk(
       } else {
         response = await apiClient.put(`/admin/employees/${id}`, data);
       }
-      
+
       console.log("Update employee response:", response.data);
 
       if (response.data && response.data.status === "success") {
@@ -155,9 +165,13 @@ export const updateEmployee = createAsyncThunk(
         );
       }
     } catch (error) {
-      console.error("Update employee error:", error.response?.data);
+      console.error("=== Update employee error ===");
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
 
+      // Log validation errors specifically
       if (error.response?.data?.errors) {
+        console.error("Validation errors:", error.response.data.errors);
         return rejectWithValue({
           message: error.response.data.message,
           errors: error.response.data.errors,

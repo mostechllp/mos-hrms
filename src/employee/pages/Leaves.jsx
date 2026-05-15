@@ -141,7 +141,7 @@ const Leaves = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500">Loading leaves...</p>
+          <p className="text-[var(--muted)]">Loading leaves...</p>
         </div>
       </div>
     );
@@ -151,41 +151,41 @@ const Leaves = () => {
     <div>
       {/* Stats Grid */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5 mb-7">
-        <div className="stat-card bg-white border border-gray-200 rounded-xl p-4 md:p-5">
+        <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 md:p-5">
           <div className="stat-header flex justify-between items-center mb-3">
             <div className="stat-icon w-10 h-10 md:w-12 md:h-12 rounded-xl bg-green-500/10 text-green-500 flex items-center justify-center text-xl md:text-2xl">
               <FiFileText />
             </div>
           </div>
           <div className="stat-number text-2xl md:text-3xl font-extrabold text-green-600">{stats.total}</div>
-          <div className="stat-label text-xs text-gray-500">Total Leaves Taken</div>
+          <div className="stat-label text-xs text-[var(--muted)]">Total Leaves Taken</div>
         </div>
-        <div className="stat-card bg-white border border-gray-200 rounded-xl p-4 md:p-5">
+        <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 md:p-5">
           <div className="stat-header flex justify-between items-center mb-3">
             <div className="stat-icon w-10 h-10 md:w-12 md:h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-xl md:text-2xl">
               <FiClock />
             </div>
           </div>
           <div className="stat-number text-2xl md:text-3xl font-extrabold text-amber-500">{stats.pending}</div>
-          <div className="stat-label text-xs text-gray-500">Pending</div>
+          <div className="stat-label text-xs text-[var(--muted)]">Pending</div>
         </div>
-        <div className="stat-card bg-white border border-gray-200 rounded-xl p-4 md:p-5">
+        <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 md:p-5">
           <div className="stat-header flex justify-between items-center mb-3">
             <div className="stat-icon w-10 h-10 md:w-12 md:h-12 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center text-xl md:text-2xl">
               <FiCalendar />
             </div>
           </div>
           <div className="stat-number text-2xl md:text-3xl font-extrabold text-purple-500">{stats.approved}</div>
-          <div className="stat-label text-xs text-gray-500">Approved</div>
+          <div className="stat-label text-xs text-[var(--muted)]">Approved</div>
         </div>
-        <div className="stat-card bg-white border border-gray-200 rounded-xl p-4 md:p-5">
+        <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 md:p-5">
           <div className="stat-header flex justify-between items-center mb-3">
             <div className="stat-icon w-10 h-10 md:w-12 md:h-12 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center text-xl md:text-2xl">
               <FiFileText />
             </div>
           </div>
           <div className="stat-number text-2xl md:text-3xl font-extrabold text-red-500">{stats.rejected}</div>
-          <div className="stat-label text-xs text-gray-500">Rejected</div>
+          <div className="stat-label text-xs text-[var(--muted)]">Rejected</div>
         </div>
       </div>
       
@@ -199,30 +199,30 @@ const Leaves = () => {
       </div>
       
       {/* Status Tabs */}
-      <div className="status-tabs flex flex-wrap gap-2.5 mb-6 pb-3 border-b border-gray-200">
-        {['all', 'Pending', 'Approved', 'Rejected'].map(status => (
-          <button
-            key={status}
-            onClick={() => handleStatusFilter(status)}
-            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-              (filter.status === status.toLowerCase()) || (status === 'all' && filter.status === 'all')
-                ? 'bg-green-500 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-green-100 hover:text-green-600'
-            }`}
-          >
-            {status === 'all' ? 'All Requests' : status}
-          </button>
-        ))}
-      </div>
+      <div className="status-tabs flex flex-wrap gap-2.5 mb-6 pb-3 border-b border-[var(--border)]">
+  {['all', 'Pending', 'Approved', 'Rejected'].map(status => (
+    <button
+      key={status}
+      onClick={() => handleStatusFilter(status)}
+      className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+        (filter.status === status.toLowerCase()) || (status === 'all' && filter.status === 'all')
+          ? 'bg-green-500 text-white'
+          : 'bg-[var(--surface2)] text-[var(--text-secondary)] hover:bg-green-100 hover:text-green-600'
+      }`}
+    >
+      {status === 'all' ? 'All Requests' : status}
+    </button>
+  ))}
+</div>
       
       {/* Action Bar */}
       <div className="files-actions flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
-        <div className="entries-select flex items-center gap-2.5 bg-white border border-gray-200 rounded-full px-3.5 py-1.5 text-xs text-gray-500">
+        <div className="entries-select flex items-center gap-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-full px-3.5 py-1.5 text-xs text-[var(--muted)]">
           <span>Show entries</span>
           <select
             value={perPage}
             onChange={handleEntriesChange}
-            className="border-none outline-none bg-transparent font-semibold text-gray-800 cursor-pointer"
+            className="border-none outline-none bg-transparent font-semibold text-[var(--text)] cursor-pointer"
           >
             <option value="5">5</option>
             <option value="10">10</option>
@@ -231,39 +231,39 @@ const Leaves = () => {
           </select>
         </div>
         <div className="search-wrapper flex items-center gap-3 flex-wrap">
-          <div className="search-box flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3.5 py-2">
+          <div className="search-box flex items-center gap-2 bg-[var(--surface)] border border-[var(--border)] rounded-full px-3.5 py-2">
             <FiSearch className="text-gray-400 text-xs" />
             <input
               type="text"
               value={filter.search || ''}
               onChange={handleSearch}
               placeholder="Search by type, status..."
-              className="border-none outline-none bg-transparent text-xs text-gray-800 w-36 sm:w-44"
+              className="border-none outline-none bg-transparent text-xs text-[var(--text)] w-36 sm:w-44"
             />
           </div>
         </div>
       </div>
       
       {/* Table */}
-      <div className="leave-table-wrapper bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
+      <div className="leave-table-wrapper bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-x-auto shadow-sm">
         <table className="leave-table w-full border-collapse text-xs min-w-[900px]">
           <thead>
             <tr>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200 w-16">#</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">Type</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">From</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">To</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">Days</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">Claim Salary</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">Document</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">Status</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">Reason</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)] w-16">#</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">Type</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">From</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">To</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">Days</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">Claim Salary</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">Document</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">Status</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">Reason</th>
             </tr>
           </thead>
           <tbody>
             {currentLeaves.length === 0 ? (
               <tr>
-                <td colSpan="9" className="text-center py-8 text-gray-500">
+                <td colSpan="9" className="text-center py-8 text-[var(--muted)]">
                   No leave requests found
                 </td>
               </tr>
@@ -276,30 +276,30 @@ const Leaves = () => {
                 const days = leave.duration_days || calculateDays(leave.start_date, leave.end_date);
                 
                 return (
-                  <tr key={leave.id || idx} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-3.5 px-4 border-b border-gray-200 text-center">{start + idx + 1}</td>
-                    <td className="py-3.5 px-4 border-b border-gray-200 font-semibold text-gray-800">{leaveTypeName}</td>
-                    <td className="py-3.5 px-4 border-b border-gray-200 text-gray-600">{formatDate(leave.start_date)}</td>
-                    <td className="py-3.5 px-4 border-b border-gray-200 text-gray-600">{formatDate(leave.end_date)}</td>
-                    <td className="py-3.5 px-4 border-b border-gray-200 text-gray-600">{days}</td>
-                    <td className="py-3.5 px-4 border-b border-gray-200">
+                  <tr key={leave.id || idx} className="hover:bg-[var(--surface2)] transition-colors">
+                    <td className="py-3.5 px-4 border-b border-[var(--border)] text-center">{start + idx + 1}</td>
+                    <td className="py-3.5 px-4 border-b border-[var(--border)] font-semibold text-[var(--text)]">{leaveTypeName}</td>
+                    <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">{formatDate(leave.start_date)}</td>
+                    <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">{formatDate(leave.end_date)}</td>
+                    <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">{days}</td>
+                    <td className="py-3.5 px-4 border-b border-[var(--border)]">
                       <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold ${
                         claimSalary === 'Yes' 
                           ? 'bg-green-500/15 text-green-600' 
-                          : 'bg-gray-100 text-gray-500'
+                          : 'bg-gray-100 text-[var(--muted)]'
                       }`}>
                         {claimSalary}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 border-b border-gray-200">
+                    <td className="py-3.5 px-4 border-b border-[var(--border)]">
                       {hasDoc ? (
                         <a href="#" className="text-blue-500 cursor-pointer hover:underline">View</a>
                       ) : '-'}
                     </td>
-                    <td className="py-3.5 px-4 border-b border-gray-200">
+                    <td className="py-3.5 px-4 border-b border-[var(--border)]">
                       <StatusBadge status={statusName} />
                     </td>
-                    <td className="py-3.5 px-4 border-b border-gray-200 text-gray-600 max-w-[200px] truncate" title={leave.reason}>
+                    <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] max-w-[200px] truncate" title={leave.reason}>
                       {leave.reason || '-'}
                     </td>
                   </tr>
@@ -313,14 +313,14 @@ const Leaves = () => {
       {/* Pagination */}
       {filteredLeaves.length > 0 && totalPages > 0 && (
         <div className="pagination-container flex flex-col sm:flex-row justify-between items-center gap-3 mt-5">
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-[var(--muted)]">
             Showing {start + 1} to {Math.min(start + perPage, filteredLeaves.length)} of {filteredLeaves.length} entries
           </div>
           <div className="page-buttons flex gap-1.5 flex-wrap">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="w-9 h-9 rounded-lg border border-gray-200 bg-white cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              className="w-9 h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--surface2)] transition-colors"
             >
               <FiChevronLeft className="mx-auto" />
             </button>
@@ -333,7 +333,7 @@ const Leaves = () => {
                   className={`w-9 h-9 rounded-lg border text-xs transition-all ${
                     currentPage === pageNum
                       ? 'bg-green-500 border-green-500 text-white'
-                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                      : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--surface2)]'
                   }`}
                 >
                   {pageNum}
@@ -343,7 +343,7 @@ const Leaves = () => {
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="w-9 h-9 rounded-lg border border-gray-200 bg-white cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              className="w-9 h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--surface2)] transition-colors"
             >
               <FiChevronRight className="mx-auto" />
             </button>

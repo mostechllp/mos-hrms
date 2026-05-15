@@ -4,7 +4,8 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { markAsRead, markAllRead } from "../../store/slices/notificationSlice";
 import { logoutUser } from "../../store/slices/authSlice";
 import { fetchNotifications } from "../../store/slices/notificationSlice";
-import ConfirmModal from "./ConfirmModal"; // Import the ConfirmModal component
+import { fetchOrganizations } from "../../store/slices/organizationSlice";
+import ConfirmModal from "./ConfirmModal"; 
 import ThemeCustomizer from "../../../components/common/ThemeCustomizer";
 
 const Header = ({ onMenuClick }) => {
@@ -23,15 +24,19 @@ const Header = ({ onMenuClick }) => {
   const { notifications, unreadCount } = useSelector(
     (state) => state.notifications,
   );
+  const { organizations } = useSelector((state) => state.organizations);
 
-  // Get user's avatar URL
-  const getUserAvatar = () => {
+  // Get the first organization (or find the current user's organization)
+  const currentOrganization = organizations?.[0] || null;
+
+  // Get organization logo URL
+  const getOrganizationLogo = () => {
     if (avatarError) return null;
-    if (user?.avatar) return user.avatar;
-    // Generate avatar from name if not available
-    const name = getUserName();
-    const encodedName = encodeURIComponent(name);
-    return `https://ui-avatars.com/api/?name=${encodedName}&color=ffffff&background=22c55e`;
+    if (currentOrganization?.logo) {
+      const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || window.location.origin;
+      return `${baseUrl}/storage/${currentOrganization.logo}`;
+    }
+    return null;
   };
 
   // Get user's display name
@@ -47,6 +52,11 @@ const Header = ({ onMenuClick }) => {
     if (user?.email) return user.email;
     if (user?.username) return user.username;
     return "admin@example.com";
+  };
+
+  // Get organization name
+  const getOrganizationName = () => {
+    return currentOrganization?.name || "Organization";
   };
 
   // Get page title based on current route
@@ -120,6 +130,7 @@ const Header = ({ onMenuClick }) => {
 
   useEffect(() => {
     dispatch(fetchNotifications());
+    dispatch(fetchOrganizations()); // Fetch organizations to get logo
   }, [dispatch]);
 
   useEffect(() => {
@@ -179,6 +190,9 @@ const Header = ({ onMenuClick }) => {
       setLogoutLoading(false);
     }
   };
+
+  const organizationLogo = getOrganizationLogo();
+  const organizationName = getOrganizationName();
 
   return (
     <>
@@ -278,22 +292,22 @@ const Header = ({ onMenuClick }) => {
               )}
             </div>
 
-            {/* Profile Avatar */}
+            {/* Profile Avatar - Now shows Organization Logo */}
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setShowProfile(!showProfile)}
                 className="w-9 h-9 md:w-10 md:h-10 rounded-xl overflow-hidden shadow-md ring-2 ring-transparent hover:ring-green-500 transition-all"
               >
-                {getUserAvatar() ? (
+                {organizationLogo ? (
                   <img
-                    src={getUserAvatar()}
-                    alt={getUserName()}
+                    src={organizationLogo}
+                    alt={organizationName}
                     className="w-full h-full object-cover"
                     onError={() => setAvatarError(true)}
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center text-white font-bold text-sm">
-                    {getUserName().charAt(0).toUpperCase()}
+                    <i className="fas fa-building"></i>
                   </div>
                 )}
               </button>
@@ -302,30 +316,38 @@ const Header = ({ onMenuClick }) => {
                 <div className="absolute top-12 right-0 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-soft-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
                   <div className="p-4 flex gap-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="w-12 h-12 rounded-xl overflow-hidden bg-gradient-to-r from-green-500 to-green-600 flex-shrink-0">
-                      {getUserAvatar() ? (
+                      {organizationLogo ? (
                         <img
-                          src={getUserAvatar()}
-                          alt={getUserName()}
+                          src={organizationLogo}
+                          alt={organizationName}
                           className="w-full h-full object-cover"
                           onError={() => setAvatarError(true)}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
-                          {getUserName().charAt(0).toUpperCase()}
+                          <i className="fas fa-building"></i>
                         </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-gray-800 dark:text-gray-200 truncate">
-                        {getUserName()}
+                        {organizationName}
                       </h4>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                         {getUserEmail()}
                       </p>
                     </div>
                   </div>
+                  <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="mb-1">
+                        <span className="font-semibold">Logged in as:</span>{" "}
+                        {getUserName()}
+                      </p>
+                    </div>
+                  </div>
                   <NavLink
-                    to="/settings"
+                    to="/admin/settings"
                     className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     onClick={() => setShowProfile(false)}
                   >
@@ -334,17 +356,7 @@ const Header = ({ onMenuClick }) => {
                       My Profile
                     </span>
                   </NavLink>
-                  <NavLink
-                    to="/settings"
-                    className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    onClick={() => setShowProfile(false)}
-                  >
-                    <i className="fas fa-gear text-green-500 w-5"></i>
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Settings
-                    </span>
-                  </NavLink>
-                  <div className="border-t border-gray-200 dark:border-gray-700">
+                  <div>
                     <button
                       onClick={handleLogoutClick}
                       className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"

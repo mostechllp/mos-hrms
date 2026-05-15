@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
@@ -10,6 +10,7 @@ import { fetchOrganizations } from "../store/slices/organizationSlice";
 import { fetchCompanies } from "../store/slices/companySlice";
 import { fetchDesignations } from "../store/slices/designationSlice";
 import { fetchDepartments } from "../store/slices/departmentSlice";
+import { fetchRoles } from "../store/slices/roleSlice";
 import apiClient from "../../utils/apiClient";
 
 const AddEmployee = () => {
@@ -49,6 +50,7 @@ const AddEmployee = () => {
     (state) => state.designations || {},
   );
   const { departments = [] } = useSelector((state) => state.departments || {});
+  const { roles = [] } = useSelector((state) => state.roles || {});
 
   // Initialize useForm
   const {
@@ -68,14 +70,12 @@ const AddEmployee = () => {
       department_id: "",
       employee_id: "",
       type: "employee",
-      total_leaves_allocated: 30,
       joining_date: "",
       dob: "",
       gender: "male",
       nationality: "",
       marital_status: "",
       special_days: [{ name: "", date: "" }],
-      username: "",
 
       // Step 2: Passport Details
       passport_full_name: "",
@@ -110,7 +110,7 @@ const AddEmployee = () => {
       personal_email: "",
       other_number: "",
       home_country_number: "",
-      role: "Employee",
+      role: "",
     },
     shouldUnregister: true,
     mode: "onSubmit",
@@ -137,6 +137,7 @@ const AddEmployee = () => {
     dispatch(fetchOrganizations());
     dispatch(fetchDesignations());
     dispatch(fetchDepartments());
+    dispatch(fetchRoles());
   }, [dispatch]);
 
   // Fetch companies when organization changes
@@ -154,14 +155,8 @@ const AddEmployee = () => {
     { number: 5, title: "Contact", icon: "fas fa-address-card" },
   ];
 
-  const userTypeOptions = [
-    "admin",
-    "manager",
-    "employee",
-    "field_employee",
-    "driver",
-    "remote_employee",
-  ];
+  // Only employee and admin user types
+  const userTypeOptions = ["employee", "admin"];
 
   const genderOptions = [
     { value: "male", label: "Male" },
@@ -188,13 +183,11 @@ const AddEmployee = () => {
         return [
           "first_name",
           "employee_id",
-          "username",
           "organization_id",
           "company_id",
           "designation_id",
           "department_id",
           "type",
-          "total_leaves_allocated",
         ];
       case 1:
         return ["passport_issued_date", "passport_expiry_date"];
@@ -435,7 +428,6 @@ const AddEmployee = () => {
     submitData.company_id = parseInt(data.company_id);
     if (data.designation_id) submitData.designation_id = parseInt(data.designation_id);
     if (data.department_id) submitData.department_id = parseInt(data.department_id);
-    submitData.total_leaves_allocated = parseInt(data.total_leaves_allocated);
 
     if (data.dependents !== undefined && data.dependents !== '') {
       submitData.dependents = String(data.dependents);
@@ -461,11 +453,12 @@ const AddEmployee = () => {
     });
 
     const result = await dispatch(addEmployee(submitData));
+    console.log("Result: ", result)
     setLoading(false);
 
     if (addEmployee.fulfilled.match(result)) {
       showToast(`✓ Employee "${data.first_name} ${data.last_name || ""}" added successfully!`, "success");
-      navigate("/employees");
+      navigate("/admin/employees");
     } else {
       const errorPayload = result.payload;
       if (errorPayload && errorPayload.errors) {
@@ -519,18 +512,6 @@ const AddEmployee = () => {
       pattern: {
         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
         message: "Invalid email address format",
-      },
-    },
-    total_leaves_allocated: {
-      required: "Leave allocation is required",
-      min: { value: 0, message: "Leave allocation cannot be negative" },
-      max: { value: 365, message: "Leave allocation cannot exceed 365 days" },
-    },
-    username: {
-      required: "Username is required",
-      minLength: {
-        value: 3,
-        message: "Username must be at least 3 characters",
       },
     },
   };
@@ -925,8 +906,7 @@ const AddEmployee = () => {
                       name="marital_status"
                       control={control}
                       render={({ field }) => (
-                        <select
-                          {...field}
+                        <select                          {...field}
                           className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                         >
                           <option value="">Select Marital Status</option>
@@ -1022,34 +1002,6 @@ const AddEmployee = () => {
                           {errors.employee_id && (
                             <p className="mt-1 text-xs text-red-500">
                               {errors.employee_id.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-user-circle text-green-500 mr-1"></i>{" "}
-                      Username *
-                    </label>
-                    <Controller
-                      name="username"
-                      control={control}
-                      rules={validationRules.username}
-                      render={({ field }) => (
-                        <>
-                          <input
-                            {...field}
-                            type="text"
-                            value={field.value || ""}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.username ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
-                            placeholder="Enter username"
-                          />
-                          {errors.username && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors.username.message}
                             </p>
                           )}
                         </>
@@ -1983,10 +1935,9 @@ const AddEmployee = () => {
                           className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                         >
                           <option value="">Select Role</option>
-                          {userTypeOptions.map((role) => (
-                            <option key={role} value={role}>
-                              {role.charAt(0).toUpperCase() +
-                                role.slice(1).replace("_", " ")}
+                          {roles.map((role) => (
+                            <option key={role.id} value={role.id}>
+                              {role.name}
                             </option>
                           ))}
                         </select>

@@ -11,12 +11,10 @@ const ThemeCustomizer = () => {
     setThemeMode,
     handleColorChange,
     handleFontSizeChange,
-    handleExtractFromLogo,
     resetToDefaults,
   } = useAppTheme();
 
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const logoInputRef = useRef(null);
 
   // Predefined color schemes
   const colorSchemes = [
@@ -39,19 +37,6 @@ const ThemeCustomizer = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const handleLogoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      handleExtractFromLogo(file);
-      setIsOpen(false);
-    }
-  };
-
-  // eslint-disable-next-line no-unused-vars
-  const presetColors = [
-    "#2ecc71", "#3498db", "#9b59b6", "#e67e22", "#e74c3c", "#1abc9c", "#e84393"
-  ];
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -165,84 +150,39 @@ const ThemeCustomizer = () => {
               </div>
             </div>
 
-            {/* Extract from Logo */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Extract from Logo
-              </label>
-              <button
-                onClick={() => logoInputRef.current.click()}
-                className="w-full px-3 py-2 bg-blue-500 text-white rounded-lg text-xs font-semibold hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
-              >
-                <i className="fas fa-image"></i> Upload Logo
-              </button>
-              <input
-                ref={logoInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/jpg"
-                onChange={handleLogoUpload}
-                className="hidden"
-              />
-              <p className="text-[10px] text-gray-400 mt-1">
-                Auto-extract theme colors from your logo
-              </p>
-            </div>
-
-            {/* Font Size */}
+            {/* Font Size - Simplified */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Font Size: {fontSizeValue}px
               </label>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center gap-4">
                 <button
                   onClick={() => handleFontSizeChange(fontSizeValue - 1)}
                   disabled={fontSizeValue <= 11}
-                  className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 disabled:opacity-50 flex items-center justify-center"
+                  className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-all"
                 >
-                  <i className="fas fa-minus text-xs"></i>
+                  <i className="fas fa-minus text-sm"></i>
                 </button>
-                <div className="flex-1">
-                  <input
-                    type="range"
-                    min="11"
-                    max="18"
-                    value={fontSizeValue}
-                    onChange={(e) => handleFontSizeChange(parseInt(e.target.value))}
-                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-                    style={{
-                      background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} ${((fontSizeValue - 11) / 7) * 100}%, #e5e7eb ${((fontSizeValue - 11) / 7) * 100}%, #e5e7eb 100%)`
-                    }}
-                  />
+                <div className="text-center">
+                  <span className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    {fontSizeValue}
+                  </span>
+                  <span className="text-xs text-gray-500 ml-1">px</span>
                 </div>
                 <button
                   onClick={() => handleFontSizeChange(fontSizeValue + 1)}
                   disabled={fontSizeValue >= 18}
-                  className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 disabled:opacity-50 flex items-center justify-center"
+                  className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-all"
                 >
-                  <i className="fas fa-plus text-xs"></i>
+                  <i className="fas fa-plus text-sm"></i>
                 </button>
               </div>
-              <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-                <span>Small</span>
-                <span>Default</span>
-                <span>Large</span>
-              </div>
-            </div>
-
-            {/* Live Preview */}
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-[10px] text-gray-400 mb-2">Live Preview</p>
-              <div className="flex gap-2">
-                <button
-                  className="px-3 py-1.5 rounded-lg text-white font-semibold text-xs"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  Primary Button
-                </button>
-                <button className="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold text-xs">
-                  Secondary
-                </button>
-              </div>
+              <p className="text-center text-[10px] text-gray-400 mt-2">
+                {fontSizeValue <= 12 && "Small"}
+                {fontSizeValue === 13 && "Default"}
+                {fontSizeValue >= 14 && fontSizeValue <= 15 && "Medium"}
+                {fontSizeValue >= 16 && "Large"}
+              </p>
             </div>
           </div>
         </div>
