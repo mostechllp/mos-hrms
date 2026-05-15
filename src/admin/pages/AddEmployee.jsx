@@ -241,11 +241,10 @@ const AddEmployee = () => {
       yearDropdownItemNumber={100}
       scrollableYearDropdown
       autoComplete="off"
-      className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${
-        hasError
+      className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${hasError
           ? "border-red-500"
           : "border-gray-200 focus:border-green-500 focus:ring-green-500/20"
-      }`}
+        }`}
     />
   );
 
@@ -293,8 +292,8 @@ const AddEmployee = () => {
             {isUploading
               ? "Uploading file..."
               : documents[fieldKey]
-              ? "File uploaded ✓"
-              : "No file chosen"}
+                ? "File uploaded ✓"
+                : "No file chosen"}
           </span>
         </div>
         {documentPreviews[fieldKey] && documentPreviews[fieldKey] !== "pdf" && (
@@ -342,7 +341,7 @@ const AddEmployee = () => {
 
   const handleFileChange = async (fieldKey, file) => {
     if (!file) return;
-    
+
     const fileSize = file.size / 1024 / 1024;
     const maxSize = fieldKey === 'avatar' ? 2 : 5;
     if (fileSize > maxSize) {
@@ -603,15 +602,14 @@ const AddEmployee = () => {
               type="button"
               key={step.number}
               onClick={() => handleStepClick(index)}
-              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
-                currentStep === index
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${currentStep === index
                   ? "bg-green-500 text-white shadow-md"
                   : stepErrors[index]
                     ? "bg-red-50 text-red-600 border border-red-300"
                     : index < currentStep
                       ? "text-green-500"
                       : "text-gray-500 bg-gray-100"
-              }`}
+                }`}
             >
               <i className={`${step.icon} mr-1 text-xs md:text-sm`}></i>
               <span className="hidden sm:inline">

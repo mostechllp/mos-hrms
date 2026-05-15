@@ -40,7 +40,7 @@ const AddAgreement = () => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    folder: "",
+    folder_id: "",
     party_id: "",
     expiryDate: "",
   });
@@ -172,7 +172,7 @@ const AddAgreement = () => {
     // Refresh folders list
     await dispatch(fetchDocumentFolders());
     if (newFolder && newFolder.name) {
-      setFormData({ ...formData, folder: newFolder.name });
+      setFormData({ ...formData, folder_id: String(newFolder.id) });
       showToast(`Folder "${newFolder.name}" added and selected`, "success");
     }
   };
@@ -198,7 +198,7 @@ const AddAgreement = () => {
       showToast("Please select at least one recipient to share with", "error");
       return;
     }
-    if (!formData.folder) {
+    if (!formData.folder_id) {
       showToast("Please select a folder", "error");
       return;
     }
@@ -212,9 +212,7 @@ const AddAgreement = () => {
     const partiesList = Array.isArray(parties) ? parties : [];
     const usersList = Array.isArray(shareableUsers) ? shareableUsers : [];
 
-    const selectedFolder = folders.find(
-      (f) => (f.name || f) === formData.folder,
-    );
+
 
     const shareWithIds = selectedShareWith.map((selectedName) => {
       const user = usersList.find((u) => (u.name || u.email) === selectedName);
@@ -226,7 +224,7 @@ const AddAgreement = () => {
       name: formData.name,
       description: formData.description,
       share_with: shareWithIds,
-      folder_id: selectedFolder?.id || formData.folder,
+      folder_id: formData.folder_id,
       type: "agreements",
       party_id: formData.party_id,
       expiry_date: formData.expiryDate,
@@ -579,8 +577,8 @@ const AddAgreement = () => {
                   </label>
                   <div className="relative">
                     <select
-                      id="folder"
-                      value={formData.folder}
+                      id="folder_id"   // was id="folder"
+                      value={formData.folder_id}  // was formData.folder
                       onChange={handleChange}
                       className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 appearance-none pr-10"
                       required
@@ -590,18 +588,14 @@ const AddAgreement = () => {
                         folders.map((folder) => (
                           <option
                             key={folder.id || folder.name}
-                            value={folder.name || folder}
+                            value={folder.id}
                           >
                             {folder.name || folder}
                           </option>
                         ))
                       ) : (
                         <>
-                          <option value="agreements">Agreements</option>
-                          <option value="hr">HR Documents</option>
-                          <option value="it">IT Documents</option>
-                          <option value="finance">Finance Documents</option>
-                          <option value="legal">Legal Documents</option>
+                          <option disabled value="">No folders available</option>
                         </>
                       )}
                     </select>
