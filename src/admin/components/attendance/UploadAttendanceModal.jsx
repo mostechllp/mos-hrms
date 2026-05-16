@@ -9,7 +9,7 @@ const UploadAttendanceModal = ({ isOpen, onClose, onUpload }) => {
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     setError('');
-    
+
     if (file) {
       const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
       if (!['.dat', '.csv', '.txt'].includes(fileExt)) {
@@ -33,25 +33,19 @@ const UploadAttendanceModal = ({ isOpen, onClose, onUpload }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
-    if (!selectedFile) {
-      setError('Please select an attendance file');
-      return;
-    }
+    if (!selectedFile) return setError('Please select an attendance file');
 
     setUploading(true);
-    
     try {
-      await onUpload({ file: selectedFile });
+      await onUpload({ file: selectedFile });  // ← no company_id
       handleClose();
     } catch (error) {
-      console.error('Upload error:', error);
-      setError(error.message || 'Failed to upload file. Please check the file format and try again.');
+      // unwrap() throws a string from rejectWithValue
+      setError(typeof error === 'string' ? error : error?.message || 'Failed to upload file.');
     } finally {
       setUploading(false);
     }
   };
-
   const handleClose = () => {
     setSelectedFile(null);
     setError('');
@@ -109,7 +103,7 @@ const UploadAttendanceModal = ({ isOpen, onClose, onUpload }) => {
               onChange={handleFileSelect}
               className="hidden"
             />
-            
+
             {selectedFile && (
               <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center justify-between">
                 <div className="flex items-center gap-3">

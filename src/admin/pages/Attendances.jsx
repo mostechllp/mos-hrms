@@ -1,5 +1,5 @@
-/* eslint-disable react-hooks/set-state-in-effect */
-import { useEffect, useState } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import SearchBar from "../components/common/SearchBar";
 import EntriesSelector from "../components/common/EntriesSelector";
@@ -15,6 +15,7 @@ import {
   fetchPunchOutToday,
   fetchLateComers,
   fetchAbsentees,
+  clearUploadStatus,
 } from "../store/slices/attendanceSlice";
 
 const Attendances = () => {
@@ -23,6 +24,7 @@ const Attendances = () => {
     records,
     uploadStatus,
     uploadStatusId,
+    uploadLoading,
     punchInToday,
     lateComers,
     absentees,
@@ -39,115 +41,137 @@ const Attendances = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(15);
   const [refreshLoading, setRefreshLoading] = useState(false);
-  const [pollingInterval, setPollingInterval] = useState(null);
 
-
-  // Fetch all initial data with server-side pagination
+  const pollingRef = useRef(null);
+  // Always holds latest filter values — no stale closure issues
+  const filtersRef = useRef({ currentPage, perPage, companyFilter, searchTerm, nameFilter });
   useEffect(() => {
-    const fetchData = async () => {
-      await dispatch(
-        fetchAttendanceRecords({ 
-          page: currentPage, 
-          per_page: perPage,
-          company: companyFilter !== 'all' ? companyFilter : undefined,
-          search: searchTerm || undefined
-        })
-      );
-      await dispatch(fetchPunchInToday());
-      await dispatch(fetchPunchInYesterday());
-      await dispatch(fetchPunchOutToday());
-      await dispatch(fetchLateComers());
-      await dispatch(fetchAbsentees());
-    };
-    fetchData();
-  }, [dispatch, currentPage, perPage, companyFilter, searchTerm]);
+    filtersRef.current = { currentPage, perPage, companyFilter, searchTerm, nameFilter };
+  });
 
-  // Poll for upload status - persists across navigation
+  // ─── Core fetch function — always reads live filters from ref ─────────────
+  const fetchAll = useCallback(() => {
+    const f = filtersRef.current;
+    return Promise.all([
+      dispatch(fetchAttendanceRecords({
+        page: f.currentPage,
+        per_page: f.perPage,
+        company: f.companyFilter !== "all" ? f.companyFilter : undefined,
+        search: f.searchTerm || undefined,
+        name: f.nameFilter || undefined,
+      })),
+      dispatch(fetchPunchInToday()),
+      dispatch(fetchPunchInYesterday()),
+      dispatch(fetchPunchOutToday()),
+      dispatch(fetchLateComers()),
+      dispatch(fetchAbsentees()),
+    ]);
+  }, [dispatch]);
+
+  // ─── Load data on filter / page change ───────────────────────────────────
   useEffect(() => {
-    let interval = null;
-    
-    const startPolling = () => {
-      if (interval) clearInterval(interval);
-      
-      interval = setInterval(() => {
-        if (uploadStatusId && uploadStatus === 'processing') {
-          dispatch(fetchUploadStatus(uploadStatusId));
-        }
+    fetchAll();
+  }, [currentPage, perPage, companyFilter, searchTerm, nameFilter]);
+
+  // ─── Stop polling helper ──────────────────────────────────────────────────
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  // ─── Start polling when upload is processing ──────────────────────────────
+  useEffect(() => {
+    if (uploadStatusId && uploadStatus === "processing") {
+      stopPolling();
+      pollingRef.current = setInterval(() => {
+        dispatch(fetchUploadStatus(uploadStatusId));
       }, 5000);
-    };
-    
-    // Store interval in state for cleanup
-    if (uploadStatusId && uploadStatus === 'processing') {
-      startPolling();
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPollingInterval(interval);
     }
-    
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [uploadStatusId, uploadStatus, dispatch]);
+    return stopPolling;
+  }, [uploadStatusId, uploadStatus]);
 
-  // Handle upload completion
+  // ─── React to upload status changes — use ref to avoid stale closure ─────
+  // We track the "handled" uploadStatusId so we never double-fire
+  const handledUploadRef = useRef(null);
+
+  // ─── React to upload status changes ─────────────────────────────────────────
   useEffect(() => {
-    if (uploadStatus === 'completed') {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        setPollingInterval(null);
-      }
-      showToast("Attendance file processed successfully!", "success");
-      // Refresh all data
-      // eslint-disable-next-line react-hooks/immutability
-      refreshAllData();
-    } else if (uploadStatus === 'failed') {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        setPollingInterval(null);
-      }
-      showToast("Failed to process attendance file", "error");
-    }
-  }, [uploadStatus]);
+    if (!uploadStatusId) return;
+    if (handledUploadRef.current === uploadStatusId) return;
 
+    if (uploadStatus === "completed") {
+      handledUploadRef.current = uploadStatusId;
+      stopPolling();
+      showToast("Attendance file processed successfully!", "success");
+
+      // ✅ Reset to page 1 so new records are visible
+      setCurrentPage(1);
+      // fetchAll() will auto-trigger from the currentPage useEffect above
+      dispatch(clearUploadStatus());
+
+    } else if (uploadStatus === "failed") {
+      handledUploadRef.current = uploadStatusId;
+      stopPolling();
+      showToast("Failed to process attendance file. Please try again.", "error");
+      dispatch(clearUploadStatus());
+    }
+  }, [uploadStatus, uploadStatusId]);
+  // ─── Manual refresh ───────────────────────────────────────────────────────
   const refreshAllData = async () => {
     setRefreshLoading(true);
     try {
-      await Promise.all([
-        dispatch(
-          fetchAttendanceRecords({ 
-            page: currentPage, 
-            per_page: perPage,
-            company: companyFilter !== 'all' ? companyFilter : undefined,
-            search: searchTerm || undefined
-          })
-        ),
-        dispatch(fetchPunchInToday()),
-        dispatch(fetchPunchInYesterday()),
-        dispatch(fetchPunchOutToday()),
-        dispatch(fetchLateComers()),
-        dispatch(fetchAbsentees()),
-      ]);
+      await fetchAll();
       showToast("Data refreshed successfully!", "success");
-    } catch (error) {
-      showToast("Some data failed to load", error);
+    } catch {
+      showToast("Some data failed to load", "error");
     } finally {
       setRefreshLoading(false);
     }
   };
 
-  // Get filtered records - now just returns the records from API
-  const getFilteredRecords = () => {
-    return records;
+  // ─── Upload submit ────────────────────────────────────────────────────────
+  // ✅ Fix
+  const handleUploadComplete = async ({ file }) => {
+    try {
+      const result = await dispatch(uploadAttendanceFile({ file })).unwrap();
+      setShowUploadModal(false);
+
+      if (result.status === "completed") {
+        showToast("Attendance file uploaded successfully!", "success");
+        setCurrentPage(1); // ✅ reset to page 1
+        // fetchAll triggers automatically via useEffect
+      } else {
+        showToast("File uploaded! Processing in background…", "info");
+      }
+    } catch (error) {
+      showToast(typeof error === "string" ? error : error?.message || "Upload failed", "error");
+    }
   };
 
-  const filteredRecords = getFilteredRecords();
-  const totalFiltered = totalCount || filteredRecords.length;
+  // ─── Filter / pagination handlers ────────────────────────────────────────
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const handlePerPageChange = (value) => { setPerPage(value); setCurrentPage(1); };
+  const handleCompanyFilterChange = (e) => { setCompanyFilter(e.target.value); setCurrentPage(1); };
+  const handleNameFilterChange = (e) => { setNameFilter(e.target.value); setCurrentPage(1); };
+  const handleSearchChange = (value) => { setSearchTerm(value); setCurrentPage(1); };
+
+  // ─── Derived display values ───────────────────────────────────────────────
+  const totalFiltered = totalCount || records.length;
   const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
   const start = (currentPage - 1) * perPage;
-  const pageRecords = filteredRecords;
+  const isUploading = uploadLoading || uploadStatus === "processing";
 
-  // Safe array getter - handles API errors gracefully
+  const totalEmployees = stats?.totalActiveEmployees || 0;
+  const punchedInCount = stats?.presentToday || 0;
+  const lateTodayCount = stats?.punchedLate || 0;
+  const absentTodayCount = stats?.absentToday || 0;
+  const punchOutCount = stats?.punchedOutToday || 0;
+
   const getSafeArray = (data) => {
     if (!data) return [];
     if (Array.isArray(data)) return data;
@@ -155,78 +179,20 @@ const Attendances = () => {
     return [];
   };
 
-  // Calculate stats from real API data
-  const totalEmployees = stats?.totalActiveEmployees || 0;
-  const punchedInTodayCount = stats?.presentToday || 0;
-  const lateTodayCount = stats?.punchedLate || 0;
-  const absentTodayCount = stats?.absentToday || 0;
-  const punchOutTodayCount = stats?.punchedOutToday || 0;
-
-  const handleUploadComplete = async ({ company_id, file }) => {
-    try {
-      const result = await dispatch(uploadAttendanceFile({ company_id, file })).unwrap();
-      if (result?.id) {
-        showToast("File uploaded! Processing in background...", "info");
-        setShowUploadModal(false);
-      }
-    } catch (error) {
-      showToast(error || "Upload failed", "error");
-    }
-  };
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handlePerPageChange = (value) => {
-    setPerPage(value);
-    setCurrentPage(1);
-  };
-
-  const handleCompanyFilterChange = (e) => {
-    setCompanyFilter(e.target.value);
-    setCurrentPage(1);
-  };
-
-  const handleNameFilterChange = (e) => {
-    setNameFilter(e.target.value);
-    setCurrentPage(1);
-  };
-
-  const handleSearchChange = (value) => {
-    setSearchTerm(value);
-    setCurrentPage(1);
-  };
-
-  // Helper function to render employee list
   const renderEmployeeList = (employees, title) => {
-    const employeesArray = getSafeArray(employees);
-    if (!employeesArray || employeesArray.length === 0) return null;
-
+    const arr = getSafeArray(employees);
+    if (!arr.length) return null;
     return (
       <div className="absolute hidden group-hover:block z-20 mt-2 p-3 bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg shadow-xl min-w-[200px] top-full left-0">
-        <p className="font-semibold mb-2 text-gray-300 border-b border-gray-700 pb-1">
-          {title}:
-        </p>
+        <p className="font-semibold mb-2 text-gray-300 border-b border-gray-700 pb-1">{title}:</p>
         <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
-          {employeesArray.slice(0, 10).map((emp, idx) => (
-            <span
-              key={idx}
-              className="text-xs bg-gray-700 px-2 py-1 rounded-full"
-            >
-              {typeof emp === "string"
-                ? emp
-                : emp.employeeName ||
-                  emp.name ||
-                  emp.employee_name ||
-                  "Unknown"}
+          {arr.slice(0, 10).map((emp, idx) => (
+            <span key={idx} className="text-xs bg-gray-700 px-2 py-1 rounded-full">
+              {typeof emp === "string" ? emp : emp.name || emp.employeeName || emp.employee_name || "Unknown"}
             </span>
           ))}
-          {employeesArray.length > 10 && (
-            <span className="text-xs text-gray-400 mt-1 block">
-              +{employeesArray.length - 10} more
-            </span>
+          {arr.length > 10 && (
+            <span className="text-xs text-gray-400 mt-1 block">+{arr.length - 10} more</span>
           )}
         </div>
       </div>
@@ -234,101 +200,71 @@ const Attendances = () => {
   };
 
   return (
-    // Remove the outer div with Sidebar and flex layout
-    // Just return the main content directly
     <div className="w-full overflow-x-hidden">
-      {/* Stats Cards */}
+
+      {/* ── Stats Cards ─────────────────────────────────────────────────────── */}
       <div className="stats-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-6">
-        {/* Total Employees Card */}
+
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
-          <div className="flex justify-between items-start mb-1 md:mb-2">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-              <i className="fas fa-users text-green-600 dark:text-green-400 text-sm md:text-lg"></i>
-            </div>
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1 md:mb-2">
+            <i className="fas fa-users text-green-600 dark:text-green-400 text-sm md:text-lg"></i>
           </div>
-          <div className="text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">
-            {totalEmployees}
-          </div>
-          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">
-            Total Employees
-          </div>
+          <div className="text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">{totalEmployees}</div>
+          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">Total Employees</div>
         </div>
 
-        {/* Punched In Today Card */}
         <div className="group relative bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
-          <div className="flex justify-between items-start mb-1 md:mb-2">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-              <i className="fas fa-fingerprint text-blue-600 dark:text-blue-400 text-sm md:text-lg"></i>
-            </div>
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-1 md:mb-2">
+            <i className="fas fa-fingerprint text-blue-600 dark:text-blue-400 text-sm md:text-lg"></i>
           </div>
-          <div className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {punchedInTodayCount}
-          </div>
-          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">
-            Punched In Today
-          </div>
+          <div className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">{punchedInCount}</div>
+          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">Punched In Today</div>
           {renderEmployeeList(punchInToday, "Punched In")}
         </div>
 
-        {/* Late Today Card */}
         <div className="group relative bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
-          <div className="flex justify-between items-start mb-1 md:mb-2">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
-              <i className="fas fa-clock text-amber-600 dark:text-amber-400 text-sm md:text-lg"></i>
-            </div>
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center mb-1 md:mb-2">
+            <i className="fas fa-clock text-amber-600 dark:text-amber-400 text-sm md:text-lg"></i>
           </div>
-          <div className="text-xl md:text-2xl font-bold text-amber-600 dark:text-amber-400">
-            {lateTodayCount}
-          </div>
-          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">
-            Late Today
-          </div>
+          <div className="text-xl md:text-2xl font-bold text-amber-600 dark:text-amber-400">{lateTodayCount}</div>
+          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">Late Today</div>
           {renderEmployeeList(lateComers, "Late Comers")}
         </div>
 
-        {/* Absent Today Card */}
         <div className="group relative bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
-          <div className="flex justify-between items-start mb-1 md:mb-2">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
-              <i className="fas fa-user-slash text-red-600 dark:text-red-400 text-sm md:text-lg"></i>
-            </div>
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center mb-1 md:mb-2">
+            <i className="fas fa-user-slash text-red-600 dark:text-red-400 text-sm md:text-lg"></i>
           </div>
-          <div className="text-xl md:text-2xl font-bold text-red-600 dark:text-red-400">
-            {absentTodayCount}
-          </div>
-          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">
-            Absent Today
-          </div>
+          <div className="text-xl md:text-2xl font-bold text-red-600 dark:text-red-400">{absentTodayCount}</div>
+          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">Absent Today</div>
           {renderEmployeeList(absentees, "Absentees")}
         </div>
 
-        {/* Punch Out Today Card */}
         <div className="col-span-2 sm:col-span-3 lg:col-span-1 bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
-          <div className="flex justify-between items-start mb-1 md:mb-2">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-              <i className="fas fa-sign-out-alt text-purple-600 dark:text-purple-400 text-sm md:text-lg"></i>
-            </div>
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-1 md:mb-2">
+            <i className="fas fa-sign-out-alt text-purple-600 dark:text-purple-400 text-sm md:text-lg"></i>
           </div>
-          <div className="text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400">
-            {punchOutTodayCount}
-          </div>
-          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">
-            Punch Out Today
-          </div>
+          <div className="text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400">{punchOutCount}</div>
+          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">Punch Out Today</div>
         </div>
       </div>
 
-      {/* Upload Status Banner */}
+      {/* ── Upload processing banner ─────────────────────────────────────────── */}
       {uploadStatus === "processing" && (
         <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-center gap-3">
           <i className="fas fa-spinner fa-spin text-blue-500"></i>
-          <span className="text-sm text-blue-700 dark:text-blue-300">
-            Processing attendance file... This will continue in the background.
-          </span>
+          <div className="flex-1">
+            <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+              Processing attendance file…
+            </span>
+            <p className="text-xs text-blue-500 dark:text-blue-400 mt-0.5">
+              The table will refresh automatically when complete.
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
         <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent flex flex-wrap items-center gap-2">
           Attendance Records
@@ -338,7 +274,7 @@ const Attendances = () => {
         </h2>
       </div>
 
-      {/* Filters */}
+      {/* ── Filters ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
         <select
           value={companyFilter}
@@ -365,72 +301,54 @@ const Attendances = () => {
           disabled={refreshLoading}
           className="px-3 md:px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs md:text-sm text-gray-700 dark:text-gray-300 flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
         >
-          <i
-            className={`fas fa-sync-alt text-xs md:text-sm ${refreshLoading ? "fa-spin" : ""}`}
-          ></i>
+          <i className={`fas fa-sync-alt text-xs md:text-sm ${refreshLoading ? "fa-spin" : ""}`}></i>
           <span className="hidden sm:inline">Refresh</span>
         </button>
       </div>
 
-      {/* Actions Bar */}
+      {/* ── Actions bar ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-5">
         <EntriesSelector value={perPage} onChange={handlePerPageChange} />
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-          <SearchBar
-            value={searchTerm}
-            onChange={handleSearchChange}
-            placeholder="Search records..."
-          />
+          <SearchBar value={searchTerm} onChange={handleSearchChange} placeholder="Search records..." />
           <button
             onClick={() => setShowUploadModal(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
-            disabled={uploadStatus === "processing"}
+            disabled={isUploading}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <i className="fas fa-plus-circle"></i> Upload Logs
+            {isUploading ? (
+              <><i className="fas fa-spinner fa-spin"></i> Processing…</>
+            ) : (
+              <><i className="fas fa-plus-circle"></i> Upload Logs</>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Loading State */}
+      {/* ── Table ───────────────────────────────────────────────────────────── */}
       {loading && records.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
           <i className="fas fa-spinner fa-spin text-3xl text-green-500 mb-3"></i>
-          <p className="text-gray-500 dark:text-gray-400">
-            Loading attendance records...
-          </p>
+          <p className="text-gray-500 dark:text-gray-400">Loading attendance records…</p>
         </div>
       ) : (
         <>
-          {/* Attendance Table */}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
-            <div className="min-w-[800px] md:min-w-0">
+            <div className="min-w-[900px] md:min-w-0">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Sl.No.
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Company
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Employee Name
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Date
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Punch In
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Punch Out
-                    </th>
+                    {["Sl.No.", "Department", "Employee Name", "Date", "Punch In", "Punch Out", "Status"].map((h) => (
+                      <th key={h} className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {pageRecords.map((record, idx) => (
+                  {records.map((record, idx) => (
                     <tr
-                      key={record.id || idx}
+                      key={`${record.employee_id}-${record.date}-${idx}`}
                       className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                     >
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
@@ -439,7 +357,7 @@ const Attendances = () => {
                       <td className="px-3 md:px-4 py-2 md:py-3">
                         <span className="inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-700 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs whitespace-nowrap">
                           <i className="fas fa-building text-gray-500 text-[8px] md:text-xs"></i>
-                          {record.company || "-"}
+                          {record.department || "-"}
                         </span>
                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
@@ -448,30 +366,31 @@ const Attendances = () => {
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                         {record.date || "-"}
                       </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
-                        <span className="font-semibold text-gray-800 dark:text-gray-200">
-                          {record.punchIn || "-"}
-                        </span>
+                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        {record.punchIn}
                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
                         {record.hasPunchOut ? (
-                          <span className="font-semibold text-gray-800 dark:text-gray-200">
-                            {record.punchOut}
-                          </span>
+                          <span className="font-semibold text-gray-800 dark:text-gray-200">{record.punchOut}</span>
                         ) : (
                           <span className="inline-block bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[9px] md:text-xs px-1.5 md:px-2 py-0.5 rounded-full whitespace-nowrap">
                             Not Punched Out
                           </span>
                         )}
                       </td>
+                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] md:text-xs font-medium ${record.status === "Present"
+                          ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                          : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                          }`}>
+                          {record.status}
+                        </span>
+                      </td>
                     </tr>
                   ))}
-                  {pageRecords.length === 0 && (
+                  {records.length === 0 && (
                     <tr>
-                      <td
-                        colSpan="6"
-                        className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
-                      >
+                      <td colSpan="7" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                         No attendance records found
                       </td>
                     </tr>
@@ -491,7 +410,6 @@ const Attendances = () => {
         </>
       )}
 
-      {/* Upload Modal */}
       <UploadAttendanceModal
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
