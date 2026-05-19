@@ -60,7 +60,7 @@ const Employees = () => {
         (emp) =>
           (emp.name || "").toLowerCase().includes(searchLower) ||
           (emp.designation || "").toLowerCase().includes(searchLower) ||
-          (emp.department || "").toLowerCase().includes(searchLower)
+          (emp.department || "").toLowerCase().includes(searchLower),
       );
     }
     return filtered;
@@ -198,28 +198,31 @@ const Employees = () => {
         <div className="flex gap-2 w-full sm:w-auto">
           <button
             onClick={() => handleStatusFilter("all")}
-            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${statusFilter === "all"
+            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${
+              statusFilter === "all"
                 ? "bg-green-500 text-white shadow-md"
                 : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
+            }`}
           >
             All
           </button>
           <button
             onClick={() => handleStatusFilter("Active")}
-            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${statusFilter === "Active"
+            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${
+              statusFilter === "Active"
                 ? "bg-green-500 text-white shadow-md"
                 : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
+            }`}
           >
             Active
           </button>
           <button
             onClick={() => handleStatusFilter("Inactive")}
-            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${statusFilter === "Inactive"
+            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${
+              statusFilter === "Inactive"
                 ? "bg-green-500 text-white shadow-md"
                 : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
+            }`}
           >
             Inactive
           </button>
@@ -253,7 +256,6 @@ const Employees = () => {
           >
             <i className="fas fa-plus-circle"></i> Add Employee
           </Link>
-
         </div>
       </div>
 
@@ -288,73 +290,144 @@ const Employees = () => {
             </thead>
             <tbody>
               {!loading && pageEmployees.length > 0 ? (
-                pageEmployees.map((emp, idx) => (
-                  <tr
-                    key={emp.id}
-                    className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                  >
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
-                      {start + idx + 1}
-                    </td>
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
-                      {emp.name}
-                    </td>
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                      {emp.designation}
-                    </td>
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                      {emp.department}
-                    </td>
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                      {emp.raw?.user?.company?.company_name || emp.company || '-'}
-                    </td>
-                    <td className="px-3 md:px-4 py-2 md:py-3">
-                      <label className="inline-flex items-center gap-1 md:gap-2 cursor-pointer">
-                        <div className="relative">
-                          <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={emp.status === "Active"}
-                            onChange={() =>
-                              handleStatusToggle(emp.id, emp.status)
-                            }
-                          />
-                          <div className="w-9 h-5 md:w-11 md:h-5 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-green-500 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                pageEmployees.map((emp, idx) => {
+                  // Helper function to get photo URL
+                  const getEmployeePhoto = () => {
+                    // Check multiple possible photo fields
+                    const photoValue =
+                      emp.avatar ||
+                      emp.avatar_path ||
+                      emp.passport_size_photo ||
+                      emp.profile_photo ||
+                      emp.photo ||
+                      emp.user?.avatar;
+
+                    if (!photoValue) return null;
+
+                    // Handle object type avatar
+                    if (typeof photoValue === "object" && photoValue.path) {
+                      const baseUrl =
+                        import.meta.env.VITE_API_URL?.replace("/api", "") || "";
+                      return `${baseUrl}/storage/${photoValue.path}`;
+                    }
+
+                    // Handle string paths
+                    if (typeof photoValue === "string") {
+                      if (photoValue.startsWith("/tmp/")) {
+                        const baseUrl =
+                          import.meta.env.VITE_API_URL?.replace("/api", "") ||
+                          "";
+                        return `${baseUrl}/storage/temp/${photoValue.replace("/tmp/", "")}`;
+                      }
+                      if (photoValue.startsWith("data:")) return photoValue;
+                      if (photoValue.startsWith("http")) return photoValue;
+
+                      const baseUrl =
+                        import.meta.env.VITE_API_URL?.replace("/api", "") || "";
+                      if (photoValue.startsWith("/storage/"))
+                        return `${baseUrl}${photoValue}`;
+                      return `${baseUrl}/storage/${photoValue}`;
+                    }
+
+                    return null;
+                  };
+
+                  const photoUrl = getEmployeePhoto();
+
+                  return (
+                    <tr
+                      key={emp.id}
+                      className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
+                        {start + idx + 1}
+                      </td>
+                      <td className="px-3 md:px-4 py-2 md:py-3">
+                        <div className="flex items-center gap-2 md:gap-3">
+                          {/* Profile Photo */}
+                          {photoUrl ? (
+                            <img
+                              src={photoUrl}
+                              alt={emp.name}
+                              className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border border-gray-200"
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                                e.target.parentElement.querySelector(
+                                  ".fallback-avatar",
+                                ).style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="fallback-avatar w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white text-sm md:text-base font-semibold"
+                            style={{ display: photoUrl ? "none" : "flex" }}
+                          >
+                            {emp.name?.charAt(0) || "?"}
+                          </div>
+                          <span className="text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                            {emp.name}
+                          </span>
                         </div>
-                        <span
-                          className={`text-[10px] md:text-xs font-semibold ${emp.status === "Active" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                        >
-                          {emp.status}
-                        </span>
-                      </label>
-                    </td>
-                    <td className="px-3 md:px-4 py-2 md:py-3">
-                      <div className="flex gap-1 md:gap-2">
-                        <Link
-                          to={`/admin/employees/${emp.id}`}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 text-blue-500 transition-colors"
-                          title="View Details"
-                        >
-                          <i className="fas fa-eye text-xs md:text-sm"></i>
-                        </Link>
-                        <Link
-                          to={`/admin/employees/edit/${emp.id}`}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
-                          title="Edit"
-                        >
-                          <i className="fas fa-edit text-xs md:text-sm"></i>
-                        </Link>
-                        <button
-                          onClick={() => handleDeleteClick(emp)}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
-                          title="Delete"
-                        >
-                          <i className="fas fa-trash text-xs md:text-sm"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                        {emp.designation}
+                      </td>
+                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                        {emp.department}
+                      </td>
+                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                        {emp.raw?.user?.company?.company_name ||
+                          emp.company ||
+                          "-"}
+                      </td>
+                      <td className="px-3 md:px-4 py-2 md:py-3">
+                        <label className="inline-flex items-center gap-1 md:gap-2 cursor-pointer">
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={emp.status === "Active"}
+                              onChange={() =>
+                                handleStatusToggle(emp.id, emp.status)
+                              }
+                            />
+                            <div className="w-9 h-5 md:w-11 md:h-5 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-green-500 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                          </div>
+                          <span
+                            className={`text-[10px] md:text-xs font-semibold ${emp.status === "Active" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                          >
+                            {emp.status}
+                          </span>
+                        </label>
+                      </td>
+                      <td className="px-3 md:px-4 py-2 md:py-3">
+                        <div className="flex gap-1 md:gap-2">
+                          <Link
+                            to={`/admin/employees/${emp.id}`}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 text-blue-500 transition-colors"
+                            title="View Details"
+                          >
+                            <i className="fas fa-eye text-xs md:text-sm"></i>
+                          </Link>
+                          <Link
+                            to={`/admin/employees/edit/${emp.id}`}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
+                            title="Edit"
+                          >
+                            <i className="fas fa-edit text-xs md:text-sm"></i>
+                          </Link>
+                          <button
+                            onClick={() => handleDeleteClick(emp)}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
+                            title="Delete"
+                          >
+                            <i className="fas fa-trash text-xs md:text-sm"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td
