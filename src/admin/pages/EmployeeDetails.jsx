@@ -218,7 +218,7 @@ const EmployeeDetails = () => {
                   className="w-24 h-24 rounded-full object-cover border-2 border-green-100 shadow-md"
                 />
               ) : (
-                <div className="w-24 h-24 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-md">
+                <div className="w-24 h-24 gradient-heading rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-md">
                   {currentEmployee.first_name?.charAt(0)}
                   {currentEmployee.last_name?.charAt(0)}
                 </div>
@@ -265,7 +265,7 @@ const EmployeeDetails = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`px-5 py-3 flex items-center gap-2 text-sm font-medium transition-all ${
                     activeTab === tab.id
-                      ? "text-green-600 border-b-2 border-green-600 bg-green-50"
+                      ? "text-green-600 border-b-2 border-green-600 bg-gray-50" // Changed from bg-green-50 to bg-gray-50
                       : "text-gray-600 hover:text-green-600 hover:bg-gray-50"
                   }`}
                 >

@@ -38,38 +38,38 @@ const EditOrganization = () => {
   useEffect(() => {
     if (organizations && organizations.length > 0 && id && !initialized) {
       const organization = organizations.find((org) => org.id === parseInt(id));
-      console.log("Found organization:", organization);
 
       if (organization) {
         const rawOrg = organization.raw || organization;
-
         // Handle multi_company value from API
         let multiCompanyValue = "No";
-        const multiCompany =
-          rawOrg.multi_company || rawOrg.has_multiple_companies;
 
-        if (
-          multiCompany === 1 ||
-          multiCompany === "1" ||
-          multiCompany === true ||
-          multiCompany === "true" ||
-          multiCompany === "Yes" ||
-          multiCompany === "yes"
-        ) {
-          multiCompanyValue = "Yes";
+        // Check has_multiple_companies (API field)
+        if (rawOrg.has_multiple_companies !== undefined) {
+          const val = rawOrg.has_multiple_companies;
+          if (val === true || val === 1 || val === "1" || val === "true") {
+            multiCompanyValue = "Yes";
+          }
+        }
+        // Fallback to multi_company (Redux field)
+        else if (rawOrg.multi_company !== undefined) {
+          const val = rawOrg.multi_company;
+          if (val === "Yes" || val === true || val === 1 || val === "1") {
+            multiCompanyValue = "Yes";
+          }
         }
 
         // Get existing logo URL
         let existingLogoUrl = null;
-        if (rawOrg.logo) {
-          existingLogoUrl = getStorageUrl(rawOrg.logo);
+        if (organization.logo) {
+          existingLogoUrl = getStorageUrl(organization.logo);
         }
 
         const newFormData = {
-          name: rawOrg.name || "",
-          phone: rawOrg.phone || "",
-          email: rawOrg.email || "",
-          address: rawOrg.address || "",
+          name: organization.name || "",
+          phone: organization.phone || "",
+          email: organization.email || "",
+          address: organization.address || "",
           multi_company: multiCompanyValue,
           logo: null,
           existingLogo: existingLogoUrl,
@@ -128,57 +128,56 @@ const EditOrganization = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!formData.name.trim()) {
-      showToast("Organization name is required", "error");
-      return;
+  if (!formData.name.trim()) {
+    showToast("Organization name is required", "error");
+    return;
+  }
+
+  setUpdating(true);
+  try {
+    const submitData = new FormData();
+    submitData.append("name", formData.name);
+    if (formData.phone) submitData.append("phone", formData.phone);
+    if (formData.email) submitData.append("email", formData.email);
+    if (formData.address) submitData.append("address", formData.address);
+
+    const multiCompanyValue = formData.multi_company === "Yes" ? 1 : 0;
+    submitData.append("has_multiple_companies", multiCompanyValue);
+
+    if (formData.logo) {
+      submitData.append("logo", formData.logo);
     }
 
-    setUpdating(true);
-    try {
-      const submitData = new FormData();
-      submitData.append("name", formData.name);
-      if (formData.phone) submitData.append("phone", formData.phone);
-      if (formData.email) submitData.append("email", formData.email);
-      if (formData.address) submitData.append("address", formData.address);
+    console.log("Submitting update with FormData:");
+    for (let pair of submitData.entries()) {
+      console.log(`  ${pair[0]}: ${pair[1] instanceof File ? pair[1].name : pair[1]}`);
+    }
 
-      // Convert multi_company to number format expected by API
-      const multiCompanyValue = formData.multi_company === "Yes" ? 1 : 0;
-      submitData.append("multi_company", multiCompanyValue);
+    const result = await dispatch(
+      updateOrganization({
+        id: parseInt(id),
+        data: submitData,
+        isFormData: true,
+      }),
+    );
 
-      if (formData.logo) {
-        submitData.append("logo", formData.logo);
-      }
-      // If logo was removed, you might need to send an indicator to delete it
-      // submitData.append("remove_logo", formData.existingLogo === null && !formData.logo ? 1 : 0);
-
-      const result = await dispatch(
-        updateOrganization({
-          id: parseInt(id),
-          data: submitData,
-        }),
-      );
-
-      if (updateOrganization.fulfilled.match(result)) {
-        showToast("Organization updated successfully", "success");
-        // Refresh organizations list
-        await dispatch(fetchOrganizations());
-        navigate("/admin/organizations");
-      } else {
-        const errorMsg =
-          result.payload?.message ||
-          result.payload ||
-          "Failed to update organization";
-        showToast(errorMsg, "error");
-        setUpdating(false);
-      }
-    } catch (error) {
-      console.error("Update error:", error);
-      showToast("An error occurred while updating", "error");
+    if (updateOrganization.fulfilled.match(result)) {
+      showToast("Organization updated successfully", "success");
+      await dispatch(fetchOrganizations());
+      navigate("/admin/organizations");
+    } else {
+      const errorMsg = result.payload || "Failed to update organization";
+      showToast(errorMsg, "error");
       setUpdating(false);
     }
-  };
+  } catch (error) {
+    console.error("Update error:", error);
+    showToast("An error occurred while updating", "error");
+    setUpdating(false);
+  }
+};
 
   return (
     <div className="w-full overflow-x-hidden px-4 md:px-6">

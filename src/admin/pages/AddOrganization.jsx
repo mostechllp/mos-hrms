@@ -67,7 +67,8 @@ const AddOrganization = () => {
     submitData.append("phone", formData.phone);
     submitData.append("email", formData.email);
     submitData.append("address", formData.address || "");
-    submitData.append("multi_company", formData.multi_company);
+    const multiCompanyValue = formData.multi_company === "Yes" ? 1 : 0;
+    submitData.append("has_multiple_companies", multiCompanyValue);
 
     // Append logo as file if selected
     if (selectedLogoFile) {
@@ -84,6 +85,7 @@ const AddOrganization = () => {
     }
 
     const result = await dispatch(addOrganization(submitData));
+    console.log("Result: ", result)
     setLoading(false);
 
     if (addOrganization.fulfilled.match(result)) {

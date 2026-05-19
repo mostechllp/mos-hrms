@@ -1,16 +1,15 @@
-// src/employee/components/common/Header.jsx
 import { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
-import {useAppSelector } from '../../store/hooks';
-import { setTheme } from '../../store/slices/themeSlice';
+import { useAppSelector } from '../../store/hooks';
+import { useAppTheme } from '../../../context/ThemeContext'; // Import theme context
 import { logoutUser } from '../../../store/slices/authSlice';
 
 const Header = ({ onMenuClick }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { theme } = useAppSelector((state) => state.theme);
   const { user } = useAppSelector((state) => state.auth);
+  const { themeMode, setThemeMode } = useAppTheme(); // Use theme context
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
 
@@ -25,6 +24,8 @@ const Header = ({ onMenuClick }) => {
       }));
     };
     updateDate();
+    const interval = setInterval(updateDate, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -65,19 +66,20 @@ const Header = ({ onMenuClick }) => {
           <i className="far fa-calendar-alt"></i> {currentDate}
         </div>
         
+        {/* Updated theme toggle to use ThemeProvider */}
         <div className="theme-toggle flex bg-[var(--surface2)] border border-[var(--border)] rounded-full p-0.5 gap-0.5">
           <button
-            onClick={() => dispatch(setTheme('light'))}
+            onClick={() => setThemeMode('light')}
             className={`theme-btn w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all ${
-              theme === 'light' ? 'bg-[var(--surface)] shadow-md text-green-500' : 'text-[var(--text-secondary)]'
+              themeMode === 'light' ? 'bg-[var(--surface)] shadow-md text-green-500' : 'text-[var(--text-secondary)]'
             }`}
           >
             <i className="fas fa-sun"></i>
           </button>
           <button
-            onClick={() => dispatch(setTheme('dark'))}
+            onClick={() => setThemeMode('dark')}
             className={`theme-btn w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all ${
-              theme === 'dark' ? 'bg-[var(--surface)] shadow-md text-green-500' : 'text-[var(--text-secondary)]'
+              themeMode === 'dark' ? 'bg-[var(--surface)] shadow-md text-green-500' : 'text-[var(--text-secondary)]'
             }`}
           >
             <i className="fas fa-moon"></i>
@@ -93,7 +95,7 @@ const Header = ({ onMenuClick }) => {
               <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-green-500 flex items-center justify-center text-white font-bold">
-                {user?.name?.charAt(0) || "U"}
+                {user?.employee?.name?.charAt(0) || user?.name?.charAt(0) || "U"}
               </div>
             )}
           </div>
@@ -105,12 +107,12 @@ const Header = ({ onMenuClick }) => {
                   <img src={user.avatar} alt="Profile" className="w-12 h-12 rounded-xl object-cover" />
                 ) : (
                   <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center text-white font-bold text-lg">
-                    {user?.name?.charAt(0) || "U"}
+                    {user?.employee?.name?.charAt(0) || user?.name?.charAt(0) || "U"}
                   </div>
                 )}
                 <div>
-                  <h4 className="text-sm font-semibold text-[var(--text)]">{user?.name || "Employee"}</h4>
-                  <p className="text-xs text-[var(--muted)]">{user?.role || "Employee"}</p>
+                  <h4 className="text-sm font-semibold text-[var(--text)]">{user?.employee?.name || user?.name || "Employee"}</h4>
+                  <p className="text-xs text-[var(--muted)]">Employee</p>
                 </div>
               </div>
               <Link 

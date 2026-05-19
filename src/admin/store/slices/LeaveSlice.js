@@ -118,11 +118,10 @@ export const fetchLeaveBalances = createAsyncThunk(
 
 export const updateLeaveAllocation = createAsyncThunk(
   "leaves/updateAllocation",
-  async ({ employee_id, leave_type, allocated }, { rejectWithValue }) => {
+  async ({ employee_id, allocations }, { rejectWithValue }) => {
     try {
       const response = await apiClient.post(`/admin/leave-allocations/${employee_id}`, {
-        leave_type,
-        allocated
+        allocations
       });
       return response.data.data;
     } catch (error) {
@@ -192,7 +191,7 @@ export const updateLeaveTypeStatus = createAsyncThunk(
   "leaves/updateTypeStatus",
   async ({ id, status }, { rejectWithValue }) => {
     try {
-      const res = await apiClient.put(`/admin/leave-types/${id}/status`, {
+      const res = await apiClient.post(`/admin/leave-types/${id}/status`, {
         status,
       });
       return res.data.data || res.data;
@@ -208,7 +207,7 @@ export const toggleLeaveTypeStatus = createAsyncThunk(
   "leaves/toggleStatus",
   async ({ id, status }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put(`/admin/leave-types/${id}/status`, {
+      const response = await apiClient.post(`/admin/leave-types/${id}/status`, {
         status,
       });
       return response.data.data || response.data;

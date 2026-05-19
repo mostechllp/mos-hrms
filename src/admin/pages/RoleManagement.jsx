@@ -1,97 +1,95 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { showToast } from "../components/common/Toast";
+import {
+    fetchRoles,
+    addRole,
+    updateRole,
+    deleteRole,
+    fetchRolePermissions,
+    updateRolePermissions,
+    fetchModules
+} from "../store/slices/roleSlice";
 
-/** Frontend-only mock data — replace with API when backend is ready */
-const MOCK_ROLES = [
-    { id: "admin", name: "Administrator", description: "Full system access" },
-    { id: "hr_manager", name: "HR Manager", description: "HR operations & reports" },
-    { id: "manager", name: "Manager", description: "Team & attendance oversight" },
-    { id: "employee", name: "Employee", description: "Self-service only" },
-    { id: "viewer", name: "Viewer", description: "Read-only access" },
+const FALLBACK_MODULES = [
+    { id: 1, name: "Dashboard" },
+    { id: 2, name: "Employees" },
+    { id: 3, name: "Organizations" },
+    { id: 4, name: "Agreements" },
+    { id: 5, name: "Attendance" },
+    { id: 6, name: "Leaves" },
+    { id: 7, name: "Reports" },
+    { id: 8, name: "Settings" },
+    { id: 9, name: "Role management" }
 ];
-
-
-
-const MODULES = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "employees", label: "Employees" },
-    { key: "organizations", label: "Organizations" },
-    { key: "agreements", label: "Agreements" },
-    { key: "attendance", label: "Attendance" },
-    { key: "leaves", label: "Leaves" },
-    { key: "reports", label: "Reports" },
-    { key: "settings", label: "Settings" },
-    { key: "role_management", label: "Role management" },
-];
-
-const emptyPermsForRole = () =>
-    MODULES.reduce((acc, m) => {
-        acc[m.key] = { read: false, edit: false, delete: false };
-        return acc;
-    }, {});
-
-const defaultRolePermissions = () => {
-    const base = {};
-    MOCK_ROLES.forEach((r) => {
-        base[r.id] = emptyPermsForRole();
-        if (r.id === "admin") {
-            MODULES.forEach((m) => {
-                base[r.id][m.key] = { read: true, edit: true, delete: true };
-            });
-        } else if (r.id === "viewer") {
-            MODULES.forEach((m) => {
-                base[r.id][m.key] = { read: true, edit: false, delete: false };
-            });
-        }
-    });
-    return base;
-};
-
 
 function RoleManagement() {
-    const [roles, setRoles] = useState(MOCK_ROLES);
-    const [rolePermissions, setRolePermissions] = useState(defaultRolePermissions);
+    const dispatch = useDispatch();
+    const { roles, rolePermissions, modules, loading } = useSelector((state) => state.roles);
 
     const [newRoleName, setNewRoleName] = useState("");
     const [newRoleDesc, setNewRoleDesc] = useState("");
     const [editingRoleId, setEditingRoleId] = useState(null);
     const [roleToDelete, setRoleToDelete] = useState(null);
 
-    const [selectedPermRoleId, setSelectedPermRoleId] = useState(MOCK_ROLES[0]?.id || "");
+    const [selectedPermRoleId, setSelectedPermRoleId] = useState("");
+    const [localPermissions, setLocalPermissions] = useState([]);
 
+    useEffect(() => {
+        dispatch(fetchRoles());
+        dispatch(fetchModules());
+    }, [dispatch]);
 
+    useEffect(() => {
+        if (roles.length > 0 && !selectedPermRoleId) {
+            setSelectedPermRoleId(roles[0].id);
+        }
+    }, [roles, selectedPermRoleId]);
 
-    const handleCreateRole = (e) => {
+    useEffect(() => {
+        if (selectedPermRoleId) {
+            dispatch(fetchRolePermissions(selectedPermRoleId));
+        }
+    }, [selectedPermRoleId, dispatch]);
+
+    useEffect(() => {
+        if (selectedPermRoleId) {
+            const perms = rolePermissions[selectedPermRoleId] || [];
+            const displayModules = modules && modules.length > 0 ? modules : FALLBACK_MODULES;
+            const merged = displayModules.map(mod => {
+                const existing = perms.find(p => p.module_id === mod.id) || {};
+                return {
+                    module_id: mod.id,
+                    module_name: mod.name || mod.label,
+                    can_read: !!existing.can_read,
+                    can_edit: !!existing.can_edit,
+                    can_delete: !!existing.can_delete
+                };
+            });
+            setLocalPermissions(merged);
+        }
+    }, [rolePermissions, selectedPermRoleId, modules]);
+    const handleCreateRole = async (e) => {
         e.preventDefault();
         if (!newRoleName) {
             showToast("Role name is required", "error");
             return;
         }
-        const newId = newRoleName.toLowerCase().replace(/\s+/g, '_');
 
-        if (editingRoleId) {
-            setRoles(roles.map(r => r.id === editingRoleId ? { ...r, name: newRoleName, description: newRoleDesc } : r));
-            showToast("Role updated", "success");
-            setEditingRoleId(null);
+        try {
+            if (editingRoleId) {
+                await dispatch(updateRole({ id: editingRoleId, data: { name: newRoleName, description: newRoleDesc } })).unwrap();
+                showToast("Role updated", "success");
+                setEditingRoleId(null);
+            } else {
+                await dispatch(addRole({ name: newRoleName, description: newRoleDesc, status: "active" })).unwrap();
+                showToast("Role created", "success");
+            }
             setNewRoleName("");
             setNewRoleDesc("");
-            return;
+        } catch (error) {
+            showToast(error || "An error occurred", "error");
         }
-
-        if (roles.find(r => r.id === newId)) {
-            showToast("Role already exists", "error");
-            return;
-        }
-        const newRole = {
-            id: newId,
-            name: newRoleName,
-            description: newRoleDesc || "Custom role"
-        };
-        setRoles((prev) => [...prev, newRole]);
-        setRolePermissions((prev) => ({ ...prev, [newRole.id]: emptyPermsForRole() }));
-        showToast("Role created", "success");
-        setNewRoleName("");
-        setNewRoleDesc("");
     };
 
     const handleEditClick = (role) => {
@@ -106,45 +104,52 @@ function RoleManagement() {
         setNewRoleDesc("");
     };
 
-    const handleDeleteConfirm = () => {
+    const handleDeleteConfirm = async () => {
         if (roleToDelete) {
-            setRoles(roles.filter(r => r.id !== roleToDelete.id));
-            const newPerms = { ...rolePermissions };
-            delete newPerms[roleToDelete.id];
-            setRolePermissions(newPerms);
-            if (selectedPermRoleId === roleToDelete.id) {
-                const remainingRoles = roles.filter(r => r.id !== roleToDelete.id);
-                setSelectedPermRoleId(remainingRoles[0]?.id || "");
+            try {
+                await dispatch(deleteRole(roleToDelete.id)).unwrap();
+                showToast("Role deleted", "success");
+                if (selectedPermRoleId === roleToDelete.id) {
+                    setSelectedPermRoleId("");
+                }
+            } catch (error) {
+                showToast(error || "Failed to delete role", "error");
+            } finally {
+                setRoleToDelete(null);
             }
-            showToast("Role deleted", "success");
-            setRoleToDelete(null);
         }
     };
 
-    const togglePermission = (roleId, moduleKey, field) => {
-        setRolePermissions((prev) => {
-            const role = prev[roleId] || emptyPermsForRole();
-            const mod = role[moduleKey] || { read: false, edit: false, delete: false };
-            const next = { ...mod, [field]: !mod[field] };
-            if (field === "read" && !next.read) {
-                next.edit = false;
-                next.delete = false;
-            }
-            if ((field === "edit" || field === "delete") && next[field]) {
-                next.read = true;
-            }
-            return {
-                ...prev,
-                [roleId]: { ...role, [moduleKey]: next },
-            };
-        });
+    const togglePermission = (moduleId, field) => {
+        setLocalPermissions((prev) =>
+            prev.map((p) => {
+                if (p.module_id === moduleId) {
+                    const next = { ...p, [field]: !p[field] };
+                    if (field === "can_read" && !next.can_read) {
+                        next.can_edit = false;
+                        next.can_delete = false;
+                    }
+                    if ((field === "can_edit" || field === "can_delete") && next[field]) {
+                        next.can_read = true;
+                    }
+                    return next;
+                }
+                return p;
+            })
+        );
     };
 
-    const handleSavePermissions = () => {
-        showToast("Permissions saved (frontend preview — no API yet)", "success");
+    const handleSavePermissions = async () => {
+        try {
+            await dispatch(updateRolePermissions({
+                id: selectedPermRoleId,
+                permissions: localPermissions
+            })).unwrap();
+            showToast("Permissions saved", "success");
+        } catch (error) {
+            showToast(error || "Failed to save permissions", "error");
+        }
     };
-
-    const permMatrix = rolePermissions[selectedPermRoleId] || emptyPermsForRole();
 
     return (
         <div className="w-full max-w-7xl mx-auto pb-10">
@@ -202,7 +207,7 @@ function RoleManagement() {
                                 <div className="flex gap-2">
                                     <button
                                         type="submit"
-                                        className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition shadow-md"
+                                        className="flex-1 py-2.5 rounded-full bg-[#22c55e] hover:bg-[#1ba34a] text-white text-sm font-semibold transition shadow-md"
                                     >
                                         <i className="fas fa-check mr-2"></i>
                                         {editingRoleId ? "Update role" : "Create role"}
@@ -211,7 +216,7 @@ function RoleManagement() {
                                         <button
                                             type="button"
                                             onClick={handleCancelEdit}
-                                            className="px-4 py-2.5 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-sm font-semibold transition shadow-md"
+                                            className="px-5 py-2.5 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-sm font-semibold transition shadow-md"
                                         >
                                             Cancel
                                         </button>
@@ -294,55 +299,64 @@ function RoleManagement() {
                             </div>
 
                             <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
-                                <table className="w-full text-left text-xs md:text-sm border-collapse min-w-[520px]">
+                                <table className="w-full text-left text-xs md:text-sm border-collapse">
                                     <thead>
                                         <tr className="bg-gray-50 dark:bg-gray-700/80 border-b border-gray-200 dark:border-gray-600">
-                                            <th className="px-3 py-3 font-semibold text-gray-600 dark:text-gray-300">
+                                            <th className="px-2 md:px-3 py-3 font-semibold text-gray-600 dark:text-gray-300">
                                                 Module
                                             </th>
-                                            <th className="px-3 py-3 font-semibold text-center text-gray-600 dark:text-gray-300 w-24">
+                                            <th className="px-2 py-3 font-semibold text-center text-gray-600 dark:text-gray-300 w-14 md:w-20">
                                                 Read
                                             </th>
-                                            <th className="px-3 py-3 font-semibold text-center text-gray-600 dark:text-gray-300 w-24">
+                                            <th className="px-2 py-3 font-semibold text-center text-gray-600 dark:text-gray-300 w-14 md:w-20">
                                                 Edit
                                             </th>
-                                            <th className="px-3 py-3 font-semibold text-center text-gray-600 dark:text-gray-300 w-24">
+                                            <th className="px-2 py-3 font-semibold text-center text-gray-600 dark:text-gray-300 w-14 md:w-20">
                                                 Delete
                                             </th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {MODULES.map((m) => {
-                                            const p = permMatrix[m.key] || {
-                                                read: false,
-                                                edit: false,
-                                                delete: false,
-                                            };
-                                            return (
+                                        {localPermissions.map((p) => (
                                                 <tr
-                                                    key={m.key}
+                                                    key={p.module_id}
                                                     className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50/80 dark:hover:bg-gray-700/30"
                                                 >
-                                                    <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-200">
-                                                        {m.label}
+                                                    <td className="px-2 md:px-3 py-2.5 font-medium text-gray-800 dark:text-gray-200">
+                                                        {p.module_name}
                                                     </td>
-                                                    {["read", "edit", "delete"].map((field) => (
-                                                        <td key={field} className="px-3 py-2 text-center">
-                                                            <label className="inline-flex items-center justify-center cursor-pointer">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={p[field]}
-                                                                    onChange={() =>
-                                                                        togglePermission(selectedPermRoleId, m.key, field)
-                                                                    }
-                                                                    className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600"
-                                                                />
-                                                            </label>
-                                                        </td>
-                                                    ))}
+                                                    <td className="px-2 py-2 text-center">
+                                                        <label className="inline-flex items-center justify-center cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={p.can_read}
+                                                                onChange={() => togglePermission(p.module_id, "can_read")}
+                                                                className="custom-checkbox"
+                                                            />
+                                                        </label>
+                                                    </td>
+                                                    <td className="px-2 py-2 text-center">
+                                                        <label className="inline-flex items-center justify-center cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={p.can_edit}
+                                                                onChange={() => togglePermission(p.module_id, "can_edit")}
+                                                                className="custom-checkbox"
+                                                            />
+                                                        </label>
+                                                    </td>
+                                                    <td className="px-2 py-2 text-center">
+                                                        <label className="inline-flex items-center justify-center cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={p.can_delete}
+                                                                onChange={() => togglePermission(p.module_id, "can_delete")}
+                                                                className="custom-checkbox"
+                                                            />
+                                                        </label>
+                                                    </td>
                                                 </tr>
-                                            );
-                                        })}
+                                            ))}
                                     </tbody>
                                 </table>
                             </div>
@@ -357,7 +371,7 @@ function RoleManagement() {
                             <button
                                 type="button"
                                 onClick={handleSavePermissions}
-                                className="mt-4 w-full sm:w-auto px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition"
+                                className="mt-4 w-full sm:w-auto px-6 py-2.5 rounded-full bg-[#22c55e] hover:bg-[#1ba34a] text-white text-sm font-semibold transition"
                             >
                                 <i className="fas fa-save mr-2"></i>
                                 Save permissions
@@ -377,13 +391,13 @@ function RoleManagement() {
                         <div className="flex gap-3 justify-end">
                             <button
                                 onClick={() => setRoleToDelete(null)}
-                                className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition"
+                                className="px-5 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-full transition"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleDeleteConfirm}
-                                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition"
+                                className="px-5 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-full transition"
                             >
                                 Delete
                             </button>

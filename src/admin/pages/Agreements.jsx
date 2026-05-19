@@ -40,19 +40,19 @@ const Agreements = () => {
   // Build folder list from API or use defaults
   const folderList = [
     { name: 'All Files', value: 'all', icon: 'fas fa-folder-open' },
-    ...(folders && folders.length > 0 
+    ...(folders && folders.length > 0
       ? folders.map(folder => ({
-          name: folder.name || folder,
-          value: folder.name || folder,
-          icon: 'fas fa-folder'
-        }))
+        name: folder.name || folder,
+        value: folder.name || folder,
+        icon: 'fas fa-folder'
+      }))
       : [
-          { name: 'Agreements', value: 'agreements', icon: 'fas fa-file-signature' },
-          { name: 'HR', value: 'hr', icon: 'fas fa-users' },
-          { name: 'IT', value: 'it', icon: 'fas fa-code' },
-          { name: 'Finance', value: 'finance', icon: 'fas fa-chart-line' },
-          { name: 'Legal', value: 'legal', icon: 'fas fa-gavel' },
-        ]
+        { name: 'Agreements', value: 'agreements', icon: 'fas fa-file-signature' },
+        { name: 'HR', value: 'hr', icon: 'fas fa-users' },
+        { name: 'IT', value: 'it', icon: 'fas fa-code' },
+        { name: 'Finance', value: 'finance', icon: 'fas fa-chart-line' },
+        { name: 'Legal', value: 'legal', icon: 'fas fa-gavel' },
+      ]
     )
   ];
 
@@ -60,9 +60,9 @@ const Agreements = () => {
     // Ensure documents is an array
     const docsArray = Array.isArray(documents) ? documents : [];
     let filtered = docsArray;
-    
+
     if (currentFolder !== 'all') {
-      filtered = filtered.filter(doc => 
+      filtered = filtered.filter(doc =>
         (doc.folder || doc.type || '').toLowerCase() === currentFolder.toLowerCase()
       );
     }
@@ -90,10 +90,10 @@ const Agreements = () => {
 
   const handleConfirmDelete = async () => {
     if (!selectedDocument) return;
-    
+
     setDeleteLoading(true);
     const result = await dispatch(deleteDocument(selectedDocument.id));
-    
+
     if (deleteDocument.fulfilled.match(result)) {
       showToast(`${selectedDocument.name} deleted successfully`, 'success');
       setConfirmOpen(false);
@@ -102,7 +102,7 @@ const Agreements = () => {
     } else {
       showToast('Failed to delete document', 'error');
     }
-    
+
     setDeleteLoading(false);
   };
 
@@ -149,15 +149,15 @@ const Agreements = () => {
   };
 
   const total = documents.length;
-  
+
   // Calculate expiry stats
   const today = new Date();
   const thirtyDaysFromNow = new Date();
   thirtyDaysFromNow.setDate(today.getDate() + 30);
-  
+
   let expiringSoon = 0;
   let expired = 0;
-  
+
   documents.forEach(doc => {
     if (doc.expiry_date) {
       const expiryDate = new Date(doc.expiry_date);
@@ -206,7 +206,7 @@ const Agreements = () => {
 
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
-        <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+        <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
           Agreements Management
         </h2>
       </div>
@@ -221,11 +221,10 @@ const Agreements = () => {
                 setCurrentFolder(folder.value);
                 setCurrentPage(1);
               }}
-              className={`px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all whitespace-nowrap ${
-                currentFolder === folder.value
+              className={`px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all whitespace-nowrap ${currentFolder === folder.value
                   ? 'bg-green-500 text-white shadow-md'
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               <i className={`${folder.icon} mr-1 text-[10px] md:text-xs`}></i>
               <span className="hidden sm:inline">{folder.name}</span>
@@ -240,8 +239,8 @@ const Agreements = () => {
         <EntriesSelector value={perPage} onChange={setPerPage} />
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Search documents..." />
-          <Link 
-            to="/admin/agreements/add-agreement" 
+          <Link
+            to="/admin/agreements/add-agreement"
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
           >
             <i className="fas fa-plus-circle"></i> Upload Agreement
@@ -292,8 +291,8 @@ const Agreements = () => {
                           {document.shared_users?.length > 0
                             ? document.shared_users.map(u => u.name).join(', ')
                             : document.share_with?.length > 0
-                            ? document.share_with.join(', ')
-                            : '-'}
+                              ? document.share_with.join(', ')
+                              : '-'}
                         </span>
                       </span>
                     </td>
@@ -302,21 +301,21 @@ const Agreements = () => {
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
                       <div className="flex gap-1 md:gap-2">
-                        <button 
+                        <button
                           onClick={() => handleViewDocument(document.file_path)}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-500 transition-colors"
                           title="View"
                         >
                           <i className="fas fa-eye text-xs md:text-sm"></i>
                         </button>
-                        <Link 
+                        <Link
                           to={`/admin/agreements/edit-agreement/${document.id}`}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
                           title="Edit"
                         >
                           <i className="fas fa-edit text-xs md:text-sm"></i>
                         </Link>
-                        <button 
+                        <button
                           onClick={() => handleDeleteClick(document)}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
                           title="Delete"

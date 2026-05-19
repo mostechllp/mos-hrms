@@ -6,17 +6,17 @@ import MissedPunchInModal from "../modals/MissedPunchInModal";
 import LateCheckinModal from "../modals/LateCheckinModal";
 import EarlyCheckinModal from "../modals/EarlyCheckinModal";
 
+
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { user } = useAppSelector((state) => state.auth);
   console.log("User: ", user)
-  
+
   // Modal states
   const [showEarlyCheckin, setShowEarlyCheckin] = useState(false);
   const [showLateCheckin, setShowLateCheckin] = useState(false);
   const [showMissedPunchIn, setShowMissedPunchIn] = useState(false);
   const [showMissedPunchOut, setShowMissedPunchOut] = useState(false);
-
   const navItems = [
     { path: "/employee/dashboard", icon: "fas fa-chart-line", label: "Dashboard" },
     { path: "/employee/leaves", icon: "fas fa-calendar-check", label: "My Leaves" },
@@ -30,25 +30,25 @@ const Sidebar = ({ isOpen, onClose }) => {
   ];
 
   const attendanceSubmenus = [
-    { 
-      label: "Early Check-in", 
+    {
+      label: "Early Check-in",
       icon: "fas fa-sun",
-      action: () => setShowEarlyCheckin(true) 
+      action: () => setShowEarlyCheckin(true)
     },
-    { 
-      label: "Late Check-in", 
+    {
+      label: "Late Check-in",
       icon: "fas fa-moon",
-      action: () => setShowLateCheckin(true) 
+      action: () => setShowLateCheckin(true)
     },
-    { 
-      label: "Missed Punch In", 
+    {
+      label: "Missed Punch In",
       icon: "fas fa-fingerprint",
-      action: () => setShowMissedPunchIn(true) 
+      action: () => setShowMissedPunchIn(true)
     },
-    { 
-      label: "Missed Punch Out", 
+    {
+      label: "Missed Punch Out",
       icon: "fas fa-door-open",
-      action: () => setShowMissedPunchOut(true) 
+      action: () => setShowMissedPunchOut(true)
     },
   ];
 
@@ -111,39 +111,24 @@ const Sidebar = ({ isOpen, onClose }) => {
             </div>
           </div>
         </nav>
-
-        <div className="sidebar-footer">
-          <Link to="/" className="nav-item" onClick={onClose}>
-            <i className="fas fa-sign-out-alt"></i>
-            <span>Sign Out</span>
-          </Link>
-
-          <div className="user-info">
-            <div className="user-avatar">{user?.employee?.name?.charAt(0)}</div>
-            <div className="user-details">
-              <h4>{user?.employee?.name}</h4>
-              <p>{user.roles?.[0]}</p>
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* Modals */}
       <EarlyCheckinModal
-        isOpen={showEarlyCheckin} 
-        onClose={() => setShowEarlyCheckin(false)} 
+        isOpen={showEarlyCheckin}
+        onClose={() => setShowEarlyCheckin(false)}
       />
       <LateCheckinModal
-        isOpen={showLateCheckin} 
-        onClose={() => setShowLateCheckin(false)} 
+        isOpen={showLateCheckin}
+        onClose={() => setShowLateCheckin(false)}
       />
       <MissedPunchInModal
-        isOpen={showMissedPunchIn} 
-        onClose={() => setShowMissedPunchIn(false)} 
+        isOpen={showMissedPunchIn}
+        onClose={() => setShowMissedPunchIn(false)}
       />
       <MissedPunchOutModal
-        isOpen={showMissedPunchOut} 
-        onClose={() => setShowMissedPunchOut(false)} 
+        isOpen={showMissedPunchOut}
+        onClose={() => setShowMissedPunchOut(false)}
       />
     </>
   );

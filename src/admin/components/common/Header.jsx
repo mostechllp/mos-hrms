@@ -3,9 +3,10 @@ import { useDispatch, useSelector } from "react-redux";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { markAsRead, markAllRead } from "../../store/slices/notificationSlice";
 import { logoutUser } from "../../store/slices/authSlice";
-import { useTheme } from "../../hooks/useTheme";
 import { fetchNotifications } from "../../store/slices/notificationSlice";
-import ConfirmModal from "./ConfirmModal"; // Import the ConfirmModal component
+import { fetchOrganizations } from "../../store/slices/organizationSlice";
+import ConfirmModal from "./ConfirmModal"; 
+import ThemeCustomizer from "../../../components/common/ThemeCustomizer";
 
 const Header = ({ onMenuClick }) => {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -23,16 +24,19 @@ const Header = ({ onMenuClick }) => {
   const { notifications, unreadCount } = useSelector(
     (state) => state.notifications,
   );
-  const { theme, toggleTheme } = useTheme();
+  const { organizations } = useSelector((state) => state.organizations);
 
-  // Get user's avatar URL
-  const getUserAvatar = () => {
+  // Get the first organization (or find the current user's organization)
+  const currentOrganization = organizations?.[0] || null;
+
+  // Get organization logo URL
+  const getOrganizationLogo = () => {
     if (avatarError) return null;
-    if (user?.avatar) return user.avatar;
-    // Generate avatar from name if not available
-    const name = getUserName();
-    const encodedName = encodeURIComponent(name);
-    return `https://ui-avatars.com/api/?name=${encodedName}&color=ffffff&background=22c55e`;
+    if (currentOrganization?.logo) {
+      const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || window.location.origin;
+      return `${baseUrl}/storage/${currentOrganization.logo}`;
+    }
+    return null;
   };
 
   // Get user's display name
@@ -50,13 +54,18 @@ const Header = ({ onMenuClick }) => {
     return "admin@example.com";
   };
 
+  // Get organization name
+  const getOrganizationName = () => {
+    return currentOrganization?.name || "Organization";
+  };
+
   // Get page title based on current route
   const getPageTitle = () => {
     const path = location.pathname;
 
     if (path === "/admin/dashboard" || path === "/") {
       return "Dashboard";
-    } else if (path === "//adminemployees") {
+    } else if (path === "/admin/employees") {
       return "Employees";
     } else if (path === "/admin/organizations") {
       return "Organizations";
@@ -86,12 +95,15 @@ const Header = ({ onMenuClick }) => {
       return "Reports";
     } else if (path === "/admin/settings") {
       return "Settings";
+    } else if (path.includes("/admin/role-management")) {
+      return "Roles";
+    } else if (path.includes("/admin/payroll/add")) {
+      return "Add Payroll";
     } else if (path.includes("/admin/employees/add-employee")) {
       return "Add Employee";
     } else if (path.includes("/admin/employees/onboarding")) {
       return "Onboarding";
     } else if (path.includes("/admin/employees/edit")) {
-
       return "Edit Employee";
     } else if (path.includes("/admin/employees/")) {
       return "Employee Details";
@@ -118,6 +130,7 @@ const Header = ({ onMenuClick }) => {
 
   useEffect(() => {
     dispatch(fetchNotifications());
+    dispatch(fetchOrganizations()); // Fetch organizations to get logo
   }, [dispatch]);
 
   useEffect(() => {
@@ -178,6 +191,9 @@ const Header = ({ onMenuClick }) => {
     }
   };
 
+  const organizationLogo = getOrganizationLogo();
+  const organizationName = getOrganizationName();
+
   return (
     <>
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 md:px-6 py-2 md:py-3 sticky top-0 z-40">
@@ -204,30 +220,7 @@ const Header = ({ onMenuClick }) => {
               <i className="far fa-calendar-alt mr-2"></i>
               <span>{currentDate}</span>
             </div>
-
-            {/* Theme Toggle */}
-            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full p-1">
-              <button
-                onClick={() => toggleTheme("light")}
-                className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${
-                  theme === "light"
-                    ? "bg-white dark:bg-gray-800 shadow-md text-green-500"
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                <i className="fas fa-sun text-xs md:text-sm"></i>
-              </button>
-              <button
-                onClick={() => toggleTheme("dark")}
-                className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${
-                  theme === "dark"
-                    ? "bg-white dark:bg-gray-800 shadow-md text-green-500"
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                <i className="fas fa-moon text-xs md:text-sm"></i>
-              </button>
-            </div>
+            <ThemeCustomizer />
 
             {/* Notification Bell */}
             <div className="relative" ref={notificationRef}>
@@ -266,11 +259,10 @@ const Header = ({ onMenuClick }) => {
                       notifications.map((notification) => (
                         <div
                           key={notification.id}
-                          className={`p-3 border-b border-gray-200 dark:border-gray-700 cursor-pointer transition-colors ${
-                            !notification.read
-                              ? "bg-green-50 dark:bg-green-900/20"
-                              : ""
-                          } hover:bg-gray-50 dark:hover:bg-gray-700`}
+                          className={`p-3 border-b border-gray-200 dark:border-gray-700 cursor-pointer transition-colors ${!notification.read
+                            ? "bg-green-50 dark:bg-green-900/20"
+                            : ""
+                            } hover:bg-gray-50 dark:hover:bg-gray-700`}
                           onClick={() => handleMarkAsRead(notification.id)}
                         >
                           <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -300,22 +292,22 @@ const Header = ({ onMenuClick }) => {
               )}
             </div>
 
-            {/* Profile Avatar */}
+            {/* Profile Avatar - Now shows Organization Logo */}
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setShowProfile(!showProfile)}
                 className="w-9 h-9 md:w-10 md:h-10 rounded-xl overflow-hidden shadow-md ring-2 ring-transparent hover:ring-green-500 transition-all"
               >
-                {getUserAvatar() ? (
+                {organizationLogo ? (
                   <img
-                    src={getUserAvatar()}
-                    alt={getUserName()}
+                    src={organizationLogo}
+                    alt={organizationName}
                     className="w-full h-full object-cover"
                     onError={() => setAvatarError(true)}
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center text-white font-bold text-sm">
-                    {getUserName().charAt(0).toUpperCase()}
+                    <i className="fas fa-building"></i>
                   </div>
                 )}
               </button>
@@ -324,30 +316,38 @@ const Header = ({ onMenuClick }) => {
                 <div className="absolute top-12 right-0 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-soft-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
                   <div className="p-4 flex gap-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="w-12 h-12 rounded-xl overflow-hidden bg-gradient-to-r from-green-500 to-green-600 flex-shrink-0">
-                      {getUserAvatar() ? (
+                      {organizationLogo ? (
                         <img
-                          src={getUserAvatar()}
-                          alt={getUserName()}
+                          src={organizationLogo}
+                          alt={organizationName}
                           className="w-full h-full object-cover"
                           onError={() => setAvatarError(true)}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
-                          {getUserName().charAt(0).toUpperCase()}
+                          <i className="fas fa-building"></i>
                         </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-gray-800 dark:text-gray-200 truncate">
-                        {getUserName()}
+                        {organizationName}
                       </h4>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                         {getUserEmail()}
                       </p>
                     </div>
                   </div>
+                  <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="mb-1">
+                        <span className="font-semibold">Logged in as:</span>{" "}
+                        {getUserName()}
+                      </p>
+                    </div>
+                  </div>
                   <NavLink
-                    to="/settings"
+                    to="/admin/settings"
                     className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     onClick={() => setShowProfile(false)}
                   >
@@ -356,17 +356,7 @@ const Header = ({ onMenuClick }) => {
                       My Profile
                     </span>
                   </NavLink>
-                  <NavLink
-                    to="/settings"
-                    className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    onClick={() => setShowProfile(false)}
-                  >
-                    <i className="fas fa-gear text-green-500 w-5"></i>
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Settings
-                    </span>
-                  </NavLink>
-                  <div className="border-t border-gray-200 dark:border-gray-700">
+                  <div>
                     <button
                       onClick={handleLogoutClick}
                       className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"

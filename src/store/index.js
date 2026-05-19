@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/authSlice";
+import adminProfileAuthReducer from "../admin/store/slices/authSlice"
 import employeeReducer from "../admin/store/slices/employeeSlice";
 import notificationReducer from "../admin/store/slices/notificationSlice";
 import organizationReducer from "../admin/store/slices/organizationSlice";
@@ -12,8 +13,8 @@ import dashboardReducer from "../admin/store/slices/dashboardSlice";
 import departmentReducer from "../admin/store/slices/departmentSlice";
 import documentsReducer from "../admin/store/slices/documentsSlice";
 import wfhReducer from "../admin/store/slices/wfhSlice";
-import onboardingReducer from "../admin/store/slices/onboardingSlice";
-
+import onboardingReducer from "./slices/onboardingSlice";
+import roleReducer from "../admin/store/slices/roleSlice";
 
 // Employee reducers
 import leavesReducer from "../employee/store/slices/leavesSlice";
@@ -27,6 +28,7 @@ import EmpAttendanceReducer from "../employee/store/slices/attendanceSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    adminProfileAuth: adminProfileAuthReducer,
     employees: employeeReducer,
     notifications: notificationReducer,
     organizations: organizationReducer,
@@ -40,7 +42,7 @@ export const store = configureStore({
     documents: documentsReducer,
     wfh: wfhReducer,
     onboarding: onboardingReducer,
-
+    roles: roleReducer,
 
     // Employee
     EmpLeaves: leavesReducer,

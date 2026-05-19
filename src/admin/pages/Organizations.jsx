@@ -47,6 +47,18 @@ const Organizations = () => {
     return `${baseUrl}/storage/${cleanPath}`;
   };
 
+  // Helper function to check if organization has multiple companies
+  const hasMultipleCompanies = (org) => {
+    // Check both possible field names and formats
+    if (org.has_multiple_companies !== undefined) {
+      return org.has_multiple_companies === true || org.has_multiple_companies === 1 || org.has_multiple_companies === "1";
+    }
+    if (org.multi_company !== undefined) {
+      return org.multi_company === "Yes" || org.multi_company === true || org.multi_company === 1;
+    }
+    return false;
+  };
+
   const hasOrganization = organizations && organizations.length > 0;
 
   const getFilteredOrganizations = () => {
@@ -100,7 +112,7 @@ const Organizations = () => {
     <div className="w-full overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
-        <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+        <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
           Organization Directory
         </h2>
       </div>
@@ -222,6 +234,8 @@ const Organizations = () => {
                   <tbody>
                     {pageOrganizations.map((org) => {
                       const logoUrl = getLogoUrl(org.logo);
+                      const isMultiCompany = hasMultipleCompanies(org);
+                      
                       return (
                         <tr
                           key={org.id}
@@ -262,13 +276,16 @@ const Organizations = () => {
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3">
                             <div className="flex gap-1 md:gap-2">
-                              <button
-                                onClick={() => handleManageCompanies(org)}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-500 transition-colors"
-                                title="Manage Companies"
-                              >
-                                <i className="fas fa-building text-xs md:text-sm"></i>
-                              </button>
+                              {/* Only show Manage Companies button if organization has multiple companies */}
+                              {isMultiCompany && (
+                                <button
+                                  onClick={() => handleManageCompanies(org)}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-500 transition-colors"
+                                  title="Manage Companies"
+                                >
+                                  <i className="fas fa-building text-xs md:text-sm"></i>
+                                </button>
+                              )}
                               <Link
                                 to={`/admin/organizations/edit-organization/${org.id}`}
                                 className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"

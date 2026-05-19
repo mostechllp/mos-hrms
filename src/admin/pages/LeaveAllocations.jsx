@@ -4,11 +4,10 @@ import { Link } from "react-router-dom";
 import SearchBar from "@admin/components/common/SearchBar";
 import EntriesSelector from "@admin/components/common/EntriesSelector";
 import Pagination from "@admin/components/common/Paginations";
-import { showToast } from "../../components/common/Toast";
 import { fetchEmployees } from "@admin/store/slices/employeeSlice";
 import {
   fetchLeaveTypes,
-  updateLeaveAllocation,
+  fetchLeaveBalances,
 } from "@admin/store/slices/LeaveSlice";
 
 const LeaveAllocations = () => {
@@ -18,13 +17,53 @@ const LeaveAllocations = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [, setLoading] = useState(false);
-  const [, setEditingCell] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [leaveBalances, setLeaveBalances] = useState({});
 
   useEffect(() => {
-    dispatch(fetchEmployees());
-    dispatch(fetchLeaveTypes());
+    const fetchData = async () => {
+      setLoading(true);
+      await dispatch(fetchEmployees());
+      await dispatch(fetchLeaveTypes());
+      setLoading(false);
+    };
+    fetchData();
   }, [dispatch]);
+
+  // Fetch leave balances for each employee
+  useEffect(() => {
+    const fetchAllBalances = async () => {
+      if (employees.length > 0 && leaveTypes.length > 0) {
+        setLoading(true);
+        const balances = {};
+        for (const employee of employees) {
+          try {
+            const result = await dispatch(fetchLeaveBalances({ employee_id: employee.id })).unwrap();
+            console.log(`Balances for employee ${employee.id}:`, result);
+            
+            // Handle the allocations object structure
+            if (result && result.allocations) {
+              // Convert allocations object to array
+              const allocationsArray = Object.values(result.allocations);
+              balances[employee.id] = allocationsArray;
+            } else if (result && Array.isArray(result)) {
+              balances[employee.id] = result;
+            } else if (result && result.data && Array.isArray(result.data)) {
+              balances[employee.id] = result.data;
+            } else {
+              balances[employee.id] = [];
+            }
+          } catch (error) {
+            console.error(`Failed to fetch balances for employee ${employee.id}:`, error);
+            balances[employee.id] = [];
+          }
+        }
+        setLeaveBalances(balances);
+        setLoading(false);
+      }
+    };
+    fetchAllBalances();
+  }, [dispatch, employees, leaveTypes]);
 
   const getFilteredEmployees = () => {
     let filtered = [...employees];
@@ -46,66 +85,45 @@ const LeaveAllocations = () => {
   const start = (currentPage - 1) * perPage;
   const pageEmployees = filteredEmployees.slice(start, start + perPage);
 
-  // Get leave types for columns
-  // eslint-disable-next-line no-unused-vars
-  const leaveTypeColumns = leaveTypes.filter((type) =>
-    ["Sick Leave", "Casual Leave", "Annual Leave"].includes(type.name),
-  );
-
-  const getAllocationValue = (employee, leaveTypeName, field) => {
-    const allocation = employee.leave_allocations?.find(
-      (a) =>
-        a.leave_type?.name === leaveTypeName ||
-        a.leave_type_name === leaveTypeName,
-    );
-    if (!allocation) return 0;
-    if (field === "alloc") return allocation.allocated || 0;
-    if (field === "used") return allocation.used || 0;
-    if (field === "bal")
-      return (allocation.allocated || 0) - (allocation.used || 0);
-    return 0;
+  const getLeaveTypeId = (leaveTypeName) => {
+    const leaveType = leaveTypes.find(type => type.name === leaveTypeName);
+    return leaveType?.id;
   };
 
-  // eslint-disable-next-line no-unused-vars
-  const handleAllocationChange = async (
-    employeeId,
-    leaveTypeName,
-    field,
-    value,
-  ) => {
-    const numericValue = parseInt(value) || 0;
-    if (numericValue < 0) {
-      showToast("Value cannot be negative", "error");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const result = await dispatch(
-        updateLeaveAllocation({
-          employee_id: employeeId,
-          leave_type: leaveTypeName,
-          allocated: numericValue,
-        }),
-      );
-
-      if (updateLeaveAllocation.fulfilled.match(result)) {
-        showToast("Leave allocation updated successfully", "success");
-        dispatch(fetchEmployees()); // Refresh data
-      } else {
-        showToast(result.payload || "Failed to update allocation", "error");
-      }
-    } catch (error) {
-      showToast("An error occurred", error);
-    } finally {
-      setLoading(false);
-      setEditingCell(null);
-    }
+  const getAllocationValue = (employeeId, leaveTypeName, field) => {
+    const leaveTypeId = getLeaveTypeId(leaveTypeName);
+    const balances = leaveBalances[employeeId];
+    
+    // Check if balances is an array
+    if (!balances || !Array.isArray(balances) || !leaveTypeId) return 0;
+    
+    const allocation = balances.find(a => a.leave_type_id === leaveTypeId);
+    
+    if (!allocation) return 0;
+    
+    // Handle string or number values
+    const allocatedDays = parseFloat(allocation.allocated_days) || 0;
+    const usedDays = parseFloat(allocation.used) || 0;
+    
+    if (field === "alloc") return allocatedDays;
+    if (field === "used") return usedDays;
+    if (field === "bal") return allocatedDays - usedDays;
+    return 0;
   };
 
   const formatNumber = (value) => {
     return value || 0;
   };
+
+  if (loading) {
+    return (
+      <div className="w-full px-4 md:px-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full overflow-x-hidden">
@@ -126,7 +144,7 @@ const LeaveAllocations = () => {
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
         <div>
-          <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+          <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
             Leave Allocations
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -228,36 +246,36 @@ const LeaveAllocations = () => {
               {pageEmployees.length > 0 ? (
                 pageEmployees.map((employee, idx) => {
                   const sickAlloc = getAllocationValue(
-                    employee,
+                    employee.id,
                     "Sick Leave",
                     "alloc",
                   );
                   const sickUsed = getAllocationValue(
-                    employee,
+                    employee.id,
                     "Sick Leave",
                     "used",
                   );
                   const sickBal = sickAlloc - sickUsed;
 
                   const casualAlloc = getAllocationValue(
-                    employee,
+                    employee.id,
                     "Casual Leave",
                     "alloc",
                   );
                   const casualUsed = getAllocationValue(
-                    employee,
+                    employee.id,
                     "Casual Leave",
                     "used",
                   );
                   const casualBal = casualAlloc - casualUsed;
 
                   const annualAlloc = getAllocationValue(
-                    employee,
+                    employee.id,
                     "Annual Leave",
                     "alloc",
                   );
                   const annualUsed = getAllocationValue(
-                    employee,
+                    employee.id,
                     "Annual Leave",
                     "used",
                   );

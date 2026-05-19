@@ -23,7 +23,7 @@ import apiClient from "../../../utils/apiClient";
 //     const shareArray = Array.isArray(formData.share_with)
 //       ? formData.share_with
 //       : formData.share_with.split(",");
-  
+
 //     shareArray.forEach((id, index) => {
 //       formDataToSend.append(`share_with[${index}]`, id);
 //     });
@@ -39,17 +39,17 @@ const transformDocumentForAPI = (formData, file) => {
 
   formDataToSend.append("name", formData.name);
   formDataToSend.append("type", formData.type || "agreements");
-  
+
   if (formData.description) {
     formDataToSend.append("description", formData.description);
   }
-  
+
   formDataToSend.append("folder_id", formData.folder_id || "");
-  
+
   if (formData.expiry_date) {
     formDataToSend.append("expiry_date", formData.expiry_date);
   }
-  
+
   // Only append party_id if it has a value
   if (formData.party_id) {
     formDataToSend.append("party_id", formData.party_id);
@@ -168,6 +168,10 @@ export const uploadDocument = createAsyncThunk(
   async ({ formData, file }, { rejectWithValue }) => {
     try {
       const dataToSend = transformDocumentForAPI(formData, file);
+      console.log("Uploading document data:");
+      for (let [key, value] of dataToSend.entries()) {
+        console.log(key, ":", value);
+      }
       const response = await apiClient.post("/admin/documents", dataToSend, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -175,6 +179,7 @@ export const uploadDocument = createAsyncThunk(
       });
       return response.data.data || response.data;
     } catch (error) {
+      console.log("422 error details:", error.response?.data);
       return rejectWithValue(
         error.response?.data?.message || "Failed to upload document",
       );
@@ -229,8 +234,21 @@ export const fetchDocumentFolders = createAsyncThunk(
   "documents/fetchFolders",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get("/admin/folders"); // Changed from documents-folders to folders
-      return response.data.data || response.data;
+      const response = await apiClient.get("/admin/folders");
+
+      // Handle paginated response: { data: { data: [...] } }
+      if (response.data?.data?.data) {
+        return response.data.data.data;
+      }
+      // Handle: { data: [...] }
+      if (response.data?.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      // Handle direct array
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      return [];
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch folders",
@@ -238,7 +256,6 @@ export const fetchDocumentFolders = createAsyncThunk(
     }
   },
 );
-
 // Folder CRUD operations
 export const addDocumentFolder = createAsyncThunk(
   "documents/addFolder",
@@ -299,7 +316,8 @@ export const fetchParties = createAsyncThunk(
     try {
       const response = await apiClient.get("/admin/parties");
       console.log("Fetch parties response:", response.data);
-      
+      console.log("Full response:", JSON.stringify(response.data));
+
       // Handle paginated response: { status, message, data: { current_page, data: [...] } }
       if (response.data?.data?.data) {
         return response.data.data.data;
