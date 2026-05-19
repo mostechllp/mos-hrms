@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
-import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { showToast } from "../../components/common/Toast";
 import {
@@ -15,6 +14,7 @@ import { fetchDesignations } from "../store/slices/designationSlice";
 import { fetchDepartments } from "../store/slices/departmentSlice";
 import { fetchRoles } from "../store/slices/roleSlice";
 import apiClient from "../../utils/apiClient";
+import DateInput from "../components/common/DateInput";
 
 const EditEmployee = () => {
   const navigate = useNavigate();
@@ -25,12 +25,13 @@ const EditEmployee = () => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [formInitialized, setFormInitialized] = useState(false);
   const [stepErrors, setStepErrors] = useState({});
-  const [, setUploadingFiles] = useState({});
+  const [uploadingFiles, setUploadingFiles] = useState({});
+  const [selectedOrgDetails, setSelectedOrgDetails] = useState(null);
 
-  // Document file states
+  // Document file states - matching AddEmployee structure
   const [documents, setDocuments] = useState({
     avatar: null,
-    passport_size_photo: null,
+    avatarFile: null,
     passport_1st_page: null,
     passport_2nd_page: null,
     passport_outer_page: null,
@@ -45,8 +46,8 @@ const EditEmployee = () => {
     home_country_id_proof: null,
   });
 
-  const [existingDocuments, setExistingDocuments] = useState({});
   const [documentPreviews, setDocumentPreviews] = useState({});
+  const [existingDocuments, setExistingDocuments] = useState({});
   const [removedDocuments, setRemovedDocuments] = useState({});
 
   // Fetch data from slices
@@ -73,7 +74,6 @@ const EditEmployee = () => {
     trigger,
   } = useForm({
     defaultValues: {
-      // Step 1: Basic Info
       first_name: "",
       last_name: "",
       organization_id: "",
@@ -82,16 +82,12 @@ const EditEmployee = () => {
       department_id: "",
       employee_id: "",
       type: "employee",
-      total_leaves_allocated: 30,
       joining_date: "",
       dob: "",
       gender: "male",
       nationality: "",
       marital_status: "",
       special_days: [{ name: "", date: "" }],
-      username: "",
-
-      // Step 2: Passport Details
       passport_full_name: "",
       passport_number: "",
       passport_issued_date: "",
@@ -101,8 +97,6 @@ const EditEmployee = () => {
       address: "",
       passport_issued_from: "",
       place_of_birth: "",
-
-      // Step 3: Visa & Labor
       visa_number: "",
       visa_type: "",
       visa_issued_date: "",
@@ -110,13 +104,9 @@ const EditEmployee = () => {
       labor_number: "",
       labor_issued_date: "",
       labor_expiry_date: "",
-
-      // Step 4: EID
       eid_number: "",
       eid_issued_date: "",
       eid_expiry_date: "",
-
-      // Step 5: Contact & Others
       dependents: 0,
       company_email: "",
       company_mobile_number: "",
@@ -130,13 +120,14 @@ const EditEmployee = () => {
     mode: "onChange",
   });
 
-  // UseFieldArray for special days
   const { fields, append, remove } = useFieldArray({
     control,
     name: "special_days",
   });
 
   const watchOrganizationId = watch("organization_id");
+  const watchDob = watch("dob");
+  const watchJoiningDate = watch("joining_date");
   const passportIssued = watch("passport_issued_date");
   const passportExpiry = watch("passport_expiry_date");
   const visaIssued = watch("visa_issued_date");
@@ -157,9 +148,20 @@ const EditEmployee = () => {
   // Fetch companies when organization changes
   useEffect(() => {
     if (watchOrganizationId) {
-      dispatch(fetchCompanies(watchOrganizationId));
+      const org = organizations.find(
+        (org) => org.id === parseInt(watchOrganizationId),
+      );
+      setSelectedOrgDetails(org || null);
+
+      if (org && org.multi_company === "Yes") {
+        dispatch(fetchCompanies(watchOrganizationId));
+      } else {
+        setValue("company_id", "");
+      }
+    } else {
+      setSelectedOrgDetails(null);
     }
-  }, [watchOrganizationId, dispatch]);
+  }, [watchOrganizationId, organizations, dispatch, setValue]);
 
   // Fetch employee data
   useEffect(() => {
@@ -170,6 +172,16 @@ const EditEmployee = () => {
     }
   }, [dispatch, id, formInitialized]);
 
+  // Convert date from YYYY-MM-DD to DD/MM/YYYY for display
+  const convertToDisplayDate = (dateString) => {
+    if (!dateString) return "";
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateString.split("-");
+      return `${day}/${month}/${year}`;
+    }
+    return dateString;
+  };
+
   // Set form values when employee data is loaded
   useEffect(() => {
     if (currentEmployee && !formInitialized) {
@@ -178,113 +190,82 @@ const EditEmployee = () => {
       // Basic Info
       setValue("first_name", currentEmployee.first_name || "");
       setValue("last_name", currentEmployee.last_name || "");
-      setValue(
-        "organization_id",
-        currentEmployee.organization_id ||
-          currentEmployee.organization?.id ||
-          "",
-      );
-      setValue(
-        "company_id",
-        currentEmployee.company_id || currentEmployee.company?.id || "",
-      );
-      setValue(
-        "designation_id",
-        currentEmployee.designation_id || currentEmployee.designation?.id || "",
-      );
-      setValue(
-        "department_id",
-        currentEmployee.department_id || currentEmployee.department?.id || "",
-      );
+      setValue("organization_id", currentEmployee.user?.organization_id || "");
+      setValue("company_id", currentEmployee.company_id || "");
+      setValue("designation_id", currentEmployee.user?.designation_id || "");
+      setValue("department_id", currentEmployee.user?.department_id || "");
       setValue("employee_id", currentEmployee.employee_id || "");
-      const userType =
-        currentEmployee.user?.type || currentEmployee.type || "employee";
-      console.log("Setting type to:", userType);
-      setValue("type", userType);
-      setValue(
-        "total_leaves_allocated",
-        currentEmployee.total_leaves_allocated || 30,
-      );
-      setValue("joining_date", currentEmployee.joining_date || "");
-      setValue("dob", currentEmployee.dob || "");
+      setValue("type", currentEmployee.type || "employee");
+      setValue("joining_date", convertToDisplayDate(currentEmployee.joining_date));
+      setValue("dob", convertToDisplayDate(currentEmployee.dob));
       setValue("gender", currentEmployee.gender || "male");
       setValue("nationality", currentEmployee.nationality || "");
       setValue("marital_status", currentEmployee.marital_status || "");
-      setValue(
-        "username",
-        currentEmployee.username || currentEmployee.user?.username || "",
-      );
 
-      // Handle special days (parse JSON if needed)
+      // Handle special days
       try {
-        const parsedSpecialDays = currentEmployee.special_days
-          ? JSON.parse(currentEmployee.special_days)
-          : [{ name: "", date: "" }];
-        if (Array.isArray(parsedSpecialDays) && parsedSpecialDays.length > 0) {
-          setValue("special_days", parsedSpecialDays);
-        } else {
-          setValue("special_days", [{ name: "", date: "" }]);
+        let parsedSpecialDays = [];
+        if (currentEmployee.special_days) {
+          if (Array.isArray(currentEmployee.special_days)) {
+            parsedSpecialDays = currentEmployee.special_days.map((day) => ({
+              name: day.name,
+              date: convertToDisplayDate(day.date),
+            }));
+          } else if (typeof currentEmployee.special_days === "string") {
+            parsedSpecialDays = JSON.parse(currentEmployee.special_days).map(
+              (day) => ({
+                name: day.name,
+                date: convertToDisplayDate(day.date),
+              }),
+            );
+          }
         }
-        // eslint-disable-next-line no-unused-vars
+        if (parsedSpecialDays.length === 0) {
+          parsedSpecialDays = [{ name: "", date: "" }];
+        }
+        setValue("special_days", parsedSpecialDays);
       } catch (e) {
+        console.error("Error parsing special days:", e);
         setValue("special_days", [{ name: "", date: "" }]);
       }
 
       // Passport details
       setValue("passport_full_name", currentEmployee.passport_full_name || "");
       setValue("passport_number", currentEmployee.passport_number || "");
-      setValue(
-        "passport_issued_date",
-        currentEmployee.passport_issued_date || "",
-      );
-      setValue(
-        "passport_expiry_date",
-        currentEmployee.passport_expiry_date || "",
-      );
+      setValue("passport_issued_date", convertToDisplayDate(currentEmployee.passport_issued_date));
+      setValue("passport_expiry_date", convertToDisplayDate(currentEmployee.passport_expiry_date));
       setValue("father_name", currentEmployee.father_name || "");
       setValue("mother_name", currentEmployee.mother_name || "");
       setValue("address", currentEmployee.address || "");
-      setValue(
-        "passport_issued_from",
-        currentEmployee.passport_issued_from || "",
-      );
+      setValue("passport_issued_from", currentEmployee.passport_issued_from || "");
       setValue("place_of_birth", currentEmployee.place_of_birth || "");
 
-      // Visa & Labor
+      // Visa & Labor & EID
       setValue("visa_number", currentEmployee.visa_number || "");
       setValue("visa_type", currentEmployee.visa_type || "");
-      setValue("visa_issued_date", currentEmployee.visa_issued_date || "");
-      setValue("visa_expiry_date", currentEmployee.visa_expiry_date || "");
+      setValue("visa_issued_date", convertToDisplayDate(currentEmployee.visa_issued_date));
+      setValue("visa_expiry_date", convertToDisplayDate(currentEmployee.visa_expiry_date));
       setValue("labor_number", currentEmployee.labor_number || "");
-      setValue("labor_issued_date", currentEmployee.labor_issued_date || "");
-      setValue("labor_expiry_date", currentEmployee.labor_expiry_date || "");
-
-      // EID
+      setValue("labor_issued_date", convertToDisplayDate(currentEmployee.labor_issued_date));
+      setValue("labor_expiry_date", convertToDisplayDate(currentEmployee.labor_expiry_date));
       setValue("eid_number", currentEmployee.eid_number || "");
-      setValue("eid_issued_date", currentEmployee.eid_issued_date || "");
-      setValue("eid_expiry_date", currentEmployee.eid_expiry_date || "");
+      setValue("eid_issued_date", convertToDisplayDate(currentEmployee.eid_issued_date));
+      setValue("eid_expiry_date", convertToDisplayDate(currentEmployee.eid_expiry_date));
 
       // Contact & Others
       setValue("dependents", currentEmployee.dependents || 0);
       setValue("company_email", currentEmployee.company_email || "");
-      setValue(
-        "company_mobile_number",
-        currentEmployee.company_mobile_number || "",
-      );
+      setValue("company_mobile_number", currentEmployee.company_mobile_number || "");
       setValue("personal_number", currentEmployee.personal_number || "");
       setValue("personal_email", currentEmployee.personal_email || "");
       setValue("other_number", currentEmployee.other_number || "");
-      setValue(
-        "home_country_number",
-        currentEmployee.home_country_number || "",
-      );
-      setValue("role", currentEmployee.role || "");
+      setValue("home_country_number", currentEmployee.home_country_number || "");
+      setValue("role", currentEmployee.user?.role_id || "");
 
       // Set existing documents
       const docs = {};
       const docFields = [
         "avatar",
-        "passport_size_photo",
         "passport_1st_page",
         "passport_2nd_page",
         "passport_outer_page",
@@ -310,22 +291,20 @@ const EditEmployee = () => {
     }
   }, [currentEmployee, setValue, formInitialized]);
 
+  // Updated steps to match AddEmployee (4 steps)
   const steps = [
     { number: 1, title: "Basic Info", icon: "fas fa-user-circle" },
     { number: 2, title: "Passport", icon: "fas fa-passport" },
-    { number: 3, title: "Visa & Labor", icon: "fas fa-file-contract" },
-    { number: 4, title: "EID", icon: "fas fa-id-card" },
-    { number: 5, title: "Contact", icon: "fas fa-address-card" },
+    { number: 3, title: "Visa, Labor & EID", icon: "fas fa-file-contract" },
+    { number: 4, title: "Contact", icon: "fas fa-address-card" },
   ];
 
-  // const userTypeOptions = ["employee", "admin"];
-
+  const userTypeOptions = ["employee", "admin"];
   const genderOptions = [
     { value: "male", label: "Male" },
     { value: "female", label: "Female" },
     { value: "other", label: "Other" },
   ];
-
   const nationalityOptions = [
     "Indian",
     "Nepali",
@@ -335,7 +314,6 @@ const EditEmployee = () => {
     "Filipino",
     "Other",
   ];
-
   const maritalStatusOptions = ["Single", "Married", "Divorced", "Widowed"];
   const visaTypeOptions = ["Company Visa", "Family Visa", "Other Visa"];
 
@@ -344,14 +322,13 @@ const EditEmployee = () => {
       case 0:
         return [
           "first_name",
-          "employee_id",
-          "username",
           "organization_id",
           "company_id",
           "designation_id",
           "department_id",
           "type",
-          "total_leaves_allocated",
+          "dob",
+          "joining_date",
         ];
       case 1:
         return ["passport_issued_date", "passport_expiry_date"];
@@ -361,51 +338,17 @@ const EditEmployee = () => {
           "visa_expiry_date",
           "labor_issued_date",
           "labor_expiry_date",
+          "eid_issued_date",
+          "eid_expiry_date",
         ];
       case 3:
-        return ["eid_issued_date", "eid_expiry_date"];
-      case 4:
         return ["company_email", "personal_email"];
       default:
         return [];
     }
   };
 
-  const parseDateValue = (value) => {
-    if (!value) return null;
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  };
-
-  const DateInput = ({ field, hasError, placeholder = "Select date" }) => (
-    <DatePicker
-      selected={parseDateValue(field.value)}
-      onChange={(date) => {
-        if (!date) {
-          field.onChange("");
-          return;
-        }
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        field.onChange(`${year}-${month}-${day}`);
-      }}
-      dateFormat="yyyy-MM-dd"
-      placeholderText={placeholder}
-      showMonthDropdown
-      showYearDropdown
-      dropdownMode="select"
-      yearDropdownItemNumber={100}
-      scrollableYearDropdown
-      autoComplete="off"
-      className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${
-        hasError
-          ? "border-red-500"
-          : "border-gray-200 focus:border-green-500 focus:ring-green-500/20"
-      }`}
-    />
-  );
-
+  // Handle file change - matching AddEmployee pattern
   const handleFileChange = async (fieldKey, file) => {
     if (!file) return;
 
@@ -416,6 +359,7 @@ const EditEmployee = () => {
       return;
     }
 
+    // Create preview
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -429,6 +373,7 @@ const EditEmployee = () => {
       setDocumentPreviews((prev) => ({ ...prev, [fieldKey]: "pdf" }));
     }
 
+    // Upload to temp storage
     setUploadingFiles((prev) => ({ ...prev, [fieldKey]: true }));
     try {
       const formData = new FormData();
@@ -443,11 +388,12 @@ const EditEmployee = () => {
       );
 
       const result = response.data;
-
       if (result.status && result.path) {
         setDocuments((prev) => ({ ...prev, [fieldKey]: result.path }));
-        setRemovedDocuments((prev) => ({ ...prev, [fieldKey]: true }));
-        showToast(`Uploaded successfully`, "success");
+        if (existingDocuments[fieldKey]) {
+          setRemovedDocuments((prev) => ({ ...prev, [fieldKey]: true }));
+        }
+        showToast(`File uploaded successfully`, "success");
       } else {
         showToast(`Failed to upload`, "error");
         setDocumentPreviews((prev) => ({ ...prev, [fieldKey]: null }));
@@ -463,12 +409,13 @@ const EditEmployee = () => {
   const handleRemoveExistingDocument = (fieldKey) => {
     setRemovedDocuments({ ...removedDocuments, [fieldKey]: true });
     setExistingDocuments({ ...existingDocuments, [fieldKey]: null });
+    setDocuments({ ...documents, [fieldKey]: null });
   };
 
-  const getDocumentUrl = (documentPath) => {
-    if (!documentPath) return null;
-    const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
-    return `${baseUrl}/storage/${documentPath}`;
+  const handleCancelNewDocument = (fieldKey) => {
+    setDocuments({ ...documents, [fieldKey]: null });
+    setDocumentPreviews({ ...documentPreviews, [fieldKey]: null });
+    setRemovedDocuments({ ...removedDocuments, [fieldKey]: false });
   };
 
   const handleNext = async () => {
@@ -511,151 +458,206 @@ const EditEmployee = () => {
     }
   };
 
+  // Convert date from DD/MM/YYYY to YYYY-MM-DD for backend
+  const convertDateToBackend = (dateString) => {
+    if (!dateString) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return dateString;
+    if (dateString && dateString.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      const [day, month, year] = dateString.split("/");
+      return `${year}-${month}-${day}`;
+    }
+    return dateString;
+  };
+
   const onSubmit = async (data) => {
     setLoading(true);
 
-    console.log("=== FORM DATA BEING SUBMITTED ===");
-    console.log("Type value:", data.type);
-    console.log("Type type:", typeof data.type);
+    const formData = new FormData();
 
-    let typeValue = data.type;
-    if (typeValue !== "admin" && typeValue !== "employee") {
-      console.warn("Invalid type value detected:", typeValue);
-      typeValue = "employee"; // Default fallback
+    // Basic fields
+    formData.append("first_name", data.first_name);
+    formData.append("last_name", data.last_name || "");
+    formData.append("employee_id", data.employee_id);
+    formData.append("organization_id", parseInt(data.organization_id));
+    
+    // Handle company based on multi_company setting
+    if (selectedOrgDetails?.multi_company === "Yes") {
+      if (!data.company_id) {
+        showToast("Please select a company", "error");
+        setLoading(false);
+        return;
+      }
+      formData.append("company_id", parseInt(data.company_id));
+    } else {
+      formData.append("company_id", "");
     }
+    
+    formData.append("type", data.type);
+    formData.append("gender", data.gender || "");
+    formData.append("nationality", data.nationality || "");
+    formData.append("marital_status", data.marital_status || "");
 
-    const submitData = new FormData();
-
-    // Add all form fields
-    submitData.append("first_name", data.first_name);
-    if (data.last_name) submitData.append("last_name", data.last_name);
-    submitData.append("organization_id", parseInt(data.organization_id));
-    submitData.append("company_id", parseInt(data.company_id));
     if (data.designation_id)
-      submitData.append("designation_id", parseInt(data.designation_id));
+      formData.append("designation_id", parseInt(data.designation_id));
     if (data.department_id)
-      submitData.append("department_id", parseInt(data.department_id));
-    submitData.append("employee_id", data.employee_id);
-    const userType = data.type || "employee";
-    console.log("Submitting type:", userType);
-    submitData.append("type", typeValue);
-    submitData.append(
-      "total_leaves_allocated",
-      parseInt(data.total_leaves_allocated),
-    );
-    if (data.joining_date) submitData.append("joining_date", data.joining_date);
-    if (data.dob) submitData.append("dob", data.dob);
-    if (data.gender) submitData.append("gender", data.gender);
-    if (data.nationality) submitData.append("nationality", data.nationality);
-    if (data.marital_status)
-      submitData.append("marital_status", data.marital_status);
-    if (data.username) submitData.append("username", data.username);
+      formData.append("department_id", parseInt(data.department_id));
 
-    console.log("FormData entries:");
-    for (let pair of submitData.entries()) {
-      console.log(pair[0], pair[1]);
-    }
+    // Convert dates to backend format
+    const dob = convertDateToBackend(data.dob);
+    const joiningDate = convertDateToBackend(data.joining_date);
+    if (dob) formData.append("dob", dob);
+    if (joiningDate) formData.append("joining_date", joiningDate);
 
-    // Handle special days
+    // Special days - Send as arrays
     if (data.special_days && data.special_days.length > 0) {
       const validSpecialDays = data.special_days.filter(
-        (day) => day.name && day.date,
+        (day) => day.name && day.name.trim() !== "" && day.date,
       );
-      submitData.append("special_days", JSON.stringify(validSpecialDays));
+      if (validSpecialDays.length > 0) {
+        const specialDaysName = validSpecialDays.map((day) => day.name.trim());
+        const specialDaysDate = validSpecialDays.map((day) =>
+          convertDateToBackend(day.date),
+        );
+
+        specialDaysName.forEach((name) =>
+          formData.append("special_days_name[]", name),
+        );
+        specialDaysDate.forEach((date) =>
+          formData.append("special_days_date[]", date),
+        );
+      }
     }
 
-    // Passport details
+    // Passport fields with date conversion
     if (data.passport_full_name)
-      submitData.append("passport_full_name", data.passport_full_name);
+      formData.append("passport_full_name", data.passport_full_name);
     if (data.passport_number)
-      submitData.append("passport_number", data.passport_number);
+      formData.append("passport_number", data.passport_number);
     if (data.passport_issued_date)
-      submitData.append("passport_issued_date", data.passport_issued_date);
+      formData.append(
+        "passport_issued_date",
+        convertDateToBackend(data.passport_issued_date),
+      );
     if (data.passport_expiry_date)
-      submitData.append("passport_expiry_date", data.passport_expiry_date);
-    if (data.father_name) submitData.append("father_name", data.father_name);
-    if (data.mother_name) submitData.append("mother_name", data.mother_name);
-    if (data.address) submitData.append("address", data.address);
+      formData.append(
+        "passport_expiry_date",
+        convertDateToBackend(data.passport_expiry_date),
+      );
     if (data.passport_issued_from)
-      submitData.append("passport_issued_from", data.passport_issued_from);
+      formData.append("passport_issued_from", data.passport_issued_from);
     if (data.place_of_birth)
-      submitData.append("place_of_birth", data.place_of_birth);
+      formData.append("place_of_birth", data.place_of_birth);
+    if (data.father_name) formData.append("father_name", data.father_name);
+    if (data.mother_name) formData.append("mother_name", data.mother_name);
+    if (data.address) formData.append("address", data.address);
 
-    // Visa & Labor
-    if (data.visa_number) submitData.append("visa_number", data.visa_number);
-    if (data.visa_type) submitData.append("visa_type", data.visa_type);
+    // Visa & Labor & EID with date conversion
+    if (data.visa_number) formData.append("visa_number", data.visa_number);
+    if (data.visa_type) formData.append("visa_type", data.visa_type);
     if (data.visa_issued_date)
-      submitData.append("visa_issued_date", data.visa_issued_date);
+      formData.append(
+        "visa_issued_date",
+        convertDateToBackend(data.visa_issued_date),
+      );
     if (data.visa_expiry_date)
-      submitData.append("visa_expiry_date", data.visa_expiry_date);
-    if (data.labor_number) submitData.append("labor_number", data.labor_number);
+      formData.append(
+        "visa_expiry_date",
+        convertDateToBackend(data.visa_expiry_date),
+      );
+    if (data.labor_number) formData.append("labor_number", data.labor_number);
     if (data.labor_issued_date)
-      submitData.append("labor_issued_date", data.labor_issued_date);
+      formData.append(
+        "labor_issued_date",
+        convertDateToBackend(data.labor_issued_date),
+      );
     if (data.labor_expiry_date)
-      submitData.append("labor_expiry_date", data.labor_expiry_date);
-
-    // EID
-    if (data.eid_number) submitData.append("eid_number", data.eid_number);
+      formData.append(
+        "labor_expiry_date",
+        convertDateToBackend(data.labor_expiry_date),
+      );
+    if (data.eid_number) formData.append("eid_number", data.eid_number);
     if (data.eid_issued_date)
-      submitData.append("eid_issued_date", data.eid_issued_date);
+      formData.append(
+        "eid_issued_date",
+        convertDateToBackend(data.eid_issued_date),
+      );
     if (data.eid_expiry_date)
-      submitData.append("eid_expiry_date", data.eid_expiry_date);
+      formData.append(
+        "eid_expiry_date",
+        convertDateToBackend(data.eid_expiry_date),
+      );
 
-    // Contact & Others
-    if (data.dependents !== undefined)
-      submitData.append("dependents", parseInt(data.dependents));
+    // Contact
+    if (data.dependents) formData.append("dependents", String(data.dependents));
     if (data.company_email)
-      submitData.append("company_email", data.company_email);
+      formData.append("company_email", data.company_email);
     if (data.company_mobile_number)
-      submitData.append("company_mobile_number", data.company_mobile_number);
+      formData.append("company_mobile_number", data.company_mobile_number);
     if (data.personal_number)
-      submitData.append("personal_number", data.personal_number);
+      formData.append("personal_number", data.personal_number);
     if (data.personal_email)
-      submitData.append("personal_email", data.personal_email);
-    if (data.other_number) submitData.append("other_number", data.other_number);
+      formData.append("personal_email", data.personal_email);
+    if (data.other_number) formData.append("other_number", data.other_number);
     if (data.home_country_number)
-      submitData.append("home_country_number", data.home_country_number);
-    if (data.role) submitData.append("role", data.role);
+      formData.append("home_country_number", data.home_country_number);
+    if (data.role) formData.append("role", data.role);
 
-    // Add new documents
-    Object.keys(documents).forEach((key) => {
-      if (documents[key]) {
-        submitData.append(key, documents[key]);
+    // Avatar - send temp path if new file uploaded
+    if (documents.avatar) {
+      formData.append("avatar", documents.avatar);
+    }
+    if (removedDocuments.avatar && existingDocuments.avatar) {
+      formData.append("remove_avatar", "true");
+    }
+
+    // Document fields - send temp paths
+    const documentFields = [
+      "passport_1st_page",
+      "passport_2nd_page",
+      "passport_outer_page",
+      "passport_id_page",
+      "visa_page",
+      "labor_card",
+      "labor_contract",
+      "eid_1st_page",
+      "eid_2nd_page",
+      "educational_1st_page",
+      "educational_2nd_page",
+      "home_country_id_proof",
+    ];
+
+    documentFields.forEach((field) => {
+      if (documents[field]) {
+        formData.append(field, documents[field]);
+      }
+      if (removedDocuments[field] && existingDocuments[field]) {
+        formData.append(`remove_${field}`, "true");
       }
     });
 
-    // Add removed documents flag
-    Object.keys(removedDocuments).forEach((key) => {
-      if (removedDocuments[key] && existingDocuments[key]) {
-        submitData.append(`remove_${key}`, "true");
-      }
-    });
+    // Add _method for PUT
+    formData.append("_method", "PUT");
 
-    // Add _method field for PUT request
-    submitData.append("_method", "PUT");
-
-    console.log("Updating employee with FormData");
+    // Debug log
+    console.log("=== FINAL FORM DATA TO BE SENT ===");
+    for (let pair of formData.entries()) {
+      console.log(`${pair[0]}: ${pair[1]}`);
+    }
 
     const result = await dispatch(
-      updateEmployee({ id: parseInt(id), data: submitData }),
+      updateEmployee({ id: parseInt(id), data: formData }),
     );
     setLoading(false);
 
     if (updateEmployee.fulfilled.match(result)) {
-      showToast(
-        `✓ Employee "${data.first_name} ${data.last_name || ""}" updated successfully!`,
-        "success",
-      );
-      setTimeout(() => {
-        navigate("/employees");
-      }, 1200);
+      showToast(`✓ Employee updated successfully!`, "success");
+      setTimeout(() => navigate("/admin/employees"), 1200);
     } else {
       const errorPayload = result.payload;
       if (errorPayload && errorPayload.errors) {
         const errorMessages = Object.entries(errorPayload.errors).map(
-          ([field, messages]) => {
-            return `${field}: ${Array.isArray(messages) ? messages[0] : messages}`;
-          },
+          ([field, messages]) =>
+            `${field}: ${Array.isArray(messages) ? messages[0] : messages}`,
         );
         showToast(errorMessages.join("\n"), "error");
       } else if (typeof errorPayload === "string") {
@@ -675,36 +677,21 @@ const EditEmployee = () => {
         message: "First name must be at least 2 characters",
       },
     },
-    employee_id: { required: "Employee ID is required" },
+    dob: {
+      required: "Date of Birth is required",
+    },
+    joining_date: {
+      required: "Joining Date is required",
+    },
     organization_id: { required: "Organization is required" },
-    company_id: { required: "Company is required" },
     designation_id: { required: "Designation is required" },
     department_id: { required: "Department is required" },
-    username: {
-      required: "Username is required",
-      minLength: {
-        value: 3,
-        message: "Username must be at least 3 characters",
-      },
-    },
-    company_email: {
-      required: "Company email is required",
-      pattern: {
-        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-        message: "Invalid email address format",
-      },
-    },
     personal_email: {
       required: "Personal email is required",
       pattern: {
         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
         message: "Invalid email address format",
       },
-    },
-    total_leaves_allocated: {
-      required: "Leave allocation is required",
-      min: { value: 0, message: "Leave allocation cannot be negative" },
-      max: { value: 365, message: "Leave allocation cannot exceed 365 days" },
     },
   };
 
@@ -714,7 +701,6 @@ const EditEmployee = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const issue = new Date(issueDate);
-
     if (issue > today) return `${fieldName} cannot be in the future`;
     if (expiryDate && issue >= new Date(expiryDate))
       return `Issued date must be before expiry date`;
@@ -726,11 +712,140 @@ const EditEmployee = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const expiry = new Date(expiryDate);
-
     if (expiry < today) return `${fieldName} cannot be in the past`;
     if (issueDate && expiry <= new Date(issueDate))
       return `Expiry date must be after issued date`;
     return true;
+  };
+
+  // DocumentUpload component (same as AddEmployee)
+  const DocumentUpload = ({
+    fieldKey,
+    label,
+    icon,
+    accept = "image/*,.pdf",
+  }) => {
+    const isUploading = uploadingFiles[fieldKey];
+    const existingDoc = existingDocuments[fieldKey];
+    const isRemoved = removedDocuments[fieldKey];
+    const newFile = documents[fieldKey];
+    const preview = documentPreviews[fieldKey];
+
+    const getDocumentUrl = (path) => {
+      if (!path) return null;
+      const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
+      return `${baseUrl}/storage/${path}`;
+    };
+
+    return (
+      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/30">
+        <label className="block text-sm font-semibold text-gray-700 mb-3">
+          <i className={`${icon} text-green-500 mr-2`}></i>
+          {label}
+          <span className="text-xs text-gray-400 ml-2">(Optional)</span>
+        </label>
+
+        {/* Existing document */}
+        {existingDoc && !isRemoved && !newFile && (
+          <div className="mb-3 p-2 bg-gray-100 rounded-lg flex justify-between items-center">
+            <span className="text-sm text-gray-600">
+              <i className="fas fa-file-alt mr-2"></i>Current file
+            </span>
+            <div className="flex gap-2">
+              <a
+                href={getDocumentUrl(existingDoc)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 text-sm"
+              >
+                <i className="fas fa-download"></i> View
+              </a>
+              <button
+                type="button"
+                onClick={() => handleRemoveExistingDocument(fieldKey)}
+                className="text-red-500 text-sm"
+              >
+                <i className="fas fa-trash"></i> Remove
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* File upload */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <input
+            type="file"
+            id={`doc_${fieldKey}`}
+            accept={accept}
+            onChange={(e) => handleFileChange(fieldKey, e.target.files[0])}
+            className="hidden"
+          />
+          <button
+            type="button"
+            disabled={isUploading}
+            onClick={() => document.getElementById(`doc_${fieldKey}`).click()}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors flex items-center gap-2 disabled:opacity-60"
+          >
+            {isUploading ? (
+              <>
+                <i className="fas fa-spinner fa-spin"></i> Uploading...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-upload"></i>{" "}
+                {existingDoc && !isRemoved ? "Replace" : "Choose File"}
+              </>
+            )}
+          </button>
+          <span className="text-sm text-gray-500 truncate flex-1">
+            {isUploading
+              ? "Uploading..."
+              : newFile
+                ? "New file uploaded ✓"
+                : existingDoc && !isRemoved
+                  ? "File available"
+                  : "No file chosen"}
+          </span>
+        </div>
+
+        {/* Preview */}
+        {newFile && preview && preview !== "pdf" && (
+          <div className="mt-3">
+            <img
+              src={preview}
+              alt={label}
+              className="h-20 w-20 object-cover rounded-lg border"
+            />
+            <button
+              type="button"
+              onClick={() => handleCancelNewDocument(fieldKey)}
+              className="mt-2 text-xs text-red-500"
+            >
+              <i className="fas fa-trash"></i> Cancel
+            </button>
+          </div>
+        )}
+        {newFile && preview === "pdf" && (
+          <div className="mt-3">
+            <div className="h-20 w-20 bg-red-100 rounded-lg flex items-center justify-center">
+              <i className="fas fa-file-pdf text-red-500 text-3xl"></i>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleCancelNewDocument(fieldKey)}
+              className="mt-2 text-xs text-red-500"
+            >
+              <i className="fas fa-trash"></i> Cancel
+            </button>
+          </div>
+        )}
+
+        <p className="text-xs text-gray-400 mt-2">
+          Max size: {fieldKey === "avatar" ? "2MB" : "5MB"}. Allowed: JPG, PNG,
+          PDF
+        </p>
+      </div>
+    );
   };
 
   if (initialLoading || employeeLoading) {
@@ -746,7 +861,7 @@ const EditEmployee = () => {
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
         <Link
-          to="/employees"
+          to="/admin/employees"
           className="text-green-500 hover:text-green-600 font-medium"
         >
           Employees
@@ -765,7 +880,7 @@ const EditEmployee = () => {
         </p>
       </div>
 
-      {/* Step Indicator */}
+      {/* Step Indicator - 4 steps */}
       <div className="overflow-x-auto pb-2 mb-4 md:mb-8 -mx-4 px-4">
         <div className="flex gap-2 min-w-max">
           {steps.map((step, index) => (
@@ -803,8 +918,8 @@ const EditEmployee = () => {
             {stepErrors[currentStep] && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
                 <p className="text-xs md:text-sm text-red-600">
-                  <i className="fas fa-exclamation-circle mr-1"></i>
-                  Please complete required fields in this section.
+                  <i className="fas fa-exclamation-circle mr-1"></i>Please
+                  complete required fields in this section.
                 </p>
               </div>
             )}
@@ -819,10 +934,10 @@ const EditEmployee = () => {
                   </h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                  {/* First Name */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-user text-green-500 mr-1"></i> First
-                      Name *
+                      First Name <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="first_name"
@@ -833,7 +948,7 @@ const EditEmployee = () => {
                           <input
                             {...field}
                             type="text"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.first_name ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base ${errors.first_name ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
                             placeholder="Enter first name"
                           />
                           {errors.first_name && (
@@ -846,10 +961,10 @@ const EditEmployee = () => {
                     />
                   </div>
 
+                  {/* Last Name */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-user text-green-500 mr-1"></i> Last
-                      Name
+                      Last Name
                     </label>
                     <Controller
                       name="last_name"
@@ -858,17 +973,17 @@ const EditEmployee = () => {
                         <input
                           {...field}
                           type="text"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base"
                           placeholder="Enter last name"
                         />
                       )}
                     />
                   </div>
 
+                  {/* Organization */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-building text-green-500 mr-1"></i>{" "}
-                      Organization *
+                      Organization <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="organization_id"
@@ -878,8 +993,7 @@ const EditEmployee = () => {
                         <>
                           <select
                             {...field}
-                            value={field.value || ""}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.organization_id ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.organization_id ? "border-red-500" : "border-gray-200"}`}
                           >
                             <option value="">Select Organization</option>
                             {organizations.map((org) => (
@@ -898,24 +1012,41 @@ const EditEmployee = () => {
                     />
                   </div>
 
+                  {/* Company */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-building text-green-500 mr-1"></i>{" "}
-                      Company *
+                      Company
+                      {selectedOrgDetails?.multi_company === "Yes" && (
+                        <span className="text-red-500">*</span>
+                      )}
                     </label>
                     <Controller
                       name="company_id"
                       control={control}
-                      rules={validationRules.company_id}
+                      rules={{
+                        required:
+                          selectedOrgDetails?.multi_company === "Yes"
+                            ? "Company is required"
+                            : false,
+                      }}
                       render={({ field }) => (
                         <>
                           <select
                             {...field}
-                            value={field.value || ""}
-                            disabled={!watchOrganizationId}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${!watchOrganizationId ? "opacity-50 cursor-not-allowed" : ""} ${errors.company_id ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            disabled={selectedOrgDetails?.multi_company !== "Yes"}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${
+                              selectedOrgDetails?.multi_company !== "Yes"
+                                ? "opacity-50 cursor-not-allowed"
+                                : ""
+                            } ${errors.company_id ? "border-red-500" : "border-gray-200"}`}
                           >
-                            <option value="">Select Company</option>
+                            <option value="">
+                              {selectedOrgDetails?.multi_company === "Yes"
+                                ? "Select Company"
+                                : selectedOrgDetails
+                                  ? "No multiple companies"
+                                  : "Select organization first"}
+                            </option>
                             {companies.map((company) => (
                               <option key={company.id} value={company.id}>
                                 {company.company_name || company.name}
@@ -932,10 +1063,10 @@ const EditEmployee = () => {
                     />
                   </div>
 
+                  {/* Designation */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
-                      Designation *
+                      Designation <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="designation_id"
@@ -945,8 +1076,7 @@ const EditEmployee = () => {
                         <>
                           <select
                             {...field}
-                            value={field.value || ""}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:ring-2 ${errors.designation_id ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.designation_id ? "border-red-500" : "border-gray-200"}`}
                           >
                             <option value="">Select Designation</option>
                             {designations.map((desig) => (
@@ -965,10 +1095,10 @@ const EditEmployee = () => {
                     />
                   </div>
 
+                  {/* Department */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-diagram-project text-green-500 mr-1"></i>{" "}
-                      Department *
+                      Department <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="department_id"
@@ -978,8 +1108,7 @@ const EditEmployee = () => {
                         <>
                           <select
                             {...field}
-                            value={field.value || ""}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:ring-2 ${errors.department_id ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.department_id ? "border-red-500" : "border-gray-200"}`}
                           >
                             <option value="">Select Department</option>
                             {departments.map((dept) => (
@@ -998,38 +1127,33 @@ const EditEmployee = () => {
                     />
                   </div>
 
+                  {/* User Type */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-user-tag text-green-500 mr-1"></i>{" "}
-                      User Type *
+                      User Type <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="type"
                       control={control}
                       rules={{ required: "User type is required" }}
                       render={({ field }) => (
-                        <>
-                          <select
-                            {...field}
-                            value={field.value || "employee"}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.type ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
-                          >
-                            <option value="employee">Employee</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                          {errors.type && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors.type.message}
-                            </p>
-                          )}
-                        </>
+                        <select
+                          {...field}
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                        >
+                          {userTypeOptions.map((type) => (
+                            <option key={type} value={type}>
+                              {type.charAt(0).toUpperCase() + type.slice(1)}
+                            </option>
+                          ))}
+                        </select>
                       )}
                     />
                   </div>
 
+                  {/* Gender */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-venus-mars text-green-500 mr-1"></i>{" "}
                       Gender
                     </label>
                     <Controller
@@ -1038,7 +1162,7 @@ const EditEmployee = () => {
                       render={({ field }) => (
                         <select
                           {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                         >
                           <option value="">Select Gender</option>
                           {genderOptions.map((gender) => (
@@ -1051,9 +1175,9 @@ const EditEmployee = () => {
                     />
                   </div>
 
+                  {/* Nationality */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-globe-asia text-green-500 mr-1"></i>{" "}
                       Nationality
                     </label>
                     <Controller
@@ -1062,7 +1186,7 @@ const EditEmployee = () => {
                       render={({ field }) => (
                         <select
                           {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                         >
                           <option value="">Select Nationality</option>
                           {nationalityOptions.map((nationality) => (
@@ -1075,9 +1199,9 @@ const EditEmployee = () => {
                     />
                   </div>
 
+                  {/* Marital Status */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-user-friends text-green-500 mr-1"></i>{" "}
                       Marital Status
                     </label>
                     <Controller
@@ -1086,7 +1210,7 @@ const EditEmployee = () => {
                       render={({ field }) => (
                         <select
                           {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                         >
                           <option value="">Select Marital Status</option>
                           {maritalStatusOptions.map((status) => (
@@ -1099,10 +1223,9 @@ const EditEmployee = () => {
                     />
                   </div>
 
-                  {/* Special Days - Array of name and date */}
+                  {/* Special Days */}
                   <div className="md:col-span-2">
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
-                      <i className="fas fa-gift text-green-500 mr-1"></i>{" "}
                       Special Days
                     </label>
                     <div className="space-y-3">
@@ -1117,7 +1240,7 @@ const EditEmployee = () => {
                                   {...field}
                                   type="text"
                                   placeholder="e.g., Birthday / Anniversary"
-                                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                                 />
                               )}
                             />
@@ -1127,10 +1250,10 @@ const EditEmployee = () => {
                               name={`special_days.${index}.date`}
                               control={control}
                               render={({ field }) => (
-                                <input
+                                <DateInput
                                   {...field}
-                                  type="date"
-                                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                                  placeholder="dd/mm/yyyy"
+                                  error={!!errors.special_days}
                                 />
                               )}
                             />
@@ -1139,7 +1262,7 @@ const EditEmployee = () => {
                             <button
                               type="button"
                               onClick={() => remove(index)}
-                              className="p-2 text-red-500 hover:text-red-600 transition-colors"
+                              className="p-2 text-red-500"
                             >
                               <i className="fas fa-trash"></i>
                             </button>
@@ -1149,115 +1272,67 @@ const EditEmployee = () => {
                       <button
                         type="button"
                         onClick={() => append({ name: "", date: "" })}
-                        className="text-green-500 hover:text-green-600 text-sm font-semibold flex items-center gap-2 mt-2"
+                        className="text-green-500 text-sm font-semibold flex items-center gap-2"
                       >
-                        <i className="fas fa-plus-circle"></i>
-                        Add Special Day
+                        <i className="fas fa-plus-circle"></i> Add Special Day
                       </button>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">
-                      <i className="fas fa-info-circle mr-1"></i> Add special
-                      occasions like birthday, anniversary, etc.
-                    </p>
                   </div>
 
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
-                      Employee ID *
-                    </label>
-                    <Controller
-                      name="employee_id"
-                      control={control}
-                      rules={validationRules.employee_id}
-                      render={({ field }) => (
-                        <>
-                          <input
-                            {...field}
-                            type="text"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.employee_id ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
-                            placeholder="Enter employee ID"
-                          />
-                          {errors.employee_id && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors.employee_id.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
+                  {/* Employee ID */}
+                  {/* Employee ID - Disabled in Edit Mode */}
+<div>
+  <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+    <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
+    Employee ID <span className="text-red-500">*</span>
+  </label>
+  <Controller
+    name="employee_id"
+    control={control}
+    rules={validationRules.employee_id}
+    render={({ field }) => (
+      <>
+        <input
+          {...field}
+          type="text"
+          readOnly
+          disabled
+          className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 border rounded-lg text-sm md:text-base text-gray-600 cursor-not-allowed ${errors.employee_id ? "border-red-500" : "border-gray-200"}`}
+          placeholder="Employee ID"
+        />
+        {errors.employee_id && (
+          <p className="mt-1 text-xs text-red-500">
+            {errors.employee_id.message}
+          </p>
+        )}
+      </>
+    )}
+  />
+  <p className="mt-1 text-xs text-gray-400">
+    <i className="fas fa-info-circle mr-1"></i>
+    Employee ID is auto-generated based on DOB and Joining Date and cannot be edited
+  </p>
+</div>
 
+                  {/* Date of Birth */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-user-circle text-green-500 mr-1"></i>{" "}
-                      Username *
-                    </label>
-                    <Controller
-                      name="username"
-                      control={control}
-                      rules={validationRules.username}
-                      render={({ field }) => (
-                        <>
-                          <input
-                            {...field}
-                            type="text"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.username ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
-                            placeholder="Enter username"
-                          />
-                          {errors.username && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors.username.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar text-green-500 mr-1"></i>{" "}
-                      Date of Birth
+                      Date of Birth <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="dob"
                       control={control}
-                      render={({ field }) => <DateInput field={field} />}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-alt text-green-500 mr-1"></i>{" "}
-                      Joining Date
-                    </label>
-                    <Controller
-                      name="joining_date"
-                      control={control}
-                      render={({ field }) => <DateInput field={field} />}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-week text-green-500 mr-1"></i>{" "}
-                      Leave Allocation (Days) *
-                    </label>
-                    <Controller
-                      name="total_leaves_allocated"
-                      control={control}
-                      rules={validationRules.total_leaves_allocated}
+                      rules={{ required: "Date of Birth is required" }}
                       render={({ field }) => (
                         <>
-                          <input
+                          <DateInput
                             {...field}
-                            type="number"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.total_leaves_allocated ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            placeholder="dd/mm/yyyy"
+                            error={!!errors.dob}
                           />
-                          {errors.total_leaves_allocated && (
+                          {errors.dob && (
                             <p className="mt-1 text-xs text-red-500">
-                              {errors.total_leaves_allocated.message}
+                              {errors.dob.message}
                             </p>
                           )}
                         </>
@@ -1265,101 +1340,52 @@ const EditEmployee = () => {
                     />
                   </div>
 
-                  {/* Educational Documents in Basic Info */}
+                  {/* Joining Date */}
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      Joining Date <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="joining_date"
+                      control={control}
+                      rules={{ required: "Joining Date is required" }}
+                      render={({ field }) => (
+                        <>
+                          <DateInput
+                            {...field}
+                            placeholder="dd/mm/yyyy"
+                            error={!!errors.joining_date}
+                          />
+                          {errors.joining_date && (
+                            <p className="mt-1 text-xs text-red-500">
+                              {errors.joining_date.message}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    />
+                  </div>
+
+                  {/* Avatar Upload */}
                   <div className="md:col-span-2">
-                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/30 mb-4">
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/30">
                       <label className="block text-sm font-semibold text-gray-700 mb-3">
                         <i className="fas fa-camera text-green-500 mr-2"></i>
                         Passport Size Photo
-                        <span className="text-xs text-gray-400 ml-2">
-                          (Optional)
-                        </span>
                       </label>
-                      <div className="flex items-start gap-4 flex-wrap">
-                        <input
-                          type="file"
-                          id="avatar_edit"
-                          accept="image/png,image/jpeg,image/jpg,image/gif"
-                          onChange={(e) =>
-                            handleFileChange("avatar", e.target.files[0])
-                          }
-                          className="hidden"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            document.getElementById("avatar_edit").click()
-                          }
-                          className="h-40 w-32 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:border-green-400 transition-colors flex items-center justify-center overflow-hidden"
-                        >
-                          {documentPreviews.avatar ? (
-                            <img
-                              src={documentPreviews.avatar}
-                              alt="Passport size"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : existingDocuments.avatar &&
-                            !removedDocuments.avatar ? (
-                            <img
-                              src={getDocumentUrl(existingDocuments.avatar)}
-                              alt="Passport size"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="text-center text-gray-400">
-                              <i className="far fa-user text-3xl mb-2"></i>
-                              <p className="text-lg leading-none">Photo</p>
-                            </div>
-                          )}
-                        </button>
-                        <div className="flex-1 min-w-[220px]">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              document.getElementById("avatar_edit").click()
-                            }
-                            className="px-4 py-2 bg-white border border-green-200 text-green-600 rounded-full text-sm font-semibold hover:bg-green-50 transition-colors flex items-center gap-2"
-                          >
-                            <i className="fas fa-upload"></i> Upload Photo
-                          </button>
-                          <p className="text-sm text-gray-500 mt-2 truncate">
-                            {documents.avatar
-                              ? "New photo selected"
-                              : existingDocuments.avatar &&
-                                  !removedDocuments.avatar
-                                ? "Current photo available"
-                                : "No photo chosen"}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-2">
-                            <i className="fas fa-info-circle mr-1"></i>{" "}
-                            Accepted: JPG, PNG, GIF. Max 2MB.
-                          </p>
-                          {(documents.avatar ||
-                            (existingDocuments.avatar &&
-                              !removedDocuments.avatar)) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDocuments({ ...documents, avatar: null });
-                                setDocumentPreviews({
-                                  ...documentPreviews,
-                                  avatar: null,
-                                });
-                                if (existingDocuments.avatar) {
-                                  handleRemoveExistingDocument("avatar");
-                                }
-                              }}
-                              className="mt-2 text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
-                            >
-                              <i className="fas fa-trash"></i> Remove
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                      <DocumentUpload
+                        fieldKey="avatar"
+                        label="Passport Size Photo"
+                        icon="fas fa-camera"
+                        accept="image/*"
+                      />
                     </div>
+                  </div>
+
+                  {/* Educational Documents */}
+                  <div className="md:col-span-2">
                     <div className="border-t border-gray-200 pt-4 mt-2">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                        <i className="fas fa-graduation-cap text-green-500 mr-2"></i>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">
                         Educational Documents
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1367,51 +1393,11 @@ const EditEmployee = () => {
                           fieldKey="educational_1st_page"
                           label="Educational Certificate (Front)"
                           icon="fas fa-graduation-cap"
-                          existingDocument={
-                            existingDocuments.educational_1st_page
-                          }
-                          removed={removedDocuments.educational_1st_page}
-                          preview={documentPreviews.educational_1st_page}
-                          newFile={documents.educational_1st_page}
-                          onFileChange={handleFileChange}
-                          onRemove={() =>
-                            handleRemoveExistingDocument("educational_1st_page")
-                          }
-                          onCancelNew={() => {
-                            setDocuments({
-                              ...documents,
-                              educational_1st_page: null,
-                            });
-                            setDocumentPreviews({
-                              ...documentPreviews,
-                              educational_1st_page: null,
-                            });
-                          }}
                         />
                         <DocumentUpload
                           fieldKey="educational_2nd_page"
                           label="Educational Certificate (Back)"
                           icon="fas fa-graduation-cap"
-                          existingDocument={
-                            existingDocuments.educational_2nd_page
-                          }
-                          removed={removedDocuments.educational_2nd_page}
-                          preview={documentPreviews.educational_2nd_page}
-                          newFile={documents.educational_2nd_page}
-                          onFileChange={handleFileChange}
-                          onRemove={() =>
-                            handleRemoveExistingDocument("educational_2nd_page")
-                          }
-                          onCancelNew={() => {
-                            setDocuments({
-                              ...documents,
-                              educational_2nd_page: null,
-                            });
-                            setDocumentPreviews({
-                              ...documentPreviews,
-                              educational_2nd_page: null,
-                            });
-                          }}
                         />
                       </div>
                     </div>
@@ -1423,24 +1409,6 @@ const EditEmployee = () => {
                       fieldKey="home_country_id_proof"
                       label="Home Country ID Proof"
                       icon="fas fa-home"
-                      existingDocument={existingDocuments.home_country_id_proof}
-                      removed={removedDocuments.home_country_id_proof}
-                      preview={documentPreviews.home_country_id_proof}
-                      newFile={documents.home_country_id_proof}
-                      onFileChange={handleFileChange}
-                      onRemove={() =>
-                        handleRemoveExistingDocument("home_country_id_proof")
-                      }
-                      onCancelNew={() => {
-                        setDocuments({
-                          ...documents,
-                          home_country_id_proof: null,
-                        });
-                        setDocumentPreviews({
-                          ...documentPreviews,
-                          home_country_id_proof: null,
-                        });
-                      }}
                     />
                   </div>
                 </div>
@@ -1459,7 +1427,6 @@ const EditEmployee = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                   <div className="md:col-span-2">
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-user-tag text-green-500 mr-1"></i>{" "}
                       Passport Full Name
                     </label>
                     <Controller
@@ -1469,7 +1436,7 @@ const EditEmployee = () => {
                         <input
                           {...field}
                           type="text"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                           placeholder="Enter name as per passport"
                         />
                       )}
@@ -1478,7 +1445,6 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-hashtag text-green-500 mr-1"></i>{" "}
                       Passport Number
                     </label>
                     <Controller
@@ -1488,7 +1454,7 @@ const EditEmployee = () => {
                         <input
                           {...field}
                           type="text"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                           placeholder="Enter passport number"
                         />
                       )}
@@ -1497,7 +1463,6 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-globe text-green-500 mr-1"></i>{" "}
                       Issued From
                     </label>
                     <Controller
@@ -1507,7 +1472,7 @@ const EditEmployee = () => {
                         <input
                           {...field}
                           type="text"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                           placeholder="Enter issuing country/city"
                         />
                       )}
@@ -1516,7 +1481,6 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
                       Issued Date
                     </label>
                     <Controller
@@ -1531,24 +1495,17 @@ const EditEmployee = () => {
                           ),
                       }}
                       render={({ field }) => (
-                        <>
-                          <DateInput
-                            field={field}
-                            hasError={!!errors.passport_issued_date}
-                          />
-                          {errors.passport_issued_date && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors.passport_issued_date.message}
-                            </p>
-                          )}
-                        </>
+                        <DateInput
+                          {...field}
+                          placeholder="dd/mm/yyyy"
+                          error={!!errors.passport_issued_date}
+                        />
                       )}
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
                       Expiry Date
                     </label>
                     <Controller
@@ -1563,24 +1520,17 @@ const EditEmployee = () => {
                           ),
                       }}
                       render={({ field }) => (
-                        <>
-                          <DateInput
-                            field={field}
-                            hasError={!!errors.passport_expiry_date}
-                          />
-                          {errors.passport_expiry_date && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors.passport_expiry_date.message}
-                            </p>
-                          )}
-                        </>
+                        <DateInput
+                          {...field}
+                          placeholder="dd/mm/yyyy"
+                          error={!!errors.passport_expiry_date}
+                        />
                       )}
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-map-pin text-green-500 mr-1"></i>{" "}
                       Place of Birth
                     </label>
                     <Controller
@@ -1590,7 +1540,7 @@ const EditEmployee = () => {
                         <input
                           {...field}
                           type="text"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                           placeholder="Enter place of birth"
                         />
                       )}
@@ -1599,7 +1549,6 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-father text-green-500 mr-1"></i>{" "}
                       Father's Name
                     </label>
                     <Controller
@@ -1609,7 +1558,7 @@ const EditEmployee = () => {
                         <input
                           {...field}
                           type="text"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                           placeholder="Enter father's name"
                         />
                       )}
@@ -1618,7 +1567,6 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-mother text-green-500 mr-1"></i>{" "}
                       Mother's Name
                     </label>
                     <Controller
@@ -1628,7 +1576,7 @@ const EditEmployee = () => {
                         <input
                           {...field}
                           type="text"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                           placeholder="Enter mother's name"
                         />
                       )}
@@ -1637,7 +1585,6 @@ const EditEmployee = () => {
 
                   <div className="md:col-span-2">
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-map-marker-alt text-green-500 mr-1"></i>{" "}
                       Address
                     </label>
                     <Controller
@@ -1647,7 +1594,7 @@ const EditEmployee = () => {
                         <textarea
                           {...field}
                           rows="2"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                           placeholder="Enter full address"
                         ></textarea>
                       )}
@@ -1657,8 +1604,7 @@ const EditEmployee = () => {
                   {/* Passport Documents */}
                   <div className="md:col-span-2">
                     <div className="border-t border-gray-200 pt-4 mt-2">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                        <i className="fas fa-passport text-green-500 mr-2"></i>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">
                         Passport Documents
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1666,95 +1612,21 @@ const EditEmployee = () => {
                           fieldKey="passport_1st_page"
                           label="Passport 1st Page"
                           icon="fas fa-passport"
-                          existingDocument={existingDocuments.passport_1st_page}
-                          removed={removedDocuments.passport_1st_page}
-                          preview={documentPreviews.passport_1st_page}
-                          newFile={documents.passport_1st_page}
-                          onFileChange={handleFileChange}
-                          onRemove={() =>
-                            handleRemoveExistingDocument("passport_1st_page")
-                          }
-                          onCancelNew={() => {
-                            setDocuments({
-                              ...documents,
-                              passport_1st_page: null,
-                            });
-                            setDocumentPreviews({
-                              ...documentPreviews,
-                              passport_1st_page: null,
-                            });
-                          }}
                         />
                         <DocumentUpload
                           fieldKey="passport_2nd_page"
                           label="Passport 2nd Page"
                           icon="fas fa-passport"
-                          existingDocument={existingDocuments.passport_2nd_page}
-                          removed={removedDocuments.passport_2nd_page}
-                          preview={documentPreviews.passport_2nd_page}
-                          newFile={documents.passport_2nd_page}
-                          onFileChange={handleFileChange}
-                          onRemove={() =>
-                            handleRemoveExistingDocument("passport_2nd_page")
-                          }
-                          onCancelNew={() => {
-                            setDocuments({
-                              ...documents,
-                              passport_2nd_page: null,
-                            });
-                            setDocumentPreviews({
-                              ...documentPreviews,
-                              passport_2nd_page: null,
-                            });
-                          }}
                         />
                         <DocumentUpload
                           fieldKey="passport_outer_page"
                           label="Passport Outer Page"
                           icon="fas fa-passport"
-                          existingDocument={
-                            existingDocuments.passport_outer_page
-                          }
-                          removed={removedDocuments.passport_outer_page}
-                          preview={documentPreviews.passport_outer_page}
-                          newFile={documents.passport_outer_page}
-                          onFileChange={handleFileChange}
-                          onRemove={() =>
-                            handleRemoveExistingDocument("passport_outer_page")
-                          }
-                          onCancelNew={() => {
-                            setDocuments({
-                              ...documents,
-                              passport_outer_page: null,
-                            });
-                            setDocumentPreviews({
-                              ...documentPreviews,
-                              passport_outer_page: null,
-                            });
-                          }}
                         />
                         <DocumentUpload
                           fieldKey="passport_id_page"
                           label="Passport ID Page"
                           icon="fas fa-id-card"
-                          existingDocument={existingDocuments.passport_id_page}
-                          removed={removedDocuments.passport_id_page}
-                          preview={documentPreviews.passport_id_page}
-                          newFile={documents.passport_id_page}
-                          onFileChange={handleFileChange}
-                          onRemove={() =>
-                            handleRemoveExistingDocument("passport_id_page")
-                          }
-                          onCancelNew={() => {
-                            setDocuments({
-                              ...documents,
-                              passport_id_page: null,
-                            });
-                            setDocumentPreviews({
-                              ...documentPreviews,
-                              passport_id_page: null,
-                            });
-                          }}
                         />
                       </div>
                     </div>
@@ -1763,140 +1635,24 @@ const EditEmployee = () => {
               </div>
             )}
 
-            {/* Step 2 - Visa & Labor */}
+            {/* Step 2 - Visa, Labor & EID (Merged) */}
             {currentStep === 2 && (
               <div>
                 <div className="form-section-title mb-4 md:mb-6">
                   <i className="fas fa-file-contract text-green-500 mr-2"></i>
                   <h3 className="text-base md:text-lg font-bold text-gray-800">
-                    Visa & Labor Details
+                    Visa, Labor & Emirates ID
                   </h3>
                 </div>
                 <div className="space-y-6">
-                  <div className="border border-gray-200 rounded-lg p-4 md:p-5">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
-                      <i className="fas fa-passport text-green-500 mr-2"></i>
-                      Visa Details
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
-                      <div className="md:col-span-2">
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          <i className="fas fa-list text-green-500 mr-1"></i>{" "}
-                          Type of Visa
-                        </label>
-                        <Controller
-                          name="visa_type"
-                          control={control}
-                          render={({ field }) => (
-                            <select
-                              {...field}
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                            >
-                              <option value="">Select Type of Visa</option>
-                              {visaTypeOptions.map((visaType) => (
-                                <option key={visaType} value={visaType}>
-                                  {visaType}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
-                          Visa Number
-                        </label>
-                        <Controller
-                          name="visa_number"
-                          control={control}
-                          render={({ field }) => (
-                            <input
-                              {...field}
-                              type="text"
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                              placeholder="Enter Visa Number"
-                            />
-                          )}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
-                          Visa Issued Date
-                        </label>
-                        <Controller
-                          name="visa_issued_date"
-                          control={control}
-                          rules={{
-                            validate: (value) =>
-                              validateIssueDate(
-                                value,
-                                visaExpiry,
-                                "Visa issued date",
-                              ),
-                          }}
-                          render={({ field }) => (
-                            <>
-                              <DateInput
-                                field={field}
-                                hasError={!!errors.visa_issued_date}
-                              />
-                              {errors.visa_issued_date && (
-                                <p className="mt-1 text-xs text-red-500">
-                                  {errors.visa_issued_date.message}
-                                </p>
-                              )}
-                            </>
-                          )}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
-                          Visa Expiry Date
-                        </label>
-                        <Controller
-                          name="visa_expiry_date"
-                          control={control}
-                          rules={{
-                            validate: (value) =>
-                              validateExpiryDate(
-                                value,
-                                visaIssued,
-                                "Visa expiry date",
-                              ),
-                          }}
-                          render={({ field }) => (
-                            <>
-                              <DateInput
-                                field={field}
-                                hasError={!!errors.visa_expiry_date}
-                              />
-                              {errors.visa_expiry_date && (
-                                <p className="mt-1 text-xs text-red-500">
-                                  {errors.visa_expiry_date.message}
-                                </p>
-                              )}
-                            </>
-                          )}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border border-gray-200 rounded-lg p-4 md:p-5">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
-                      <i className="fas fa-briefcase text-green-500 mr-2"></i>
+                  {/* Labor Section */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-4">
                       Labor Details
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
                           Labor Number
                         </label>
                         <Controller
@@ -1906,7 +1662,7 @@ const EditEmployee = () => {
                             <input
                               {...field}
                               type="text"
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                               placeholder="Enter Labor Number"
                             />
                           )}
@@ -1915,7 +1671,6 @@ const EditEmployee = () => {
 
                       <div>
                         <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
                           Labor Issued Date
                         </label>
                         <Controller
@@ -1930,24 +1685,17 @@ const EditEmployee = () => {
                               ),
                           }}
                           render={({ field }) => (
-                            <>
-                              <DateInput
-                                field={field}
-                                hasError={!!errors.labor_issued_date}
-                              />
-                              {errors.labor_issued_date && (
-                                <p className="mt-1 text-xs text-red-500">
-                                  {errors.labor_issued_date.message}
-                                </p>
-                              )}
-                            </>
+                            <DateInput
+                              {...field}
+                              placeholder="dd/mm/yyyy"
+                              error={!!errors.labor_issued_date}
+                            />
                           )}
                         />
                       </div>
 
                       <div>
                         <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
                           Labor Expiry Date
                         </label>
                         <Controller
@@ -1962,241 +1710,223 @@ const EditEmployee = () => {
                               ),
                           }}
                           render={({ field }) => (
-                            <>
-                              <DateInput
-                                field={field}
-                                hasError={!!errors.labor_expiry_date}
-                              />
-                              {errors.labor_expiry_date && (
-                                <p className="mt-1 text-xs text-red-500">
-                                  {errors.labor_expiry_date.message}
-                                </p>
-                              )}
-                            </>
+                            <DateInput
+                              {...field}
+                              placeholder="dd/mm/yyyy"
+                              error={!!errors.labor_expiry_date}
+                            />
                           )}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Visa & Labor Documents */}
+                  {/* Visa Section */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-4">
+                      Visa Details
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          Type of Visa
+                        </label>
+                        <Controller
+                          name="visa_type"
+                          control={control}
+                          render={({ field }) => (
+                            <select
+                              {...field}
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                            >
+                              <option value="">Select Type of Visa</option>
+                              {visaTypeOptions.map((visaType) => (
+                                <option key={visaType} value={visaType}>
+                                  {visaType}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          Visa Number
+                        </label>
+                        <Controller
+                          name="visa_number"
+                          control={control}
+                          render={({ field }) => (
+                            <input
+                              {...field}
+                              type="text"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                              placeholder="Enter Visa Number"
+                            />
+                          )}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          Visa Issued Date
+                        </label>
+                        <Controller
+                          name="visa_issued_date"
+                          control={control}
+                          rules={{
+                            validate: (value) =>
+                              validateIssueDate(
+                                value,
+                                visaExpiry,
+                                "Visa issued date",
+                              ),
+                          }}
+                          render={({ field }) => (
+                            <DateInput
+                              {...field}
+                              placeholder="dd/mm/yyyy"
+                              error={!!errors.visa_issued_date}
+                            />
+                          )}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          Visa Expiry Date
+                        </label>
+                        <Controller
+                          name="visa_expiry_date"
+                          control={control}
+                          rules={{
+                            validate: (value) =>
+                              validateExpiryDate(
+                                value,
+                                visaIssued,
+                                "Visa expiry date",
+                              ),
+                          }}
+                          render={({ field }) => (
+                            <DateInput
+                              {...field}
+                              placeholder="dd/mm/yyyy"
+                              error={!!errors.visa_expiry_date}
+                            />
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* EID Section */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-4">
+                      Emirates ID (EID)
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          EID Number
+                        </label>
+                        <Controller
+                          name="eid_number"
+                          control={control}
+                          render={({ field }) => (
+                            <input
+                              {...field}
+                              type="text"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                              placeholder="Enter EID number (e.g., 784-2024-1234567-8)"
+                            />
+                          )}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          EID Issued Date
+                        </label>
+                        <Controller
+                          name="eid_issued_date"
+                          control={control}
+                          rules={{
+                            validate: (value) =>
+                              validateIssueDate(
+                                value,
+                                eidExpiry,
+                                "EID issued date",
+                              ),
+                          }}
+                          render={({ field }) => (
+                            <DateInput
+                              {...field}
+                              placeholder="dd/mm/yyyy"
+                              error={!!errors.eid_issued_date}
+                            />
+                          )}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          EID Expiry Date
+                        </label>
+                        <Controller
+                          name="eid_expiry_date"
+                          control={control}
+                          rules={{
+                            validate: (value) =>
+                              validateExpiryDate(
+                                value,
+                                eidIssued,
+                                "EID expiry date",
+                              ),
+                          }}
+                          render={({ field }) => (
+                            <DateInput
+                              {...field}
+                              placeholder="dd/mm/yyyy"
+                              error={!!errors.eid_expiry_date}
+                            />
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Supporting Documents */}
                   <div>
                     <div className="border-t border-gray-200 pt-4 mt-2">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                        <i className="fas fa-file-contract text-green-500 mr-2"></i>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">
                         Supporting Documents
                       </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <DocumentUpload
                           fieldKey="visa_page"
                           label="Visa Page Copy"
                           icon="fas fa-file-contract"
-                          existingDocument={existingDocuments.visa_page}
-                          removed={removedDocuments.visa_page}
-                          preview={documentPreviews.visa_page}
-                          newFile={documents.visa_page}
-                          onFileChange={handleFileChange}
-                          onRemove={() =>
-                            handleRemoveExistingDocument("visa_page")
-                          }
-                          onCancelNew={() => {
-                            setDocuments({ ...documents, visa_page: null });
-                            setDocumentPreviews({
-                              ...documentPreviews,
-                              visa_page: null,
-                            });
-                          }}
                         />
                         <DocumentUpload
                           fieldKey="labor_card"
                           label="Labor Card Copy"
                           icon="fas fa-id-card"
-                          existingDocument={existingDocuments.labor_card}
-                          removed={removedDocuments.labor_card}
-                          preview={documentPreviews.labor_card}
-                          newFile={documents.labor_card}
-                          onFileChange={handleFileChange}
-                          onRemove={() =>
-                            handleRemoveExistingDocument("labor_card")
-                          }
-                          onCancelNew={() => {
-                            setDocuments({ ...documents, labor_card: null });
-                            setDocumentPreviews({
-                              ...documentPreviews,
-                              labor_card: null,
-                            });
-                          }}
                         />
                         <DocumentUpload
                           fieldKey="labor_contract"
-                          label="Labor Contract"
+                          label="Attach Labor Contract"
                           icon="fas fa-file-signature"
-                          existingDocument={existingDocuments.labor_contract}
-                          removed={removedDocuments.labor_contract}
-                          preview={documentPreviews.labor_contract}
-                          newFile={documents.labor_contract}
-                          onFileChange={handleFileChange}
-                          onRemove={() =>
-                            handleRemoveExistingDocument("labor_contract")
-                          }
-                          onCancelNew={() => {
-                            setDocuments({
-                              ...documents,
-                              labor_contract: null,
-                            });
-                            setDocumentPreviews({
-                              ...documentPreviews,
-                              labor_contract: null,
-                            });
-                          }}
                         />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3 - EID */}
-            {currentStep === 3 && (
-              <div>
-                <div className="form-section-title mb-4 md:mb-6">
-                  <i className="fas fa-id-card text-green-500 mr-2"></i>
-                  <h3 className="text-base md:text-lg font-bold text-gray-800">
-                    Emirates ID (EID)
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
-                  <div className="md:col-span-2">
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-qrcode text-green-500 mr-1"></i> EID
-                      Number
-                    </label>
-                    <Controller
-                      name="eid_number"
-                      control={control}
-                      render={({ field }) => (
-                        <input
-                          {...field}
-                          type="text"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                          placeholder="Enter EID number (e.g., 784-2024-1234567-8)"
-                        />
-                      )}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
-                      Issued Date
-                    </label>
-                    <Controller
-                      name="eid_issued_date"
-                      control={control}
-                      rules={{
-                        validate: (value) =>
-                          validateIssueDate(
-                            value,
-                            eidExpiry,
-                            "EID issued date",
-                          ),
-                      }}
-                      render={({ field }) => (
-                        <>
-                          <DateInput
-                            field={field}
-                            hasError={!!errors.eid_issued_date}
-                          />
-                          {errors.eid_issued_date && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors.eid_issued_date.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
-                      Expiry Date
-                    </label>
-                    <Controller
-                      name="eid_expiry_date"
-                      control={control}
-                      rules={{
-                        validate: (value) =>
-                          validateExpiryDate(
-                            value,
-                            eidIssued,
-                            "EID expiry date",
-                          ),
-                      }}
-                      render={({ field }) => (
-                        <>
-                          <DateInput
-                            field={field}
-                            hasError={!!errors.eid_expiry_date}
-                          />
-                          {errors.eid_expiry_date && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors.eid_expiry_date.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
-
-                  {/* EID Documents */}
-                  <div className="md:col-span-2">
-                    <div className="border-t border-gray-200 pt-4 mt-2">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                        <i className="fas fa-id-card text-green-500 mr-2"></i>
-                        Emirates ID Documents
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <DocumentUpload
                           fieldKey="eid_1st_page"
                           label="EID Front Side"
                           icon="fas fa-id-card"
-                          existingDocument={existingDocuments.eid_1st_page}
-                          removed={removedDocuments.eid_1st_page}
-                          preview={documentPreviews.eid_1st_page}
-                          newFile={documents.eid_1st_page}
-                          onFileChange={handleFileChange}
-                          onRemove={() =>
-                            handleRemoveExistingDocument("eid_1st_page")
-                          }
-                          onCancelNew={() => {
-                            setDocuments({ ...documents, eid_1st_page: null });
-                            setDocumentPreviews({
-                              ...documentPreviews,
-                              eid_1st_page: null,
-                            });
-                          }}
                         />
                         <DocumentUpload
                           fieldKey="eid_2nd_page"
                           label="EID Back Side"
                           icon="fas fa-id-card"
-                          existingDocument={existingDocuments.eid_2nd_page}
-                          removed={removedDocuments.eid_2nd_page}
-                          preview={documentPreviews.eid_2nd_page}
-                          newFile={documents.eid_2nd_page}
-                          onFileChange={handleFileChange}
-                          onRemove={() =>
-                            handleRemoveExistingDocument("eid_2nd_page")
-                          }
-                          onCancelNew={() => {
-                            setDocuments({ ...documents, eid_2nd_page: null });
-                            setDocumentPreviews({
-                              ...documentPreviews,
-                              eid_2nd_page: null,
-                            });
-                          }}
                         />
                       </div>
                     </div>
@@ -2205,8 +1935,8 @@ const EditEmployee = () => {
               </div>
             )}
 
-            {/* Step 4 - Contact */}
-            {currentStep === 4 && (
+            {/* Step 3 - Contact */}
+            {currentStep === 3 && (
               <div>
                 <div className="form-section-title mb-4 md:mb-6">
                   <i className="fas fa-address-card text-green-500 mr-2"></i>
@@ -2217,7 +1947,6 @@ const EditEmployee = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-users text-green-500 mr-1"></i>{" "}
                       Dependents
                     </label>
                     <Controller
@@ -2228,7 +1957,7 @@ const EditEmployee = () => {
                           {...field}
                           type="number"
                           min="0"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                           placeholder="Number of dependents"
                         />
                       )}
@@ -2237,7 +1966,6 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-phone text-green-500 mr-1"></i>{" "}
                       Company Mobile Number
                     </label>
                     <Controller
@@ -2247,7 +1975,7 @@ const EditEmployee = () => {
                         <input
                           {...field}
                           type="tel"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                           placeholder="Enter company mobile number"
                         />
                       )}
@@ -2256,7 +1984,6 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-phone text-green-500 mr-1"></i>{" "}
                       Personal Number
                     </label>
                     <Controller
@@ -2266,7 +1993,7 @@ const EditEmployee = () => {
                         <input
                           {...field}
                           type="tel"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                           placeholder="Enter personal phone number"
                         />
                       )}
@@ -2275,7 +2002,6 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-phone-alt text-green-500 mr-1"></i>{" "}
                       Other Number
                     </label>
                     <Controller
@@ -2285,7 +2011,7 @@ const EditEmployee = () => {
                         <input
                           {...field}
                           type="tel"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                           placeholder="Enter alternate number"
                         />
                       )}
@@ -2294,8 +2020,7 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-globe text-green-500 mr-1"></i> Home
-                      Country Number
+                      Home Country Number
                     </label>
                     <Controller
                       name="home_country_number"
@@ -2304,7 +2029,7 @@ const EditEmployee = () => {
                         <input
                           {...field}
                           type="tel"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                           placeholder="Enter home country number"
                         />
                       )}
@@ -2313,8 +2038,7 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-envelope text-green-500 mr-1"></i>{" "}
-                      Company Email *
+                      Company Email
                     </label>
                     <Controller
                       name="company_email"
@@ -2325,7 +2049,7 @@ const EditEmployee = () => {
                           <input
                             {...field}
                             type="email"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.company_email ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.company_email ? "border-red-500" : "border-gray-200"}`}
                             placeholder="name@company.com"
                           />
                           {errors.company_email && (
@@ -2340,8 +2064,7 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-envelope text-green-500 mr-1"></i>{" "}
-                      Personal Email *
+                      Personal Email <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="personal_email"
@@ -2352,7 +2075,7 @@ const EditEmployee = () => {
                           <input
                             {...field}
                             type="email"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.personal_email ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.personal_email ? "border-red-500" : "border-gray-200"}`}
                             placeholder="name@gmail.com"
                           />
                           {errors.personal_email && (
@@ -2367,7 +2090,6 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-user-tag text-green-500 mr-1"></i>{" "}
                       Role
                     </label>
                     <Controller
@@ -2376,7 +2098,7 @@ const EditEmployee = () => {
                       render={({ field }) => (
                         <select
                           {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                         >
                           <option value="">Select Role</option>
                           {roles.map((role) => (
@@ -2399,10 +2121,9 @@ const EditEmployee = () => {
               <button
                 type="button"
                 onClick={handlePrevious}
-                className="px-6 py-2.5 rounded-full font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+                className="px-6 py-2.5 rounded-full font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all flex items-center gap-2"
               >
-                <i className="fas fa-arrow-left"></i>
-                <span>Previous</span>
+                <i className="fas fa-arrow-left"></i> Previous
               </button>
             )}
 
@@ -2410,16 +2131,15 @@ const EditEmployee = () => {
               <button
                 type="button"
                 onClick={handleNext}
-                className="px-6 py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2"
+                className="px-6 py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center gap-2"
               >
-                <span>Next</span>
-                <i className="fas fa-arrow-right"></i>
+                Next <i className="fas fa-arrow-right"></i>
               </button>
             ) : (
               <button
                 type="submit"
                 disabled={loading}
-                className="px-6 py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                className="px-6 py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center gap-2 disabled:opacity-70"
               >
                 {loading ? (
                   <>
@@ -2435,132 +2155,6 @@ const EditEmployee = () => {
           </div>
         </form>
       </div>
-    </div>
-  );
-};
-
-// DocumentUpload component for reusability
-const DocumentUpload = ({
-  fieldKey,
-  label,
-  icon,
-  existingDocument,
-  removed,
-  preview,
-  newFile,
-  onFileChange,
-  onRemove,
-  onCancelNew,
-}) => {
-  const getDocumentUrl = (documentPath) => {
-    if (!documentPath) return null;
-    const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
-    return `${baseUrl}/storage/${documentPath}`;
-  };
-
-  return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/30">
-      <label className="block text-sm font-semibold text-gray-700 mb-3">
-        <i className={`${icon} text-green-500 mr-2`}></i>
-        {label}
-        <span className="text-xs text-gray-400 ml-2">(Optional)</span>
-      </label>
-
-      {/* Existing Document Display */}
-      {existingDocument && !removed && !newFile && (
-        <div className="mb-3 p-3 bg-gray-50 rounded-lg">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <i className="fas fa-file-alt text-green-500"></i>
-              <span className="text-sm text-gray-600">
-                Current document uploaded
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <a
-                href={getDocumentUrl(existingDocument)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-500 hover:text-blue-600 text-sm flex items-center gap-1"
-              >
-                <i className="fas fa-download"></i> View
-              </a>
-              <button
-                type="button"
-                onClick={onRemove}
-                className="text-red-500 hover:text-red-600 text-sm flex items-center gap-1"
-              >
-                <i className="fas fa-trash"></i> Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* File Upload */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <input
-          type="file"
-          id={`${fieldKey}_edit`}
-          accept="image/*,.pdf"
-          onChange={(e) => onFileChange(fieldKey, e.target.files[0])}
-          className="hidden"
-        />
-        <button
-          type="button"
-          onClick={() => document.getElementById(`${fieldKey}_edit`).click()}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors flex items-center gap-2"
-        >
-          <i className="fas fa-upload"></i>{" "}
-          {existingDocument && !removed && !newFile ? "Replace" : "Choose File"}
-        </button>
-        {newFile && (
-          <span className="text-sm text-gray-500 truncate flex-1">
-            {newFile?.name}
-          </span>
-        )}
-        {!newFile && !existingDocument && (
-          <span className="text-sm text-gray-400">No file chosen</span>
-        )}
-      </div>
-
-      {/* Preview for new file */}
-      {newFile && preview && preview !== "pdf" && (
-        <div className="mt-3">
-          <img
-            src={preview}
-            alt={label}
-            className="h-20 w-20 object-cover rounded-lg border border-gray-200"
-          />
-          <button
-            type="button"
-            onClick={onCancelNew}
-            className="mt-2 text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
-          >
-            <i className="fas fa-trash"></i> Cancel Upload
-          </button>
-        </div>
-      )}
-
-      {newFile && preview === "pdf" && (
-        <div className="mt-3">
-          <div className="h-20 w-20 bg-red-100 rounded-lg flex items-center justify-center border border-gray-200">
-            <i className="fas fa-file-pdf text-red-500 text-3xl"></i>
-          </div>
-          <button
-            type="button"
-            onClick={onCancelNew}
-            className="mt-2 text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
-          >
-            <i className="fas fa-trash"></i> Cancel Upload
-          </button>
-        </div>
-      )}
-
-      <p className="text-xs text-gray-400 mt-2">
-        <i className="fas fa-info-circle mr-1"></i> Max size: 5MB. Allowed: JPG,
-        PNG, PDF
-      </p>
     </div>
   );
 };

@@ -3,11 +3,11 @@ import { useSelector, useDispatch } from "react-redux";
 import { showToast } from "../../components/common/Toast";
 import apiClient from "../../utils/apiClient";
 import { fetchOrganizations } from "@admin/store/slices/organizationSlice";
-import { updateUserProfile, fetchCurrentUser } from "../../store/slices/authSlice";
+import { updateUserProfile } from "../../store/slices/authSlice";
 
 const Settings = () => {
   const dispatch = useDispatch();
-  const { user, profileUpdateLoading } = useSelector((state) => state.auth);
+  const { user, isAuthenticated, profileUpdateLoading, loading: authLoading } = useSelector((state) => state.auth);
   const { organizations } = useSelector((state) => state.organizations);
   const [loading, setLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -38,18 +38,6 @@ const Settings = () => {
     password_confirmation: "",
   });
 
-  // Fetch organizations on component mount
-  useEffect(() => {
-    dispatch(fetchOrganizations());
-  }, [dispatch]);
-
-  // Fetch fresh user data on component mount to ensure latest data
-  useEffect(() => {
-    const fetchUserData = async () => {
-      await dispatch(fetchCurrentUser());
-    };
-    fetchUserData();
-  }, [dispatch]);
 
   // Update profile data when user changes
   useEffect(() => {
@@ -61,6 +49,12 @@ const Settings = () => {
       });
     }
   }, [user]);
+
+  useEffect(() => {
+    if (isAuthenticated && user && !authLoading) {
+      dispatch(fetchOrganizations());
+    }
+  }, [dispatch, isAuthenticated, user, authLoading]);
 
   const handleProfileChange = (e) => {
     setProfileData({ ...profileData, [e.target.id]: e.target.value });
@@ -94,8 +88,6 @@ const Settings = () => {
       if (result) {
         showToast("Profile updated successfully!", "success");
         
-        // Fetch fresh user data from server to ensure consistency
-        await dispatch(fetchCurrentUser());
         
         // Update local form state
         setProfileData({

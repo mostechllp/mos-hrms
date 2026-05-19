@@ -9,7 +9,7 @@ const AddOrganization = () => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [logoPreview, setLogoPreview] = useState(null);
-  const [selectedLogoFile, setSelectedLogoFile] = useState(null); // Store actual file
+  const [selectedLogoFile, setSelectedLogoFile] = useState(null); 
 
   const [formData, setFormData] = useState({
     name: "",
@@ -19,8 +19,45 @@ const AddOrganization = () => {
     multi_company: "Yes",
   });
 
+  const [phoneError, setPhoneError] = useState("");
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    
+    // Handle phone number validation
+    if (name === "phone") {
+      // Allow only digits, plus sign, spaces, hyphens, and parentheses
+      let cleanedValue = value;
+      
+      // Remove any invalid characters (allow only digits, +, -, space, (, ))
+      cleanedValue = cleanedValue.replace(/[^/[^\d+\-\s()]/g, "");
+      
+      setPhoneError("");
+      
+      // Optional: Validate length
+      const digitsOnly = cleanedValue.replace(/\D/g, "");
+      if (digitsOnly.length > 0 && (digitsOnly.length < 8 || digitsOnly.length > 15)) {
+        setPhoneError("Phone number should be between 8 to 15 digits");
+      }
+      
+      setFormData({ ...formData, [name]: cleanedValue });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
+  };
+
+  const validatePhoneNumber = (phone) => {
+    if (!phone) return false;
+    
+    // Remove all non-digit characters for validation
+    const digitsOnly = phone.replace(/\D/g, "");
+    
+    // Check if phone number has valid length (8-15 digits)
+    if (digitsOnly.length < 8 || digitsOnly.length > 15) {
+      return false;
+    }
+    
+    return true;
   };
 
   const handleLogoChange = (e) => {
@@ -50,12 +87,27 @@ const AddOrganization = () => {
       showToast("Organization name is required", "error");
       return;
     }
+    
+    // Phone validation
     if (!formData.phone) {
       showToast("Phone number is required", "error");
       return;
     }
+    
+    if (!validatePhoneNumber(formData.phone)) {
+      showToast("Please enter a valid phone number (8-15 digits)", "error");
+      return;
+    }
+    
     if (!formData.email) {
       showToast("Email address is required", "error");
+      return;
+    }
+    
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      showToast("Please enter a valid email address", "error");
       return;
     }
 
@@ -64,7 +116,11 @@ const AddOrganization = () => {
     // Create FormData object for file upload
     const submitData = new FormData();
     submitData.append("name", formData.name);
-    submitData.append("phone", formData.phone);
+    
+    // Store only digits for phone number (or keep formatted version based on backend requirement)
+    const phoneDigitsOnly = formData.phone.replace(/\D/g, "");
+    submitData.append("phone", phoneDigitsOnly);
+    
     submitData.append("email", formData.email);
     submitData.append("address", formData.address || "");
     const multiCompanyValue = formData.multi_company === "Yes" ? 1 : 0;
@@ -174,10 +230,21 @@ const AddOrganization = () => {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                  placeholder="Enter phone number"
+                  className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:ring-2 ${
+                    phoneError 
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" 
+                      : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-green-500/20"
+                  }`}
+                  placeholder="+971 50 123 4567"
                   required
                 />
+                {phoneError && (
+                  <p className="mt-1 text-xs text-red-500">{phoneError}</p>
+                )}
+                <p className="text-[10px] md:text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  <i className="fas fa-info-circle mr-1"></i>
+                  Enter phone number with country code (e.g., +971 50 123 4567)
+                </p>
               </div>
 
               {/* Email */}
