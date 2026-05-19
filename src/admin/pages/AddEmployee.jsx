@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
-import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { showToast } from "../../components/common/Toast";
 import { addEmployee } from "../store/slices/employeeSlice";
@@ -12,6 +11,8 @@ import { fetchDesignations } from "../store/slices/designationSlice";
 import { fetchDepartments } from "../store/slices/departmentSlice";
 import { fetchRoles } from "../store/slices/roleSlice";
 import apiClient from "../../utils/apiClient";
+import DateInput from "../components/common/DateInput";
+import DocumentModal from "../components/common/DocumentModal";
 
 const AddEmployee = () => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ const AddEmployee = () => {
   // Document file states
   const [documents, setDocuments] = useState({
     avatar: null,
+    avatarFile: null,
     passport_size_photo: null,
     passport_1st_page: null,
     passport_2nd_page: null,
@@ -40,6 +42,13 @@ const AddEmployee = () => {
   });
 
   const [documentPreviews, setDocumentPreviews] = useState({});
+  const [, setUploadedTempFiles] = useState({});
+
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [additionalDocuments, setAdditionalDocuments] = useState([]);
+  const [isSkilled, setIsSkilled] = useState(null);
+  const [selectedOrgDetails, setSelectedOrgDetails] = useState(null);
 
   // Fetch data from slices
   const { organizations = [] } = useSelector(
@@ -52,13 +61,14 @@ const AddEmployee = () => {
   const { departments = [] } = useSelector((state) => state.departments || {});
   const { roles = [] } = useSelector((state) => state.roles || {});
 
-  // Initialize useForm
+  // Initialize useForm with updated validation
   const {
     control,
     handleSubmit,
     watch,
     formState: { errors },
     trigger,
+    setValue,
   } = useForm({
     defaultValues: {
       // Step 1: Basic Info
@@ -68,7 +78,6 @@ const AddEmployee = () => {
       company_id: "",
       designation_id: "",
       department_id: "",
-      employee_id: "",
       type: "employee",
       joining_date: "",
       dob: "",
@@ -88,7 +97,7 @@ const AddEmployee = () => {
       passport_issued_from: "",
       place_of_birth: "",
 
-      // Step 3: Visa & Labor
+      // Step 3: Visa, Labor & EID Details (Merged)
       visa_number: "",
       visa_type: "",
       visa_issued_date: "",
@@ -96,8 +105,6 @@ const AddEmployee = () => {
       labor_number: "",
       labor_issued_date: "",
       labor_expiry_date: "",
-
-      // Step 4: EID
       eid_number: "",
       eid_issued_date: "",
       eid_expiry_date: "",
@@ -113,7 +120,7 @@ const AddEmployee = () => {
       role: "",
     },
     shouldUnregister: true,
-    mode: "onSubmit",
+    mode: "onChange",
   });
 
   // UseFieldArray for special days
@@ -123,6 +130,8 @@ const AddEmployee = () => {
   });
 
   const watchOrganizationId = watch("organization_id");
+  const watchDob = watch("dob");
+  const watchJoiningDate = watch("joining_date");
   const passportIssued = watch("passport_issued_date");
   const passportExpiry = watch("passport_expiry_date");
   const visaIssued = watch("visa_issued_date");
@@ -131,6 +140,53 @@ const AddEmployee = () => {
   const laborExpiry = watch("labor_expiry_date");
   const eidIssued = watch("eid_issued_date");
   const eidExpiry = watch("eid_expiry_date");
+
+  // Generate Employee ID function
+  const generateEmployeeId = (dob, joiningDate) => {
+    if (!dob || !joiningDate) return "";
+
+    // Convert dates from DD/MM/YYYY to YYYY-MM-DD format for parsing
+    let dobFormatted = dob;
+    let joiningFormatted = joiningDate;
+
+    if (dob.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      const [day, month, year] = dob.split("/");
+      dobFormatted = `${year}-${month}-${day}`;
+    }
+
+    if (joiningDate.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      const [day, month, year] = joiningDate.split("/");
+      joiningFormatted = `${year}-${month}-${day}`;
+    }
+
+    const dobDate = new Date(dobFormatted);
+    const joiningDateObj = new Date(joiningFormatted);
+
+    if (isNaN(dobDate.getTime()) || isNaN(joiningDateObj.getTime())) {
+      return "";
+    }
+
+    // Format: EMP-DDMMYYYY-DDMMYYYY
+    const dobDay = String(dobDate.getDate()).padStart(2, "0");
+    const dobMonth = String(dobDate.getMonth() + 1).padStart(2, "0");
+    const dobYear = dobDate.getFullYear();
+
+    const joiningDay = String(joiningDateObj.getDate()).padStart(2, "0");
+    const joiningMonth = String(joiningDateObj.getMonth() + 1).padStart(2, "0");
+    const joiningYear = joiningDateObj.getFullYear();
+
+    return `EMP-${dobDay}${dobMonth}${dobYear}-${joiningDay}${joiningMonth}${joiningYear}`;
+  };
+
+  // Auto-generate employee ID when DOB or Joining Date changes
+  useEffect(() => {
+    if (watchDob && watchJoiningDate) {
+      const generatedId = generateEmployeeId(watchDob, watchJoiningDate);
+      if (generatedId) {
+        setValue("employee_id", generatedId);
+      }
+    }
+  }, [watchDob, watchJoiningDate, setValue]);
 
   // Fetch initial data
   useEffect(() => {
@@ -141,18 +197,35 @@ const AddEmployee = () => {
   }, [dispatch]);
 
   // Fetch companies when organization changes
+  // Fetch companies when organization changes
   useEffect(() => {
     if (watchOrganizationId) {
-      dispatch(fetchCompanies(watchOrganizationId));
+      const org = organizations.find(
+        (org) => org.id === parseInt(watchOrganizationId),
+      );
+      console.log("Selected organization:", org);
+      console.log("multi_company value:", org?.multi_company);
+      console.log("Type:", typeof org?.multi_company);
+
+      setSelectedOrgDetails(org || null);
+
+      // Fetch companies only if organization has multiple companies (multi_company === "Yes")
+      if (org && org.multi_company === "Yes") {
+        dispatch(fetchCompanies(watchOrganizationId));
+      } else {
+        // Clear company selection if organization doesn't have multiple companies
+        setValue("company_id", "");
+      }
+    } else {
+      setSelectedOrgDetails(null);
     }
-  }, [watchOrganizationId, dispatch]);
+  }, [watchOrganizationId, organizations, dispatch, setValue]);
 
   const steps = [
     { number: 1, title: "Basic Info", icon: "fas fa-user-circle" },
     { number: 2, title: "Passport", icon: "fas fa-passport" },
-    { number: 3, title: "Visa & Labor", icon: "fas fa-file-contract" },
-    { number: 4, title: "EID", icon: "fas fa-id-card" },
-    { number: 5, title: "Contact", icon: "fas fa-address-card" },
+    { number: 3, title: "Visa, Labor & EID", icon: "fas fa-file-contract" },
+    { number: 4, title: "Contact", icon: "fas fa-address-card" },
   ];
 
   // Only employee and admin user types
@@ -177,69 +250,40 @@ const AddEmployee = () => {
   const maritalStatusOptions = ["Single", "Married", "Divorced", "Widowed"];
   const visaTypeOptions = ["Company Visa", "Family Visa", "Other Visa"];
 
-  const getStepFields = (stepIndex) => {
-    switch (stepIndex) {
-      case 0:
-        return [
-          "first_name",
-          "employee_id",
-          "organization_id",
-          "company_id",
-          "designation_id",
-          "department_id",
-          "type",
-        ];
-      case 1:
-        return ["passport_issued_date", "passport_expiry_date"];
-      case 2:
-        return [
-          "visa_issued_date",
-          "visa_expiry_date",
-          "labor_issued_date",
-          "labor_expiry_date",
-        ];
-      case 3:
-        return ["eid_issued_date", "eid_expiry_date"];
-      case 4:
-        return ["company_email", "personal_email", "type"];
-      default:
-        return [];
-    }
-  };
-
-  const parseDateValue = (value) => {
-    if (!value) return null;
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  };
-
-  const DateInput = ({ field, hasError, placeholder = "Select date" }) => (
-    <DatePicker
-      selected={parseDateValue(field.value)}
-      onChange={(date) => {
-        if (!date) {
-          field.onChange("");
-          return;
-        }
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        field.onChange(`${year}-${month}-${day}`);
-      }}
-      dateFormat="yyyy-MM-dd"
-      placeholderText={placeholder}
-      showMonthDropdown
-      showYearDropdown
-      dropdownMode="select"
-      yearDropdownItemNumber={100}
-      scrollableYearDropdown
-      autoComplete="off"
-      className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${hasError
-          ? "border-red-500"
-          : "border-gray-200 focus:border-green-500 focus:ring-green-500/20"
-        }`}
-    />
-  );
+ const getStepFields = (stepIndex) => {
+  switch (stepIndex) {
+    case 0:
+      { const fields = [
+        "first_name",
+        "organization_id",
+        "designation_id",
+        "department_id",
+        "type",
+        "dob",
+        "joining_date",
+      ];
+      // Only add company_id to validation if multi_company is "Yes"
+      if (selectedOrgDetails?.multi_company === "Yes") {
+        fields.push("company_id");
+      }
+      return fields; }
+    case 1:
+      return ["passport_issued_date", "passport_expiry_date"];
+    case 2:
+      return [
+        "visa_issued_date",
+        "visa_expiry_date",
+        "labor_issued_date",
+        "labor_expiry_date",
+        "eid_issued_date",
+        "eid_expiry_date",
+      ];
+    case 3:
+      return ["company_email", "personal_email", "type"];
+    default:
+      return [];
+  }
+};
 
   // Document upload component
   const DocumentUpload = ({
@@ -276,9 +320,13 @@ const AddEmployee = () => {
             className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors flex items-center gap-2 disabled:opacity-60"
           >
             {isUploading ? (
-              <><i className="fas fa-spinner fa-spin"></i> Uploading...</>
+              <>
+                <i className="fas fa-spinner fa-spin"></i> Uploading...
+              </>
             ) : (
-              <><i className="fas fa-upload"></i> Choose File</>
+              <>
+                <i className="fas fa-upload"></i> Choose File
+              </>
             )}
           </button>
           <span className="text-sm text-gray-500 truncate flex-1">
@@ -326,7 +374,8 @@ const AddEmployee = () => {
           </div>
         )}
         <p className="text-xs text-gray-400 mt-2">
-          <i className="fas fa-info-circle mr-1"></i> Max size: 5MB. Allowed: JPG, PNG, PDF
+          <i className="fas fa-info-circle mr-1"></i> Max size: 5MB. Allowed:
+          JPG, PNG, PDF
         </p>
       </div>
     );
@@ -336,45 +385,55 @@ const AddEmployee = () => {
     if (!file) return;
 
     const fileSize = file.size / 1024 / 1024;
-    const maxSize = fieldKey === 'avatar' ? 2 : 5;
+    const maxSize = fieldKey === "avatar" ? 2 : 5;
     if (fileSize > maxSize) {
-      showToast(`File must be less than ${maxSize}MB`, 'error');
+      showToast(`File must be less than ${maxSize}MB`, "error");
       return;
     }
 
-    if (file.type.startsWith('image/')) {
+    // Create preview for display
+    if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setDocumentPreviews(prev => ({ ...prev, [fieldKey]: e.target.result }));
+        setDocumentPreviews((prev) => ({
+          ...prev,
+          [fieldKey]: e.target.result,
+        }));
       };
       reader.readAsDataURL(file);
     } else {
-      setDocumentPreviews(prev => ({ ...prev, [fieldKey]: 'pdf' }));
+      setDocumentPreviews((prev) => ({ ...prev, [fieldKey]: "pdf" }));
     }
 
-    setUploadingFiles(prev => ({ ...prev, [fieldKey]: true }));
+    setUploadingFiles((prev) => ({ ...prev, [fieldKey]: true }));
+
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
-      const response = await apiClient.post('/admin/employees/upload-temp', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const response = await apiClient.post(
+        "/admin/employees/upload-temp",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
 
       const result = response.data;
-
       if (result.status && result.path) {
-        setDocuments(prev => ({ ...prev, [fieldKey]: result.path }));
-        showToast(`Uploaded successfully`, 'success');
+        // Store the temp path for ALL files (including avatar)
+        setDocuments((prev) => ({ ...prev, [fieldKey]: result.path }));
+        setUploadedTempFiles((prev) => ({ ...prev, [fieldKey]: true }));
+        showToast(`File uploaded successfully`, "success");
       } else {
-        showToast(`Failed to upload`, 'error');
-        setDocumentPreviews(prev => ({ ...prev, [fieldKey]: null }));
+        showToast(`Failed to upload`, "error");
+        setDocumentPreviews((prev) => ({ ...prev, [fieldKey]: null }));
       }
     } catch (error) {
-      showToast(`Upload failed: ${error.message}`, 'error');
-      setDocumentPreviews(prev => ({ ...prev, [fieldKey]: null }));
+      showToast(`Upload failed: ${error.message}`, "error");
+      setDocumentPreviews((prev) => ({ ...prev, [fieldKey]: null }));
     } finally {
-      setUploadingFiles(prev => ({ ...prev, [fieldKey]: false }));
+      setUploadingFiles((prev) => ({ ...prev, [fieldKey]: false }));
     }
   };
 
@@ -423,47 +482,250 @@ const AddEmployee = () => {
   const onSubmit = async (data) => {
     setLoading(true);
 
-    const submitData = { ...data };
-    submitData.organization_id = parseInt(data.organization_id);
-    submitData.company_id = parseInt(data.company_id);
-    if (data.designation_id) submitData.designation_id = parseInt(data.designation_id);
-    if (data.department_id) submitData.department_id = parseInt(data.department_id);
-
-    if (data.dependents !== undefined && data.dependents !== '') {
-      submitData.dependents = String(data.dependents);
-    }
-
-    if (data.special_days && data.special_days.length > 0) {
-      const validSpecialDays = data.special_days.filter(day => day.name && day.date);
-      submitData.special_days = JSON.stringify(validSpecialDays);
-    } else {
-      submitData.special_days = null;
-    }
-
-    // Include temp paths directly in the main employee save
-    const keyMap = {
-      avatar: 'avatar_path',
+    // Helper function to convert date from dd/mm/yyyy to YYYY-MM-DD
+    const convertDateToBackend = (dateString) => {
+      if (!dateString) return "";
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+      }
+      if (dateString && dateString.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+        const [day, month, year] = dateString.split("/");
+        return `${year}-${month}-${day}`;
+      }
+      return dateString;
     };
 
-    Object.keys(documents).forEach((key) => {
-      if (documents[key]) {
-        const backendKey = keyMap[key] || key;
-        submitData[backendKey] = documents[key];
+    const formData = new FormData();
+
+    // Basic required fields
+    formData.append("first_name", data.first_name);
+    formData.append("last_name", data.last_name || "");
+
+    // Use auto-generated employee ID
+    const employeeId = data.employee_id;
+    if (!employeeId) {
+      showToast("Please wait, Employee ID is being generated", "error");
+      setLoading(false);
+      return;
+    }
+    formData.append("employee_id", employeeId);
+
+    formData.append("organization_id", parseInt(data.organization_id));
+    if (selectedOrgDetails?.multi_company === "Yes") {
+      if (!data.company_id) {
+        showToast("Please select a company", "error");
+        setLoading(false);
+        return;
+      }
+      formData.append("company_id", parseInt(data.company_id));
+    } else {
+      // For organizations without multiple companies, you might need to:
+      // Option 1: Don't send company_id (if backend handles it)
+      // Option 2: Send a default company ID
+      // Option 3: Get the default company for this organization
+      formData.append("company_id", ""); // Or handle as per your backend requirement
+    }
+    formData.append("is_skilled", isSkilled !== null ? isSkilled : false);
+
+    if (data.designation_id) {
+      formData.append("designation_id", parseInt(data.designation_id));
+    }
+    if (data.department_id) {
+      formData.append("department_id", parseInt(data.department_id));
+    }
+
+    formData.append("type", data.type);
+    formData.append("gender", data.gender || "");
+    formData.append("nationality", data.nationality || "");
+    formData.append("marital_status", data.marital_status || "");
+
+    // DOB and Joining Date - required
+    const dob = convertDateToBackend(data.dob);
+    const joiningDate = convertDateToBackend(data.joining_date);
+
+    if (!dob) {
+      showToast("Date of Birth is required", "error");
+      setLoading(false);
+      return;
+    }
+    if (!joiningDate) {
+      showToast("Joining Date is required", "error");
+      setLoading(false);
+      return;
+    }
+
+    formData.append("dob", dob);
+    formData.append("joining_date", joiningDate);
+
+    // Special days - Send as arrays
+    if (data.special_days && data.special_days.length > 0) {
+      const validSpecialDays = data.special_days.filter(
+        (day) => day.name && day.name.trim() !== "" && day.date,
+      );
+
+      if (validSpecialDays.length > 0) {
+        const specialDaysName = validSpecialDays.map((day) => day.name.trim());
+        const specialDaysDate = validSpecialDays.map((day) => {
+          let formattedDate = day.date;
+          if (day.date && day.date.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+            const [dayVal, month, year] = day.date.split("/");
+            formattedDate = `${year}-${month}-${dayVal}`;
+          }
+          return formattedDate;
+        });
+
+        specialDaysName.forEach((name) => {
+          formData.append("special_days_name[]", name);
+        });
+
+        specialDaysDate.forEach((date) => {
+          formData.append("special_days_date[]", date);
+        });
+      }
+    }
+
+    // Passport fields
+    if (data.passport_full_name)
+      formData.append("passport_full_name", data.passport_full_name);
+    if (data.passport_number)
+      formData.append("passport_number", data.passport_number);
+    if (data.passport_issued_date)
+      formData.append(
+        "passport_issued_date",
+        convertDateToBackend(data.passport_issued_date),
+      );
+    if (data.passport_expiry_date)
+      formData.append(
+        "passport_expiry_date",
+        convertDateToBackend(data.passport_expiry_date),
+      );
+    if (data.passport_issued_from)
+      formData.append("passport_issued_from", data.passport_issued_from);
+    if (data.place_of_birth)
+      formData.append("place_of_birth", data.place_of_birth);
+    if (data.father_name) formData.append("father_name", data.father_name);
+    if (data.mother_name) formData.append("mother_name", data.mother_name);
+    if (data.address) formData.append("address", data.address);
+
+    // Visa & Labor
+    if (data.visa_number) formData.append("visa_number", data.visa_number);
+    if (data.visa_type) formData.append("visa_type", data.visa_type);
+    if (data.visa_issued_date)
+      formData.append(
+        "visa_issued_date",
+        convertDateToBackend(data.visa_issued_date),
+      );
+    if (data.visa_expiry_date)
+      formData.append(
+        "visa_expiry_date",
+        convertDateToBackend(data.visa_expiry_date),
+      );
+    if (data.labor_number) formData.append("labor_number", data.labor_number);
+    if (data.labor_issued_date)
+      formData.append(
+        "labor_issued_date",
+        convertDateToBackend(data.labor_issued_date),
+      );
+    if (data.labor_expiry_date)
+      formData.append(
+        "labor_expiry_date",
+        convertDateToBackend(data.labor_expiry_date),
+      );
+
+    // EID
+    if (data.eid_number) formData.append("eid_number", data.eid_number);
+    if (data.eid_issued_date)
+      formData.append(
+        "eid_issued_date",
+        convertDateToBackend(data.eid_issued_date),
+      );
+    if (data.eid_expiry_date)
+      formData.append(
+        "eid_expiry_date",
+        convertDateToBackend(data.eid_expiry_date),
+      );
+
+    // Contact
+    if (data.dependents) formData.append("dependents", String(data.dependents));
+    if (data.company_email)
+      formData.append("company_email", data.company_email);
+    if (data.company_mobile_number)
+      formData.append("company_mobile_number", data.company_mobile_number);
+    if (data.personal_number)
+      formData.append("personal_number", data.personal_number);
+    if (data.personal_email)
+      formData.append("personal_email", data.personal_email);
+    if (data.other_number) formData.append("other_number", data.other_number);
+    if (data.home_country_number)
+      formData.append("home_country_number", data.home_country_number);
+    if (data.role) formData.append("role", data.role);
+
+    // ============ IMPORTANT: Send ALL files as temp paths ============
+
+    // Avatar (passport size photo) - send temp path
+    if (documents.avatar) {
+      formData.append("avatar", documents.avatar);
+      console.log("Sending avatar temp path:", documents.avatar);
+    }
+
+    // All document fields - send temp paths
+    const documentFields = [
+      "passport_1st_page",
+      "passport_2nd_page",
+      "passport_outer_page",
+      "passport_id_page",
+      "visa_page",
+      "labor_card",
+      "labor_contract",
+      "eid_1st_page",
+      "eid_2nd_page",
+      "educational_1st_page",
+      "educational_2nd_page",
+      "home_country_id_proof",
+    ];
+
+    documentFields.forEach((field) => {
+      if (documents[field]) {
+        formData.append(field, documents[field]);
+        console.log(`Sending ${field} temp path:`, documents[field]);
       }
     });
 
-    const result = await dispatch(addEmployee(submitData));
-    console.log("Result: ", result)
-    setLoading(false);
+    // Additional documents
+    if (additionalDocuments.length > 0) {
+      const additionalDocsData = additionalDocuments.map((doc) => ({
+        name: doc.name,
+        filename: doc.filename,
+      }));
+      formData.append(
+        "additional_documents",
+        JSON.stringify(additionalDocsData),
+      );
+
+      additionalDocuments.forEach((doc, index) => {
+        if (doc.file) {
+          formData.append(`additional_document_${index}`, doc.file);
+        }
+      });
+    }
+
+    // Debug: Log all form data
+    console.log("=== FINAL FORM DATA TO BE SENT ===");
+    for (let pair of formData.entries()) {
+      console.log(`${pair[0]}: ${pair[1]}`);
+    }
+
+    const result = await dispatch(addEmployee(formData));
 
     if (addEmployee.fulfilled.match(result)) {
-      showToast(`✓ Employee "${data.first_name} ${data.last_name || ""}" added successfully!`, "success");
+      showToast(`Employee added successfully!`, "success");
       navigate("/admin/employees");
     } else {
       const errorPayload = result.payload;
       if (errorPayload && errorPayload.errors) {
         const errorMessages = Object.entries(errorPayload.errors).map(
-          ([field, messages]) => `${field}: ${Array.isArray(messages) ? messages[0] : messages}`
+          ([field, messages]) =>
+            `${field}: ${Array.isArray(messages) ? messages[0] : messages}`,
         );
         showToast(errorMessages.join("\n"), "error");
       } else if (typeof errorPayload === "string") {
@@ -471,6 +733,74 @@ const AddEmployee = () => {
       } else {
         showToast("Failed to add employee", "error");
       }
+    }
+    setLoading(false);
+  };
+
+  const handleAddDocument = async (docData) => {
+    setUploadingDoc(true);
+
+    try {
+      // Upload the file to temp storage
+      const formData = new FormData();
+      formData.append("file", docData.file);
+
+      const response = await apiClient.post(
+        "/admin/employees/upload-temp",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
+
+      const result = response.data;
+
+      if (result.status && result.path) {
+        const extractFilename = (filePath) => {
+          const parts = filePath.split("/");
+          return parts[parts.length - 1];
+        };
+
+        const filename = extractFilename(result.path);
+
+        // Create preview for display
+        // eslint-disable-next-line no-unused-vars
+        let preview = null;
+        if (docData.file.type.startsWith("image/")) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            setAdditionalDocuments((prev) => [
+              ...prev,
+              {
+                name: docData.name,
+                filename: filename,
+                file: docData.file,
+                preview: e.target.result,
+              },
+            ]);
+          };
+          reader.readAsDataURL(docData.file);
+        } else {
+          setAdditionalDocuments((prev) => [
+            ...prev,
+            {
+              name: docData.name,
+              filename: filename,
+              file: docData.file,
+              preview: "pdf",
+            },
+          ]);
+        }
+
+        showToast(`Document "${docData.name}" added successfully`, "success");
+        setShowDocumentModal(false);
+      } else {
+        showToast("Failed to upload document", "error");
+      }
+    } catch (error) {
+      showToast(`Upload failed: ${error.message}`, "error");
+    } finally {
+      setUploadingDoc(false);
     }
   };
 
@@ -483,14 +813,14 @@ const AddEmployee = () => {
         message: "First name must be at least 2 characters",
       },
     },
-    employee_id: {
-      required: "Employee ID is required",
+    dob: {
+      required: "Date of Birth is required",
+    },
+    joining_date: {
+      required: "Joining Date is required",
     },
     organization_id: {
       required: "Organization is required",
-    },
-    company_id: {
-      required: "Company is required",
     },
     designation_id: {
       required: "Designation is required",
@@ -645,7 +975,7 @@ const AddEmployee = () => {
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-user text-green-500 mr-1"></i> First
-                      Name *
+                      Name <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="first_name"
@@ -691,7 +1021,7 @@ const AddEmployee = () => {
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-building text-green-500 mr-1"></i>{" "}
-                      Organization *
+                      Organization <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="organization_id"
@@ -723,20 +1053,40 @@ const AddEmployee = () => {
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-building text-green-500 mr-1"></i>{" "}
-                      Company *
+                      Company
+                      {selectedOrgDetails?.multi_company === "Yes" && (
+                        <span className="text-red-500">*</span>
+                      )}
                     </label>
                     <Controller
                       name="company_id"
                       control={control}
-                      rules={validationRules.company_id}
+                      rules={{
+                        required:
+                          selectedOrgDetails?.multi_company === "Yes"
+                            ? "Company is required"
+                            : false,
+                      }}
                       render={({ field }) => (
                         <>
                           <select
                             {...field}
-                            disabled={!watchOrganizationId}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${!watchOrganizationId ? "opacity-50 cursor-not-allowed" : ""} ${errors.company_id ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            disabled={
+                              selectedOrgDetails?.multi_company !== "Yes"
+                            }
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${
+                              selectedOrgDetails?.multi_company !== "Yes"
+                                ? "opacity-50 cursor-not-allowed"
+                                : ""
+                            } ${errors.company_id ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
                           >
-                            <option value="">Select Company</option>
+                            <option value="">
+                              {selectedOrgDetails?.multi_company === "Yes"
+                                ? "Select Company"
+                                : selectedOrgDetails
+                                  ? "No multiple companies"
+                                  : "Select organization first"}
+                            </option>
                             {companies.map((company) => (
                               <option key={company.id} value={company.id}>
                                 {company.company_name || company.name}
@@ -756,7 +1106,7 @@ const AddEmployee = () => {
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
-                      Designation *
+                      Designation <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="designation_id"
@@ -788,7 +1138,7 @@ const AddEmployee = () => {
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-diagram-project text-green-500 mr-1"></i>{" "}
-                      Department *
+                      Department <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="department_id"
@@ -820,7 +1170,7 @@ const AddEmployee = () => {
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-user-tag text-green-500 mr-1"></i>{" "}
-                      User Type *
+                      User Type <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="type"
@@ -906,7 +1256,8 @@ const AddEmployee = () => {
                       name="marital_status"
                       control={control}
                       render={({ field }) => (
-                        <select                          {...field}
+                        <select
+                          {...field}
                           className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                         >
                           <option value="">Select Marital Status</option>
@@ -948,10 +1299,10 @@ const AddEmployee = () => {
                               name={`special_days.${index}.date`}
                               control={control}
                               render={({ field }) => (
-                                <input
+                                <DateInput
                                   {...field}
-                                  type="date"
-                                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                                  placeholder="dd/mm/yyyy"
+                                  error={!!errors.special_days}
                                 />
                               )}
                             />
@@ -982,26 +1333,54 @@ const AddEmployee = () => {
                     </p>
                   </div>
 
+                  {/* Auto-generated Employee ID - Display Only */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
-                      Employee ID *
+                      Employee ID (Auto-generated)
                     </label>
                     <Controller
                       name="employee_id"
                       control={control}
-                      rules={validationRules.employee_id}
+                      render={({ field }) => (
+                        <input
+                          {...field}
+                          type="text"
+                          readOnly
+                          disabled
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 border border-gray-200 rounded-lg text-sm md:text-base text-gray-600 cursor-not-allowed"
+                          placeholder="Will be auto-generated after entering DOB & Joining Date"
+                        />
+                      )}
+                    />
+                    {watchDob && watchJoiningDate && (
+                      <p className="mt-1 text-xs text-green-600">
+                        <i className="fas fa-check-circle mr-1"></i>
+                        Employee ID generated based on DOB and Joining Date
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <i className="fas fa-calendar text-green-500 mr-1"></i>{" "}
+                      Date of Birth <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="dob"
+                      control={control}
+                      rules={{ required: "Date of Birth is required" }}
                       render={({ field }) => (
                         <>
-                          <input
+                          <DateInput
+                            type="dob"
                             {...field}
-                            type="text"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.employee_id ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
-                            placeholder="Enter employee ID"
+                            placeholder="dd/mm/yyyy"
+                            error={!!errors.dob}
                           />
-                          {errors.employee_id && (
+                          {errors.dob && (
                             <p className="mt-1 text-xs text-red-500">
-                              {errors.employee_id.message}
+                              {errors.dob.message}
                             </p>
                           )}
                         </>
@@ -1011,29 +1390,31 @@ const AddEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar text-green-500 mr-1"></i>{" "}
-                      Date of Birth
-                    </label>
-                    <Controller
-                      name="dob"
-                      control={control}
-                      render={({ field }) => <DateInput field={field} />}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-calendar-alt text-green-500 mr-1"></i>{" "}
-                      Joining Date
+                      Joining Date <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="joining_date"
                       control={control}
-                      render={({ field }) => <DateInput field={field} />}
+                      rules={{ required: "Joining Date is required" }}
+                      render={({ field }) => (
+                        <>
+                          <DateInput
+                            {...field}
+                            placeholder="dd/mm/yyyy"
+                            error={!!errors.joining_date}
+                          />
+                          {errors.joining_date && (
+                            <p className="mt-1 text-xs text-red-500">
+                              {errors.joining_date.message}
+                            </p>
+                          )}
+                        </>
+                      )}
                     />
                   </div>
 
-                  {/* Educational Documents in Basic Info */}
+                  {/* Passport Size Photo - OUTSIDE isSkilled, visible for all employees */}
                   <div className="md:col-span-2">
                     <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/30 mb-4">
                       <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -1123,33 +1504,156 @@ const AddEmployee = () => {
                         </button>
                       )}
                     </div>
-                    <div className="border-t border-gray-200 pt-4 mt-2">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                        <i className="fas fa-graduation-cap text-green-500 mr-2"></i>
-                        Educational Documents
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <DocumentUpload
-                          fieldKey="educational_1st_page"
-                          label="Educational Certificate (Front)"
-                          icon="fas fa-graduation-cap"
-                        />
-                        <DocumentUpload
-                          fieldKey="educational_2nd_page"
-                          label="Educational Certificate (Back)"
-                          icon="fas fa-graduation-cap"
-                        />
-                      </div>
-                    </div>
                   </div>
 
-                  {/* Home Country ID */}
+                  {/* Skilled/Unskilled Dropdown */}
                   <div className="md:col-span-2">
-                    <DocumentUpload
-                      fieldKey="home_country_id_proof"
-                      label="Home Country ID Proof"
-                      icon="fas fa-home"
-                    />
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
+                      <i className="fas fa-graduation-cap text-green-500 mr-1"></i>
+                      Employee Category <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="skillStatus"
+                          value="skilled"
+                          checked={isSkilled === true}
+                          onChange={() => setIsSkilled(true)}
+                          className="mr-2 text-green-500 focus:ring-green-500"
+                        />
+                        <span className="text-sm text-gray-700">Skilled</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="skillStatus"
+                          value="unskilled"
+                          checked={isSkilled === false}
+                          onChange={() => setIsSkilled(false)}
+                          className="mr-2 text-green-500 focus:ring-green-500"
+                        />
+                        <span className="text-sm text-gray-700">Unskilled</span>
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      <i className="fas fa-info-circle mr-1"></i>
+                      Skilled employees need to provide educational documents
+                    </p>
+                  </div>
+
+                  {/* Educational Documents - Only show if Skilled is selected */}
+                  {isSkilled === true && (
+                    <>
+                      <div className="md:col-span-2">
+                        <div className="border-t border-gray-200 pt-4 mt-2">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                            <i className="fas fa-graduation-cap text-green-500 mr-2"></i>
+                            Educational Documents
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <DocumentUpload
+                              fieldKey="educational_1st_page"
+                              label="Educational Certificate (Front)"
+                              icon="fas fa-graduation-cap"
+                            />
+                            <DocumentUpload
+                              fieldKey="educational_2nd_page"
+                              label="Educational Certificate (Back)"
+                              icon="fas fa-graduation-cap"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Home Country ID */}
+                      <div className="md:col-span-2">
+                        <DocumentUpload
+                          fieldKey="home_country_id_proof"
+                          label="Home Country ID Proof"
+                          icon="fas fa-home"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Additional Documents Section - Show for all employees */}
+                  <div className="md:col-span-2">
+                    <div className="border-t border-gray-200 pt-4 mt-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="text-sm font-semibold text-gray-700 flex items-center">
+                          <i className="fas fa-folder-open text-green-500 mr-2"></i>
+                          Additional Documents
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => setShowDocumentModal(true)}
+                          className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 transition-colors flex items-center gap-2"
+                        >
+                          <i className="fas fa-plus-circle"></i>
+                          Add Document
+                        </button>
+                      </div>
+
+                      {/* Display added documents */}
+                      {additionalDocuments.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+                          {additionalDocuments.map((doc, index) => (
+                            <div
+                              key={index}
+                              className="border border-gray-200 rounded-lg p-3 bg-gray-50"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <p className="text-sm font-semibold text-gray-700 truncate">
+                                    {doc.name}
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {doc.file?.name || "Document uploaded"}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updatedDocs =
+                                      additionalDocuments.filter(
+                                        (_, i) => i !== index,
+                                      );
+                                    setAdditionalDocuments(updatedDocs);
+                                  }}
+                                  className="text-red-500 hover:text-red-600 ml-2"
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              </div>
+                              {doc.preview && doc.preview !== "pdf" && (
+                                <img
+                                  src={doc.preview}
+                                  alt={doc.name}
+                                  className="mt-2 h-16 w-16 object-cover rounded-lg"
+                                />
+                              )}
+                              {doc.preview === "pdf" && (
+                                <div className="mt-2 h-16 w-16 bg-red-100 rounded-lg flex items-center justify-center">
+                                  <i className="fas fa-file-pdf text-red-500 text-2xl"></i>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                          <i className="fas fa-file-upload text-gray-400 text-4xl mb-2"></i>
+                          <p className="text-sm text-gray-500">
+                            No additional documents added
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Click the "Add Document" button to upload additional
+                            documents
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1241,9 +1745,11 @@ const AddEmployee = () => {
                       render={({ field }) => (
                         <>
                           <DateInput
-                            field={field}
-                            hasError={!!errors.passport_issued_date}
+                            {...field}
+                            placeholder="dd/mm/yyyy"
+                            error={!!errors.passport_issued_date}
                           />
+
                           {errors.passport_issued_date && (
                             <p className="mt-1 text-xs text-red-500">
                               {errors.passport_issued_date.message}
@@ -1273,9 +1779,11 @@ const AddEmployee = () => {
                       render={({ field }) => (
                         <>
                           <DateInput
-                            field={field}
-                            hasError={!!errors.passport_expiry_date}
+                            {...field}
+                            placeholder="dd/mm/yyyy"
+                            error={!!errors.passport_expiry_date}
                           />
+
                           {errors.passport_expiry_date && (
                             <p className="mt-1 text-xs text-red-500">
                               {errors.passport_expiry_date.message}
@@ -1397,16 +1905,111 @@ const AddEmployee = () => {
               </div>
             </div>
 
-            {/* Step 2 - Visa & Labor */}
-            <div className={currentStep === 2 ? "block" : "hidden"}>
+            {/* Step 2 - Visa, Labor & EID (Merged from previous steps 2 and 3) */}
+            {currentStep === 2 && (
               <div>
                 <div className="form-section-title mb-4 md:mb-6">
                   <i className="fas fa-file-contract text-green-500 mr-2"></i>
                   <h3 className="text-base md:text-lg font-bold text-gray-800">
-                    Visa & Labor Details
+                    Visa, Labor & Emirates ID
                   </h3>
                 </div>
                 <div className="space-y-6">
+                  {/* Labor Section */}
+                  <div className="border border-gray-200 rounded-lg p-4 md:p-5">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
+                      <i className="fas fa-briefcase text-green-500 mr-2"></i>
+                      Labor Details
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                      <div>
+                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
+                          Labor Number
+                        </label>
+                        <Controller
+                          name="labor_number"
+                          control={control}
+                          render={({ field }) => (
+                            <input
+                              {...field}
+                              type="text"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                              placeholder="Enter Labor Number"
+                            />
+                          )}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
+                          Labor Issued Date
+                        </label>
+                        <Controller
+                          name="labor_issued_date"
+                          control={control}
+                          rules={{
+                            validate: (value) =>
+                              validateIssueDate(
+                                value,
+                                laborExpiry,
+                                "Labor issued date",
+                              ),
+                          }}
+                          render={({ field }) => (
+                            <>
+                              <DateInput
+                                {...field}
+                                placeholder="dd/mm/yyyy"
+                                error={!!errors.labor_issued_date}
+                              />
+                              {errors.labor_issued_date && (
+                                <p className="mt-1 text-xs text-red-500">
+                                  {errors.labor_issued_date.message}
+                                </p>
+                              )}
+                            </>
+                          )}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
+                          Labor Expiry Date
+                        </label>
+                        <Controller
+                          name="labor_expiry_date"
+                          control={control}
+                          rules={{
+                            validate: (value) =>
+                              validateExpiryDate(
+                                value,
+                                laborIssued,
+                                "Labor expiry date",
+                              ),
+                          }}
+                          render={({ field }) => (
+                            <>
+                              <DateInput
+                                {...field}
+                                placeholder="dd/mm/yyyy"
+                                error={!!errors.labor_expiry_date}
+                              />
+                              {errors.labor_expiry_date && (
+                                <p className="mt-1 text-xs text-red-500">
+                                  {errors.labor_expiry_date.message}
+                                </p>
+                              )}
+                            </>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Visa Section */}
                   <div className="border border-gray-200 rounded-lg p-4 md:p-5">
                     <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
                       <i className="fas fa-passport text-green-500 mr-2"></i>
@@ -1475,8 +2078,9 @@ const AddEmployee = () => {
                           render={({ field }) => (
                             <>
                               <DateInput
-                                field={field}
-                                hasError={!!errors.visa_issued_date}
+                                {...field}
+                                placeholder="dd/mm/yyyy"
+                                error={!!errors.visa_issued_date}
                               />
                               {errors.visa_issued_date && (
                                 <p className="mt-1 text-xs text-red-500">
@@ -1507,8 +2111,9 @@ const AddEmployee = () => {
                           render={({ field }) => (
                             <>
                               <DateInput
-                                field={field}
-                                hasError={!!errors.visa_expiry_date}
+                                {...field}
+                                placeholder="dd/mm/yyyy"
+                                error={!!errors.visa_expiry_date}
                               />
                               {errors.visa_expiry_date && (
                                 <p className="mt-1 text-xs text-red-500">
@@ -1522,26 +2127,27 @@ const AddEmployee = () => {
                     </div>
                   </div>
 
+                  {/* EID Section */}
                   <div className="border border-gray-200 rounded-lg p-4 md:p-5">
                     <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
-                      <i className="fas fa-briefcase text-green-500 mr-2"></i>
-                      Labor Details
+                      <i className="fas fa-id-card text-green-500 mr-2"></i>
+                      Emirates ID (EID)
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
-                      <div>
+                      <div className="md:col-span-2">
                         <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
-                          Labor Number
+                          <i className="fas fa-qrcode text-green-500 mr-1"></i>{" "}
+                          EID Number
                         </label>
                         <Controller
-                          name="labor_number"
+                          name="eid_number"
                           control={control}
                           render={({ field }) => (
                             <input
                               {...field}
                               type="text"
                               className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                              placeholder="Enter Labor Number"
+                              placeholder="Enter EID number (e.g., 784-2024-1234567-8)"
                             />
                           )}
                         />
@@ -1550,28 +2156,29 @@ const AddEmployee = () => {
                       <div>
                         <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                           <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
-                          Labor Issued Date
+                          EID Issued Date
                         </label>
                         <Controller
-                          name="labor_issued_date"
+                          name="eid_issued_date"
                           control={control}
                           rules={{
                             validate: (value) =>
                               validateIssueDate(
                                 value,
-                                laborExpiry,
-                                "Labor issued date",
+                                eidExpiry,
+                                "EID issued date",
                               ),
                           }}
                           render={({ field }) => (
                             <>
                               <DateInput
-                                field={field}
-                                hasError={!!errors.labor_issued_date}
+                                {...field}
+                                placeholder="dd/mm/yyyy"
+                                error={!!errors.eid_issued_date}
                               />
-                              {errors.labor_issued_date && (
+                              {errors.eid_issued_date && (
                                 <p className="mt-1 text-xs text-red-500">
-                                  {errors.labor_issued_date.message}
+                                  {errors.eid_issued_date.message}
                                 </p>
                               )}
                             </>
@@ -1582,28 +2189,29 @@ const AddEmployee = () => {
                       <div>
                         <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                           <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
-                          Labor Expiry Date
+                          EID Expiry Date
                         </label>
                         <Controller
-                          name="labor_expiry_date"
+                          name="eid_expiry_date"
                           control={control}
                           rules={{
                             validate: (value) =>
                               validateExpiryDate(
                                 value,
-                                laborIssued,
-                                "Labor expiry date",
+                                eidIssued,
+                                "EID expiry date",
                               ),
                           }}
                           render={({ field }) => (
                             <>
                               <DateInput
-                                field={field}
-                                hasError={!!errors.labor_expiry_date}
+                                {...field}
+                                placeholder="dd/mm/yyyy"
+                                error={!!errors.eid_expiry_date}
                               />
-                              {errors.labor_expiry_date && (
+                              {errors.eid_expiry_date && (
                                 <p className="mt-1 text-xs text-red-500">
-                                  {errors.labor_expiry_date.message}
+                                  {errors.eid_expiry_date.message}
                                 </p>
                               )}
                             </>
@@ -1613,14 +2221,14 @@ const AddEmployee = () => {
                     </div>
                   </div>
 
-                  {/* Visa & Labor Documents */}
+                  {/* Supporting Documents Section */}
                   <div>
                     <div className="border-t border-gray-200 pt-4 mt-2">
                       <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
                         <i className="fas fa-file-contract text-green-500 mr-2"></i>
                         Supporting Documents
                       </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <DocumentUpload
                           fieldKey="visa_page"
                           label="Visa Page Copy"
@@ -1636,114 +2244,6 @@ const AddEmployee = () => {
                           label="Attach Labor Contract"
                           icon="fas fa-file-signature"
                         />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 3 - EID */}
-            <div className={currentStep === 3 ? "block" : "hidden"}>
-              <div>
-                <div className="form-section-title mb-4 md:mb-6">
-                  <i className="fas fa-id-card text-green-500 mr-2"></i>
-                  <h3 className="text-base md:text-lg font-bold text-gray-800">
-                    Emirates ID (EID)
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
-                  <div className="md:col-span-2">
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-qrcode text-green-500 mr-1"></i> EID
-                      Number
-                    </label>
-                    <Controller
-                      name="eid_number"
-                      control={control}
-                      render={({ field }) => (
-                        <input
-                          {...field}
-                          type="text"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                          placeholder="Enter EID number (e.g., 784-2024-1234567-8)"
-                        />
-                      )}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
-                      Issued Date
-                    </label>
-                    <Controller
-                      name="eid_issued_date"
-                      control={control}
-                      rules={{
-                        validate: (value) =>
-                          validateIssueDate(
-                            value,
-                            eidExpiry,
-                            "EID issued date",
-                          ),
-                      }}
-                      render={({ field }) => (
-                        <>
-                          <DateInput
-                            field={field}
-                            hasError={!!errors.eid_issued_date}
-                          />
-                          {errors.eid_issued_date && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors.eid_issued_date.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
-                      Expiry Date
-                    </label>
-                    <Controller
-                      name="eid_expiry_date"
-                      control={control}
-                      rules={{
-                        validate: (value) =>
-                          validateExpiryDate(
-                            value,
-                            eidIssued,
-                            "EID expiry date",
-                          ),
-                      }}
-                      render={({ field }) => (
-                        <>
-                          <DateInput
-                            field={field}
-                            hasError={!!errors.eid_expiry_date}
-                          />
-                          {errors.eid_expiry_date && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors.eid_expiry_date.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
-
-                  {/* EID Documents */}
-                  <div className="md:col-span-2">
-                    <div className="border-t border-gray-200 pt-4 mt-2">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                        <i className="fas fa-id-card text-green-500 mr-2"></i>
-                        Emirates ID Documents
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <DocumentUpload
                           fieldKey="eid_1st_page"
                           label="EID Front Side"
@@ -1759,10 +2259,10 @@ const AddEmployee = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Step 4 - Contact */}
-            <div className={currentStep === 4 ? "block" : "hidden"}>
+            <div className={currentStep === 3 ? "block" : "hidden"}>
               <div>
                 <div className="form-section-title mb-4 md:mb-6">
                   <i className="fas fa-address-card text-green-500 mr-2"></i>
@@ -1897,7 +2397,7 @@ const AddEmployee = () => {
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-envelope text-green-500 mr-1"></i>{" "}
-                      Personal Email *
+                      Personal Email <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="personal_email"
@@ -1991,6 +2491,12 @@ const AddEmployee = () => {
           </div>
         </form>
       </div>
+      <DocumentModal
+        isOpen={showDocumentModal}
+        onClose={() => setShowDocumentModal(false)}
+        onSave={handleAddDocument}
+        uploading={uploadingDoc}
+      />
     </div>
   );
 };

@@ -184,19 +184,19 @@ const EditLeaveAllocation = () => {
             <div className="flex justify-between py-1 border-t border-gray-100 dark:border-gray-700">
               <span className="text-xs text-gray-500">Company</span>
               <span className="text-xs font-medium text-gray-800 dark:text-gray-200">
-                {currentEmployee.company?.company_name || '-'}
+                {currentEmployee.user?.company?.company_name || '-'}
               </span>
             </div>
             <div className="flex justify-between py-1 border-t border-gray-100 dark:border-gray-700">
               <span className="text-xs text-gray-500">Email</span>
               <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate max-w-[180px]">
-                {currentEmployee.company_email || currentEmployee.personal_email || '-'}
+                {currentEmployee.personal_email || '-'}
               </span>
             </div>
             <div className="flex justify-between py-1 border-t border-gray-100 dark:border-gray-700">
               <span className="text-xs text-gray-500">Phone</span>
               <span className="text-xs font-medium text-gray-800 dark:text-gray-200">
-                {currentEmployee.company_mobile_number || currentEmployee.personal_number || '-'}
+                {currentEmployee.personal_number || '-'}
               </span>
             </div>
             <div className="flex justify-between py-1 border-t border-gray-100 dark:border-gray-700">

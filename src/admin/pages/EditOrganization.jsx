@@ -16,6 +16,8 @@ const EditOrganization = () => {
     (state) => state.organizations || {},
   );
   const [updating, setUpdating] = useState(false);
+  const [phoneError, setPhoneError] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -27,6 +29,29 @@ const EditOrganization = () => {
   });
   const [initialized, setInitialized] = useState(false);
   const [logoPreview, setLogoPreview] = useState(null);
+
+  // Phone number validation helper
+  const validatePhoneNumber = (phone) => {
+    if (!phone) return true; // Phone is optional in edit
+    
+    // Remove all non-digit characters for validation
+    const digitsOnly = phone.replace(/\D/g, "");
+    
+    // Check if phone number has valid length (8-15 digits)
+    if (digitsOnly.length < 8 || digitsOnly.length > 15) {
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Email validation helper
+  const validateEmail = (email) => {
+    if (!email) return true; // Email is optional in edit
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   useEffect(() => {
     if (!organizations || organizations.length === 0) {
@@ -86,10 +111,45 @@ const EditOrganization = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    
+    // Handle phone number validation
+    if (name === "phone") {
+      // Allow only digits, plus sign, spaces, hyphens, and parentheses
+      let cleanedValue = value;
+      cleanedValue = cleanedValue.replace(/[^\d+\-\s()]/g, "");
+      
+      setPhoneError("");
+      
+      // Validate length
+      const digitsOnly = cleanedValue.replace(/\D/g, "");
+      if (digitsOnly.length > 0 && (digitsOnly.length < 8 || digitsOnly.length > 15)) {
+        setPhoneError("Phone number should be between 8 to 15 digits");
+      }
+      
+      setFormData((prev) => ({
+        ...prev,
+        [name]: cleanedValue,
+      }));
+    } 
+    // Handle email validation
+    else if (name === "email") {
+      setEmailError("");
+      
+      if (value && !validateEmail(value)) {
+        setEmailError("Please enter a valid email address");
+      }
+      
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
+    else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   const handleFileChange = (e) => {
@@ -128,56 +188,75 @@ const EditOrganization = () => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!formData.name.trim()) {
-    showToast("Organization name is required", "error");
-    return;
-  }
-
-  setUpdating(true);
-  try {
-    const submitData = new FormData();
-    submitData.append("name", formData.name);
-    if (formData.phone) submitData.append("phone", formData.phone);
-    if (formData.email) submitData.append("email", formData.email);
-    if (formData.address) submitData.append("address", formData.address);
-
-    const multiCompanyValue = formData.multi_company === "Yes" ? 1 : 0;
-    submitData.append("has_multiple_companies", multiCompanyValue);
-
-    if (formData.logo) {
-      submitData.append("logo", formData.logo);
+    // Validation
+    if (!formData.name.trim()) {
+      showToast("Organization name is required", "error");
+      return;
     }
 
-    console.log("Submitting update with FormData:");
-    for (let pair of submitData.entries()) {
-      console.log(`  ${pair[0]}: ${pair[1] instanceof File ? pair[1].name : pair[1]}`);
+    // Phone validation (if provided)
+    if (formData.phone && !validatePhoneNumber(formData.phone)) {
+      showToast("Please enter a valid phone number (8-15 digits)", "error");
+      return;
     }
 
-    const result = await dispatch(
-      updateOrganization({
-        id: parseInt(id),
-        data: submitData,
-        isFormData: true,
-      }),
-    );
+    // Email validation (if provided)
+    if (formData.email && !validateEmail(formData.email)) {
+      showToast("Please enter a valid email address", "error");
+      return;
+    }
 
-    if (updateOrganization.fulfilled.match(result)) {
-      showToast("Organization updated successfully", "success");
-      await dispatch(fetchOrganizations());
-      navigate("/admin/organizations");
-    } else {
-      const errorMsg = result.payload || "Failed to update organization";
-      showToast(errorMsg, "error");
+    setUpdating(true);
+    try {
+      const submitData = new FormData();
+      submitData.append("name", formData.name);
+      
+      // Store only digits for phone number (if provided)
+      if (formData.phone) {
+        const phoneDigitsOnly = formData.phone.replace(/\D/g, "");
+        submitData.append("phone", phoneDigitsOnly);
+      }
+      
+      if (formData.email) submitData.append("email", formData.email);
+      if (formData.address) submitData.append("address", formData.address);
+
+      const multiCompanyValue = formData.multi_company === "Yes" ? 1 : 0;
+      submitData.append("has_multiple_companies", multiCompanyValue);
+
+      if (formData.logo) {
+        submitData.append("logo", formData.logo);
+      }
+
+      console.log("Submitting update with FormData:");
+      for (let pair of submitData.entries()) {
+        console.log(`  ${pair[0]}: ${pair[1] instanceof File ? pair[1].name : pair[1]}`);
+      }
+
+      const result = await dispatch(
+        updateOrganization({
+          id: parseInt(id),
+          data: submitData,
+          isFormData: true,
+        }),
+      );
+
+      if (updateOrganization.fulfilled.match(result)) {
+        showToast("Organization updated successfully", "success");
+        await dispatch(fetchOrganizations());
+        navigate("/admin/organizations");
+      } else {
+        const errorMsg = result.payload || "Failed to update organization";
+        showToast(errorMsg, "error");
+        setUpdating(false);
+      }
+    } catch (error) {
+      console.error("Update error:", error);
+      showToast("An error occurred while updating", "error");
       setUpdating(false);
     }
-  } catch (error) {
-    console.error("Update error:", error);
-    showToast("An error occurred while updating", "error");
-    setUpdating(false);
-  }
-};
+  };
 
   return (
     <div className="w-full overflow-x-hidden px-4 md:px-6">
@@ -216,7 +295,7 @@ const EditOrganization = () => {
           {/* Organization Name */}
           <div className="mb-5">
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Organization Name *
+              Organization Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -239,9 +318,20 @@ const EditOrganization = () => {
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              placeholder="Enter phone number"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
+                phoneError 
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-500" 
+                  : "border-gray-300 dark:border-gray-600"
+              }`}
+              placeholder="+971 50 123 4567"
             />
+            {phoneError && (
+              <p className="mt-1 text-xs text-red-500">{phoneError}</p>
+            )}
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <i className="fas fa-info-circle mr-1"></i>
+              Optional. Enter phone number with country code (e.g., +971 50 123 4567)
+            </p>
           </div>
 
           {/* Email */}
@@ -254,9 +344,20 @@ const EditOrganization = () => {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              placeholder="Enter email address"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
+                emailError 
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-500" 
+                  : "border-gray-300 dark:border-gray-600"
+              }`}
+              placeholder="hr@company.com"
             />
+            {emailError && (
+              <p className="mt-1 text-xs text-red-500">{emailError}</p>
+            )}
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <i className="fas fa-info-circle mr-1"></i>
+              Optional. Enter a valid email address
+            </p>
           </div>
 
           {/* Address */}

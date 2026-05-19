@@ -156,14 +156,12 @@ const RecentFiles = () => {
     }
   };
 
-  const handleFolderAdded = async (newFolder) => {
-    console.log("New folder created:", newFolder);
+  const handleFolderAdded = async () => {
     await refreshDashboard(); // Refresh to get updated folder list
     showToast("Folder created successfully", "success");
   };
 
-  const handleFileAdded = async (newFile) => {
-    console.log("New file added:", newFile);
+  const handleFileAdded = async () => {
     await refreshDashboard(); // Refresh to get updated file list
     showToast("File added successfully", "success");
   };

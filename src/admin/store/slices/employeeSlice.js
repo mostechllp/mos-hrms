@@ -8,6 +8,7 @@ export const fetchEmployees = createAsyncThunk(
       const response = await apiClient.get("/admin/employees");
       return response.data;
     } catch (error) {
+      console.error("FETCH EMPLOYEES ERROR:", error.response?.data);
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch employees",
       );
@@ -15,50 +16,14 @@ export const fetchEmployees = createAsyncThunk(
   },
 );
 
-// In your employeeSlice.js, update the addEmployee thunk
-// export const addEmployee = createAsyncThunk(
-//   "employees/add",
-//   async (employeeData, { rejectWithValue }) => {
-//     try {
-//       console.log("Sending employee data:", employeeData);
-
-//       const response = await apiClient.post("/admin/employees", employeeData);
-//       console.log("Employee add response:", response.data);
-
-//       return response.data.data;
-//     } catch (error) {
-//       console.error("Employee add error - Full error:", error);
-//       console.error(
-//         "Employee add error - Response data:",
-//         error.response?.data,
-//       );
-//       console.error(
-//         "Employee add error - Validation errors:",
-//         error.response?.data?.errors,
-//       );
-
-//       // Return the full error object with validation details
-//       if (error.response?.data?.errors) {
-//         return rejectWithValue({
-//           message: error.response.data.message,
-//           errors: error.response.data.errors,
-//         });
-//       }
-
-//       const errorMessage =
-//         error.response?.data?.message || "Failed to add employee";
-//       return rejectWithValue(errorMessage);
-//     }
-//   },
-// );
 export const addEmployee = createAsyncThunk(
   "employees/add",
   async (employeeData, { rejectWithValue }) => {
     try {
       const response = await apiClient.post("/admin/employees", employeeData);
-      console.log("Employee add response:", response.data);
       return response.data.data;
     } catch (error) {
+      console.error("ADD EMPLOYEE ERROR:", error.response?.data);
       if (error.response?.data?.errors) {
         return rejectWithValue({
           message: error.response.data.message,
@@ -79,6 +44,7 @@ export const deleteEmployee = createAsyncThunk(
       await apiClient.delete(`/admin/employees/${id}`);
       return id;
     } catch (error) {
+      console.error("DELETE EMPLOYEE ERROR:", error.response?.data);
       return rejectWithValue(
         error.response?.data?.message || "Failed to delete employee",
       );
@@ -93,10 +59,9 @@ export const updateEmployeeStatus = createAsyncThunk(
       await apiClient.post(`/admin/employees/${id}/update-status`, {
         status: status.toLowerCase(),
       });
-
       return { id, status };
     } catch (error) {
-      console.log("STATUS ERROR:", error.response?.data);
+      console.error("UPDATE STATUS ERROR:", error.response?.data);
       return rejectWithValue(
         error.response?.data?.message || "Failed to update status",
       );
@@ -109,7 +74,6 @@ export const fetchEmployeeById = createAsyncThunk(
   async (id, { rejectWithValue }) => {
     try {
       const response = await apiClient.get(`/admin/employees/${id}`);
-      console.log("Fetch employee by ID response:", response.data);
 
       if (response.data && response.data.status === "success") {
         return response.data.data;
@@ -119,7 +83,7 @@ export const fetchEmployeeById = createAsyncThunk(
         );
       }
     } catch (error) {
-      console.error("Fetch employee error:", error);
+      console.error("❌ FETCH EMPLOYEE BY ID ERROR:", error);
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch employee",
       );
@@ -128,20 +92,30 @@ export const fetchEmployeeById = createAsyncThunk(
 );
 
 // Update employee
+// Update employee
 export const updateEmployee = createAsyncThunk(
   "employees/update",
   async ({ id, data }, { rejectWithValue }) => {
     try {
       let response;
 
+
       // Log the data being sent for debugging
       if (data instanceof FormData) {
-        console.log("=== Sending FormData ===");
+        const formDataObj = {};
         for (let pair of data.entries()) {
-          console.log(pair[0], ":", pair[1]);
+          if (pair[1] instanceof File) {
+            console.log(
+              `  - ${pair[0]}: [FILE] ${pair[1].name} (${(pair[1].size / 1024).toFixed(2)} KB)`,
+            );
+            formDataObj[pair[0]] = `[FILE: ${pair[1].name}]`;
+          } else {
+            console.log(`  - ${pair[0]}: ${pair[1]}`);
+            formDataObj[pair[0]] = pair[1];
+          }
         }
       } else {
-        console.log("Sending data:", data);
+        console.log("UPDATE EMPLOYEE - Sending data:", data);
       }
 
       // Check if data is FormData or plain object
@@ -155,21 +129,20 @@ export const updateEmployee = createAsyncThunk(
         response = await apiClient.put(`/admin/employees/${id}`, data);
       }
 
-      console.log("Update employee response:", response.data);
 
       if (response.data && response.data.status === "success") {
-        return response.data;
+        return response.data.data; 
       } else {
+        console.warn(
+          "⚠️ UPDATE EMPLOYEE - Response indicated failure:",
+          response.data?.message,
+        );
         return rejectWithValue(
           response.data?.message || "Failed to update employee",
         );
       }
     } catch (error) {
-      console.error("=== Update employee error ===");
-      console.error("Error response:", error.response?.data);
-      console.error("Error status:", error.response?.status);
 
-      // Log validation errors specifically
       if (error.response?.data?.errors) {
         console.error("Validation errors:", error.response.data.errors);
         return rejectWithValue({
@@ -228,29 +201,34 @@ const employeeSlice = createSlice({
       })
       .addCase(fetchEmployees.fulfilled, (state, action) => {
         state.loading = false;
-        state.loading = false;
-
         const apiData = action.payload.data?.data || [];
 
-        state.employees = apiData.map((emp) => ({
-          id: emp.id,
+        state.employees = apiData.map((emp) => {
+          // Handle avatar that might be an object or string
+          let avatarValue = null;
+          if (emp.avatar) {
+            if (typeof emp.avatar === "string") {
+              avatarValue = emp.avatar;
+            } else if (typeof emp.avatar === "object" && emp.avatar.path) {
+              avatarValue = emp.avatar.path;
+            }
+          }
 
-          name: [emp.first_name, emp.last_name].filter(Boolean).join(" "),
+          return {
+            id: emp.id,
+            name: [emp.first_name, emp.last_name].filter(Boolean).join(" "),
+            status: emp.user?.status === "active" ? "Active" : "Inactive",
+            designation: emp.user?.designation?.name || "-",
+            department: emp.user?.department?.name || "-",
+            company: emp.user?.company?.name || "-",
+            avatar: avatarValue,
+            raw: emp,
+          };
+        });
 
-          status: emp.user?.status === "active" ? "Active" : "Inactive",
-
-          designation: emp.user?.designation?.name || "-",
-          department: emp.user?.department?.name || "-",
-          company: emp.user?.company?.name || "-",
-
-          raw: emp,
-        }));
-
-        // pagination
         state.totalCount = action.payload.data?.total || 0;
         state.currentPage = action.payload.data?.current_page || 1;
         state.perPage = action.payload.data?.per_page || 10;
-        state.totalCount = action.payload.total || action.payload.length;
       })
       .addCase(fetchEmployees.rejected, (state, action) => {
         state.loading = false;
@@ -280,7 +258,26 @@ const employeeSlice = createSlice({
       })
       .addCase(fetchEmployeeById.fulfilled, (state, action) => {
         state.loading = false;
-        state.currentEmployee = action.payload;
+        const employeeData = action.payload;
+
+        // Handle avatar that might be an object or string
+        let avatarValue = null;
+        if (employeeData.avatar) {
+          if (typeof employeeData.avatar === "string") {
+            avatarValue = employeeData.avatar;
+          } else if (
+            typeof employeeData.avatar === "object" &&
+            employeeData.avatar.path
+          ) {
+            avatarValue = employeeData.avatar.path;
+          }
+        }
+
+        state.currentEmployee = {
+          ...employeeData,
+          avatar: avatarValue,
+        };
+        console.log("Mapped employee with avatar:", state.currentEmployee);
       })
       .addCase(fetchEmployeeById.rejected, (state, action) => {
         state.loading = false;
@@ -291,19 +288,31 @@ const employeeSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
+      // Update Employee
       .addCase(updateEmployee.fulfilled, (state, action) => {
         state.loading = false;
-        // Update the employee in the employees list if it exists
-        const index = state.employees.findIndex(
-          (emp) => emp.id === action.payload.id,
+        console.log(
+          "📦 REDUX - updateEmployee fulfilled, updating state with:",
+          action.payload,
         );
-        if (index !== -1) {
-          state.employees[index] = action.payload;
+        // Now action.payload is the actual employee data, not the wrapper
+        if (action.payload && action.payload.id) {
+          // Update the employee in the employees list if it exists
+          const index = state.employees.findIndex(
+            (emp) => emp.id === action.payload.id,
+          );
+          if (index !== -1) {
+            state.employees[index] = action.payload;
+          }
+          state.currentEmployee = action.payload;
         }
-        state.currentEmployee = action.payload;
       })
       .addCase(updateEmployee.rejected, (state, action) => {
         state.loading = false;
+        console.error(
+          "📦 REDUX - updateEmployee rejected with error:",
+          action.payload,
+        );
         state.error = action.payload;
       });
   },

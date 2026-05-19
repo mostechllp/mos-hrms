@@ -55,6 +55,15 @@ const EmployeeDetails = () => {
     }
   };
 
+  useEffect(() => {
+    if (currentEmployee) {
+      console.log("EmployeeDetails currentEmployee:", currentEmployee);
+      console.log("Avatar path:", currentEmployee.avatar_path);
+      console.log("Avatar value:", currentEmployee.avatar);
+      console.log("Resolved photo URL:", getEmployeePhoto());
+    }
+  }, [currentEmployee]);
+
   const getDocumentUrl = (documentPath) => {
     if (!documentPath) return null;
     const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
@@ -63,36 +72,138 @@ const EmployeeDetails = () => {
 
   const getPhotoUrl = (photoValue) => {
     if (!photoValue) return null;
-    if (photoValue.startsWith("/tmp/")) return null; // reject PHP temp paths
+
+    // Handle temporary PHP paths
+    if (photoValue.startsWith("/tmp/")) {
+      // You'll need to get the actual file from the backend
+      // This might require an additional API call or the backend should return a proper URL
+      const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
+      // If your backend serves temp files
+      return `${baseUrl}/storage/temp/${photoValue.replace("/tmp/", "")}`;
+    }
+
     if (photoValue.startsWith("data:")) return photoValue;
     if (photoValue.startsWith("http://") || photoValue.startsWith("https://"))
       return photoValue;
 
-    // handles both "temp/filename.jpg" and "employees/photos/filename.jpg"
     const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
+
     if (photoValue.startsWith("/storage/")) return `${baseUrl}${photoValue}`;
+
+    if (!photoValue.includes("/")) {
+      return `${baseUrl}/storage/avatars/${photoValue}`;
+    }
 
     return `${baseUrl}/storage/${photoValue}`;
   };
 
   const getEmployeePhoto = () => {
+    // Check all possible fields where avatar/photo might be stored
     const possiblePhotoFields = [
+      currentEmployee?.avatar,
+      currentEmployee?.avatar_path,
       currentEmployee?.passport_size_photo,
       currentEmployee?.profile_photo,
       currentEmployee?.photo,
-      currentEmployee?.avatar,
+      currentEmployee?.user?.avatar,
+      currentEmployee?.user?.avatar_path,
       currentEmployee?.user?.passport_size_photo,
       currentEmployee?.user?.profile_photo,
-      currentEmployee?.user?.photo,
-      currentEmployee?.user?.avatar,
     ];
 
     for (const fieldValue of possiblePhotoFields) {
-      const resolvedPhoto = getPhotoUrl(fieldValue);
-      if (resolvedPhoto) return resolvedPhoto;
+      if (fieldValue && typeof fieldValue === "string") {
+        const resolvedPhoto = getPhotoUrl(fieldValue);
+        if (resolvedPhoto) {
+          console.log("Found photo at:", resolvedPhoto);
+          return resolvedPhoto;
+        }
+      }
     }
 
+    // If avatar is an object (as seen in your response), check if it has a path property
+    if (currentEmployee?.avatar && typeof currentEmployee.avatar === "object") {
+      if (currentEmployee.avatar.path) {
+        return getPhotoUrl(currentEmployee.avatar.path);
+      }
+    }
+
+    console.log("No photo found in employee data");
     return null;
+  };
+
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "N/A";
+
+    try {
+      // If it's already a Date object
+      if (dateValue instanceof Date) {
+        return dateValue.toLocaleDateString("en-GB"); // DD/MM/YYYY format
+      }
+
+      // If it's a string
+      if (typeof dateValue === "string") {
+        // Check if it's in YYYY-MM-DD format
+        if (dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [year, month, day] = dateValue.split("-");
+          return `${day}/${month}/${year}`; // Convert to DD/MM/YYYY for display
+        }
+
+        // Try parsing as ISO string
+        const date = new Date(dateValue);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString("en-GB");
+        }
+      }
+
+      return dateValue;
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "N/A";
+    }
+  };
+
+  // Update the formatSpecialDays function
+  const formatSpecialDays = (specialDays) => {
+    console.log("Formatting special days:", specialDays);
+
+    if (!specialDays) return null;
+
+    try {
+      let days = specialDays;
+
+      // If it's a string, try to parse it
+      if (typeof specialDays === "string") {
+        try {
+          days = JSON.parse(specialDays);
+          console.log("Parsed special days string:", days);
+        } catch (e) {
+          console.error("Failed to parse special days string:", e);
+          return null;
+        }
+      }
+
+      // If it's an array
+      if (Array.isArray(days) && days.length > 0) {
+        return days.map((day) => ({
+          name: day.name,
+          date: day.date ? formatDate(day.date) : "No date",
+        }));
+      }
+
+      // If special days is an object with the array inside
+      if (days && days.special_days && Array.isArray(days.special_days)) {
+        return days.special_days.map((day) => ({
+          name: day.name,
+          date: day.date ? formatDate(day.date) : "No date",
+        }));
+      }
+
+      return null;
+    } catch (e) {
+      console.error("Error formatting special days:", e);
+      return null;
+    }
   };
 
   const tabs = [
@@ -184,7 +295,7 @@ const EmployeeDetails = () => {
             <div className="flex flex-wrap justify-between items-center gap-4">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => navigate("/employees")}
+                  onClick={() => navigate("/admin/employees")}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   title="Back to Employees"
                 >
@@ -216,9 +327,17 @@ const EmployeeDetails = () => {
                   src={getEmployeePhoto()}
                   alt={`${currentEmployee.first_name || "Employee"} photo`}
                   className="w-24 h-24 rounded-full object-cover border-2 border-green-100 shadow-md"
+                  onError={(e) => {
+                    console.error("Failed to load image:", getEmployeePhoto());
+                    e.target.style.display = "none";
+                    e.target.parentElement.querySelector(
+                      ".fallback-avatar",
+                    ).style.display = "flex";
+                  }}
                 />
-              ) : (
-                <div className="w-24 h-24 gradient-heading rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-md">
+              ) : null}
+              {!getEmployeePhoto() && (
+                <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-md fallback-avatar">
                   {currentEmployee.first_name?.charAt(0)}
                   {currentEmployee.last_name?.charAt(0)}
                 </div>
@@ -229,7 +348,7 @@ const EmployeeDetails = () => {
                 </h2>
                 <div className="flex flex-wrap gap-2 mt-2 justify-center md:justify-start">
                   <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                    {currentEmployee.user?.type?.toUpperCase()}
+                    {currentEmployee.user?.type?.toUpperCase() || "EMPLOYEE"}
                   </span>
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-semibold ${currentEmployee.user?.status === "active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
@@ -245,7 +364,7 @@ const EmployeeDetails = () => {
                 <div className="mt-3 flex flex-wrap gap-4 justify-center md:justify-start text-sm text-gray-600">
                   <div className="flex items-center gap-1">
                     <FiMail className="text-green-500" />{" "}
-                    {currentEmployee.company_email}
+                    {currentEmployee.personal_email || "N/A"}
                   </div>
                   <div className="flex items-center gap-1">
                     <FiPhone className="text-green-500" />{" "}
@@ -265,7 +384,7 @@ const EmployeeDetails = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`px-5 py-3 flex items-center gap-2 text-sm font-medium transition-all ${
                     activeTab === tab.id
-                      ? "text-green-600 border-b-2 border-green-600 bg-gray-50" // Changed from bg-green-50 to bg-gray-50
+                      ? "text-green-600 border-b-2 border-green-600 bg-gray-50"
                       : "text-gray-600 hover:text-green-600 hover:bg-gray-50"
                   }`}
                 >
@@ -307,7 +426,7 @@ const EmployeeDetails = () => {
                         Username
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.user?.username}
+                        {currentEmployee.user?.username || "N/A"}
                       </p>
                     </div>
                     <div className="border-b border-gray-100 pb-3">
@@ -315,7 +434,7 @@ const EmployeeDetails = () => {
                         User Type
                       </label>
                       <p className="text-gray-800 font-medium mt-1 capitalize">
-                        {currentEmployee.user?.type}
+                        {currentEmployee.user?.type || "N/A"}
                       </p>
                     </div>
                   </div>
@@ -334,7 +453,7 @@ const EmployeeDetails = () => {
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
                         {currentEmployee.dob
-                          ? new Date(currentEmployee.dob).toLocaleDateString()
+                          ? formatDate(currentEmployee.dob)
                           : "N/A"}
                       </p>
                     </div>
@@ -344,9 +463,7 @@ const EmployeeDetails = () => {
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
                         {currentEmployee.joining_date
-                          ? new Date(
-                              currentEmployee.joining_date,
-                            ).toLocaleDateString()
+                          ? formatDate(currentEmployee.joining_date)
                           : "N/A"}
                       </p>
                     </div>
@@ -354,9 +471,33 @@ const EmployeeDetails = () => {
                       <label className="text-xs text-gray-500 uppercase tracking-wide">
                         Special Days
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.special_days || "N/A"}
-                      </p>
+                      <div className="mt-2 space-y-2">
+                        {(() => {
+                          const formattedSpecialDays = formatSpecialDays(
+                            currentEmployee.special_days,
+                          );
+                          if (
+                            !formattedSpecialDays ||
+                            formattedSpecialDays.length === 0
+                          ) {
+                            return (
+                              <p className="text-gray-800 font-medium">N/A</p>
+                            );
+                          }
+                          return formattedSpecialDays.map((day, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center gap-2 text-gray-800"
+                            >
+                              <span className="inline-flex items-center justify-center w-6 h-6 bg-green-100 text-green-600 rounded-full text-xs font-semibold">
+                                {index + 1}
+                              </span>
+                              <span className="font-medium">{day.name}:</span>
+                              <span className="text-gray-600">{day.date}</span>
+                            </div>
+                          ));
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -369,10 +510,10 @@ const EmployeeDetails = () => {
                   <div className="space-y-4">
                     <div className="border-b border-gray-100 pb-3">
                       <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Organization
+                        Company
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.organization?.name || "N/A"}
+                        {currentEmployee.user?.company?.company_name || "N/A"}
                       </p>
                     </div>
                     <div className="border-b border-gray-100 pb-3">
@@ -380,25 +521,17 @@ const EmployeeDetails = () => {
                         Designation
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.designation?.name || "N/A"}
+                        {currentEmployee.user?.designation?.name || "N/A"}
                       </p>
                     </div>
                   </div>
                   <div className="space-y-4">
                     <div className="border-b border-gray-100 pb-3">
                       <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Company
-                      </label>
-                      <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.company?.company_name || "N/A"}
-                      </p>
-                    </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
                         Department
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.department?.name || "N/A"}
+                        {currentEmployee.user?.department?.name || "N/A"}
                       </p>
                     </div>
                   </div>
@@ -634,10 +767,18 @@ const EmployeeDetails = () => {
                     </div>
                     <div className="border-b border-gray-100 pb-3">
                       <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Role
+                        Nationality
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1">
+                        {currentEmployee.nationality || "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                        Marital Status
                       </label>
                       <p className="text-gray-800 font-medium mt-1 capitalize">
-                        {currentEmployee.role || "N/A"}
+                        {currentEmployee.marital_status || "N/A"}
                       </p>
                     </div>
                   </div>
@@ -658,7 +799,7 @@ const EmployeeDetails = () => {
                         Company Email
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.company_email}
+                        {currentEmployee.company_email || "N/A"}
                       </p>
                     </div>
                     <div className="border-b border-gray-100 pb-3">
