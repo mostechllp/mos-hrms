@@ -913,15 +913,14 @@ const AddEmployee = () => {
               type="button"
               key={step.number}
               onClick={() => handleStepClick(index)}
-              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
-                currentStep === index
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${currentStep === index
                   ? "bg-green-500 text-white shadow-md"
                   : stepErrors[index]
                     ? "bg-red-50 text-red-600 border border-red-300"
                     : index < currentStep
                       ? "text-green-500"
                       : "text-gray-500 bg-gray-100"
-              }`}
+                }`}
             >
               <i className={`${step.icon} mr-1 text-xs md:text-sm`}></i>
               <span className="hidden sm:inline">

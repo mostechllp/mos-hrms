@@ -1,74 +1,72 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import apiClient from "../../../utils/apiClient";
 
-// Helper for error handling
 const handleApiError = (error) => {
   if (error.response) {
-    return (
-      error.response.data?.message || `Server error: ${error.response.status}`
-    );
+    return error.response.data?.message || `Server error: ${error.response.status}`;
   }
-  if (error.request) {
-    return "Network error: Unable to connect to server";
-  }
+  if (error.request) return "Network error: Unable to connect to server";
   return error.message || "An unexpected error occurred";
 };
 
-// Helper to extract and transform attendance records from API response
+const isValidPunch = (value) => value && value !== "-" && value.trim() !== "";
+
 const extractAttendanceRecords = (response) => {
   try {
-    if (
-      response.data?.data?.attendance?.data &&
-      Array.isArray(response.data.data.attendance.data)
-    ) {
-      const attendanceData = response.data.data.attendance;
-      const records = attendanceData.data.map((record) => ({
-        id: record.userid,
-        company: record.company?.company_name || "Unknown",
-        company_id: record.company_id,
-        employeeName: record.user?.first_name
-          ? `${record.user.first_name} ${record.user.last_name || ""}`.trim()
-          : `User ${record.userid}`,
-        employee_id: record.userid,
-        date: record.log_date,
-        punchIn: record.punch_in
-          ? new Date(record.punch_in).toLocaleTimeString("en-GB", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : "-",
-        punchOut: record.punch_out
-          ? new Date(record.punch_out).toLocaleTimeString("en-GB", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : null,
-        punch_in_raw: record.punch_in,
-        punch_out_raw: record.punch_out,
-        isLate: false,
-        hasPunchOut: !!record.punch_out,
-      }));
+    // ✅ Correct path: response.data.data.attendance
+    const attendance = response.data?.data?.attendance;
+
+    if (attendance?.data && Array.isArray(attendance.data)) {
+      const records = attendance.data.map((record, idx) => {
+        const hasPunchOut = isValidPunch(record.punch_out);
+        const punchIn = isValidPunch(record.punch_in) ? record.punch_in : "-";
+
+        // Derive present/absent from punch_in
+        const isPresent = isValidPunch(record.punch_in);
+
+        return {
+          id: record.userid || idx,
+          employee_id: record.userid,
+          employeeName: record.user
+            ? `${record.user.first_name || ""} ${record.user.last_name || ""}`.trim()
+            : `Employee ${record.userid}`,
+          company: record.company?.company_name || "N/A",
+          company_id: record.company_id || null,
+          department: record.company?.company_name || "N/A",
+          date: record.log_date || "-",
+          punchIn,
+          punchOut: hasPunchOut ? record.punch_out : null,
+          punch_in_raw: record.punch_in,
+          punch_out_raw: record.punch_out,
+          status: isPresent ? "Present" : "Absent",
+          isLate: false,
+          hasPunchOut,
+        };
+      });
+
+      const meta = {
+        total: attendance.total,
+        current_page: attendance.current_page,
+        last_page: attendance.last_page,
+        per_page: attendance.per_page,
+      };
+
+      const stats = {
+        totalActiveEmployees: meta.total || records.length,
+        presentToday: records.filter((r) => r.status === "Present").length,
+        absentToday: records.filter((r) => r.status === "Absent").length,
+        punchedInOnTime: records.filter((r) => r.status === "Present" && !r.isLate).length,
+        punchedLate: records.filter((r) => r.isLate).length,
+        punchedOutToday: records.filter((r) => r.hasPunchOut).length,
+      };
 
       return {
         records,
-        total: attendanceData.total || records.length,
-        currentPage: attendanceData.current_page,
-        lastPage: attendanceData.last_page,
-        perPage: attendanceData.per_page,
-      };
-    }
-
-    if (response.data?.data && Array.isArray(response.data.data)) {
-      return {
-        records: response.data.data,
-        total: response.data.data.length,
-      };
-    }
-
-    if (Array.isArray(response.data)) {
-      return {
-        records: response.data,
-        total: response.data.length,
+        total: meta.total || records.length,
+        currentPage: meta.current_page || 1,
+        lastPage: meta.last_page || 1,
+        perPage: meta.per_page || 15,
+        stats,
       };
     }
 
@@ -79,204 +77,115 @@ const extractAttendanceRecords = (response) => {
   }
 };
 
-// Helper to extract stats from API response
-const extractStats = (response) => {
-  try {
-    if (response.data?.data?.stats) {
-      const stats = response.data.data.stats;
-      return {
-        totalActiveEmployees: stats.total_active_employees || 0,
-        presentToday: stats.present_today || 0,
-        absentToday: stats.absent_today || 0,
-        punchedInOnTime: stats.punched_in_on_time || 0,
-        punchedLate: stats.punched_late || 0,
-        punchedOutToday: stats.punched_out_today || 0,
-      };
-    }
-    return null;
-  } catch (error) {
-    console.error("Error extracting stats:", error);
-    return null;
-  }
-};
-
-// Helper to extract data from simple list responses
 const extractData = (response) => {
-  if (response.data?.data && Array.isArray(response.data.data)) {
-    return response.data.data;
-  }
-  if (
-    response.data?.status === "success" &&
-    Array.isArray(response.data.data)
-  ) {
-    return response.data.data;
-  }
-  if (Array.isArray(response.data)) {
-    return response.data;
-  }
+  if (response.data?.data?.data && Array.isArray(response.data.data.data)) return response.data.data.data;
+  if (response.data?.data && Array.isArray(response.data.data)) return response.data.data;
+  if (Array.isArray(response.data)) return response.data;
   return [];
 };
 
-// Async Thunks
 export const fetchAttendanceRecords = createAsyncThunk(
   "attendance/fetchAll",
   async (params = {}, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get(`/admin/reports/attendance`, { params });
-      console.log("Attendance records response:", response.data);
-      const result = extractAttendanceRecords(response);
-      const stats = extractStats(response);
-      return { ...result, stats };
+      const response = await apiClient.get(`/admin/attendance`, { params });
+      return extractAttendanceRecords(response);
     } catch (error) {
       return rejectWithValue(handleApiError(error));
     }
-  },
+  }
 );
 
 export const uploadAttendanceFile = createAsyncThunk(
   "attendance/upload",
-  async ({ company_id, file }, { rejectWithValue }) => {
+  async ({ file }, { rejectWithValue }) => {  // ← remove company_id
     try {
       const formData = new FormData();
-      formData.append("company_id", company_id);
-      formData.append("file", file);
+      // ❌ Remove this line: formData.append("company_id", company_id);
+      formData.append("file", file);  // ← only file
 
-      const response = await apiClient.post(
-        `/admin/attendance/upload`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        },
-      );
-      console.log("Upload response:", response.data);
+      const response = await apiClient.post(`/admin/attendance/upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-      const uploadId =
-        response.data?.upload_id ||
-        response.data?.data?.id ||
-        response.data?.id;
-      const status = response.data?.status || "processing";
+      console.log("Upload response full:", JSON.stringify(response.data, null, 2));
 
-      return { 
-        id: uploadId, 
-        status: status,
+      const uploadId = response.data?.data?.id || null;
+      const rawStatus = response.data?.data?.status || "pending";
+      const processingStatus = ["completed", "done", "success", "processed"].includes(rawStatus)
+        ? "completed"
+        : "processing";
+
+      return {
+        id: uploadId,
+        status: processingStatus,
         fileName: file.name,
-        company_id: company_id,
-        uploadedAt: new Date().toISOString()
+        uploadedAt: new Date().toISOString(),
       };
     } catch (error) {
-      console.error("Upload error details:", error.response?.data);
-      
+      console.error("Upload error:", error.response?.data);
       if (error.response?.data?.errors) {
-        const errorMessages = Object.values(error.response.data.errors).flat();
-        return rejectWithValue(errorMessages.join(", "));
+        const msgs = Object.values(error.response.data.errors).flat();
+        return rejectWithValue(msgs.join(", "));
       }
-      
-      return rejectWithValue(
-        error.response?.data?.message ||
-          "Failed to upload attendance file",
-      );
+      return rejectWithValue(error.response?.data?.message || "Failed to upload attendance file");
     }
-  },
+  }
 );
 
 export const fetchUploadStatus = createAsyncThunk(
   "attendance/fetchUploadStatus",
   async (id, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get(
-        `/admin/attendance/upload-status/${id}`,
-      );
-      console.log("Upload status response:", response.data);
+      const response = await apiClient.get(`/admin/attendance/upload-status/${id}`);
+      console.log("Upload status response:", JSON.stringify(response.data, null, 2));
 
-      let status = "processing";
-      if (response.data?.data?.status) {
-        status = response.data.data.status;
-      } else if (response.data?.status) {
-        status = response.data.status;
-      } else if (typeof response.data === "string") {
-        status = response.data;
+      // API returns: { data: { id, status: "pending"|"completed"|"failed", progress, ... }, message, status: "success" }
+      // NOTE: response.data.status is the HTTP wrapper ("success") — NOT the processing status
+      // The actual processing status is inside response.data.data.status
+      const processingStatus = response.data?.data?.status || "pending";
+
+      // Normalize to our internal values
+      let normalizedStatus;
+      if (["completed", "done", "processed"].includes(processingStatus)) {
+        normalizedStatus = "completed";
+      } else if (processingStatus === "failed") {
+        normalizedStatus = "failed";
+      } else {
+        normalizedStatus = "processing"; // "pending" and anything else = still going
       }
 
-      return { id, status };
+      return { id, status: normalizedStatus };
     } catch (error) {
       return rejectWithValue(handleApiError(error));
     }
-  },
+  }
 );
 
-export const fetchPunchInToday = createAsyncThunk(
-  "attendance/fetchPunchInToday",
-  async () => {
-    try {
-      const response = await apiClient.get(`/admin/attendance/punch-in-today`);
-      console.log("Punch in today response:", response.data);
-      return extractData(response);
-    } catch (error) {
-      console.error("Failed to fetch punch in today:", error);
-      return [];
-    }
-  },
-);
+export const fetchPunchInToday = createAsyncThunk("attendance/fetchPunchInToday", async () => {
+  try { return extractData(await apiClient.get(`/admin/attendance/punch-in-today`)); }
+  catch { return []; }
+});
 
-export const fetchPunchInYesterday = createAsyncThunk(
-  "attendance/fetchPunchInYesterday",
-  async () => {
-    try {
-      const response = await apiClient.get(
-        `/admin/attendance/punch-in-yesterday`,
-      );
-      console.log("Punch in yesterday response:", response.data);
-      return extractData(response);
-    } catch (error) {
-      console.error("Failed to fetch punch in yesterday:", error);
-      return [];
-    }
-  },
-);
+export const fetchPunchInYesterday = createAsyncThunk("attendance/fetchPunchInYesterday", async () => {
+  try { return extractData(await apiClient.get(`/admin/attendance/punch-in-yesterday`)); }
+  catch { return []; }
+});
 
-export const fetchPunchOutToday = createAsyncThunk(
-  "attendance/fetchPunchOutToday",
-  async () => {
-    try {
-      const response = await apiClient.get(`/admin/attendance/punch-out-today`);
-      console.log("Punch out today response:", response.data);
-      return extractData(response);
-    } catch (error) {
-      console.error("Failed to fetch punch out today:", error);
-      return [];
-    }
-  },
-);
+export const fetchPunchOutToday = createAsyncThunk("attendance/fetchPunchOutToday", async () => {
+  try { return extractData(await apiClient.get(`/admin/attendance/punch-out-today`)); }
+  catch { return []; }
+});
 
-export const fetchLateComers = createAsyncThunk(
-  "attendance/fetchLateComers",
-  async () => {
-    try {
-      const response = await apiClient.get(`/admin/attendance/late-comers`);
-      console.log("Late comers response:", response.data);
-      return extractData(response);
-    } catch (error) {
-      console.error("Failed to fetch late comers:", error);
-      return [];
-    }
-  },
-);
+export const fetchLateComers = createAsyncThunk("attendance/fetchLateComers", async () => {
+  try { return extractData(await apiClient.get(`/admin/attendance/late-comers`)); }
+  catch { return []; }
+});
 
-export const fetchAbsentees = createAsyncThunk(
-  "attendance/fetchAbsentees",
-  async () => {
-    try {
-      const response = await apiClient.get(`/admin/attendance/absentees`);
-      console.log("Absentees response:", response.data);
-      return extractData(response);
-    } catch (error) {
-      console.error("Failed to fetch absentees:", error);
-      return [];
-    }
-  },
-);
+export const fetchAbsentees = createAsyncThunk("attendance/fetchAbsentees", async () => {
+  try { return extractData(await apiClient.get(`/admin/attendance/absentees`)); }
+  catch { return []; }
+});
 
 const attendanceSlice = createSlice({
   name: "attendance",
@@ -290,15 +199,16 @@ const attendanceSlice = createSlice({
       punchedLate: 0,
       punchedOutToday: 0,
     },
-    uploadStatus: null,
+    uploadStatus: null,       // null | "processing" | "completed" | "failed"
     uploadStatusId: null,
-    uploads: [], // Track multiple uploads
+    uploads: [],
     punchInToday: [],
     punchInYesterday: [],
     punchOutToday: [],
     lateComers: [],
     absentees: [],
     loading: false,
+    uploadLoading: false,
     error: null,
     totalCount: 0,
     currentPage: 1,
@@ -310,42 +220,27 @@ const attendanceSlice = createSlice({
       state.uploadStatus = null;
       state.uploadStatusId = null;
     },
-    clearErrors: (state) => {
-      state.error = null;
-    },
-    addUpload: (state, action) => {
-      state.uploads.push(action.payload);
-    },
+    clearErrors: (state) => { state.error = null; },
     updateUploadStatus: (state, action) => {
       const { id, status } = action.payload;
-      const upload = state.uploads.find(u => u.id === id);
-      if (upload) {
-        upload.status = status;
-        upload.updatedAt = new Date().toISOString();
-      }
-      // Also update the current upload if it matches
-      if (state.uploadStatusId === id) {
-        state.uploadStatus = status;
-      }
+      const upload = state.uploads.find((u) => u.id === id);
+      if (upload) { upload.status = status; upload.updatedAt = new Date().toISOString(); }
+      if (state.uploadStatusId === id) state.uploadStatus = status;
     },
     removeUpload: (state, action) => {
-      state.uploads = state.uploads.filter(u => u.id !== action.payload);
+      state.uploads = state.uploads.filter((u) => u.id !== action.payload);
       if (state.uploadStatusId === action.payload) {
         state.uploadStatus = null;
         state.uploadStatusId = null;
       }
     },
     clearCompletedUploads: (state) => {
-      state.uploads = state.uploads.filter(u => u.status === 'processing');
-    }
+      state.uploads = state.uploads.filter((u) => u.status === "processing");
+    },
   },
   extraReducers: (builder) => {
     builder
-      // Fetch Attendance Records
-      .addCase(fetchAttendanceRecords.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(fetchAttendanceRecords.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(fetchAttendanceRecords.fulfilled, (state, action) => {
         state.loading = false;
         state.records = action.payload.records;
@@ -353,110 +248,52 @@ const attendanceSlice = createSlice({
         state.currentPage = action.payload.currentPage || 1;
         state.lastPage = action.payload.lastPage || 1;
         state.perPage = action.payload.perPage || 15;
-        if (action.payload.stats) {
-          state.stats = action.payload.stats;
-        }
+        if (action.payload.stats) state.stats = action.payload.stats;
       })
       .addCase(fetchAttendanceRecords.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-        state.records = [];
-        state.totalCount = 0;
+        state.loading = false; state.error = action.payload; state.records = []; state.totalCount = 0;
       })
 
-      // Upload Attendance File
       .addCase(uploadAttendanceFile.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+        state.uploadLoading = true; state.error = null; state.uploadStatus = null;
       })
       .addCase(uploadAttendanceFile.fulfilled, (state, action) => {
-        state.loading = false;
-        state.uploadStatus = "processing";
+        state.uploadLoading = false;
+        state.uploadStatus = action.payload.status; // "processing" or "completed"
         state.uploadStatusId = action.payload.id;
-        // Add to uploads list for persistence
         state.uploads.push({
           id: action.payload.id,
-          status: "processing",
+          status: action.payload.status,
           fileName: action.payload.fileName,
           company_id: action.payload.company_id,
-          uploadedAt: action.payload.uploadedAt
+          uploadedAt: action.payload.uploadedAt,
         });
       })
       .addCase(uploadAttendanceFile.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-        state.uploadStatus = "failed";
+        state.uploadLoading = false; state.error = action.payload; state.uploadStatus = "failed";
       })
 
-      // Fetch Upload Status
-      .addCase(fetchUploadStatus.pending, (state) => {
-        state.error = null;
-      })
       .addCase(fetchUploadStatus.fulfilled, (state, action) => {
         const { id, status } = action.payload;
-        const upload = state.uploads.find(u => u.id === id);
-        if (upload) {
-          upload.status = status;
-        }
-        if (state.uploadStatusId === id) {
-          state.uploadStatus = status;
-          if (status === 'completed' || status === 'failed') {
-            // Keep in uploads for notification, but mark as complete
-          }
-        }
+        const upload = state.uploads.find((u) => u.id === id);
+        if (upload) upload.status = status;
+        if (state.uploadStatusId === id) state.uploadStatus = status;
       })
-      .addCase(fetchUploadStatus.rejected, (state, action) => {
-        state.error = action.payload;
-      })
+      .addCase(fetchUploadStatus.rejected, (state, action) => { state.error = action.payload; })
 
-      // Fetch Punch In Today
-      .addCase(fetchPunchInToday.fulfilled, (state, action) => {
-        state.punchInToday = action.payload;
-      })
-      .addCase(fetchPunchInToday.rejected, (state) => {
-        state.punchInToday = [];
-      })
-
-      // Fetch Punch In Yesterday
-      .addCase(fetchPunchInYesterday.fulfilled, (state, action) => {
-        state.punchInYesterday = action.payload;
-      })
-      .addCase(fetchPunchInYesterday.rejected, (state) => {
-        state.punchInYesterday = [];
-      })
-
-      // Fetch Punch Out Today
-      .addCase(fetchPunchOutToday.fulfilled, (state, action) => {
-        state.punchOutToday = action.payload;
-      })
-      .addCase(fetchPunchOutToday.rejected, (state) => {
-        state.punchOutToday = [];
-      })
-
-      // Fetch Late Comers
-      .addCase(fetchLateComers.fulfilled, (state, action) => {
-        state.lateComers = action.payload;
-      })
-      .addCase(fetchLateComers.rejected, (state) => {
-        state.lateComers = [];
-      })
-
-      // Fetch Absentees
-      .addCase(fetchAbsentees.fulfilled, (state, action) => {
-        state.absentees = action.payload;
-      })
-      .addCase(fetchAbsentees.rejected, (state) => {
-        state.absentees = [];
-      });
+      .addCase(fetchPunchInToday.fulfilled, (state, action) => { state.punchInToday = action.payload; })
+      .addCase(fetchPunchInToday.rejected, (state) => { state.punchInToday = []; })
+      .addCase(fetchPunchInYesterday.fulfilled, (state, action) => { state.punchInYesterday = action.payload; })
+      .addCase(fetchPunchInYesterday.rejected, (state) => { state.punchInYesterday = []; })
+      .addCase(fetchPunchOutToday.fulfilled, (state, action) => { state.punchOutToday = action.payload; })
+      .addCase(fetchPunchOutToday.rejected, (state) => { state.punchOutToday = []; })
+      .addCase(fetchLateComers.fulfilled, (state, action) => { state.lateComers = action.payload; })
+      .addCase(fetchLateComers.rejected, (state) => { state.lateComers = []; })
+      .addCase(fetchAbsentees.fulfilled, (state, action) => { state.absentees = action.payload; })
+      .addCase(fetchAbsentees.rejected, (state) => { state.absentees = []; });
   },
 });
 
-export const { 
-  clearUploadStatus, 
-  clearErrors, 
-  addUpload, 
-  updateUploadStatus, 
-  removeUpload,
-  clearCompletedUploads
-} = attendanceSlice.actions;
+export const { clearUploadStatus, clearErrors, updateUploadStatus, removeUpload, clearCompletedUploads } =
+  attendanceSlice.actions;
 export default attendanceSlice.reducer;
