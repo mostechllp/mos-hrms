@@ -1,13 +1,15 @@
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { FiUploadCloud, FiFileText, FiCheckCircle, FiLoader, FiAlertCircle } from "react-icons/fi";
+import { FiUploadCloud, FiFileText, FiCheckCircle, FiLoader, FiAlertCircle, FiKey } from "react-icons/fi";
 import { parseResume } from "../../store/slices/onboardingSlice";
+import { isOpenRouterConfigured } from "../../utils/openRouterService";
 
 const ResumeUpload = () => {
   const dispatch = useDispatch();
   const { isLoading, error, resumeData } = useSelector((state) => state.onboarding);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [isConfigured] = useState(() => isOpenRouterConfigured());
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -54,6 +56,23 @@ const ResumeUpload = () => {
     }, 80); // Total 400ms
   };
 
+  const KeyConfigWarning = () => (
+    <div className="mb-8 p-5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/40 rounded-2xl flex gap-4 text-left animate-fadeIn">
+      <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+        <FiKey size={20} />
+      </div>
+      <div>
+        <h4 className="text-sm font-bold text-amber-800 dark:text-amber-300">OpenRouter API Key Required</h4>
+        <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">
+          Please add <strong>VITE_OPENROUTER_API_KEY</strong> to your <code>.env</code> file in the project root to enable automated resume parsing.
+        </p>
+        <div className="mt-3 bg-amber-100/50 dark:bg-amber-950/40 px-3 py-1.5 rounded-lg border border-amber-200/50 font-mono text-[10px] text-amber-800 dark:text-amber-300 max-w-max">
+          VITE_OPENROUTER_API_KEY=your_key_here
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-2xl mx-auto animate-fadeIn">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700 p-8 md:p-12">
@@ -61,6 +80,9 @@ const ResumeUpload = () => {
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Upload Candidate Resume</h2>
           <p className="text-gray-500 dark:text-gray-400">Our AI will automatically extract details for you.</p>
         </div>
+
+        {/* API Key warning if not set */}
+        {!isConfigured && !resumeData && !isLoading && <KeyConfigWarning />}
 
         {/* Upload Zone */}
         {!resumeData && !isLoading && (
