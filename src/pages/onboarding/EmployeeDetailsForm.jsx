@@ -12,18 +12,19 @@ const EmployeeDetailsForm = () => {
   const {
     register,
     handleSubmit,
-    setValue,
+    reset,
     formState: { errors },
   } = useForm({
     defaultValues: employeeDetails,
   });
 
-  // Sync form with Redux state (in case of manual updates or parsing results)
+  // Re-initialize form whenever Redux parsed data changes (e.g. after AI resume parsing)
+  // Using reset() ensures ALL fields including phone are properly populated
   useEffect(() => {
-    Object.keys(employeeDetails).forEach(key => {
-      setValue(key, employeeDetails[key]);
-    });
-  }, [employeeDetails, setValue]);
+    if (employeeDetails && Object.keys(employeeDetails).length > 0) {
+      reset(employeeDetails);
+    }
+  }, [employeeDetails, reset]);
 
   const onSubmit = (data) => {
     dispatch(updateEmployeeDetails(data));
