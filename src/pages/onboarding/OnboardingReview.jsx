@@ -169,51 +169,70 @@ const OnboardingReview = () => {
       // Always send company_id — backend requires this key to exist
       body.company_id = companyId ? parseInt(companyId) : null;
 
-      console.log("=== SUBMITTING CANDIDATE TO EMPLOYEE STORE API ===");
-      console.log("Payload:", JSON.stringify(body, null, 2));
+
+      // Convert raw API/SQL errors to client-friendly messages
+      const getFriendlyErrorMessage = (rawMsg) => {
+        if (!rawMsg) return "Something went wrong. Please try again.";
+        const msg = rawMsg.toLowerCase();
+        if (msg.includes("email") && (msg.includes("duplicate") || msg.includes("unique") || msg.includes("already")))
+          return "This email address is already registered in the system. Please use a different email.";
+        if (msg.includes("employee_id") && (msg.includes("duplicate") || msg.includes("unique")))
+          return "This Employee ID already exists. A new unique ID will be generated automatically on retry.";
+        if (msg.includes("phone") && (msg.includes("duplicate") || msg.includes("unique")))
+          return "This phone number is already registered with another employee.";
+        if (msg.includes("duplicate entry") || msg.includes("integrity constraint") || msg.includes("sqlstate"))
+          return "A record with these details already exists. Please check the email or phone number and try again.";
+        if (msg.includes("network") || msg.includes("timeout") || msg.includes("connection"))
+          return "Unable to connect to the server. Please check your internet connection and try again.";
+        if (msg.includes("unauthorized") || msg.includes("unauthenticated") || msg.includes("403"))
+          return "Your session has expired. Please log in again and retry.";
+        if (msg.includes("server error") || msg.includes("500"))
+          return "The server encountered an error. Please try again in a moment.";
+        return "Unable to create the employee record. Please verify the details and try again.";
+      };
+
+      // Map raw API field names to client-friendly labels
+      const fieldLabels = {
+        first_name: "First Name",
+        last_name: "Last Name",
+        employee_id: "Employee ID",
+        gender: "Gender",
+        dob: "Date of Birth",
+        marital_status: "Marital Status",
+        personal_email: "Email Address",
+        company_email: "Company Email",
+        phone: "Phone Number",
+        personal_number: "Phone Number",
+        joining_date: "Joining Date",
+        nationality: "Nationality",
+        organization_id: "Organization",
+        company_id: "Company",
+        department_id: "Department",
+        designation_id: "Designation",
+        type: "Employee Type",
+        status: "Status",
+        role: "Role",
+        address: "Address",
+        passport_number: "Passport Number",
+        visa_number: "Visa Number",
+        eid_number: "EID Number",
+      };
 
       let apiSuccess = false;
       try {
         const response = await apiClient.post("/admin/employees", body);
-        console.log("API SUCCESS:", response.data);
         apiSuccess = true;
-        showToast("Employee record created successfully in HRM!", "success");
+        showToast("Employee record created successfully!", "success");
         dispatch(fetchEmployees());
       } catch (apiError) {
-        // Map raw API field names to client-friendly labels
-        const fieldLabels = {
-          first_name: "First Name",
-          last_name: "Last Name",
-          employee_id: "Employee ID",
-          gender: "Gender",
-          dob: "Date of Birth",
-          marital_status: "Marital Status",
-          personal_email: "Email Address",
-          company_email: "Company Email",
-          phone: "Phone Number",
-          personal_number: "Phone Number",
-          joining_date: "Joining Date",
-          nationality: "Nationality",
-          organization_id: "Organization",
-          company_id: "Company",
-          department_id: "Department",
-          designation_id: "Designation",
-          type: "Employee Type",
-          status: "Status",
-          role: "Role",
-          address: "Address",
-          passport_number: "Passport Number",
-          visa_number: "Visa Number",
-          eid_number: "EID Number",
-        };
-
         const errData = apiError.response?.data;
 
-        if (errData?.errors) {
+        if (errData?.errors && Object.keys(errData.errors).length > 0) {
+          // Structured validation errors — map each field
           const errorList = Object.entries(errData.errors).map(
             ([field, msgs]) => ({
               field: fieldLabels[field] || field.replace(/_/g, " "),
-              message: Array.isArray(msgs) ? msgs[0] : msgs,
+              message: getFriendlyErrorMessage(Array.isArray(msgs) ? msgs[0] : msgs),
             })
           );
           setErrorModal({
@@ -222,14 +241,15 @@ const OnboardingReview = () => {
             errors: errorList,
           });
         } else {
-          const msg = errData?.message || "Something went wrong while creating the employee record. Please try again.";
+          // General server error — convert to friendly message
+          const rawMsg = errData?.message || "";
           setErrorModal({
             isOpen: true,
             title: "Unable to Create Employee",
-            errors: [{ field: "Error", message: msg }],
+            errors: [{ field: "Action Required", message: getFriendlyErrorMessage(rawMsg) }],
           });
         }
-        showToast("Employee creation failed. Please try again.", "error");
+        showToast("Employee creation failed. Please fix the issue and try again.", "error");
       }
 
       // Only complete onboarding if employee was created successfully
@@ -268,22 +288,22 @@ const OnboardingReview = () => {
     <>
       {/* Error Modal */}
       {errorModal.isOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1100] p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-slideUp">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4 flex items-center justify-between">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1100] p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden animate-slideUp">
+            {/* Modal Header — green to match website theme */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                  <FiAlertTriangle className="text-white" size={20} />
+                <div className="w-11 h-11 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                  <FiAlertTriangle className="text-white" size={22} />
                 </div>
                 <div>
-                  <h3 className="text-white font-bold text-base">{errorModal.title}</h3>
-                  <p className="text-white/70 text-xs">Onboarding will still complete</p>
+                  <h3 className="text-white font-bold text-base leading-tight">{errorModal.title}</h3>
+                  <p className="text-white/75 text-xs mt-0.5">Please review and fix the issue below</p>
                 </div>
               </div>
               <button
                 onClick={() => setErrorModal({ isOpen: false, title: "", errors: [] })}
-                className="text-white/70 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg"
+                className="text-white/70 hover:text-white transition-colors p-1.5 hover:bg-white/15 rounded-lg"
               >
                 <FiX size={20} />
               </button>
@@ -294,16 +314,16 @@ const OnboardingReview = () => {
               {errorModal.errors.map((err, idx) => (
                 <div
                   key={idx}
-                  className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/20"
+                  className="flex items-start gap-3 p-3.5 bg-green-50 dark:bg-green-900/10 rounded-xl border border-green-100 dark:border-green-900/20"
                 >
-                  <div className="w-6 h-6 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-red-500 text-xs font-bold">{idx + 1}</span>
+                  <div className="w-6 h-6 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-green-600 dark:text-green-400 text-xs font-bold">{idx + 1}</span>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">
+                    <p className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wider">
                       {err.field.replace(/_/g, " ")}
                     </p>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5">{err.message}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 leading-relaxed">{err.message}</p>
                   </div>
                 </div>
               ))}
@@ -313,7 +333,7 @@ const OnboardingReview = () => {
             <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 flex justify-end">
               <button
                 onClick={() => setErrorModal({ isOpen: false, title: "", errors: [] })}
-                className="px-5 py-2 bg-gray-900 dark:bg-white dark:text-gray-900 text-white rounded-full text-sm font-semibold hover:opacity-90 transition-all shadow-md"
+                className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white rounded-full text-sm font-semibold transition-all shadow-md hover:shadow-lg"
               >
                 Got it
               </button>
