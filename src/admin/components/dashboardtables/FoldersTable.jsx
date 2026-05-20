@@ -3,7 +3,6 @@ import { useAppTheme } from "../../../context/ThemeContext";
 const FoldersTable = ({
   pageDocs,
   start,
-  handleView,
   handleEdit,
   handleDeleteClick
 }) => {
@@ -32,13 +31,6 @@ const FoldersTable = ({
 
             <td className="px-4 py-3">
               <div className="flex gap-3">
-                <button 
-                  onClick={() => handleView(folder)}
-                  className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  title="View"
-                >
-                  <i className="fas fa-eye text-blue-500 text-xs"></i>
-                </button>
                 <button 
                   onClick={() => handleEdit(folder)}
                   className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
