@@ -45,7 +45,7 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       showToast("Please fill in all fields", "error");
       return;
@@ -53,7 +53,7 @@ const Login = () => {
 
     // Save remember me preference
     dispatch(setRememberMe(rememberMe));
-    
+
     await dispatch(loginUser({ email, password }));
   };
 
@@ -72,7 +72,7 @@ const Login = () => {
           </div>
           <h1 className="text-4xl font-bold mb-4">Human Resource Management</h1>
           <p className="text-lg opacity-90 mb-10">
-            Unified portal for administrators and employees. Seamlessly manage 
+            Unified portal for administrators and employees. Seamlessly manage
             attendance, leaves, reports, and more in one place.
           </p>
           <div className="space-y-3 text-left">

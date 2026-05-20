@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { FiFileText, FiDownload, FiChevronRight, FiChevronLeft, FiPrinter, FiSettings, FiEdit } from "react-icons/fi";
+import { FiFileText, FiDownload, FiChevronRight, FiChevronLeft, FiPrinter, FiSettings, FiEdit, FiLoader } from "react-icons/fi";
 import { setStep, updateOfferLetter } from "../../store/slices/onboardingSlice";
+import jsPDF from "jspdf";
 
 const OfferLetterPreview = () => {
   const dispatch = useDispatch();
@@ -58,12 +59,136 @@ UAE Operations`;
     dispatch(setStep(2));
   };
 
-  const simulateDownload = () => {
+  const downloadPDF = () => {
     setIsGenerating(true);
-    setTimeout(() => {
+    try {
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const margin = 20;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const maxLineWidth = pageWidth - (margin * 2);
+
+      // Apply styling based on template
+      if (template === "modern") {
+        // Modern Minimalist Template
+        doc.setFont("Helvetica", "bold");
+        doc.setFontSize(22);
+        doc.setTextColor(44, 62, 80);
+        doc.text("OFFER OF EMPLOYMENT", margin, 25);
+
+        doc.setDrawColor(52, 152, 219); // Blue accent
+        doc.setLineWidth(1.5);
+        doc.line(margin, 29, 60, 29);
+      } else {
+        // Standard Classic Template
+        doc.setFont("Helvetica", "bold");
+        doc.setFontSize(18);
+        doc.setTextColor(44, 62, 80);
+        doc.text("OFFER OF EMPLOYMENT", pageWidth / 2, 25, { align: "center" });
+
+        doc.setDrawColor(46, 204, 113); // Green accent
+        doc.setLineWidth(0.8);
+        doc.line(margin, 29, pageWidth - margin, 29);
+      }
+
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(10.5);
+      doc.setTextColor(60, 60, 60);
+
+      const splitText = doc.splitTextToSize(content, maxLineWidth);
+      
+      let y = 40;
+      splitText.forEach(line => {
+        if (y > 275) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.text(line, margin, y);
+        y += 6.5;
+      });
+
+      const filename = `Offer_Letter_${employeeDetails.fullName?.replace(/\s+/g, "_") || "Candidate"}.pdf`;
+      doc.save(filename);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate PDF offer letter.");
+    } finally {
       setIsGenerating(false);
-      alert("Offer Letter PDF generated successfully.");
-    }, 1000);
+    }
+  };
+
+  const handlePrint = () => {
+    // Create an iframe dynamically
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "absolute";
+    iframe.style.width = "0px";
+    iframe.style.height = "0px";
+    iframe.style.border = "none";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    
+    // Format the text into HTML paragraphs
+    const formattedHtml = content
+      .split("\n")
+      .map(para => para.trim() ? `<p style="margin-bottom: 12px; line-height: 1.6; font-size: 14px; font-family: 'Times New Roman', Times, serif; color: #333;">${para}</p>` : `<div style="height: 12px;"></div>`)
+      .join("");
+
+    const isModern = template === "modern";
+
+    doc.open();
+    doc.write(`
+      <html>
+        <head>
+          <title>Offer Letter - ${employeeDetails.fullName || "Candidate"}</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 20mm;
+            }
+            body {
+              font-family: 'Times New Roman', Times, serif;
+              color: #333;
+              padding: 10px;
+            }
+            .header {
+              text-align: ${isModern ? 'left' : 'center'};
+              border-bottom: 2px solid ${isModern ? '#3498db' : '#2ecc71'};
+              padding-bottom: 10px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              font-size: ${isModern ? '28px' : '24px'};
+              margin: 0;
+              color: #2c3e50;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Offer of Employment</h1>
+          </div>
+          <div class="content">
+            ${formattedHtml}
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() {
+                window.frameElement.remove();
+              }, 100);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    doc.close();
   };
 
   if (!onboarding) return <div className="p-10 text-center">Loading Onboarding Data...</div>;
@@ -92,11 +217,22 @@ UAE Operations`;
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700 p-6 text-center">
           <div className="grid grid-cols-2 gap-4">
-            <button onClick={simulateDownload} className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border hover:border-primary-500 transition-all flex flex-col items-center gap-2">
-              <FiDownload size={20} className="text-gray-400" />
-              <span className="text-[10px] font-bold">PDF</span>
+            <button 
+              onClick={downloadPDF} 
+              disabled={isGenerating}
+              className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border hover:border-primary-500 transition-all flex flex-col items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isGenerating ? (
+                <FiLoader size={20} className="text-primary-500 animate-spin" />
+              ) : (
+                <FiDownload size={20} className="text-gray-400" />
+              )}
+              <span className="text-[10px] font-bold">{isGenerating ? "SAVING..." : "PDF"}</span>
             </button>
-            <button className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border hover:border-primary-500 transition-all flex flex-col items-center gap-2">
+            <button 
+              onClick={handlePrint}
+              className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border hover:border-primary-500 transition-all flex flex-col items-center justify-center gap-2"
+            >
               <FiPrinter size={20} className="text-gray-400" />
               <span className="text-[10px] font-bold">PRINT</span>
             </button>
