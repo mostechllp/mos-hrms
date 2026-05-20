@@ -11,6 +11,7 @@ import {
 import { clearError } from "../store/slices/authSlice";
 import AddFolderModal from "../components/documents/AddFolderModal";
 import AddPartyModal from "../components/documents/AddPartyModal";
+import DateInput from "../components/common/DateInput";
 
 const AddAgreement = () => {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ const AddAgreement = () => {
     (state) =>
       state.documents || { shareableUsers: [], folders: [], parties: [] },
   );
+  
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedShareWith, setSelectedShareWith] = useState([]);
@@ -57,7 +59,6 @@ const AddAgreement = () => {
       dispatch(fetchParties()).then(() => {
         setRefreshParties(false);
       });
-      dispatch(fetchShareableUsers());
     }
   }, [refreshParties, dispatch]);
 
@@ -67,11 +68,6 @@ const AddAgreement = () => {
       dispatch(clearError());
     }
   }, [error, dispatch]);
-
-  // Debug: Log parties when they change
-  useEffect(() => {
-    console.log("Parties updated:", parties);
-  }, [parties]);
 
   const handleChange = (e) => {
     if (e.target.id === "party_id" && e.target.value === "__add_new__") {
@@ -91,10 +87,17 @@ const AddAgreement = () => {
         return;
       }
       setSelectedFile(file);
-      if (!formData.name) {
+      // Only set name if it's empty OR if the current name matches the previous file name
+      if (!formData.name || formData.name === getFileNameWithoutExtension(selectedFile?.name)) {
         setFormData({ ...formData, name: file.name.replace(/\.[^/.]+$/, "") });
       }
     }
+  };
+  
+  // Helper function to get filename without extension
+  const getFileNameWithoutExtension = (filename) => {
+    if (!filename) return "";
+    return filename.replace(/\.[^/.]+$/, "");
   };
 
   const handleDragOver = (e) => {
@@ -129,7 +132,8 @@ const AddAgreement = () => {
         return;
       }
       setSelectedFile(file);
-      if (!formData.name) {
+      // Only set name if it's empty OR if the current name matches the previous file name
+      if (!formData.name || formData.name === getFileNameWithoutExtension(selectedFile?.name)) {
         setFormData({ ...formData, name: file.name.replace(/\.[^/.]+$/, "") });
       }
     }
@@ -153,14 +157,8 @@ const AddAgreement = () => {
   };
 
   const handlePartyAdded = async (newParty) => {
-    console.log("Party added callback received:", newParty);
-
-    // Set refresh flag to trigger useEffect
     setRefreshParties(true);
-
-    // If we have the new party, select it automatically after refresh
     if (newParty && newParty.id) {
-      // Wait a bit for the refresh to complete
       setTimeout(() => {
         setFormData((prev) => ({ ...prev, party_id: String(newParty.id) }));
         showToast(`Party "${newParty.name}" added and selected`, "success");
@@ -169,7 +167,6 @@ const AddAgreement = () => {
   };
 
   const handleFolderAdded = async (newFolder) => {
-    // Refresh folders list
     await dispatch(fetchDocumentFolders());
     if (newFolder && newFolder.name) {
       setFormData({ ...formData, folder_id: String(newFolder.id) });
@@ -209,15 +206,11 @@ const AddAgreement = () => {
 
     setUploading(true);
 
-    const partiesList = Array.isArray(parties) ? parties : [];
     const usersList = Array.isArray(shareableUsers) ? shareableUsers : [];
-
-
 
     const shareWithIds = selectedShareWith.map((selectedName) => {
       const user = usersList.find((u) => (u.name || u.email) === selectedName);
-      const party = partiesList.find((p) => p.name === selectedName);
-      return user?.id || party?.id || selectedName;
+      return user?.id || selectedName;
     });
 
     const documentData = {
@@ -289,7 +282,7 @@ const AddAgreement = () => {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 md:p-12 text-center cursor-pointer hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all"
+              className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 md:p-12 text-center cursor-pointer hover:border-gray-500 hover:bg-blue-50 dark:hover:bg-gray-900/20 transition-all"
             >
               <div className="mb-3 md:mb-4">
                 <i className="fas fa-file-upload text-4xl md:text-6xl text-green-500"></i>
@@ -311,7 +304,7 @@ const AddAgreement = () => {
             />
 
             {selectedFile && (
-              <div className="mt-3 md:mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="mt-3 md:mt-4 p-3 bg-blue-50 dark:bg-green-900/20 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <i className="fas fa-file-pdf text-xl md:text-2xl text-green-500"></i>
                   <div className="flex-1 min-w-0">
@@ -373,203 +366,162 @@ const AddAgreement = () => {
                   placeholder="Enter description about this document"
                 ></textarea>
               </div>
-              <div>
-                <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                  <i className="fas fa-share-alt text-green-500 mr-1"></i> Share
-                  with <span className="text-red-500">*</span>
-                </label>
-                <div className="relative" ref={dropdownRef}>
-                  <div
-                    onClick={() => setShowDropdown(!showDropdown)}
-                    className="flex items-center justify-between p-2 md:p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-green-500 transition-colors"
-                  >
-                    <div className="flex flex-wrap gap-1 flex-1 max-h-20 overflow-y-auto">
-                      {selectedShareWith.length === 0 ? (
-                        <span className="text-gray-500 dark:text-gray-400 text-xs md:text-sm">
-                          Select users or parties...
-                        </span>
-                      ) : (
-                        selectedShareWith.map((item) => (
-                          <span
-                            key={item}
-                            className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 md:px-2 py-0.5 rounded-full text-[10px] md:text-xs"
-                          >
-                            <span className="truncate max-w-[80px] md:max-w-none">
-                              {item}
-                            </span>
-                            <i
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeSelectedItem(item);
-                              }}
-                              className="fas fa-times cursor-pointer hover:text-red-500 text-[8px] md:text-xs"
-                            ></i>
-                          </span>
-                        ))
-                      )}
-                    </div>
-                    <i
-                      className={`fas fa-chevron-down text-gray-400 text-xs md:text-sm transition-transform ml-2 flex-shrink-0 ${showDropdown ? "rotate-180" : ""}`}
-                    ></i>
-                  </div>
-
-                  {showDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-soft-lg z-10 max-h-80 overflow-y-auto">
-                      {/* Shareable Users Section */}
-                      {shareableUsers.length > 0 && (
-                        <div>
-                          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50">
-                            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
-                              Users
-                            </span>
-                          </div>
-                          {shareableUsers.map((user) => (
-                            <div
-                              key={user.id || user.name}
-                              onClick={() =>
-                                toggleShareItem(user.name || user.email)
-                              }
-                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedShareWith.includes(
-                                  user.name || user.email,
-                                )}
-                                onChange={() => { }}
-                                className="w-3.5 h-3.5 md:w-4 md:h-4 accent-green-500"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <span className="text-xs md:text-sm text-gray-700 dark:text-gray-300">
-                                  {user.name || user.email}
-                                </span>
-                                {user.designation && (
-                                  <span className="hidden sm:inline text-[10px] md:text-xs text-gray-500 ml-1">
-                                    ({user.designation})
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Parties Section */}
-                      {parties.length > 0 && (
-                        <div className="border-t border-gray-200 dark:border-gray-700">
-                          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50">
-                            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
-                              Parties
-                            </span>
-                          </div>
-                          {parties.map((party) => (
-                            <div
-                              key={party.id}
-                              onClick={() => toggleShareItem(party.name)}
-                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedShareWith.includes(party.name)}
-                                onChange={() => { }}
-                                className="w-3.5 h-3.5 md:w-4 md:h-4 accent-green-500"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <span className="text-xs md:text-sm text-gray-700 dark:text-gray-300">
-                                  {party.name}
-                                </span>
-                                {party.company_name && (
-                                  <span className="hidden sm:inline text-[10px] md:text-xs text-gray-500 ml-1">
-                                    ({party.company_name})
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              {/* Party Field */}
-              <div>
-                <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                  <i className="fas fa-building text-green-500 mr-1"></i> Party
-                </label>
-                <div className="relative">
-                  <select
-                    id="party_id"
-                    value={formData.party_id}
-                    onChange={handleChange}
-                    className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 appearance-none pr-10"
-                  >
-                    <option value="">Select Party (Optional)</option>
-                    {Array.isArray(parties) && parties.length > 0 ? (
-                      parties.map((party) => (
-                        <option key={party.id} value={party.id}>
-                          {party.name}{" "}
-                          {party.company_name ? `(${party.company_name})` : ""}
-                        </option>
-                      ))
-                    ) : (
-                      <option disabled>No parties available</option>
-                    )}
-                    <option value="__add_new__">+ Add New Party</option>
-                  </select>
-                </div>
-                {/* Selected Party Details */}
-                {formData.party_id &&
-                  formData.party_id !== "__add_new__" &&
-                  (() => {
-                    const selectedParty = Array.isArray(parties)
-                      ? parties.find(
-                        (p) => String(p.id) === String(formData.party_id),
-                      )
-                      : null;
-                    return selectedParty ? (
-                      <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <i className="fas fa-building text-green-500 text-sm"></i>
-                            <div>
-                              <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                                {selectedParty.name}
-                              </div>
-                              {selectedParty.company_name && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {selectedParty.company_name}
-                                </div>
-                              )}
-                              {selectedParty.email && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  <i className="fas fa-envelope mr-1"></i>
-                                  {selectedParty.email}
-                                </div>
-                              )}
-                              {selectedParty.phone && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  <i className="fas fa-phone mr-1"></i>
-                                  {selectedParty.phone}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setFormData({ ...formData, party_id: "" })
-                            }
-                            className="text-red-400 hover:text-red-600 transition-colors p-1"
-                          >
-                            <i className="fas fa-times text-xs"></i>
-                          </button>
-                        </div>
-                      </div>
-                    ) : null;
-                  })()}
-              </div>
+              
+              {/* 2x2 Grid for Share With, Party, Folder, Expiry Date */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                {/* Share With Dropdown - Only Users, No Parties */}
+                <div>
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-share-alt text-green-500 mr-1"></i> Share
+                    with <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative" ref={dropdownRef}>
+                    <div
+                      onClick={() => setShowDropdown(!showDropdown)}
+                      className="flex items-center justify-between p-2 md:p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-green-500 transition-colors"
+                    >
+                      <div className="flex flex-wrap gap-1 flex-1 max-h-20 overflow-y-auto">
+                        {selectedShareWith.length === 0 ? (
+                          <span className="text-gray-500 dark:text-gray-400 text-xs md:text-sm">
+                            Select users...
+                          </span>
+                        ) : (
+                          selectedShareWith.map((item) => (
+                            <span
+                              key={item}
+                              className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 md:px-2 py-0.5 rounded-full text-[10px] md:text-xs"
+                            >
+                              <span className="truncate max-w-[80px] md:max-w-none">
+                                {item}
+                              </span>
+                              <i
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeSelectedItem(item);
+                                }}
+                                className="fas fa-times cursor-pointer hover:text-red-500 text-[8px] md:text-xs"
+                              ></i>
+                            </span>
+                          ))
+                        )}
+                      </div>
+                      <i
+                        className={`fas fa-chevron-down text-gray-400 text-xs md:text-sm transition-transform ml-2 flex-shrink-0 ${showDropdown ? "rotate-180" : ""}`}
+                      ></i>
+                    </div>
+
+                    {showDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-soft-lg z-10 max-h-80 overflow-y-auto">
+                        {/* Only Shareable Users Section - No Parties */}
+                        {shareableUsers.length > 0 ? (
+                          <div>
+                            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50 sticky top-0">
+                              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                Users
+                              </span>
+                            </div>
+                            {shareableUsers.map((user) => (
+                              <div
+                                key={user.id || user.name}
+                                onClick={() => toggleShareItem(user.name || user.email)}
+                                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedShareWith.includes(user.name || user.email)}
+                                  onChange={() => {}}
+                                  className="w-3.5 h-3.5 md:w-4 md:h-4 accent-green-500"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-xs md:text-sm text-gray-700 dark:text-gray-300">
+                                    {user.name || user.email}
+                                  </span>
+                                  {user.designation && (
+                                    <span className="hidden sm:inline text-[10px] md:text-xs text-gray-500 ml-1">
+                                      ({user.designation})
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                            No users available
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Party Field */}
+                <div>
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-building text-green-500 mr-1"></i> Party
+                  </label>
+                  <div>
+                    <select
+                      id="party_id"
+                      value={formData.party_id}
+                      onChange={handleChange}
+                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 appearance-none pr-10"
+                    >
+                      <option value="">Select Party (Optional)</option>
+                      {Array.isArray(parties) && parties.length > 0 ? (
+                        parties.map((party) => (
+                          <option key={party.id} value={party.id}>
+                            {party.name}{" "}
+                            {party.company_name ? `(${party.company_name})` : ""}
+                          </option>
+                        ))
+                      ) : (
+                        <option disabled>No parties available</option>
+                      )}
+                      <option value="__add_new__">+ Add New Party</option>
+                    </select>
+                  </div>
+                  {/* Selected Party Details */}
+                  {formData.party_id &&
+                    formData.party_id !== "__add_new__" &&
+                    (() => {
+                      const selectedParty = Array.isArray(parties)
+                        ? parties.find(
+                          (p) => String(p.id) === String(formData.party_id),
+                        )
+                        : null;
+                      return selectedParty ? (
+                        <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <i className="fas fa-building text-green-500 text-sm flex-shrink-0"></i>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
+                                  {selectedParty.name}
+                                </div>
+                                {selectedParty.company_name && (
+                                  <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                    {selectedParty.company_name}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setFormData({ ...formData, party_id: "" })
+                              }
+                              className="text-red-400 hover:text-red-600 transition-colors p-1 flex-shrink-0"
+                            >
+                              <i className="fas fa-times text-xs"></i>
+                            </button>
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
+                </div>
+
+                {/* Folder Field */}
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                     <i className="fas fa-folder text-green-500 mr-1"></i> Folder{" "}
@@ -577,8 +529,8 @@ const AddAgreement = () => {
                   </label>
                   <div className="relative">
                     <select
-                      id="folder_id"   // was id="folder"
-                      value={formData.folder_id}  // was formData.folder
+                      id="folder_id"
+                      value={formData.folder_id}
                       onChange={handleChange}
                       className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 appearance-none pr-10"
                       required
@@ -612,17 +564,17 @@ const AddAgreement = () => {
                   </div>
                 </div>
 
+                {/* Expiry Date Field */}
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                     <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
                     Expiry Date
                   </label>
-                  <input
-                    type="date"
-                    id="expiryDate"
+                  <DateInput
+                    type="general"
                     value={formData.expiryDate}
-                    onChange={handleChange}
-                    className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                    onChange={(date) => setFormData({ ...formData, expiryDate: date })}
+                    placeholder="dd/mm/yyyy"
                   />
                 </div>
               </div>

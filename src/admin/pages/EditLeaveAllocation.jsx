@@ -14,7 +14,47 @@ const EditLeaveAllocation = () => {
   const [allocations, setAllocations] = useState({});
   const [updating, setUpdating] = useState(false);
   const [leaveBalances, setLeaveBalances] = useState({});
+  const [photoError, setPhotoError] = useState(false);
+  
   console.log("Employee: ", currentEmployee)
+
+  // Helper function to get employee photo URL
+  const getEmployeePhoto = () => {
+    if (!currentEmployee) return null;
+    
+    // Check multiple possible photo fields
+    const photoValue = 
+      currentEmployee.avatar ||
+      currentEmployee.avatar_path ||
+      currentEmployee.passport_size_photo ||
+      currentEmployee.profile_photo ||
+      currentEmployee.photo ||
+      currentEmployee.user?.avatar;
+    
+    if (!photoValue || photoError) return null;
+    
+    // Handle object type avatar
+    if (typeof photoValue === "object" && photoValue.path) {
+      const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
+      return `${baseUrl}/storage/${photoValue.path}`;
+    }
+    
+    // Handle string paths
+    if (typeof photoValue === "string") {
+      if (photoValue.startsWith("/tmp/")) {
+        const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
+        return `${baseUrl}/storage/temp/${photoValue.replace("/tmp/", "")}`;
+      }
+      if (photoValue.startsWith("data:")) return photoValue;
+      if (photoValue.startsWith("http")) return photoValue;
+      
+      const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
+      if (photoValue.startsWith("/storage/")) return `${baseUrl}${photoValue}`;
+      return `${baseUrl}/storage/${photoValue}`;
+    }
+    
+    return null;
+  };
 
   useEffect(() => {
     if (id) {
@@ -119,6 +159,9 @@ const EditLeaveAllocation = () => {
     );
   }
 
+  const photoUrl = getEmployeePhoto();
+  const employeeInitials = `${currentEmployee.first_name?.charAt(0) || ''}${currentEmployee.last_name?.charAt(0) || ''}`;
+
   return (
     <div className="w-full px-4 md:px-6">
       {/* Breadcrumbs */}
@@ -155,11 +198,25 @@ const EditLeaveAllocation = () => {
             </h3>
           </div>
           
-          {/* Profile Section */}
+          {/* Profile Section with Photo */}
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-sm">
-              {currentEmployee.first_name?.charAt(0)}{currentEmployee.last_name?.charAt(0)}
-            </div>
+            {/* Profile Photo */}
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={`${currentEmployee.first_name} ${currentEmployee.last_name}`}
+                className="w-12 h-12 rounded-full object-cover border-2 border-green-500 shadow-sm"
+                onError={() => setPhotoError(true)}
+              />
+            ) : null}
+            
+            {/* Fallback Initials Avatar */}
+            {(!photoUrl || photoError) && (
+              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-sm">
+                {employeeInitials || '?'}
+              </div>
+            )}
+            
             <div>
               <h4 className="text-base font-semibold text-gray-800 dark:text-gray-200">
                 {currentEmployee.first_name} {currentEmployee.last_name}

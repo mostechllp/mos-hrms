@@ -245,6 +245,48 @@ const LeaveAllocations = () => {
             <tbody>
               {pageEmployees.length > 0 ? (
                 pageEmployees.map((employee, idx) => {
+                  // Helper function to get photo URL
+                  const getEmployeePhoto = () => {
+                    // Check multiple possible photo fields
+                    const photoValue =
+                      employee.avatar ||
+                      employee.avatar_path ||
+                      employee.passport_size_photo ||
+                      employee.profile_photo ||
+                      employee.photo ||
+                      employee.user?.avatar;
+
+                    if (!photoValue) return null;
+
+                    // Handle object type avatar
+                    if (typeof photoValue === "object" && photoValue.path) {
+                      const baseUrl =
+                        import.meta.env.VITE_API_URL?.replace("/api", "") || "";
+                      return `${baseUrl}/storage/${photoValue.path}`;
+                    }
+
+                    // Handle string paths
+                    if (typeof photoValue === "string") {
+                      if (photoValue.startsWith("/tmp/")) {
+                        const baseUrl =
+                          import.meta.env.VITE_API_URL?.replace("/api", "") ||
+                          "";
+                        return `${baseUrl}/storage/temp/${photoValue.replace("/tmp/", "")}`;
+                      }
+                      if (photoValue.startsWith("data:")) return photoValue;
+                      if (photoValue.startsWith("http")) return photoValue;
+
+                      const baseUrl =
+                        import.meta.env.VITE_API_URL?.replace("/api", "") || "";
+                      if (photoValue.startsWith("/storage/"))
+                        return `${baseUrl}${photoValue}`;
+                      return `${baseUrl}/storage/${photoValue}`;
+                    }
+
+                    return null;
+                  };
+
+                  const photoUrl = getEmployeePhoto();
                   const sickAlloc = getAllocationValue(
                     employee.id,
                     "Sick Leave",
@@ -289,8 +331,32 @@ const LeaveAllocations = () => {
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
                         {start + idx + 1}
                       </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
-                        {employee.name}
+                      <td className="px-3 md:px-4 py-2 md:py-3">
+                        <div className="flex items-center gap-2 md:gap-3">
+                          {/* Profile Photo */}
+                          {photoUrl ? (
+                            <img
+                              src={photoUrl}
+                              alt={employee.name}
+                              className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border border-gray-200"
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                                e.target.parentElement.querySelector(
+                                  ".fallback-avatar",
+                                ).style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="fallback-avatar w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white text-sm md:text-base font-semibold"
+                            style={{ display: photoUrl ? "none" : "flex" }}
+                          >
+                            {employee.name?.charAt(0) || "?"}
+                          </div>
+                          <span className="text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                            {employee.name}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                         {employee.designation?.name || "-"}
