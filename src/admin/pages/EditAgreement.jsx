@@ -29,8 +29,12 @@ const EditAgreement = () => {
       state.documents || { shareableUsers: [], folders: [], parties: [], currentDocument: null },
   );
   const [updating, setUpdating] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [selectedShareWith, setSelectedShareWith] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [replaceFile, setReplaceFile] = useState(false);
+  const [fileUrl, setFileUrl] = useState(null);
+  const fileInputRef = useRef(null);
   const dropdownRef = useRef(null);
 
   // Modal states
@@ -45,6 +49,12 @@ const EditAgreement = () => {
     party_id: "",
     expiryDate: "",
   });
+
+  // Helper function to get filename without extension
+  const getFileNameWithoutExtension = (filename) => {
+    if (!filename) return "";
+    return filename.replace(/\.[^/.]+$/, "");
+  };
 
   // Fetch initial data
   useEffect(() => {
@@ -63,17 +73,32 @@ const EditAgreement = () => {
       setFormData({
         name: currentDocument.name || "",
         description: currentDocument.description || "",
-        folder_id: currentDocument.folder_id || currentDocument.folder || "",
+        folder_id: currentDocument.folder_id || "",
         party_id: currentDocument.party_id || "",
         expiryDate: currentDocument.expiry_date || "",
       });
 
       // Set selected share with users/parties
       if (currentDocument.shared_users && currentDocument.shared_users.length > 0) {
-        const shareNames = currentDocument.shared_users.map(user => user.name);
+        const shareNames = currentDocument.shared_users.map(user => user.name || user.email);
         setSelectedShareWith(shareNames);
       } else if (currentDocument.share_with && currentDocument.share_with.length > 0) {
         setSelectedShareWith(currentDocument.share_with);
+      }
+
+      // Build file URL from file_path
+      if (currentDocument.file_path) {
+        let baseUrl = import.meta.env.VITE_API_URL || '';
+        baseUrl = baseUrl.replace('/api', '').replace(/\/$/, '');
+        
+        if (!baseUrl) {
+          baseUrl = window.location.origin;
+        }
+        
+        const encodedPath = currentDocument.file_path.split('/').map(part => encodeURIComponent(part)).join('/');
+        let fullUrl = `${baseUrl}/storage/${encodedPath}`;
+        
+        setFileUrl(fullUrl);
       }
     }
   }, [currentDocument]);
@@ -104,6 +129,30 @@ const EditAgreement = () => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
   };
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const fileSize = file.size / 1024 / 1024;
+      if (fileSize > 10) {
+        showToast("File size must be less than 10MB", "error");
+        return;
+      }
+      setSelectedFile(file);
+      setReplaceFile(true);
+      
+      // Always update agreement name with the new filename (without extension)
+      const newFileName = getFileNameWithoutExtension(file.name);
+      setFormData(prev => ({ ...prev, name: newFileName }));
+      
+    }
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
+    setReplaceFile(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const toggleShareItem = (value) => {
     if (selectedShareWith.includes(value)) {
       setSelectedShareWith(selectedShareWith.filter((item) => item !== value));
@@ -117,7 +166,6 @@ const EditAgreement = () => {
   };
 
   const handlePartyAdded = async (newParty) => {
-    console.log("Party added callback received:", newParty);
     setRefreshParties(true);
     if (newParty && newParty.id) {
       setTimeout(() => {
@@ -183,7 +231,11 @@ const EditAgreement = () => {
     };
 
     const result = await dispatch(
-      updateDocument({ id: id, formData: documentData, file: null })
+      updateDocument({ 
+        id: id, 
+        formData: documentData, 
+        file: replaceFile ? selectedFile : null 
+      })
     );
 
     setUpdating(false);
@@ -201,6 +253,18 @@ const EditAgreement = () => {
     }
   };
 
+  const openFileInNewTab = () => {
+    if (fileUrl) {
+      window.open(fileUrl, '_blank');
+    } else {
+      showToast("File URL not available", "error");
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current.click();
+  };
+
   if (loading && !currentDocument) {
     return (
       <div className="w-full overflow-x-hidden px-4 md:px-6">
@@ -211,8 +275,29 @@ const EditAgreement = () => {
     );
   }
 
-  // Get selected folder name
-  const selectedFolder = folders.find(f => String(f.id) === String(formData.folder_id));
+  // Get current file name from file_path
+  const getCurrentFileName = () => {
+    if (currentDocument?.file_path) {
+      const pathParts = currentDocument.file_path.split('/');
+      return decodeURIComponent(pathParts[pathParts.length - 1]);
+    }
+    return "No file attached";
+  };
+
+  // Get file icon based on file extension
+  const getFileIcon = (filename) => {
+    if (!filename || filename === "No file attached") return "fas fa-file-alt";
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return "fas fa-file-pdf";
+    if (ext === 'doc' || ext === 'docx') return "fas fa-file-word";
+    if (ext === 'xls' || ext === 'xlsx') return "fas fa-file-excel";
+    if (ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'gif') return "fas fa-file-image";
+    if (ext === 'txt') return "fas fa-file-alt";
+    return "fas fa-file-alt";
+  };
+
+  const currentFileName = getCurrentFileName();
+  const fileIcon = getFileIcon(currentFileName);
 
   return (
     <div className="w-full overflow-x-hidden px-4 md:px-6">
@@ -243,6 +328,90 @@ const EditAgreement = () => {
       {/* Form Container */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 md:p-6 lg:p-8 shadow-soft">
         <form onSubmit={handleSubmit}>
+          {/* Current File Section with Replace Button */}
+          <div className="mb-6 md:mb-8">
+            <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
+              <i className="fas fa-file-alt text-green-500 text-base md:text-lg"></i>
+              <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
+                Current Document
+              </h3>
+            </div>
+
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <i className={`${fileIcon} text-2xl md:text-3xl text-blue-500 flex-shrink-0`}></i>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm md:text-base font-medium text-gray-800 dark:text-gray-200 truncate">
+                      {currentFileName}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Agreement Name: <span className="font-semibold text-green-600 dark:text-green-400">{formData.name || "Not set"}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  {fileUrl && (
+                    <button
+                      type="button"
+                      onClick={openFileInNewTab}
+                      className="px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors text-xs font-semibold flex items-center gap-1"
+                    >
+                      <i className="fas fa-external-link-alt text-xs"></i>
+                      <span>View</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={triggerFileInput}
+                    className="px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors text-xs font-semibold flex items-center gap-1"
+                  >
+                    <i className="fas fa-sync-alt text-xs"></i>
+                    <span>Replace</span>
+                  </button>
+                </div>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.png"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              
+              {/* Show selected file preview if replacing */}
+              {selectedFile && (
+                <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <i className="fas fa-file-pdf text-xl md:text-2xl text-green-500"></i>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs md:text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                        {selectedFile.name}
+                      </div>
+                      <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400">
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB - Will replace current file
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeFile}
+                    className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700 text-red-500 transition-colors self-start sm:self-center"
+                  >
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
+              )}
+              
+              {!fileUrl && currentDocument && (
+                <div className="mt-3 text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded">
+                  <i className="fas fa-info-circle mr-1"></i>
+                  File path: {currentDocument.file_path}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Document Details Section */}
           <div className="mb-6 md:mb-8">
             <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
@@ -284,202 +453,155 @@ const EditAgreement = () => {
                 ></textarea>
               </div>
 
-              <div>
-                <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                  <i className="fas fa-share-alt text-green-500 mr-1"></i> Share
-                  with <span className="text-red-500">*</span>
-                </label>
-                <div className="relative" ref={dropdownRef}>
-                  <div
-                    onClick={() => setShowDropdown(!showDropdown)}
-                    className="flex items-center justify-between p-2 md:p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-green-500 transition-colors"
-                  >
-                    <div className="flex flex-wrap gap-1 flex-1 max-h-20 overflow-y-auto">
-                      {selectedShareWith.length === 0 ? (
-                        <span className="text-gray-500 dark:text-gray-400 text-xs md:text-sm">
-                          Select users or parties...
-                        </span>
-                      ) : (
-                        selectedShareWith.map((item) => (
-                          <span
-                            key={item}
-                            className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 md:px-2 py-0.5 rounded-full text-[10px] md:text-xs"
-                          >
-                            <span className="truncate max-w-[80px] md:max-w-none">
-                              {item}
-                            </span>
-                            <i
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeSelectedItem(item);
-                              }}
-                              className="fas fa-times cursor-pointer hover:text-red-500 text-[8px] md:text-xs"
-                            ></i>
-                          </span>
-                        ))
-                      )}
-                    </div>
-                    <i
-                      className={`fas fa-chevron-down text-gray-400 text-xs md:text-sm transition-transform ml-2 flex-shrink-0 ${showDropdown ? "rotate-180" : ""}`}
-                    ></i>
-                  </div>
-
-                  {showDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-soft-lg z-10 max-h-80 overflow-y-auto">
-                      {/* Shareable Users Section */}
-                      {shareableUsers.length > 0 && (
-                        <div>
-                          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50">
-                            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
-                              Users
-                            </span>
-                          </div>
-                          {shareableUsers.map((user) => (
-                            <div
-                              key={user.id || user.name}
-                              onClick={() => toggleShareItem(user.name || user.email)}
-                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedShareWith.includes(user.name || user.email)}
-                                onChange={() => {}}
-                                className="w-3.5 h-3.5 md:w-4 md:h-4 accent-green-500"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <span className="text-xs md:text-sm text-gray-700 dark:text-gray-300">
-                                  {user.name || user.email}
-                                </span>
-                                {user.designation && (
-                                  <span className="hidden sm:inline text-[10px] md:text-xs text-gray-500 ml-1">
-                                    ({user.designation})
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Parties Section */}
-                      {parties.length > 0 && (
-                        <div className="border-t border-gray-200 dark:border-gray-700">
-                          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50">
-                            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
-                              Parties
-                            </span>
-                          </div>
-                          {parties.map((party) => (
-                            <div
-                              key={party.id}
-                              onClick={() => toggleShareItem(party.name)}
-                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedShareWith.includes(party.name)}
-                                onChange={() => {}}
-                                className="w-3.5 h-3.5 md:w-4 md:h-4 accent-green-500"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <span className="text-xs md:text-sm text-gray-700 dark:text-gray-300">
-                                  {party.name}
-                                </span>
-                                {party.company_name && (
-                                  <span className="hidden sm:inline text-[10px] md:text-xs text-gray-500 ml-1">
-                                    ({party.company_name})
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Party Field */}
-              <div>
-                <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                  <i className="fas fa-building text-green-500 mr-1"></i> Party
-                </label>
-                <div className="relative">
-                  <select
-                    id="party_id"
-                    value={formData.party_id}
-                    onChange={handleChange}
-                    className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 appearance-none pr-10"
-                  >
-                    <option value="">Select Party (Optional)</option>
-                    {Array.isArray(parties) && parties.length > 0 ? (
-                      parties.map((party) => (
-                        <option key={party.id} value={party.id}>
-                          {party.name}{" "}
-                          {party.company_name ? `(${party.company_name})` : ""}
-                        </option>
-                      ))
-                    ) : (
-                      <option disabled>No parties available</option>
-                    )}
-                    <option value="__add_new__">+ Add New Party</option>
-                  </select>
-                </div>
-
-                {/* Selected Party Details */}
-                {formData.party_id &&
-                  formData.party_id !== "__add_new__" &&
-                  (() => {
-                    const selectedParty = Array.isArray(parties)
-                      ? parties.find(
-                          (p) => String(p.id) === String(formData.party_id),
-                        )
-                      : null;
-                    return selectedParty ? (
-                      <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <i className="fas fa-building text-green-500 text-sm"></i>
-                            <div>
-                              <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                                {selectedParty.name}
-                              </div>
-                              {selectedParty.company_name && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {selectedParty.company_name}
-                                </div>
-                              )}
-                              {selectedParty.email && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  <i className="fas fa-envelope mr-1"></i>
-                                  {selectedParty.email}
-                                </div>
-                              )}
-                              {selectedParty.phone && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  <i className="fas fa-phone mr-1"></i>
-                                  {selectedParty.phone}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setFormData({ ...formData, party_id: "" })
-                            }
-                            className="text-red-400 hover:text-red-600 transition-colors p-1"
-                          >
-                            <i className="fas fa-times text-xs"></i>
-                          </button>
-                        </div>
-                      </div>
-                    ) : null;
-                  })()}
-              </div>
-
+              {/* 2x2 Grid for Share With, Party, Folder, Expiry Date */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                {/* Share With Dropdown */}
+                <div>
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-share-alt text-green-500 mr-1"></i> Share
+                    with <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative" ref={dropdownRef}>
+                    <div
+                      onClick={() => setShowDropdown(!showDropdown)}
+                      className="flex items-center justify-between p-2 md:p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-green-500 transition-colors"
+                    >
+                      <div className="flex flex-wrap gap-1 flex-1 max-h-20 overflow-y-auto">
+                        {selectedShareWith.length === 0 ? (
+                          <span className="text-gray-500 dark:text-gray-400 text-xs md:text-sm">
+                            Select users
+                          </span>
+                        ) : (
+                          selectedShareWith.map((item) => (
+                            <span
+                              key={item}
+                              className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 md:px-2 py-0.5 rounded-full text-[10px] md:text-xs"
+                            >
+                              <span className="truncate max-w-[80px] md:max-w-none">
+                                {item}
+                              </span>
+                              <i
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeSelectedItem(item);
+                                }}
+                                className="fas fa-times cursor-pointer hover:text-red-500 text-[8px] md:text-xs"
+                              ></i>
+                            </span>
+                          ))
+                        )}
+                      </div>
+                      <i
+                        className={`fas fa-chevron-down text-gray-400 text-xs md:text-sm transition-transform ml-2 flex-shrink-0 ${showDropdown ? "rotate-180" : ""}`}
+                      ></i>
+                    </div>
+
+                    {showDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-soft-lg z-10 max-h-80 overflow-y-auto">
+                        {shareableUsers.length > 0 && (
+                          <div>
+                            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50">
+                              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                Users
+                              </span>
+                            </div>
+                            {shareableUsers.map((user) => (
+                              <div
+                                key={user.id || user.name}
+                                onClick={() => toggleShareItem(user.name || user.email)}
+                                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedShareWith.includes(user.name || user.email)}
+                                  onChange={() => {}}
+                                  className="w-3.5 h-3.5 md:w-4 md:h-4 accent-green-500"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-xs md:text-sm text-gray-700 dark:text-gray-300">
+                                    {user.name || user.email}
+                                  </span>
+                                  {user.designation && (
+                                    <span className="hidden sm:inline text-[10px] md:text-xs text-gray-500 ml-1">
+                                      ({user.designation})
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Party Field */}
+                <div>
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-building text-green-500 mr-1"></i> Party
+                  </label>
+                  <div>
+                    <select
+                      id="party_id"
+                      value={formData.party_id}
+                      onChange={handleChange}
+                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 appearance-none pr-10"
+                    >
+                      <option value="">Select Party (Optional)</option>
+                      {Array.isArray(parties) && parties.length > 0 ? (
+                        parties.map((party) => (
+                          <option key={party.id} value={party.id}>
+                            {party.name}{" "}
+                            {party.company_name ? `(${party.company_name})` : ""}
+                          </option>
+                        ))
+                      ) : (
+                        <option disabled>No parties available</option>
+                      )}
+                      <option value="__add_new__">+ Add New Party</option>
+                    </select>
+                  </div>
+                  {formData.party_id &&
+                    formData.party_id !== "__add_new__" &&
+                    (() => {
+                      const selectedParty = Array.isArray(parties)
+                        ? parties.find(
+                            (p) => String(p.id) === String(formData.party_id),
+                          )
+                        : null;
+                      return selectedParty ? (
+                        <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <i className="fas fa-building text-green-500 text-sm flex-shrink-0"></i>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
+                                  {selectedParty.name}
+                                </div>
+                                {selectedParty.company_name && (
+                                  <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                    {selectedParty.company_name}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setFormData({ ...formData, party_id: "" })
+                              }
+                              className="text-red-400 hover:text-red-600 transition-colors p-1 flex-shrink-0"
+                            >
+                              <i className="fas fa-times text-xs"></i>
+                            </button>
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
+                </div>
+
+                {/* Folder Field */}
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                     <i className="fas fa-folder text-green-500 mr-1"></i> Folder{" "}
@@ -508,7 +630,6 @@ const EditAgreement = () => {
                       )}
                     </select>
 
-                    {/* Add Folder Button */}
                     <button
                       type="button"
                       onClick={() => setShowFolderModal(true)}
@@ -518,14 +639,9 @@ const EditAgreement = () => {
                       <i className="fas fa-plus-circle text-lg"></i>
                     </button>
                   </div>
-                  {selectedFolder && (
-                    <p className="text-[10px] md:text-xs text-green-600 dark:text-green-400 mt-1">
-                      <i className="fas fa-info-circle mr-1"></i>
-                      Current folder: {selectedFolder.name}
-                    </p>
-                  )}
                 </div>
 
+                {/* Expiry Date Field */}
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                     <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
