@@ -44,12 +44,24 @@ const Departments = () => {
   }, [error, dispatch]);
 
   const getFilteredDepartments = () => {
-    let filtered = departments || [];
+    let filtered = [...(departments || [])]; // Create a copy
+    
+    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter((dept) =>
         (dept.name || "").toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
+    
+    // Sort by id in descending order (newest first)
+    filtered.sort((a, b) => {
+      // If using numeric IDs
+      if (a.id && b.id) {
+        return b.id - a.id;
+      }
+      return 0;
+    });
+    
     return filtered;
   };
 
@@ -217,23 +229,23 @@ const Departments = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {pageDepartments.map((department) => (
+                    {pageDepartments.map((department, idx) => (
                       <tr
                         key={department.id}
                         className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                       >
                         <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                          {department.id}
-                        </td>
+                          {start + idx + 1}
+                         </td>
                         <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
                           {department.name}
-                        </td>
+                         </td>
                         <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
                           {department.createdAt}
-                        </td>
+                         </td>
                         <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
                           {department.updatedAt}
-                        </td>
+                         </td>
                         <td className="px-3 md:px-4 py-2 md:py-3">
                           <div className="flex gap-1 md:gap-2">
                             <button
@@ -251,8 +263,8 @@ const Departments = () => {
                               <i className="fas fa-trash text-xs md:text-sm"></i>
                             </button>
                           </div>
-                        </td>
-                      </tr>
+                         </td>
+                       </tr>
                     ))}
                     {pageDepartments.length === 0 && (
                       <tr>
@@ -263,8 +275,8 @@ const Departments = () => {
                           {searchTerm
                             ? "No departments found matching your search"
                             : "No departments found"}
-                        </td>
-                      </tr>
+                         </td>
+                       </tr>
                     )}
                   </tbody>
                 </table>

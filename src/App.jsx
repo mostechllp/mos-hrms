@@ -2,9 +2,9 @@ import { lazy, useEffect, Suspense, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { useTheme } from "./admin/hooks/useTheme";
-import GlobalUploadStatus from "./admin/components/common/GlobalUploadStatus";
 import Loader from "./admin/components/common/Loader";
 import { initializeAuth } from "./store/slices/authSlice";
+import "react-datepicker/dist/react-datepicker.css";
 
 // Import shared components
 import ProtectedRoute from "./shared/components/ProtectedRoute";

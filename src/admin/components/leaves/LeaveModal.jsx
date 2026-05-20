@@ -1,5 +1,3 @@
-import React from "react";
-
 const LeaveModal = ({ isOpen, leave, onClose, onViewDocument }) => {
   if (!isOpen || !leave) return null;
 

@@ -289,7 +289,7 @@ const Employees = () => {
               </tr>
             </thead>
             <tbody>
-              {!loading && pageEmployees.length > 0 ? (
+              {!loading && pageEmployees.length > 0 ? ( 
                 pageEmployees.map((emp, idx) => {
                   // Helper function to get photo URL
                   const getEmployeePhoto = () => {
