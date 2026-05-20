@@ -11,6 +11,7 @@ import ProtectedRoute from "./shared/components/ProtectedRoute";
 
 import Login from "./pages/Login";
 import { ThemeProvider } from "./context/ThemeContext";
+import NotFound from "./pages/NotFound";
 
 // Lazy load layouts with prefetch
 const AdminLayout = lazy(() => import("./shared/layouts/AdminLayout"));
@@ -94,7 +95,7 @@ const LazyWrapper = ({ children }) => {
 function App() {
   const { theme } = useTheme();
   const dispatch = useDispatch();
-  const { loading: authLoading, isAuthenticated } = useSelector(
+  const { loading: authLoading } = useSelector(
     (state) => state.auth,
   );
   const [initialLoad, setInitialLoad] = useState(true);
@@ -225,6 +226,7 @@ function App() {
           <Route path="wfh" element={<AdminWFH />} />
           <Route path="settings" element={<Settings />} />
           <Route path="role-management" element={<RoleManagement />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
 
         {/* Employee Routes */}
@@ -249,18 +251,11 @@ function App() {
           <Route path="task-reports" element={<EmployeeTaskReports />} />
           <Route path="profile" element={<EmployeeProfile />} />
           <Route path="attendance-requests" element={<AttendanceRequests />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
 
         {/* Catch all - 404 */}
-        <Route
-          path="*"
-          element={
-            <Navigate
-              to={isAuthenticated ? "/admin/dashboard" : "/login"}
-              replace
-            />
-          }
-        />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </ThemeProvider>
   );
