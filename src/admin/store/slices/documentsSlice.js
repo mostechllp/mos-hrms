@@ -275,11 +275,24 @@ export const deleteDocumentFolder = createAsyncThunk(
   "documents/deleteFolder",
   async (id, { rejectWithValue }) => {
     try {
-      await apiClient.delete(`/admin/folders/${id}`); // Changed from documents-folders to folders
+      await apiClient.delete(`/admin/folders/${id}`);
       return id;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to delete folder",
+      );
+    }
+  },
+);
+export const updateDocumentFolder = createAsyncThunk(
+  "documents/updateFolder",
+  async ({ id, name }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.put(`/admin/folders/${id}`, { name });
+      return response.data.data || response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update folder",
       );
     }
   },
@@ -343,7 +356,6 @@ export const fetchParties = createAsyncThunk(
     }
   },
 );
-
 
 export const addParty = createAsyncThunk(
   "documents/addParty",
@@ -526,6 +538,14 @@ const documentsSlice = createSlice({
       // Add folder
       .addCase(addDocumentFolder.fulfilled, (state, action) => {
         state.folders.push(action.payload);
+      })
+      .addCase(updateDocumentFolder.fulfilled, (state, action) => {
+        const index = state.folders.findIndex(
+          (folder) => folder.id === action.payload.id,
+        );
+        if (index !== -1) {
+          state.folders[index] = action.payload;
+        }
       });
   },
 });

@@ -1,36 +1,83 @@
-import React, { useState } from 'react';
-import { useDispatch } from 'react-redux';
-import { showToast } from '../../../components/common/Toast';
-import { addDocumentFolder } from '../../store/slices/documentsSlice';
+import { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { showToast } from "../../../components/common/Toast";
+import {
+  addDocumentFolder,
+  updateDocumentFolder,
+} from "../../store/slices/documentsSlice";
 
-const AddFolderModal = ({ isOpen, onClose, onFolderAdded }) => {
+const AddFolderModal = ({
+  isOpen,
+  onClose,
+  onFolderAdded,
+  editingFolder = null,
+}) => {
   const dispatch = useDispatch();
-  const [folderName, setFolderName] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const isEditing = !!editingFolder;
+
+  useEffect(() => {
+    if (isOpen) {
+      if (editingFolder) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setFolderName(editingFolder.name || "");
+      } else {
+        setFolderName("");
+      }
+    }
+  }, [isOpen, editingFolder]);
 
   const handleSubmit = async () => {
     if (!folderName.trim()) {
-      showToast('Folder name is required', 'error');
+      showToast("Folder name is required", "error");
       return;
     }
 
-    setIsCreating(true);
-    
+    setIsProcessing(true);
+
     try {
-      const result = await dispatch(addDocumentFolder({ name: folderName }));
-      if (addDocumentFolder.fulfilled.match(result)) {
-        const newFolder = result.payload;
-        showToast('Folder created successfully', 'success');
-        onFolderAdded?.(newFolder);
-        onClose();
-        setFolderName('');
+      let result;
+
+      if (isEditing) {
+        // Update existing folder - pass both id and name
+        result = await dispatch(
+          updateDocumentFolder({
+            id: editingFolder.id,
+            name: folderName.trim(),
+          }),
+        );
+
+        if (updateDocumentFolder.fulfilled.match(result)) {
+          showToast("Folder updated successfully", "success");
+          onFolderAdded?.(result.payload);
+          onClose();
+          setFolderName("");
+        } else {
+          showToast(result.payload || "Failed to update folder", "error");
+        }
       } else {
-        showToast(result.payload || 'Failed to create folder', 'error');
+        // Create new folder
+        result = await dispatch(addDocumentFolder({ name: folderName.trim() }));
+
+        if (addDocumentFolder.fulfilled.match(result)) {
+          showToast("Folder created successfully", "success");
+          onFolderAdded?.(result.payload);
+          onClose();
+          setFolderName("");
+        } else {
+          showToast(result.payload || "Failed to create folder", "error");
+        }
       }
     } catch (error) {
-      showToast('Failed to create folder', error);
+      console.error("Error in handleSubmit:", error);
+      showToast(
+        isEditing ? "Failed to update folder" : "Failed to create folder",
+        "error",
+      );
     } finally {
-      setIsCreating(false);
+      setIsProcessing(false);
     }
   };
 
@@ -41,8 +88,10 @@ const AddFolderModal = ({ isOpen, onClose, onFolderAdded }) => {
       <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-[95%] md:w-full p-6 shadow-soft-lg">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
-            <i className="fas fa-folder-plus text-green-500 mr-2"></i>
-            Create New Folder
+            <i
+              className={`${isEditing ? "fas fa-edit" : "fas fa-folder-plus"} text-green-500 mr-2`}
+            ></i>
+            {isEditing ? "Edit Folder" : "Create New Folder"}
           </h3>
           <button
             onClick={onClose}
@@ -51,7 +100,7 @@ const AddFolderModal = ({ isOpen, onClose, onFolderAdded }) => {
             <i className="fas fa-times text-xl"></i>
           </button>
         </div>
-        
+
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
@@ -65,14 +114,14 @@ const AddFolderModal = ({ isOpen, onClose, onFolderAdded }) => {
               placeholder="Enter folder name"
               autoFocus
               onKeyPress={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === "Enter") {
                   handleSubmit();
                 }
               }}
             />
           </div>
         </div>
-        
+
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={onClose}
@@ -82,13 +131,21 @@ const AddFolderModal = ({ isOpen, onClose, onFolderAdded }) => {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isCreating}
+            disabled={isProcessing}
             className="px-4 py-2 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all disabled:opacity-70 flex items-center gap-2"
           >
-            {isCreating ? (
-              <><i className="fas fa-spinner fa-spin"></i> Creating...</>
+            {isProcessing ? (
+              <>
+                <i className="fas fa-spinner fa-spin"></i>{" "}
+                {isEditing ? "Updating..." : "Creating..."}
+              </>
             ) : (
-              <><i className="fas fa-folder-plus"></i> Create Folder</>
+              <>
+                <i
+                  className={`${isEditing ? "fas fa-save" : "fas fa-folder-plus"}`}
+                ></i>{" "}
+                {isEditing ? "Update Folder" : "Create Folder"}
+              </>
             )}
           </button>
         </div>

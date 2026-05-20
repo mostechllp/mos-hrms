@@ -27,6 +27,7 @@ const RecentFiles = () => {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editingFolder, setEditingFolder] = useState(null);
 
   const documents = [
     ...(recentData?.organization_files || []),
@@ -134,6 +135,7 @@ const RecentFiles = () => {
   const handleAddClick = () => {
     switch (activeFolder) {
       case "folders":
+        setEditingFolder(null); // Reset editing folder for add mode
         setIsFolderModalOpen(true);
         break;
       case "others":
@@ -156,9 +158,9 @@ const RecentFiles = () => {
     }
   };
 
-  const handleFolderAdded = async () => {
+  const handleFolderAdded = async (updatedFolder) => {
     await refreshDashboard(); // Refresh to get updated folder list
-    showToast("Folder created successfully", "success");
+    showToast(updatedFolder ? "Folder updated successfully" : "Folder created successfully", "success");
   };
 
   const handleFileAdded = async () => {
@@ -167,14 +169,8 @@ const RecentFiles = () => {
   };
 
   const handleEditFolder = (folder) => {
-    // Prompt for new folder name
-    const newName = prompt("Edit folder name:", folder.name);
-    if (newName && newName.trim() !== folder.name) {
-      // TODO: API call to update folder name
-      // For now, just show toast and refresh
-      showToast(`Folder renamed to "${newName}"`, "success");
-      refreshDashboard(); // Refresh to show updated name
-    }
+    setEditingFolder(folder);
+    setIsFolderModalOpen(true);
   };
 
   const handleView = (doc) => {
@@ -342,11 +338,15 @@ const RecentFiles = () => {
         />
       </div>
 
-      {/* Add Folder Modal */}
+      {/* Add/Edit Folder Modal */}
       <AddFolderModal
         isOpen={isFolderModalOpen}
-        onClose={() => setIsFolderModalOpen(false)}
+        onClose={() => {
+          setIsFolderModalOpen(false);
+          setEditingFolder(null);
+        }}
         onFolderAdded={handleFolderAdded}
+        editingFolder={editingFolder}
       />
 
       {/* Add File Modal */}
