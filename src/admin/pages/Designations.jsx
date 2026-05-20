@@ -30,12 +30,18 @@ const Designations = () => {
   }, [dispatch]);
 
   const getFilteredDesignations = () => {
-    let filtered = designations;
+    let filtered = [...designations]; // Create a copy
+    
+    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter((des) =>
         des.name.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
+    
+    // Sort by id in descending order (newest first)
+    filtered.sort((a, b) => b.id - a.id);
+    
     return filtered;
   };
 
@@ -49,6 +55,7 @@ const Designations = () => {
     setSelectedDesignation(designation);
     setConfirmOpen(true);
   };
+  
   const handleConfirmDelete = async () => {
     if (!selectedDesignation) return;
 
