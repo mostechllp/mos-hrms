@@ -63,12 +63,23 @@ const AddCompany = () => {
     }
   }, [companyError, dispatch]);
 
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    if (name === "phone") {
+      // Allow: digits, spaces, +, -, (, )
+      const cleanedValue = value.replace(/[^\d\s()+-]/g, "");
+
+      setFormData({
+        ...formData,
+        [name]: cleanedValue,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
 
   const handleFileChange = (e) => {
@@ -183,7 +194,9 @@ const AddCompany = () => {
   };
 
   // Get selected organization name
-  const selectedOrg = organizations.find(org => org.id === parseInt(formData.organization_id));
+  const selectedOrg = organizations.find(
+    (org) => org.id === parseInt(formData.organization_id),
+  );
 
   return (
     <div className="w-full overflow-x-hidden px-4 md:px-6">
@@ -196,7 +209,7 @@ const AddCompany = () => {
           Organizations
         </Link>
         <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
-        
+
         {selectedOrg ? (
           <>
             <Link
@@ -206,7 +219,9 @@ const AddCompany = () => {
               {selectedOrg.name}
             </Link>
             <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
-            <span className="text-gray-500 dark:text-gray-400">Add Company</span>
+            <span className="text-gray-500 dark:text-gray-400">
+              Add Company
+            </span>
           </>
         ) : (
           <span className="text-gray-500 dark:text-gray-400">Add Company</span>
@@ -255,8 +270,8 @@ const AddCompany = () => {
               ))}
           </select>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {organizationId 
-              ? "Organization is fixed for this company" 
+            {organizationId
+              ? "Organization is fixed for this company"
               : "Select the organization this company belongs to"}
           </p>
         </div>

@@ -1,17 +1,30 @@
 import { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { showToast } from '../common/Toast';
-// import { addDocumentFile } from '../../store/slices/documentsSlice'; // Uncomment when API is ready
+import { uploadDocument, fetchDocuments } from '../../store/slices/documentsSlice';
 
 const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
+  const dispatch = useDispatch();
+  const { folders = [] } = useSelector((state) => state.documents);
+  
   const [fileName, setFileName] = useState('');
   const [fileDescription, setFileDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [fileType, setFileType] = useState('other');
+  const [fileType, setFileType] = useState('others'); // Changed default to 'others'
+  const [folderId, setFolderId] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [shareWith, setShareWith] = useState([]);
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file size (10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('File size must be less than 10MB', 'error');
+        return;
+      }
+      
       setSelectedFile(file);
       // Auto-populate filename if empty
       if (!fileName) {
@@ -35,33 +48,40 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
     setIsCreating(true);
     
     try {
-      // Create FormData for file upload
-      const formData = new FormData();
-      formData.append('name', fileName);
-      formData.append('description', fileDescription);
-      formData.append('type', fileType);
-      formData.append('file', selectedFile);
+      // Create FormData for file upload matching your API structure
+      const formData = {
+        name: fileName.trim(),
+        type: fileType, // This will be 'others'
+        description: fileDescription,
+        folder_id: folderId || '',
+        expiry_date: expiryDate || '',
+        share_with: shareWith
+      };
       
-      // Uncomment when API is ready
-      // const result = await dispatch(addDocumentFile(formData));
-      // if (addDocumentFile.fulfilled.match(result)) {
-      //   const newFile = result.payload;
-      //   showToast('File added successfully', 'success');
-      //   onFileAdded?.(newFile);
-      //   handleClose();
-      // } else {
-      //   showToast(result.payload || 'Failed to add file', 'error');
-      // }
+      console.log('Submitting document with type:', fileType);
+      console.log('Form data:', formData);
       
-      // Temporary mock success
-      setTimeout(() => {
+      // Call the uploadDocument API
+      const result = await dispatch(uploadDocument({ formData, file: selectedFile }));
+      
+      if (uploadDocument.fulfilled.match(result)) {
+        const newFile = result.payload;
         showToast('File added successfully', 'success');
-        onFileAdded?.({ name: fileName, description: fileDescription, type: fileType });
+        
+        // Refresh documents list
+        await dispatch(fetchDocuments());
+        
+        // Call the callback with the new file
+        onFileAdded?.(newFile);
         handleClose();
-      }, 500);
+      } else {
+        console.error('Upload failed:', result.payload);
+        showToast(result.payload || 'Failed to add file', 'error');
+      }
       
     } catch (error) {
-      showToast('Failed to add file', error);
+      console.error('Error uploading file:', error);
+      showToast('Failed to add file', 'error');
     } finally {
       setIsCreating(false);
     }
@@ -71,7 +91,10 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
     setFileName('');
     setFileDescription('');
     setSelectedFile(null);
-    setFileType('other');
+    setFileType('others');
+    setFolderId('');
+    setExpiryDate('');
+    setShareWith([]);
     setIsCreating(false);
     onClose();
   };
@@ -80,11 +103,11 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-[95%] md:w-full p-6 shadow-soft-lg">
-        <div className="flex justify-between items-center mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-[95%] md:w-full p-6 shadow-soft-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2">
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
             <i className="fas fa-file-alt text-green-500 mr-2"></i>
-            Add New File
+            Add Other File
           </h3>
           <button
             onClick={handleClose}
@@ -118,13 +141,44 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
               onChange={(e) => setFileType(e.target.value)}
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
             >
-              <option value="document">Document</option>
-              <option value="spreadsheet">Spreadsheet</option>
-              <option value="presentation">Presentation</option>
-              <option value="pdf">PDF</option>
-              <option value="image">Image</option>
-              <option value="other">Other</option>
+              <option value="others">Others</option>
+              <option value="agreements">Agreements</option>
+              <option value="hr">HR</option>
+              <option value="organization">Organization</option>
             </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Select "Others" for miscellaneous files
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Folder (Optional)
+            </label>
+            <select
+              value={folderId}
+              onChange={(e) => setFolderId(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+            >
+              <option value="">Select Folder</option>
+              {folders.map((folder) => (
+                <option key={folder.id} value={folder.id}>
+                  {folder.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Expiry Date (Optional)
+            </label>
+            <input
+              type="date"
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+            />
           </div>
 
           <div>
@@ -171,7 +225,7 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
             {selectedFile && (
               <div className="mt-2 flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                 <i className="fas fa-check-circle"></i>
-                <span>Selected: {selectedFile.name}</span>
+                <span className="truncate">Selected: {selectedFile.name}</span>
                 <button
                   onClick={() => setSelectedFile(null)}
                   className="text-red-500 hover:text-red-600 ml-auto"
@@ -183,7 +237,7 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
           </div>
         </div>
         
-        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 sticky bottom-0 bg-white dark:bg-gray-800">
           <button
             onClick={handleClose}
             className="px-4 py-2 rounded-full font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"

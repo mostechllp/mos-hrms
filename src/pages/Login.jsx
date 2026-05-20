@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { clearError, loginUser, setRememberMe } from "../store/slices/authSlice";
 import { showToast } from "../components/common/Toast";
+import { useAppTheme } from "../context/ThemeContext"; // Import the theme hook
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -14,6 +15,31 @@ const Login = () => {
   const { loading, error, isAuthenticated, userType } = useSelector(
     (state) => state.auth
   );
+  
+  // Get the primary color from theme context
+  const { primaryColor } = useAppTheme();
+
+  // Helper function to adjust color brightness
+  const adjustColor = (color, percent) => {
+    let r, g, b;
+    if (color.startsWith('#')) {
+      r = parseInt(color.slice(1, 3), 16);
+      g = parseInt(color.slice(3, 5), 16);
+      b = parseInt(color.slice(5, 7), 16);
+    } else {
+      return color;
+    }
+    
+    r = Math.max(0, Math.min(255, r + (r * percent) / 100));
+    g = Math.max(0, Math.min(255, g + (g * percent) / 100));
+    b = Math.max(0, Math.min(255, b + (b * percent) / 100));
+    
+    return `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`;
+  };
+
+  // eslint-disable-next-line no-unused-vars
+  const lighterColor = adjustColor(primaryColor, 15);
+  const darkerColor = adjustColor(primaryColor, -15);
 
   // Load remembered email if exists
   useEffect(() => {
@@ -26,11 +52,10 @@ const Login = () => {
     }
   }, []);
 
-  // Redirect based on user type after successful login - immediate redirect
+  // Redirect based on user type after successful login
   useEffect(() => {
     if (isAuthenticated && userType) {
       const redirectPath = userType === "admin" ? "/admin/dashboard" : "/employee/dashboard";
-      // Navigate immediately without showing extra loader
       navigate(redirectPath, { replace: true });
     }
   }, [isAuthenticated, userType, navigate]);
@@ -51,16 +76,20 @@ const Login = () => {
       return;
     }
 
-    // Save remember me preference
     dispatch(setRememberMe(rememberMe));
-
     await dispatch(loginUser({ email, password }));
   };
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Branding */}
-      <div className="hidden lg:flex flex-1 bg-gradient-to-br from-green-600 to-green-500 relative overflow-hidden items-center justify-center p-10">
+      {/* Left Side - Branding - Dynamic gradient based on theme */}
+      <div 
+        className="hidden lg:flex flex-1 relative overflow-hidden items-center justify-center p-10"
+        style={{ 
+          background: `linear-gradient(135deg, ${primaryColor}, ${darkerColor})`,
+          transition: 'background 0.3s ease'
+        }}
+      >
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="relative z-10 text-center text-white max-w-md">
           <div className="mb-8">
@@ -117,7 +146,7 @@ const Login = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                  className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-primary-custom focus:ring-2 focus:ring-primary-custom/20 transition-all"
                   placeholder="your@email.com"
                   disabled={loading}
                 />
@@ -134,7 +163,7 @@ const Login = () => {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-11 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                  className="w-full pl-11 pr-11 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-primary-custom focus:ring-2 focus:ring-primary-custom/20 transition-all"
                   placeholder="••••••••"
                   disabled={loading}
                 />
@@ -154,7 +183,8 @@ const Login = () => {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMeState(e.target.checked)}
-                  className="w-4 h-4 accent-green-500"
+                  className="w-4 h-4 transition-all"
+                  style={{ accentColor: primaryColor }}
                 />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   Remember me
@@ -165,7 +195,13 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full text-white font-semibold py-3 rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+              style={{ 
+                backgroundColor: primaryColor,
+                '&:hover': { backgroundColor: adjustColor(primaryColor, -10) }
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = adjustColor(primaryColor, -10)}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = primaryColor}
             >
               {loading ? (
                 <>
