@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { showToast } from "../../../components/common/Toast";
 import { addLeaveType, updateLeaveType } from "../../store/slices/LeaveSlice";
 
 const LeaveTypeModal = ({ isOpen, editingType, onClose }) => {
   const dispatch = useDispatch();
+  const { leaveTypes = [] } = useSelector((state) => state.leaves || { leaveTypes: [] });
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -17,11 +18,54 @@ const LeaveTypeModal = ({ isOpen, editingType, onClose }) => {
     }
   }, [editingType]);
 
+  // Check if leave type already exists (case insensitive)
+  const isDuplicate = (typeName, excludeId = null) => {
+    return leaveTypes.some(type => 
+      type.name.toLowerCase() === typeName.toLowerCase() && 
+      type.id !== excludeId
+    );
+  };
+
+  // Function to extract error message from the API response
+  const extractErrorMessage = (errorPayload) => {
+    
+    // Check for the errors object with name array
+    if (errorPayload?.errors?.name && Array.isArray(errorPayload.errors.name)) {
+      return errorPayload.errors.name[0]; // "The name has already been taken."
+    }
+    
+    // Check for message property
+    if (errorPayload?.message) {
+      return errorPayload.message;
+    }
+    
+    // If it's a string
+    if (typeof errorPayload === "string") {
+      return errorPayload;
+    }
+    
+    return "Failed to add leave type";
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    
+    if (!trimmedName) {
       showToast("Please enter leave type name", "error");
+      return;
+    }
+
+    // Client-side duplicate check (optional - for immediate feedback)
+    if (!editingType && isDuplicate(trimmedName)) {
+      showToast(`Leave type "${trimmedName}" already exists`, "error");
+      return;
+    }
+
+    // For editing, check if new name conflicts with other types
+    if (editingType && isDuplicate(trimmedName, editingType.id)) {
+      showToast(`Leave type "${trimmedName}" already exists`, "error");
       return;
     }
 
@@ -32,29 +76,34 @@ const LeaveTypeModal = ({ isOpen, editingType, onClose }) => {
         updateLeaveType({
           id: editingType.id,
           data: {
-            name: name.trim(),
+            name: trimmedName,
             status: editingType.status ? 1 : 0,
           },
         }),
       );
+      
       if (updateLeaveType.fulfilled.match(result)) {
-        showToast(`✏️ "${name}" updated successfully`, "success");
+        showToast(`✏️ "${trimmedName}" updated successfully`, "success");
         onClose();
       } else {
-        showToast("Failed to update leave type", "error");
+        const errorMessage = extractErrorMessage(result.payload);
+        showToast(errorMessage, "error");
       }
     } else {
       const result = await dispatch(
         addLeaveType({
-          name: name.trim(),
+          name: trimmedName,
           status: 1,
         }),
       );
+      
+      
       if (addLeaveType.fulfilled.match(result)) {
-        showToast(`✓ "${name}" added successfully`, "success");
+        showToast(`✓ "${trimmedName}" added successfully`, "success");
         onClose();
       } else {
-        showToast("Failed to add leave type", "error");
+        const errorMessage = extractErrorMessage(result.payload);
+        showToast(errorMessage, "error");
       }
     }
 
