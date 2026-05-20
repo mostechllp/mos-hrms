@@ -1,33 +1,29 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { extractTextFromFile } from "../../utils/fileExtractor";
+import { parseResumeTextWithAI } from "../../utils/openRouterService";
 
-// Simulate AI resume parsing
+// Parse AI resume using file extraction and OpenRouter
 export const parseResume = createAsyncThunk(
   "onboarding/parseResume",
   async (file, { rejectWithValue }) => {
     try {
-      // Simulate API call delay - reduced for faster feel
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // 1. Extract text from the file (PDF or DOCX) client-side
+      const text = await extractTextFromFile(file);
       
-      // Mock parsed data
+      // 2. Send extracted text to OpenRouter for AI processing
+      const parsedData = await parseResumeTextWithAI(text);
+      
+      // 3. Return the sanitized employee details along with filename
       return {
-        fullName: "Johnathan Doe",
-        email: "john.doe@example.com",
-        phone: "+971 50 123 4567",
-        nationality: "United Arab Emirates",
-        address: "Downtown Dubai, UAE",
-        designation: "Senior Software Engineer",
-        department: "Engineering",
-        skills: "React, Node.js, AWS, Python",
-        experience: "8 Years",
-        education: "B.Sc. in Computer Science",
-        joiningDate: new Date().toISOString().split('T')[0],
+        ...parsedData,
         fileName: file.name
       };
     } catch (error) {
-      return rejectWithValue("Failed to parse resume");
+      return rejectWithValue(error.message || "Failed to parse resume");
     }
   }
 );
+
 
 const initialState = {
   currentStep: 1,
