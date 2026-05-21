@@ -145,10 +145,11 @@ const AddEmployee = () => {
   const generateEmployeeId = (dob, joiningDate) => {
     if (!dob || !joiningDate) return "";
 
-    // Convert dates from DD/MM/YYYY to YYYY-MM-DD format for parsing
+    // Parse DOB (dd/mm/yyyy)
     let dobFormatted = dob;
     let joiningFormatted = joiningDate;
 
+    // Convert from DD/MM/YYYY to YYYY-MM-DD for parsing
     if (dob.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
       const [day, month, year] = dob.split("/");
       dobFormatted = `${year}-${month}-${day}`;
@@ -166,16 +167,18 @@ const AddEmployee = () => {
       return "";
     }
 
-    // Format: EMP-DDMMYYYY-DDMMYYYY
-    const dobDay = String(dobDate.getDate()).padStart(2, "0");
-    const dobMonth = String(dobDate.getMonth() + 1).padStart(2, "0");
-    const dobYear = dobDate.getFullYear();
-
-    const joiningDay = String(joiningDateObj.getDate()).padStart(2, "0");
-    const joiningMonth = String(joiningDateObj.getMonth() + 1).padStart(2, "0");
+    // Get Joining Year (4 digits)
     const joiningYear = joiningDateObj.getFullYear();
 
-    return `EMP-${dobDay}${dobMonth}${dobYear}-${joiningDay}${joiningMonth}${joiningYear}`;
+    // Get DOB Day and Month (2 digits each)
+    const dobDay = String(dobDate.getDate()).padStart(2, "0");
+    const dobMonth = String(dobDate.getMonth() + 1).padStart(2, "0");
+    const dobDayMonth = `${dobDay}${dobMonth}`; // DDMM format
+
+    // Use last 4 digits of timestamp
+    const timestamp = Date.now().toString().slice(-4);
+
+    return `EMP${joiningYear}${dobDayMonth}${timestamp}`;
   };
 
   // Auto-generate employee ID when DOB or Joining Date changes
@@ -250,40 +253,44 @@ const AddEmployee = () => {
   const maritalStatusOptions = ["Single", "Married", "Divorced", "Widowed"];
   const visaTypeOptions = ["Company Visa", "Family Visa", "Other Visa"];
 
- const getStepFields = (stepIndex) => {
-  switch (stepIndex) {
-    case 0:
-      { const fields = [
-        "first_name",
-        "organization_id",
-        "designation_id",
-        "department_id",
-        "type",
-        "dob",
-        "joining_date",
-      ];
-      // Only add company_id to validation if multi_company is "Yes"
-      if (selectedOrgDetails?.multi_company === "Yes") {
-        fields.push("company_id");
+  const getStepFields = (stepIndex) => {
+    switch (stepIndex) {
+      case 0: {
+        const fields = [
+          "first_name",
+          "organization_id",
+          "designation_id",
+          "department_id",
+          "type",
+          "dob",
+          "joining_date",
+        ];
+        // Only add company_id to validation if multi_company is "Yes"
+        if (selectedOrgDetails?.multi_company === "Yes") {
+          fields.push("company_id");
+        }
+        return fields;
       }
-      return fields; }
-    case 1:
-      return ["passport_issued_date", "passport_expiry_date"];
-    case 2:
-      return [
-        "visa_issued_date",
-        "visa_expiry_date",
-        "labor_issued_date",
-        "labor_expiry_date",
-        "eid_issued_date",
-        "eid_expiry_date",
-      ];
-    case 3:
-      return ["company_email", "personal_email", "type"];
-    default:
-      return [];
-  }
-};
+      case 1:
+        return ["passport_issued_date", "passport_expiry_date"];
+      case 2:
+        return [
+          "visa_number",
+          "visa_issued_date",
+          "visa_expiry_date",
+          "labor_number",
+          "labor_issued_date",
+          "labor_expiry_date",
+          "eid_number",
+          "eid_issued_date",
+          "eid_expiry_date",
+        ];
+      case 3:
+        return ["company_email", "personal_email", "type", "role"];
+      default:
+        return [];
+    }
+  };
 
   // Document upload component
   const DocumentUpload = ({
@@ -449,7 +456,7 @@ const AddEmployee = () => {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
       setStepErrors((prev) => ({ ...prev, [currentStep]: true }));
-      showToast("Please fix the errors before proceeding", "error");
+      showToast("Please fill the required fields", "error");
     }
   };
 
@@ -745,6 +752,11 @@ const AddEmployee = () => {
       const formData = new FormData();
       formData.append("file", docData.file);
 
+      console.log("=== ALL FORM DATA KEYS ===");
+      for (let pair of formData.entries()) {
+        console.log(`${pair[0]}: ${pair[1]}`);
+      }
+
       const response = await apiClient.post(
         "/admin/employees/upload-temp",
         formData,
@@ -831,6 +843,9 @@ const AddEmployee = () => {
     type: {
       required: "User type is required",
     },
+    role: {
+      required: "Role is required",
+    },
     company_email: {
       pattern: {
         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
@@ -913,14 +928,15 @@ const AddEmployee = () => {
               type="button"
               key={step.number}
               onClick={() => handleStepClick(index)}
-              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${currentStep === index
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
+                currentStep === index
                   ? "bg-green-500 text-white shadow-md"
                   : stepErrors[index]
                     ? "bg-red-50 text-red-600 border border-red-300"
                     : index < currentStep
                       ? "text-green-500"
                       : "text-gray-500 bg-gray-100"
-                }`}
+              }`}
             >
               <i className={`${step.icon} mr-1 text-xs md:text-sm`}></i>
               <span className="hidden sm:inline">
@@ -1105,38 +1121,6 @@ const AddEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
-                      Designation <span className="text-red-500">*</span>
-                    </label>
-                    <Controller
-                      name="designation_id"
-                      control={control}
-                      rules={validationRules.designation_id}
-                      render={({ field }) => (
-                        <>
-                          <select
-                            {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:ring-2 ${errors.designation_id ? "border-red-500" : "border-gray-200 focus:border-green-500 focus:ring-green-500/20"}`}
-                          >
-                            <option value="">Select Designation</option>
-                            {designations.map((desig) => (
-                              <option key={desig.id} value={desig.id}>
-                                {desig.name}
-                              </option>
-                            ))}
-                          </select>
-                          {errors.designation_id && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors.designation_id.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-diagram-project text-green-500 mr-1"></i>{" "}
                       Department <span className="text-red-500">*</span>
                     </label>
@@ -1160,6 +1144,38 @@ const AddEmployee = () => {
                           {errors.department_id && (
                             <p className="mt-1 text-xs text-red-500">
                               {errors.department_id.message}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
+                      Designation <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="designation_id"
+                      control={control}
+                      rules={validationRules.designation_id}
+                      render={({ field }) => (
+                        <>
+                          <select
+                            {...field}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:ring-2 ${errors.designation_id ? "border-red-500" : "border-gray-200 focus:border-green-500 focus:ring-green-500/20"}`}
+                          >
+                            <option value="">Select Designation</option>
+                            {designations.map((desig) => (
+                              <option key={desig.id} value={desig.id}>
+                                {desig.name}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.designation_id && (
+                            <p className="mt-1 text-xs text-red-500">
+                              {errors.designation_id.message}
                             </p>
                           )}
                         </>
@@ -1300,6 +1316,7 @@ const AddEmployee = () => {
                               control={control}
                               render={({ field }) => (
                                 <DateInput
+                                  type="special_day"
                                   {...field}
                                   placeholder="dd/mm/yyyy"
                                   error={!!errors.special_days}
@@ -2424,11 +2441,12 @@ const AddEmployee = () => {
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-user-tag text-green-500 mr-1"></i>{" "}
-                      Role
+                      Role <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="role"
                       control={control}
+                      rules={validationRules.role}
                       render={({ field }) => (
                         <select
                           {...field}

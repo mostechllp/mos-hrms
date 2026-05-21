@@ -1,19 +1,20 @@
-import React from "react";
+/* eslint-disable react-hooks/static-components */
 import { useDispatch, useSelector } from "react-redux";
 import { FiCheckCircle, FiFileText, FiUser, FiChevronLeft, FiSend, FiShield, FiGlobe, FiBriefcase, FiAlertTriangle, FiX } from "react-icons/fi";
 import { setStep, completeOnboarding } from "../../store/slices/onboardingSlice";
 import { showToast } from "../../components/common/Toast";
-import { fetchEmployees } from "../../admin/store/slices/employeeSlice";
-import { fetchOrganizations } from "../../admin/store/slices/organizationSlice";
-import { fetchCompanies } from "../../admin/store/slices/companySlice";
-import { fetchDesignations } from "../../admin/store/slices/designationSlice";
-import { fetchDepartments } from "../../admin/store/slices/departmentSlice";
-import apiClient from "../../utils/apiClient";
+import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { fetchOrganizations } from "../../store/slices/organizationSlice";
+import { fetchCompanies } from "../../store/slices/companySlice";
+import { fetchDesignations } from "../../store/slices/designationSlice";
+import { fetchDepartments } from "../../store/slices/departmentSlice";
+import React from "react";
+import apiClient from "../../../utils/apiClient";
 
 const OnboardingReview = () => {
   const dispatch = useDispatch();
   const onboardingState = useSelector((state) => state.onboarding) || {};
-  const { employeeDetails = {}, resumeData = {}, offerLetter = {} } = onboardingState;
+  const { employeeDetails = {}, resumeData = {} } = onboardingState;
 
   // Redux Selectors for Metadata
   const { organizations = [] } = useSelector((state) => state.organizations || {});
@@ -220,7 +221,7 @@ const OnboardingReview = () => {
 
       let apiSuccess = false;
       try {
-        const response = await apiClient.post("/admin/employees", body);
+        await apiClient.post("/admin/employees", body);
         apiSuccess = true;
         showToast("Employee record created successfully!", "success");
         dispatch(fetchEmployees());

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+/* eslint-disable react-hooks/static-components */
+import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { FiUploadCloud, FiFileText, FiCheckCircle, FiLoader, FiAlertCircle, FiKey, FiRefreshCw } from "react-icons/fi";
 import { parseResume, resetOnboarding } from "../../store/slices/onboardingSlice";

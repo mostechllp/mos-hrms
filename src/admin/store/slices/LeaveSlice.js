@@ -152,9 +152,13 @@ export const addLeaveType = createAsyncThunk(
       const res = await apiClient.post("/admin/leave-types", data);
       return res.data.data || res.data;
     } catch (err) {
-      return rejectWithValue(
-        err.response?.data?.message || "Failed to add leave type",
-      );
+      
+      // Return the full error for debugging
+      return rejectWithValue({
+        message: err.response?.data?.message || "Failed to add leave type",
+        data: err.response?.data,
+        status: err.response?.status
+      });
     }
   },
 );

@@ -88,6 +88,7 @@ const EditEmployee = () => {
       nationality: "",
       marital_status: "",
       special_days: [{ name: "", date: "" }],
+      is_skilled: false,
       passport_full_name: "",
       passport_number: "",
       passport_issued_date: "",
@@ -175,6 +176,7 @@ const EditEmployee = () => {
   // Convert date from YYYY-MM-DD to DD/MM/YYYY for display
   const convertToDisplayDate = (dateString) => {
     if (!dateString) return "";
+    if (dateString === "0000-00-00") return "";
     if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
       const [year, month, day] = dateString.split("-");
       return `${day}/${month}/${year}`;
@@ -196,11 +198,19 @@ const EditEmployee = () => {
       setValue("department_id", currentEmployee.user?.department_id || "");
       setValue("employee_id", currentEmployee.employee_id || "");
       setValue("type", currentEmployee.type || "employee");
-      setValue("joining_date", convertToDisplayDate(currentEmployee.joining_date));
+      setValue(
+        "joining_date",
+        convertToDisplayDate(currentEmployee.joining_date),
+      );
       setValue("dob", convertToDisplayDate(currentEmployee.dob));
       setValue("gender", currentEmployee.gender || "male");
       setValue("nationality", currentEmployee.nationality || "");
       setValue("marital_status", currentEmployee.marital_status || "");
+
+      setValue(
+        "is_skilled",
+        currentEmployee.is_skilled === 1 || currentEmployee.is_skilled === true,
+      );
 
       // Handle special days
       try {
@@ -232,34 +242,67 @@ const EditEmployee = () => {
       // Passport details
       setValue("passport_full_name", currentEmployee.passport_full_name || "");
       setValue("passport_number", currentEmployee.passport_number || "");
-      setValue("passport_issued_date", convertToDisplayDate(currentEmployee.passport_issued_date));
-      setValue("passport_expiry_date", convertToDisplayDate(currentEmployee.passport_expiry_date));
+      setValue(
+        "passport_issued_date",
+        convertToDisplayDate(currentEmployee.passport_issued_date),
+      );
+      setValue(
+        "passport_expiry_date",
+        convertToDisplayDate(currentEmployee.passport_expiry_date),
+      );
       setValue("father_name", currentEmployee.father_name || "");
       setValue("mother_name", currentEmployee.mother_name || "");
       setValue("address", currentEmployee.address || "");
-      setValue("passport_issued_from", currentEmployee.passport_issued_from || "");
+      setValue(
+        "passport_issued_from",
+        currentEmployee.passport_issued_from || "",
+      );
       setValue("place_of_birth", currentEmployee.place_of_birth || "");
 
       // Visa & Labor & EID
       setValue("visa_number", currentEmployee.visa_number || "");
       setValue("visa_type", currentEmployee.visa_type || "");
-      setValue("visa_issued_date", convertToDisplayDate(currentEmployee.visa_issued_date));
-      setValue("visa_expiry_date", convertToDisplayDate(currentEmployee.visa_expiry_date));
+      setValue(
+        "visa_issued_date",
+        convertToDisplayDate(currentEmployee.visa_issued_date),
+      );
+      setValue(
+        "visa_expiry_date",
+        convertToDisplayDate(currentEmployee.visa_expiry_date),
+      );
       setValue("labor_number", currentEmployee.labor_number || "");
-      setValue("labor_issued_date", convertToDisplayDate(currentEmployee.labor_issued_date));
-      setValue("labor_expiry_date", convertToDisplayDate(currentEmployee.labor_expiry_date));
+      setValue(
+        "labor_issued_date",
+        convertToDisplayDate(currentEmployee.labor_issued_date),
+      );
+      setValue(
+        "labor_expiry_date",
+        convertToDisplayDate(currentEmployee.labor_expiry_date),
+      );
       setValue("eid_number", currentEmployee.eid_number || "");
-      setValue("eid_issued_date", convertToDisplayDate(currentEmployee.eid_issued_date));
-      setValue("eid_expiry_date", convertToDisplayDate(currentEmployee.eid_expiry_date));
+      setValue(
+        "eid_issued_date",
+        convertToDisplayDate(currentEmployee.eid_issued_date),
+      );
+      setValue(
+        "eid_expiry_date",
+        convertToDisplayDate(currentEmployee.eid_expiry_date),
+      );
 
       // Contact & Others
       setValue("dependents", currentEmployee.dependents || 0);
       setValue("company_email", currentEmployee.company_email || "");
-      setValue("company_mobile_number", currentEmployee.company_mobile_number || "");
+      setValue(
+        "company_mobile_number",
+        currentEmployee.company_mobile_number || "",
+      );
       setValue("personal_number", currentEmployee.personal_number || "");
       setValue("personal_email", currentEmployee.personal_email || "");
       setValue("other_number", currentEmployee.other_number || "");
-      setValue("home_country_number", currentEmployee.home_country_number || "");
+      setValue(
+        "home_country_number",
+        currentEmployee.home_country_number || "",
+      );
       setValue("role", currentEmployee.user?.role_id || "");
 
       // Set existing documents
@@ -479,7 +522,7 @@ const EditEmployee = () => {
     formData.append("last_name", data.last_name || "");
     formData.append("employee_id", data.employee_id);
     formData.append("organization_id", parseInt(data.organization_id));
-    
+
     // Handle company based on multi_company setting
     if (selectedOrgDetails?.multi_company === "Yes") {
       if (!data.company_id) {
@@ -491,11 +534,14 @@ const EditEmployee = () => {
     } else {
       formData.append("company_id", "");
     }
-    
+
     formData.append("type", data.type);
     formData.append("gender", data.gender || "");
     formData.append("nationality", data.nationality || "");
     formData.append("marital_status", data.marital_status || "");
+    if (data.is_skilled !== undefined) {
+      formData.append("is_skilled", data.is_skilled);
+    }
 
     if (data.designation_id)
       formData.append("designation_id", parseInt(data.designation_id));
@@ -1033,7 +1079,9 @@ const EditEmployee = () => {
                         <>
                           <select
                             {...field}
-                            disabled={selectedOrgDetails?.multi_company !== "Yes"}
+                            disabled={
+                              selectedOrgDetails?.multi_company !== "Yes"
+                            }
                             className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${
                               selectedOrgDetails?.multi_company !== "Yes"
                                 ? "opacity-50 cursor-not-allowed"
@@ -1281,38 +1329,39 @@ const EditEmployee = () => {
 
                   {/* Employee ID */}
                   {/* Employee ID - Disabled in Edit Mode */}
-<div>
-  <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-    <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
-    Employee ID <span className="text-red-500">*</span>
-  </label>
-  <Controller
-    name="employee_id"
-    control={control}
-    rules={validationRules.employee_id}
-    render={({ field }) => (
-      <>
-        <input
-          {...field}
-          type="text"
-          readOnly
-          disabled
-          className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 border rounded-lg text-sm md:text-base text-gray-600 cursor-not-allowed ${errors.employee_id ? "border-red-500" : "border-gray-200"}`}
-          placeholder="Employee ID"
-        />
-        {errors.employee_id && (
-          <p className="mt-1 text-xs text-red-500">
-            {errors.employee_id.message}
-          </p>
-        )}
-      </>
-    )}
-  />
-  <p className="mt-1 text-xs text-gray-400">
-    <i className="fas fa-info-circle mr-1"></i>
-    Employee ID is auto-generated based on DOB and Joining Date and cannot be edited
-  </p>
-</div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
+                      Employee ID <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="employee_id"
+                      control={control}
+                      rules={validationRules.employee_id}
+                      render={({ field }) => (
+                        <>
+                          <input
+                            {...field}
+                            type="text"
+                            readOnly
+                            disabled
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 border rounded-lg text-sm md:text-base text-gray-600 cursor-not-allowed ${errors.employee_id ? "border-red-500" : "border-gray-200"}`}
+                            placeholder="Employee ID"
+                          />
+                          {errors.employee_id && (
+                            <p className="mt-1 text-xs text-red-500">
+                              {errors.employee_id.message}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      <i className="fas fa-info-circle mr-1"></i>
+                      Employee ID is auto-generated based on DOB and Joining
+                      Date and cannot be edited
+                    </p>
+                  </div>
 
                   {/* Date of Birth */}
                   <div>
@@ -1380,6 +1429,46 @@ const EditEmployee = () => {
                         accept="image/*"
                       />
                     </div>
+                  </div>
+
+                  {/* Skilled/Unskilled Dropdown */}
+                  <div className="md:col-span-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
+                      <i className="fas fa-graduation-cap text-green-500 mr-1"></i>
+                      Employee Category <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="is_skilled"
+                      control={control}
+                      render={({ field }) => (
+                        <div className="flex gap-4">
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              value="true"
+                              checked={field.value === true}
+                              onChange={() => field.onChange(true)}
+                              className="mr-2 text-green-500 focus:ring-green-500"
+                            />
+                            <span className="text-sm text-gray-700">
+                              Skilled
+                            </span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              value="false"
+                              checked={field.value === false}
+                              onChange={() => field.onChange(false)}
+                              className="mr-2 text-green-500 focus:ring-green-500"
+                            />
+                            <span className="text-sm text-gray-700">
+                              Unskilled
+                            </span>
+                          </label>
+                        </div>
+                      )}
+                    />
                   </div>
 
                   {/* Educational Documents */}
@@ -2135,23 +2224,25 @@ const EditEmployee = () => {
               >
                 Next <i className="fas fa-arrow-right"></i>
               </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center gap-2 disabled:opacity-70"
-              >
-                {loading ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin"></i> Updating...
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-save"></i> Update Employee
-                  </>
-                )}
-              </button>
-            )}
+            ) : null}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`px-6 py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center gap-2 disabled:opacity-70 ${
+                currentStep === steps.length - 1 ? "inline-flex" : "hidden"
+              }`}
+            >
+              {loading ? (
+                <>
+                  <i className="fas fa-spinner fa-spin"></i> Updating...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-save"></i> Update Employee
+                </>
+              )}
+            </button>
           </div>
         </form>
       </div>

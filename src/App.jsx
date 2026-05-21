@@ -2,15 +2,16 @@ import { lazy, useEffect, Suspense, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { useTheme } from "./admin/hooks/useTheme";
-import GlobalUploadStatus from "./admin/components/common/GlobalUploadStatus";
 import Loader from "./admin/components/common/Loader";
 import { initializeAuth } from "./store/slices/authSlice";
+import "react-datepicker/dist/react-datepicker.css";
 
 // Import shared components
 import ProtectedRoute from "./shared/components/ProtectedRoute";
 
 import Login from "./pages/Login";
 import { ThemeProvider } from "./context/ThemeContext";
+import NotFound from "./pages/NotFound";
 
 // Lazy load layouts with prefetch
 const AdminLayout = lazy(() => import("./shared/layouts/AdminLayout"));
@@ -73,7 +74,7 @@ const AdminWFH = lazy(() => import("./admin/pages/WFH"));
 const Settings = lazy(() => import("./admin/pages/Settings"));
 const RoleManagement = lazy(() => import("./admin/pages/RoleManagement"));
 const AddPayroll = lazy(() => import("./admin/pages/AddPayroll"));
-const Onboarding = lazy(() => import("./pages/onboarding/Onboarding"));
+const Onboarding = lazy(() => import("./admin/pages/Onboarding"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -94,7 +95,7 @@ const LazyWrapper = ({ children }) => {
 function App() {
   const { theme } = useTheme();
   const dispatch = useDispatch();
-  const { loading: authLoading, isAuthenticated } = useSelector(
+  const { loading: authLoading } = useSelector(
     (state) => state.auth,
   );
   const [initialLoad, setInitialLoad] = useState(true);
@@ -131,9 +132,9 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
 
-        {/* Admin Routes */}
+        {/* Admin Routes - Layout wrapper */}
         <Route
-          path="/admin/*"
+          path="/admin"
           element={
             <ProtectedRoute requiredType="admin">
               <LazyWrapper>
@@ -142,6 +143,7 @@ function App() {
             </ProtectedRoute>
           }
         >
+          {/* Admin nested routes - these will render inside AdminLayout */}
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="employees" element={<Employees />} />
@@ -227,9 +229,9 @@ function App() {
           <Route path="role-management" element={<RoleManagement />} />
         </Route>
 
-        {/* Employee Routes */}
+        {/* Employee Routes - Layout wrapper */}
         <Route
-          path="/employee/*"
+          path="/employee"
           element={
             <ProtectedRoute requiredType="employee">
               <LazyWrapper>
@@ -238,6 +240,7 @@ function App() {
             </ProtectedRoute>
           }
         >
+          {/* Employee nested routes - these will render inside EmployeeLayout */}
           <Route
             index
             element={<Navigate to="/employee/dashboard" replace />}
@@ -251,16 +254,8 @@ function App() {
           <Route path="attendance-requests" element={<AttendanceRequests />} />
         </Route>
 
-        {/* Catch all - 404 */}
-        <Route
-          path="*"
-          element={
-            <Navigate
-              to={isAuthenticated ? "/admin/dashboard" : "/login"}
-              replace
-            />
-          }
-        />
+        {/* Global 404 - No layout, full page */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </ThemeProvider>
   );
