@@ -1,3 +1,4 @@
+/* eslint-disable preserve-caught-error */
 // src/utils/openRouterService.js
 import { OpenRouter } from '@openrouter/sdk';
 
@@ -101,6 +102,7 @@ ${resumeText}
       });
       
       return sanitizedData;
+    // eslint-disable-next-line no-unused-vars
     } catch (parseErr) {
       console.error("Failed to parse AI response as JSON. Raw response was:", content);
       throw new Error("The AI response could not be parsed as structured JSON. Please try again.");

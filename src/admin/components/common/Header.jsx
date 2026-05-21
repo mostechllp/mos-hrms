@@ -4,7 +4,6 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { markAsRead, markAllRead } from "../../store/slices/notificationSlice";
 import { logoutUser } from "../../store/slices/authSlice";
 import { fetchNotifications } from "../../store/slices/notificationSlice";
-import { fetchOrganizations } from "../../store/slices/organizationSlice";
 import ConfirmModal from "./ConfirmModal"; 
 import ThemeCustomizer from "../../../components/common/ThemeCustomizer";
 
@@ -24,25 +23,11 @@ const Header = ({ onMenuClick }) => {
   const { notifications, unreadCount } = useSelector(
     (state) => state.notifications,
   );
-  const { organizations } = useSelector((state) => state.organizations);
-
-  // Get the first organization (or find the current user's organization)
-  const currentOrganization = organizations?.[0] || null;
-
-  // Get organization logo URL
-  const getOrganizationLogo = () => {
-    if (avatarError) return null;
-    if (currentOrganization?.logo) {
-      const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || window.location.origin;
-      return `${baseUrl}/storage/${currentOrganization.logo}`;
-    }
-    return null;
-  };
 
   // Get user's display name
   const getUserName = () => {
-    if (user?.employee?.name) return user.employee.name;
     if (user?.name) return user.name;
+    if (user?.employee?.name) return user.employee.name;
     if (user?.username) return user.username;
     return "HR Admin";
   };
@@ -54,9 +39,36 @@ const Header = ({ onMenuClick }) => {
     return "admin@example.com";
   };
 
-  // Get organization name
-  const getOrganizationName = () => {
-    return currentOrganization?.name || "Organization";
+  // Get user's avatar
+  const getUserAvatar = () => {
+    if (avatarError) return null;
+    
+    const avatar = user?.avatar;
+    if (!avatar) return null;
+    
+    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin;
+    
+    if (typeof avatar === 'object' && avatar.path) {
+      return `${baseUrl}/storage/${avatar.path}`;
+    }
+    
+    if (typeof avatar === 'string') {
+      if (avatar.startsWith('http')) return avatar;
+      if (avatar.startsWith('/storage/')) return `${baseUrl}${avatar}`;
+      if (avatar.startsWith('storage/')) return `${baseUrl}/${avatar}`;
+      return `${baseUrl}/storage/${avatar}`;
+    }
+    
+    return null;
+  };
+
+  // Get user initials for avatar fallback
+  const getUserInitials = () => {
+    const name = getUserName();
+    if (name && name !== "HR Admin") {
+      return name.charAt(0).toUpperCase();
+    }
+    return "U";
   };
 
   // Get page title based on current route
@@ -130,7 +142,6 @@ const Header = ({ onMenuClick }) => {
 
   useEffect(() => {
     dispatch(fetchNotifications());
-    dispatch(fetchOrganizations()); // Fetch organizations to get logo
   }, [dispatch]);
 
   useEffect(() => {
@@ -179,20 +190,24 @@ const Header = ({ onMenuClick }) => {
   };
 
   const handleConfirmLogout = async () => {
-    setLogoutLoading(true);
-    try {
-      await dispatch(logoutUser()).unwrap();
-      setShowLogoutConfirm(false);
-      navigate("/login");
-    } catch (err) {
-      console.error("Logout failed", err);
-    } finally {
-      setLogoutLoading(false);
-    }
-  };
+  setLogoutLoading(true);
+  try {
+    await dispatch(logoutUser()).unwrap();
+    setShowLogoutConfirm(false);
+    // Add a small delay to ensure state updates are processed
+    setTimeout(() => {
+      navigate("/login", { replace: true });
+    }, 100);
+  } catch (err) {
+    console.error("Logout failed", err);
+    setLogoutLoading(false);
+  }
+};
 
-  const organizationLogo = getOrganizationLogo();
-  const organizationName = getOrganizationName();
+  const userAvatar = getUserAvatar();
+  const userInitials = getUserInitials();
+  const userName = getUserName();
+  const userEmail = getUserEmail();
 
   return (
     <>
@@ -292,22 +307,22 @@ const Header = ({ onMenuClick }) => {
               )}
             </div>
 
-            {/* Profile Avatar - Now shows Organization Logo */}
+            {/* Profile Avatar - Now shows User Avatar */}
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setShowProfile(!showProfile)}
-                className="w-9 h-9 md:w-10 md:h-10 rounded-xl overflow-hidden shadow-md ring-2 ring-transparent hover:ring-green-500 transition-all"
+                className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden shadow-md ring-2 ring-transparent hover:ring-green-500 transition-all"
               >
-                {organizationLogo ? (
+                {userAvatar ? (
                   <img
-                    src={organizationLogo}
-                    alt={organizationName}
+                    src={userAvatar}
+                    alt={userName}
                     className="w-full h-full object-cover"
                     onError={() => setAvatarError(true)}
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center text-white font-bold text-sm">
-                    <i className="fas fa-building"></i>
+                    {userInitials}
                   </div>
                 )}
               </button>
@@ -315,34 +330,34 @@ const Header = ({ onMenuClick }) => {
               {showProfile && (
                 <div className="absolute top-12 right-0 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-soft-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
                   <div className="p-4 flex gap-3 border-b border-gray-200 dark:border-gray-700">
-                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-gradient-to-r from-green-500 to-green-600 flex-shrink-0">
-                      {organizationLogo ? (
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-r from-green-500 to-green-600 flex-shrink-0">
+                      {userAvatar ? (
                         <img
-                          src={organizationLogo}
-                          alt={organizationName}
+                          src={userAvatar}
+                          alt={userName}
                           className="w-full h-full object-cover"
                           onError={() => setAvatarError(true)}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
-                          <i className="fas fa-building"></i>
+                          {userInitials}
                         </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-gray-800 dark:text-gray-200 truncate">
-                        {organizationName}
+                        {userName}
                       </h4>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {getUserEmail()}
+                        {userEmail}
                       </p>
                     </div>
                   </div>
                   <div className="p-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="text-xs text-gray-500 dark:text-gray-400">
                       <p className="mb-1">
-                        <span className="font-semibold">Logged in as:</span>{" "}
-                        {getUserName()}
+                        <span className="font-semibold">Role:</span>{" "}
+                        {user?.type === "admin" ? "Administrator" : "Employee"}
                       </p>
                     </div>
                   </div>
@@ -353,7 +368,7 @@ const Header = ({ onMenuClick }) => {
                   >
                     <i className="fas fa-user text-green-500 w-5"></i>
                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                      My Profile
+                      Account Settings
                     </span>
                   </NavLink>
                   <div>
@@ -380,7 +395,7 @@ const Header = ({ onMenuClick }) => {
         onClose={() => setShowLogoutConfirm(false)}
         onConfirm={handleConfirmLogout}
         title="Logout Confirmation"
-        message={`Are you sure you want to logout, ${getUserName()}? You will need to login again to access your account.`}
+        message={`Are you sure you want to logout, ${userName}? You will need to login again to access your account.`}
         confirmText="Logout"
         cancelText="Cancel"
         loading={logoutLoading}
