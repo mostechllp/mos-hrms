@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+/* eslint-disable react-hooks/static-components */
+import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { FiUploadCloud, FiFileText, FiCheckCircle, FiLoader, FiAlertCircle, FiKey } from "react-icons/fi";
+import { FiUploadCloud, FiFileText, FiCheckCircle, FiAlertCircle, FiKey } from "react-icons/fi";
 import { parseResume } from "../../store/slices/onboardingSlice";
 import { isOpenRouterConfigured } from "../../utils/openRouterService";
 

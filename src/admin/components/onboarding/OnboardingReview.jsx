@@ -1,13 +1,13 @@
-import React from "react";
+/* eslint-disable react-hooks/static-components */
 import { useDispatch, useSelector } from "react-redux";
 import { FiCheckCircle, FiFileText, FiUser, FiChevronLeft, FiSend, FiShield, FiGlobe, FiBriefcase } from "react-icons/fi";
 import { setStep, completeOnboarding } from "../../store/slices/onboardingSlice";
-import { showToast } from "../../components/common/Toast";
+import { showToast } from "../common/Toast";
 
 const OnboardingReview = () => {
   const dispatch = useDispatch();
   const onboardingState = useSelector((state) => state.onboarding) || {};
-  const { employeeDetails = {}, resumeData = {}, offerLetter = {} } = onboardingState;
+  const { employeeDetails = {}, resumeData = {} } = onboardingState;
 
   const handleSubmit = () => {
     dispatch(completeOnboarding());

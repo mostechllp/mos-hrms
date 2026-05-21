@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { extractTextFromFile } from "../../utils/fileExtractor";
 import { parseResumeTextWithAI } from "../../utils/openRouterService";
+import { extractTextFromFile } from "../../utils/fileExtractor";
 
 // Parse AI resume using file extraction and OpenRouter
 export const parseResume = createAsyncThunk(
@@ -64,7 +64,7 @@ const onboardingSlice = createSlice({
     updateOfferLetter: (state, action) => {
       state.offerLetter = { ...state.offerLetter, ...action.payload };
     },
-    resetOnboarding: (state) => {
+    resetOnboarding: () => {
       return initialState;
     },
     completeOnboarding: (state) => {

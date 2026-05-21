@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from "react";
+import  { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { FiCheck } from "react-icons/fi";
-
-
-import Stepper from "./Stepper";
-import ResumeUpload from "./ResumeUpload";
-import EmployeeDetailsForm from "./EmployeeDetailsForm";
-import OfferLetterPreview from "./OfferLetterPreview";
-import OnboardingReview from "./OnboardingReview";
-import { resetOnboarding } from "../../store/slices/onboardingSlice";
+import { resetOnboarding } from "../store/slices/onboardingSlice";
+import ResumeUpload from "../components/onboarding/ResumeUpload";
+import EmployeeDetailsForm from "../components/onboarding/EmployeeDetailsForm";
+import OfferLetterPreview from "../components/onboarding/OfferLetterPreview";
+import OnboardingReview from "../components/onboarding/OnboardingReview";
+import Stepper from "../components/onboarding/Stepper";
 
 const Onboarding = () => {
 

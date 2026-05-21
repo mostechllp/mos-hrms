@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { FiFileText, FiDownload, FiChevronRight, FiChevronLeft, FiPrinter, FiSettings, FiEdit, FiLoader } from "react-icons/fi";
+import { FiFileText, FiDownload, FiChevronRight, FiChevronLeft, FiPrinter, FiSettings, FiLoader } from "react-icons/fi";
 import { setStep, updateOfferLetter } from "../../store/slices/onboardingSlice";
 import jsPDF from "jspdf";
 
@@ -47,6 +47,7 @@ UAE Operations`;
       employeeDetails.designation,
       employeeDetails.joiningDate
     );
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setContent(initialContent);
   }, [employeeDetails, offerLetter.content]);
 
