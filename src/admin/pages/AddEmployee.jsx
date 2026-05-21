@@ -456,7 +456,7 @@ const AddEmployee = () => {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
       setStepErrors((prev) => ({ ...prev, [currentStep]: true }));
-      showToast("Please fix the errors before proceeding", "error");
+      showToast("Please fill the required fields", "error");
     }
   };
 
