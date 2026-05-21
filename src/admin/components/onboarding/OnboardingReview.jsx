@@ -3,13 +3,13 @@ import { useDispatch, useSelector } from "react-redux";
 import { FiCheckCircle, FiFileText, FiUser, FiChevronLeft, FiSend, FiShield, FiGlobe, FiBriefcase, FiAlertTriangle, FiX } from "react-icons/fi";
 import { setStep, completeOnboarding } from "../../store/slices/onboardingSlice";
 import { showToast } from "../../components/common/Toast";
-import { fetchEmployees } from "../../admin/store/slices/employeeSlice";
-import { fetchOrganizations } from "../../admin/store/slices/organizationSlice";
-import { fetchCompanies } from "../../admin/store/slices/companySlice";
-import { fetchDesignations } from "../../admin/store/slices/designationSlice";
-import { fetchDepartments } from "../../admin/store/slices/departmentSlice";
-import apiClient from "../../utils/apiClient";
+import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { fetchOrganizations } from "../../store/slices/organizationSlice";
+import { fetchCompanies } from "../../store/slices/companySlice";
+import { fetchDesignations } from "../../store/slices/designationSlice";
+import { fetchDepartments } from "../../store/slices/departmentSlice";
 import React from "react";
+import apiClient from "../../../utils/apiClient";
 
 const OnboardingReview = () => {
   const dispatch = useDispatch();
