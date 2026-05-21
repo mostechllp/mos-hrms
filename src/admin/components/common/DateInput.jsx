@@ -221,10 +221,10 @@ const DateInput = forwardRef(
             }}
             placeholder={getPlaceholder()}
             readOnly
-            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 cursor-pointer ${
+            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:ring-2 cursor-pointer ${
               showError
                 ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
-                : "border-gray-200 focus:border-green-500 focus:ring-green-500/20"
+                : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-green-500/20"
             } ${className}`}
             {...props}
           />
@@ -233,6 +233,198 @@ const DateInput = forwardRef(
     });
 
     CustomInput.displayName = "CustomInput";
+
+    // Inject custom styles for react-datepicker to match header colors
+    useEffect(() => {
+      // Add style element for customizing react-datepicker appearance
+      const styleId = "react-datepicker-custom-styles";
+      if (!document.getElementById(styleId)) {
+        const style = document.createElement("style");
+        style.id = styleId;
+        style.textContent = `
+          /* Override react-datepicker default styles to match theme */
+          .react-datepicker {
+            font-family: 'Poppins', sans-serif !important;
+            background-color: var(--surface) !important;
+            border-color: var(--border) !important;
+            border-radius: 18px !important;
+            box-shadow: var(--shadow-lg) !important;
+          }
+          
+          .react-datepicker__header {
+            background-color: var(--surface2) !important;
+            border-bottom-color: var(--border) !important;
+            border-radius: 18px 18px 0 0 !important;
+          }
+          
+          .react-datepicker__current-month,
+          .react-datepicker-time__header,
+          .react-datepicker-year-header {
+            color: var(--text) !important;
+            font-weight: 600 !important;
+            font-size: 1rem !important;
+          }
+          
+          .react-datepicker__day-name,
+          .react-datepicker__day,
+          .react-datepicker__time-name {
+            color: var(--text) !important;
+          }
+          
+          .react-datepicker__day-name {
+            color: var(--muted) !important;
+            font-weight: 500 !important;
+          }
+          
+          .react-datepicker__day:hover,
+          .react-datepicker__month-text:hover,
+          .react-datepicker__quarter-text:hover,
+          .react-datepicker__year-text:hover {
+            background-color: var(--primary-very-light) !important;
+            color: var(--primary-dark) !important;
+          }
+          
+          .dark .react-datepicker__day:hover,
+          .dark .react-datepicker__month-text:hover,
+          .dark .react-datepicker__quarter-text:hover,
+          .dark .react-datepicker__year-text:hover {
+            background-color: rgba(46, 204, 113, 0.2) !important;
+            color: var(--primary-color) !important;
+          }
+          
+          .react-datepicker__day--selected,
+          .react-datepicker__day--in-selecting-range,
+          .react-datepicker__day--in-range,
+          .react-datepicker__month-text--selected,
+          .react-datepicker__month-text--in-selecting-range,
+          .react-datepicker__month-text--in-range,
+          .react-datepicker__quarter-text--selected,
+          .react-datepicker__quarter-text--in-selecting-range,
+          .react-datepicker__quarter-text--in-range,
+          .react-datepicker__year-text--selected,
+          .react-datepicker__year-text--in-selecting-range,
+          .react-datepicker__year-text--in-range {
+            background-color: var(--primary-color) !important;
+            color: white !important;
+          }
+          
+          .react-datepicker__day--keyboard-selected,
+          .react-datepicker__month-text--keyboard-selected,
+          .react-datepicker__quarter-text--keyboard-selected,
+          .react-datepicker__year-text--keyboard-selected {
+            background-color: var(--primary-light) !important;
+            color: var(--primary-dark) !important;
+          }
+          
+          .react-datepicker__day--today {
+            font-weight: bold !important;
+            position: relative !important;
+          }
+          
+          .react-datepicker__day--today:not(.react-datepicker__day--selected) {
+            color: var(--primary-color) !important;
+          }
+          
+          .react-datepicker__navigation-icon::before {
+            border-color: var(--muted) !important;
+          }
+          
+          .react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+            border-color: var(--primary-color) !important;
+          }
+          
+          .react-datepicker__year-dropdown,
+          .react-datepicker__month-dropdown,
+          .react-datepicker__year-dropdown-container select,
+          .react-datepicker__month-dropdown-container select {
+            background-color: var(--surface) !important;
+            border-color: var(--border) !important;
+            color: var(--text) !important;
+            border-radius: 10px !important;
+          }
+          
+          .react-datepicker__year-dropdown,
+          .react-datepicker__month-dropdown {
+            background-color: var(--surface) !important;
+            border-color: var(--border) !important;
+            box-shadow: var(--shadow) !important;
+          }
+          
+          .react-datepicker__year-option:hover,
+          .react-datepicker__month-option:hover {
+            background-color: var(--primary-very-light) !important;
+            color: var(--primary-dark) !important;
+          }
+          
+          .dark .react-datepicker__year-option:hover,
+          .dark .react-datepicker__month-option:hover {
+            background-color: rgba(46, 204, 113, 0.2) !important;
+          }
+          
+          .react-datepicker__close-icon::after {
+            background-color: var(--primary-color) !important;
+          }
+          
+          .react-datepicker__triangle {
+            display: none !important;
+          }
+          
+          .react-datepicker-popper[data-placement^="bottom"] .react-datepicker__triangle,
+          .react-datepicker-popper[data-placement^="top"] .react-datepicker__triangle {
+            display: none !important;
+          }
+          
+          /* Month/year dropdown header styling */
+          .react-datepicker__header__dropdown {
+            margin-top: 8px !important;
+          }
+          
+          .react-datepicker__header__dropdown--scroll select {
+            background-color: var(--surface2) !important;
+            border: 1px solid var(--border) !important;
+            color: var(--text) !important;
+            padding: 4px 8px !important;
+            border-radius: 8px !important;
+            font-size: 0.85rem !important;
+            cursor: pointer !important;
+          }
+          
+          .react-datepicker__header__dropdown--scroll select:focus {
+            outline: none !important;
+            border-color: var(--primary-color) !important;
+          }
+          
+          /* Day picker container */
+          .react-datepicker__month-container {
+            background-color: var(--surface) !important;
+            border-radius: 18px !important;
+            overflow: hidden !important;
+          }
+          
+          /* Week days */
+          .react-datepicker__day-names {
+            background-color: var(--surface2) !important;
+            padding-top: 8px !important;
+          }
+          
+          /* Disabled days */
+          .react-datepicker__day--disabled,
+          .react-datepicker__month-text--disabled,
+          .react-datepicker__quarter-text--disabled,
+          .react-datepicker__year-text--disabled {
+            color: var(--muted) !important;
+            opacity: 0.5 !important;
+          }
+          
+          /* Outside month days */
+          .react-datepicker__day--outside-month {
+            color: var(--muted) !important;
+            opacity: 0.6 !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }, []);
 
     return (
       <div className="relative w-full">
@@ -249,7 +441,7 @@ const DateInput = forwardRef(
           showMonthDropdown
           dropdownMode="select"
           className="w-full"
-          calendarClassName="shadow-soft-lg rounded-lg border border-gray-200"
+          calendarClassName="shadow-soft-lg rounded-lg border border-gray-200 dark:border-gray-700"
           popperClassName="z-50"
           {...props}
         />
