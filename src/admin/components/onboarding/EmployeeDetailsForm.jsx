@@ -4,7 +4,7 @@ import { useForm, Controller } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
 import { FiEdit3, FiInfo, FiChevronRight, FiChevronLeft, FiSave } from "react-icons/fi";
 import { setStep, updateEmployeeDetails, resetOnboarding } from "../../store/slices/onboardingSlice";
-import DateInput from "../../admin/components/common/DateInput";
+import DateInput from "../common/DateInput";
 
 const EmployeeDetailsForm = () => {
   const dispatch = useDispatch();
