@@ -22,27 +22,24 @@ const Onboarding = () => {
 
   useEffect(() => {
     if (onboardingComplete) {
-      const timer = setTimeout(() => {
-        dispatch(resetOnboarding());
-        navigate("/admin/employees");
-      }, 2000); // Redirect after 2 seconds
-      return () => clearTimeout(timer);
+      dispatch(resetOnboarding());
+      navigate("/admin/employees");
     }
   }, [onboardingComplete, dispatch, navigate]);
 
 
-  const SuccessView = () => (
-    <div className="flex flex-col items-center justify-center py-32 animate-fadeIn">
-      <div className="w-32 h-32 bg-primary-100 dark:bg-primary-900/30 text-primary-600 rounded-full flex items-center justify-center mb-8 animate-bounce">
-        <FiCheck size={64} strokeWidth={3} />
-      </div>
-      <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Submitted Successfully!</h2>
-      <p className="text-gray-500 dark:text-gray-400 font-medium">Redirecting you back to onboarding...</p>
-    </div>
-  );
-
   const renderStep = () => {
-    if (onboardingComplete) return <SuccessView />;
+    if (onboardingComplete) {
+      return (
+        <div className="flex flex-col items-center justify-center py-32 animate-fadeIn">
+          <div className="relative w-16 h-16 mb-4">
+            <div className="absolute inset-0 border-4 border-gray-100 dark:border-gray-700 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-green-600 rounded-full border-t-transparent animate-spin"></div>
+          </div>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">Loading employee directory...</p>
+        </div>
+      );
+    }
     
     switch (currentStep) {
       case 1:
