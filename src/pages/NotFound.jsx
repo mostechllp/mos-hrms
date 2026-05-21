@@ -1,11 +1,33 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { useEffect, useState } from "react";
 import illustration from "../assets/images/404-illustration.png";
 
 const NotFound = () => {
+  const navigate = useNavigate();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
-  const dashboardRoute = user?.type === "employee" ? "/employee/dashboard" : "/admin/dashboard";
-  const homeRoute = isAuthenticated ? dashboardRoute : "/login";
+  const [, setHomeRoute] = useState("/login");
+
+  // Update homeRoute whenever auth state changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      const dashboardRoute = user?.type === "employee" ? "/employee/dashboard" : "/admin/dashboard";
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHomeRoute(dashboardRoute);
+    } else {
+      setHomeRoute("/login");
+    }
+  }, [isAuthenticated, user]);
+
+  const handleBackToDashboard = () => {
+    // Use the current state to determine where to go
+    if (isAuthenticated) {
+      const dashboardRoute = user?.type === "employee" ? "/employee/dashboard" : "/admin/dashboard";
+      navigate(dashboardRoute, { replace: true });
+    } else {
+      navigate("/login", { replace: true });
+    }
+  };
 
   return (
     <div
@@ -67,38 +89,17 @@ const NotFound = () => {
             marginBottom: "2rem",
           }}
         >
-          <Link
-            to={homeRoute}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "10px 24px",
-              background: "#4caf50",
-              color: "#fff",
-              borderRadius: "999px",
-              fontWeight: "600",
-              fontSize: "0.875rem",
-              textDecoration: "none",
-              boxShadow: "0 2px 10px rgba(76,175,80,0.25)",
-              transition: "background 0.18s, transform 0.15s, box-shadow 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#43a047";
-              e.currentTarget.style.transform = "translateY(-1px)";
-              e.currentTarget.style.boxShadow = "0 4px 14px rgba(76,175,80,0.35)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#4caf50";
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = "0 2px 10px rgba(76,175,80,0.25)";
-            }}
-          >
-            Back to Dashboard
-          </Link>
 
           <button
-            onClick={() => window.history.back()}
+            onClick={() => {
+              // Check if there's history to go back to
+              if (window.history.length > 1) {
+                window.history.back();
+              } else {
+                // If no history, go to home route
+                handleBackToDashboard();
+              }
+            }}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -126,7 +127,6 @@ const NotFound = () => {
           </button>
         </div>
 
-
         <p style={{ marginTop: "1.5rem", fontSize: "0.73rem", color: "#b0bec5" }}>
           If you believe this is an error, please contact support.
         </p>
@@ -134,4 +134,5 @@ const NotFound = () => {
     </div>
   );
 };
+
 export default NotFound;

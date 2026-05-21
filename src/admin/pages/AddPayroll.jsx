@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 function AddPayroll() {
@@ -12,11 +12,13 @@ function AddPayroll() {
     { id: 5, label: "Summary" },
   ];
 
+  // eslint-disable-next-line no-unused-vars
   const [countries, setCountries] = useState([
     { id: 1, name: "UAE", currency: "AED", dailyRate: "600", daysWorked: "10", fxRate: "22.5" },
     { id: 2, name: "India", currency: "INR", dailyRate: "2000", daysWorked: "20", fxRate: "1" }
   ]);
 
+  // eslint-disable-next-line no-unused-vars
   const [deductions, setDeductions] = useState([
     { id: 1, type: "PF (Employee 12%)", country: "India", amount: "6000", statutory: "Yes" },
     { id: 2, type: "Professional Tax", country: "India", amount: "200", statutory: "Yes" },
@@ -25,505 +27,618 @@ function AddPayroll() {
   ]);
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex-1 pb-10">
-      
+    <div className="w-full overflow-x-hidden px-4 md:px-6">
+      {/* Breadcrumbs */}
+      <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
+        <Link
+          to="/admin/payroll"
+          className="text-green-500 hover:text-green-600 font-medium"
+        >
+          Payroll
+        </Link>
+        <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
+        <span className="text-gray-500 dark:text-gray-400">Add Payroll</span>
+      </div>
+
       {/* Page Header */}
-          <div className="mb-6">
-            <div className="flex items-center gap-2 text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-2 font-medium">
-              <Link to="/admin/payroll" className="hover:text-green-500 transition-colors">Payroll</Link>
-              <i className="fas fa-chevron-right text-[10px]"></i>
-              <span className="text-gray-800 dark:text-gray-200">Add Payroll</span>
-            </div>
-            <h1 className="text-xl md:text-3xl font-bold flex items-center gap-3 bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
-              Add New Payroll
-            </h1>
-            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Configure employee salary, country-wise work splits, and deductions
-            </p>
-          </div>
+      <div className="mb-4 md:mb-6">
+        <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+          <i className="fas fa-plus-circle mr-2"></i> Add New Payroll
+        </h2>
+        <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Configure employee salary, country-wise work splits, and deductions
+        </p>
+      </div>
 
-          {/* Stepper */}
-          <div className="flex overflow-x-auto gap-2 md:gap-4 pb-2 mb-6 scrollbar-hide">
-            {steps.map((step) => (
-              <div
-                key={step.id}
-                onClick={() => setCurrentStep(step.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-xs md:text-sm font-semibold transition-all border cursor-pointer ${
-                  currentStep === step.id
-                    ? "bg-green-500 text-white border-green-500 shadow-md"
-                    : currentStep > step.id 
-                    ? "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800"
-                    : "bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 shadow-sm"
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
-                    currentStep === step.id
-                      ? "bg-white/20 text-white"
-                      : currentStep > step.id
-                      ? "bg-green-100 dark:bg-green-800 text-green-600 dark:text-green-300"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-400"
-                  }`}
-                >
-                  {currentStep > step.id ? <i className="fas fa-check text-[8px]"></i> : step.id}
-                </div>
-                {step.label}
-              </div>
-            ))}
-          </div>
+      {/* Stepper */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {steps.map((step) => (
+          <button
+            key={step.id}
+            onClick={() => setCurrentStep(step.id)}
+            className={`px-4 py-2 rounded-full text-xs md:text-sm font-semibold transition-all ${
+              currentStep === step.id
+                ? "bg-green-500 text-white shadow-md"
+                : currentStep > step.id 
+                ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+            }`}
+          >
+            {step.id}. {step.label}
+          </button>
+        ))}
+      </div>
 
-          <div className="space-y-6">
-            {currentStep === 1 && (
-              <>
-            {/* Employee Information Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 md:p-6">
-              <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-5 flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-green-50 dark:bg-green-900/20 text-green-500 flex items-center justify-center">
-                  <i className="fas fa-user text-xs"></i>
+      {/* Form Container */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 md:p-6 lg:p-8 shadow-soft">
+        <div className="space-y-6">
+          {/* Step 1 - Basic Info */}
+          {currentStep === 1 && (
+            <>
+              {/* Employee Information Card */}
+              <div>
+                <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
+                  <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                    <i className="fas fa-user text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
+                  </div>
+                  <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
+                    Employee Information
+                  </h3>
                 </div>
-                Employee Information
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Employee <span className="text-red-500">*</span></label>
-                  <select className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all">
-                    <option>Ahmed Al Mansoori</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Employee ID</label>
-                  <input type="text" value="EMP-0042" readOnly className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Organization <span className="text-red-500">*</span></label>
-                  <select className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all">
-                    <option>Alpha Corp</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Department</label>
-                  <input type="text" value="Engineering" readOnly className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Designation</label>
-                  <input type="text" value="Senior Developer" readOnly className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Employment Type</label>
-                  <input type="text" value="Full-time" readOnly className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 outline-none" />
-                </div>
-              </div>
-            </div>
-
-            {/* Pay Period Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 md:p-6">
-              <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-5 flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-500 flex items-center justify-center">
-                  <i className="fas fa-calendar-alt text-xs"></i>
-                </div>
-                Pay Period
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Pay Period Month <span className="text-red-500">*</span></label>
-                  <select className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none transition-all">
-                    <option>May</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Pay Period Year <span className="text-red-500">*</span></label>
-                  <select className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none transition-all">
-                    <option>2026</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Period Start Date</label>
-                  <div className="relative">
-                    <input type="text" value="05/01/2026" className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none" />
-                    <i className="far fa-calendar absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-user text-green-500 mr-1"></i>
+                      Employee <span className="text-red-500">*</span>
+                    </label>
+                    <select className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20">
+                      <option>Select Employee</option>
+                      <option>Ahmed Al Mansoori</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-id-card text-green-500 mr-1"></i>
+                      Employee ID
+                    </label>
+                    <input 
+                      type="text" 
+                      value="EMP-0042" 
+                      readOnly 
+                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-500 dark:text-gray-400 cursor-not-allowed" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-building text-green-500 mr-1"></i>
+                      Organization <span className="text-red-500">*</span>
+                    </label>
+                    <select className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20">
+                      <option>Select Organization</option>
+                      <option>Alpha Corp</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-diagram-project text-green-500 mr-1"></i>
+                      Department
+                    </label>
+                    <input 
+                      type="text" 
+                      value="Engineering" 
+                      readOnly 
+                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-500 dark:text-gray-400 cursor-not-allowed" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-briefcase text-green-500 mr-1"></i>
+                      Designation
+                    </label>
+                    <input 
+                      type="text" 
+                      value="Senior Developer" 
+                      readOnly 
+                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-500 dark:text-gray-400 cursor-not-allowed" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-clock text-green-500 mr-1"></i>
+                      Employment Type
+                    </label>
+                    <input 
+                      type="text" 
+                      value="Full-time" 
+                      readOnly 
+                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-500 dark:text-gray-400 cursor-not-allowed" 
+                    />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Period End Date</label>
-                  <div className="relative">
-                    <input type="text" value="05/31/2026" className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none" />
-                    <i className="far fa-calendar absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+              </div>
+
+              {/* Pay Period Card */}
+              <div>
+                <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
+                  <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                    <i className="fas fa-calendar-alt text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
                   </div>
+                  <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
+                    Pay Period
+                  </h3>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Payment Date <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <input type="text" value="05/30/2026" className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none" />
-                    <i className="far fa-calendar absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-calendar-month text-green-500 mr-1"></i>
+                      Pay Period Month <span className="text-red-500">*</span>
+                    </label>
+                    <select className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20">
+                      <option>Select Month</option>
+                      <option>January</option>
+                      <option>February</option>
+                      <option>March</option>
+                      <option>April</option>
+                      <option>May</option>
+                    </select>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Payment Mode <span className="text-red-500">*</span></label>
-                  <select className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none transition-all">
-                    <option>Bank Transfer (NEFT)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Total Working Days</label>
-                  <input type="text" value="26" className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Days Present</label>
-                  <input type="text" value="30" className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none" />
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-calendar-year text-green-500 mr-1"></i>
+                      Pay Period Year <span className="text-red-500">*</span>
+                    </label>
+                    <select className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20">
+                      <option>2024</option>
+                      <option>2025</option>
+                      <option>2026</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-calendar-plus text-green-500 mr-1"></i>
+                      Period Start Date
+                    </label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value="01/05/2026" 
+                        className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" 
+                      />
+                      <i className="far fa-calendar absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-calendar-times text-green-500 mr-1"></i>
+                      Period End Date
+                    </label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value="31/05/2026" 
+                        className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" 
+                      />
+                      <i className="far fa-calendar absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-money-bill-wave text-green-500 mr-1"></i>
+                      Payment Date <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value="30/05/2026" 
+                        className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" 
+                      />
+                      <i className="far fa-calendar absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-university text-green-500 mr-1"></i>
+                      Payment Mode <span className="text-red-500">*</span>
+                    </label>
+                    <select className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20">
+                      <option>Select Payment Mode</option>
+                      <option>Bank Transfer (NEFT)</option>
+                      <option>Bank Transfer (RTGS)</option>
+                      <option>Cheque</option>
+                      <option>Cash</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-calendar-week text-green-500 mr-1"></i>
+                      Total Working Days
+                    </label>
+                    <input 
+                      type="text" 
+                      value="26" 
+                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-calendar-check text-green-500 mr-1"></i>
+                      Days Present
+                    </label>
+                    <input 
+                      type="text" 
+                      value="30" 
+                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" 
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
             </>
-            )}
+          )}
 
-            {currentStep === 2 && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 md:p-6">
-              {/* Salary Structure Card */}
-              <div className="flex justify-between items-center mb-5">
-                <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 flex items-center justify-center">
-                    <i className="fas fa-coins text-xs"></i>
-                  </div>
+          {/* Step 2 - Salary Structure */}
+          {currentStep === 2 && (
+            <div>
+              <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
+                <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                  <i className="fas fa-coins text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
+                </div>
+                <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
                   Salary Structure — Earnings
                 </h3>
-                <span className="px-2 py-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-[10px] font-bold rounded-md border border-green-100 dark:border-green-800">
-                  Active Profile
-                </span>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Annual CTC <span className="text-red-500">*</span></label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3 text-gray-400 text-sm">₹</span>
-                    <input type="text" value="12,00,000" className="w-full pl-7 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500" />
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-chart-line text-green-500 mr-1"></i>
+                    Annual CTC <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                    <input type="text" value="12,00,000" className="w-full pl-7 pr-3 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Basic Salary / month <span className="text-red-500">*</span></label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3 text-gray-400 text-sm">₹</span>
-                    <input type="text" value="50,000" className="w-full pl-7 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500" />
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-money-bill text-green-500 mr-1"></i>
+                    Basic Salary <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                    <input type="text" value="50,000" className="w-full pl-7 pr-3 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1.5">HRA <span className="text-red-500">*</span></label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3 text-gray-400 text-sm">₹</span>
-                    <input type="text" value="20,000" className="w-full pl-7 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500" />
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-home text-green-500 mr-1"></i>
+                    HRA <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                    <input type="text" value="20,000" className="w-full pl-7 pr-3 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Conveyance Allowance</label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3 text-gray-400 text-sm">₹</span>
-                    <input type="text" value="1,600" className="w-full pl-7 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500" />
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-car text-green-500 mr-1"></i>
+                    Conveyance Allowance
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                    <input type="text" value="1,600" className="w-full pl-7 pr-3 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Medical Allowance</label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3 text-gray-400 text-sm">₹</span>
-                    <input type="text" value="1,250" className="w-full pl-7 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500" />
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-notes-medical text-green-500 mr-1"></i>
+                    Medical Allowance
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                    <input type="text" value="1,250" className="w-full pl-7 pr-3 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Special Allowance</label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3 text-gray-400 text-sm">₹</span>
-                    <input type="text" value="5,150" className="w-full pl-7 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500" />
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-star text-green-500 mr-1"></i>
+                    Special Allowance
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                    <input type="text" value="5,150" className="w-full pl-7 pr-3 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1.5">LTA</label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3 text-gray-400 text-sm">₹</span>
-                    <input type="text" value="2,000" className="w-full pl-7 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500" />
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-plane text-green-500 mr-1"></i>
+                    LTA
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                    <input type="text" value="2,000" className="w-full pl-7 pr-3 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Performance Bonus</label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3 text-gray-400 text-sm">₹</span>
-                    <input type="text" value="0" className="w-full pl-7 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500" />
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-trophy text-green-500 mr-1"></i>
+                    Performance Bonus
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                    <input type="text" value="0" className="w-full pl-7 pr-3 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Overtime Pay</label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3 text-gray-400 text-sm">₹</span>
-                    <input type="text" value="0" className="w-full pl-7 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500" />
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                    <i className="fas fa-clock text-green-500 mr-1"></i>
+                    Overtime Pay
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                    <input type="text" value="0" className="w-full pl-7 pr-3 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                   </div>
                 </div>
               </div>
 
               {/* Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800">
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mb-1">Gross Earnings</div>
-                  <div className="text-lg font-bold text-gray-800 dark:text-gray-100">₹80,000</div>
-                  <div className="text-[9px] text-gray-400 mt-0.5">Before deductions</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="p-3 md:p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+                  <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Gross Earnings</div>
+                  <div className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-200">₹80,000</div>
+                  <div className="text-[9px] md:text-[10px] text-gray-400 mt-0.5">Before deductions</div>
                 </div>
-                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800">
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mb-1">Total Deductions</div>
-                  <div className="text-lg font-bold text-red-500">₹12,315</div>
-                  <div className="text-[9px] text-gray-400 mt-0.5">PF + ESI + PT + TDS</div>
+                <div className="p-3 md:p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+                  <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Total Deductions</div>
+                  <div className="text-lg md:text-xl font-bold text-red-500">₹12,315</div>
+                  <div className="text-[9px] md:text-[10px] text-gray-400 mt-0.5">PF + ESI + PT + TDS</div>
                 </div>
-                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800">
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mb-1">Employee PF</div>
-                  <div className="text-lg font-bold text-gray-800 dark:text-gray-100">₹6,000</div>
-                  <div className="text-[9px] text-gray-400 mt-0.5">12% of basic</div>
+                <div className="p-3 md:p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+                  <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Employee PF</div>
+                  <div className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-200">₹6,000</div>
+                  <div className="text-[9px] md:text-[10px] text-gray-400 mt-0.5">12% of basic</div>
                 </div>
-                <div className="p-3 rounded-xl bg-green-50/50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30">
-                  <div className="text-[10px] text-green-600 dark:text-green-500 font-medium mb-1">Net Take-Home</div>
-                  <div className="text-lg font-bold text-green-600 dark:text-green-400">₹67,685</div>
-                  <div className="text-[9px] text-green-500/70 mt-0.5">INR this month</div>
+                <div className="p-3 md:p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                  <div className="text-[10px] md:text-xs text-green-600 dark:text-green-400 font-medium mb-1">Net Take-Home</div>
+                  <div className="text-lg md:text-xl font-bold text-green-600 dark:text-green-400">₹67,685</div>
+                  <div className="text-[9px] md:text-[10px] text-green-500/70 mt-0.5">INR this month</div>
                 </div>
               </div>
             </div>
-            )}
+          )}
 
-            {currentStep === 3 && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 md:p-6">
-              {/* Multi-Country Work Split Card */}
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-md bg-amber-50 dark:bg-amber-900/20 text-amber-500 flex items-center justify-center">
-                    <i className="fas fa-globe text-xs"></i>
-                  </div>
+          {/* Step 3 - Country Split */}
+          {currentStep === 3 && (
+            <div>
+              <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
+                <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                  <i className="fas fa-globe text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
+                </div>
+                <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
                   Multi-Country Work Split
                 </h3>
-                <span className="px-2 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold rounded-md border border-amber-100 dark:border-amber-800">
-                  2 countries
-                </span>
               </div>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-5">
-                Enter the number of days worked in each country. Salary is calculated pro-rata based on each country's wage rate and converted to the base currency (INR).
-              </p>
               
-              <div className="space-y-3 mb-4">
-                <div className="hidden md:grid grid-cols-12 gap-3 px-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  <div className="col-span-3">Country</div>
-                  <div className="col-span-2">Currency</div>
-                  <div className="col-span-2">Daily Rate</div>
-                  <div className="col-span-2">Days Worked</div>
-                  <div className="col-span-2">FX Rate → INR</div>
-                  <div className="col-span-1"></div>
-                </div>
-                
+              <div className="space-y-3">
                 {countries.map((c) => (
-                  <div key={c.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-gray-50 md:bg-transparent dark:bg-gray-900/50 md:dark:bg-transparent p-3 md:p-0 rounded-xl md:rounded-none">
-                    <div className="col-span-3">
-                      <select className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none">
+                  <div key={c.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                    <div className="md:col-span-3">
+                      <select className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20">
                         <option>{c.name}</option>
                       </select>
                     </div>
-                    <div className="col-span-2">
-                      <select className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none">
+                    <div className="md:col-span-2">
+                      <select className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20">
                         <option>{c.currency}</option>
                       </select>
                     </div>
-                    <div className="col-span-2">
-                      <input type="text" value={c.dailyRate} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none" />
+                    <div className="md:col-span-2">
+                      <input type="text" value={c.dailyRate} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                     </div>
-                    <div className="col-span-2">
-                      <input type="text" value={c.daysWorked} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none" />
+                    <div className="md:col-span-2">
+                      <input type="text" value={c.daysWorked} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                     </div>
-                    <div className="col-span-2">
-                      <input type="text" value={c.fxRate} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none" />
+                    <div className="md:col-span-2">
+                      <input type="text" value={c.fxRate} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                     </div>
-                    <div className="col-span-1 flex justify-end md:justify-center">
-                      <button className="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 transition-colors flex items-center justify-center border border-red-100 dark:border-red-900">
-                        <i className="fas fa-trash-alt text-[10px]"></i>
+                    <div className="md:col-span-1 flex justify-end">
+                      <button className="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 transition-colors flex items-center justify-center">
+                        <i className="fas fa-trash-alt text-xs"></i>
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
               
-              <button className="px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg text-xs font-semibold hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors border border-green-100 dark:border-green-800 flex items-center gap-2 mb-6">
+              <button className="mt-3 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg text-xs font-semibold hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors border border-green-100 dark:border-green-800 flex items-center gap-2">
                 <i className="fas fa-plus"></i> Add Country
               </button>
 
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <div className="p-3 rounded-xl bg-orange-50/50 border border-orange-100 dark:bg-gray-900/50 dark:border-gray-800">
-                  <div className="flex items-center gap-1.5 text-[10px] text-gray-600 dark:text-gray-400 font-semibold mb-1">
-                    <img src="https://flagcdn.com/w20/ae.png" alt="UAE" className="w-3 h-2" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="p-3 md:p-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+                  <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-gray-600 dark:text-gray-400 font-semibold mb-1">
+                    <span className="w-3 h-2 bg-green-500 rounded-sm"></span>
                     UAE (AED)
                   </div>
-                  <div className="text-lg font-bold text-orange-600 dark:text-orange-500">AED 6,000</div>
-                  <div className="text-[9px] text-gray-500 dark:text-gray-400 mt-0.5">10 days × AED 600</div>
+                  <div className="text-lg md:text-xl font-bold text-orange-600 dark:text-orange-400">AED 6,000</div>
+                  <div className="text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">10 days × AED 600</div>
                 </div>
-                <div className="p-3 rounded-xl bg-green-50/50 border border-green-100 dark:bg-gray-900/50 dark:border-gray-800">
-                  <div className="flex items-center gap-1.5 text-[10px] text-gray-600 dark:text-gray-400 font-semibold mb-1">
-                    <img src="https://flagcdn.com/w20/in.png" alt="India" className="w-3 h-2" />
+                <div className="p-3 md:p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                  <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-gray-600 dark:text-gray-400 font-semibold mb-1">
+                    <span className="w-3 h-2 bg-green-500 rounded-sm"></span>
                     India (INR)
                   </div>
-                  <div className="text-lg font-bold text-green-600 dark:text-green-500">₹40,000</div>
-                  <div className="text-[9px] text-gray-500 dark:text-gray-400 mt-0.5">20 days × ₹2,000</div>
+                  <div className="text-lg md:text-xl font-bold text-green-600 dark:text-green-400">₹40,000</div>
+                  <div className="text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">20 days × ₹2,000</div>
                 </div>
-                <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-100 dark:bg-gray-900/50 dark:border-gray-800 relative overflow-hidden">
-                  <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-blue-100/50 dark:from-blue-900/20 to-transparent"></div>
-                  <div className="flex items-center gap-1.5 text-[10px] text-blue-600 dark:text-blue-400 font-semibold mb-1">
+                <div className="p-3 md:p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                  <div className="text-[10px] md:text-xs text-blue-600 dark:text-blue-400 font-semibold mb-1">
                     UAE → INR
                   </div>
-                  <div className="text-lg font-bold text-blue-600 dark:text-blue-500">₹1,35,000</div>
-                  <div className="text-[9px] text-gray-500 dark:text-gray-400 mt-0.5">AED 6,000 × 22.5</div>
+                  <div className="text-lg md:text-xl font-bold text-blue-600 dark:text-blue-400">₹1,35,000</div>
+                  <div className="text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">AED 6,000 × 22.5</div>
                 </div>
-                <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 dark:bg-gray-900/50 dark:border-gray-800">
-                  <div className="text-[10px] text-emerald-600 dark:text-emerald-500 font-semibold mb-1">
+                <div className="p-3 md:p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                  <div className="text-[10px] md:text-xs text-emerald-600 dark:text-emerald-400 font-semibold mb-1">
                     Combined (INR)
                   </div>
-                  <div className="text-lg font-bold text-emerald-600 dark:text-emerald-500">₹1,75,000</div>
-                  <div className="text-[9px] text-gray-500 dark:text-gray-400 mt-0.5">Total this month</div>
+                  <div className="text-lg md:text-xl font-bold text-emerald-600 dark:text-emerald-400">₹1,75,000</div>
+                  <div className="text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Total this month</div>
                 </div>
               </div>
             </div>
-            )}
+          )}
 
-            {currentStep === 4 && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 md:p-6">
-              {/* Deductions Card */}
-              <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-5 flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-500 flex items-center justify-center">
-                  <i className="fas fa-minus-circle text-xs"></i>
+          {/* Step 4 - Deductions */}
+          {currentStep === 4 && (
+            <div>
+              <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
+                <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                  <i className="fas fa-minus-circle text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
                 </div>
-                Deductions
-              </h3>
+                <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
+                  Deductions
+                </h3>
+              </div>
               
-              <div className="space-y-3 mb-4">
-                <div className="hidden md:grid grid-cols-12 gap-3 px-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  <div className="col-span-4">Deduction Type</div>
-                  <div className="col-span-3">Country / Scope</div>
-                  <div className="col-span-2">Amount (INR)</div>
-                  <div className="col-span-2">Statutory?</div>
-                  <div className="col-span-1"></div>
-                </div>
-                
+              <div className="space-y-3">
                 {deductions.map((d) => (
-                  <div key={d.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-gray-50 md:bg-transparent dark:bg-gray-900/50 md:dark:bg-transparent p-3 md:p-0 rounded-xl md:rounded-none">
-                    <div className="col-span-4">
-                      <select className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none">
+                  <div key={d.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                    <div className="md:col-span-4">
+                      <select className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20">
                         <option>{d.type}</option>
                       </select>
                     </div>
-                    <div className="col-span-3">
-                      <select className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none">
+                    <div className="md:col-span-3">
+                      <select className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20">
                         <option>{d.country}</option>
                       </select>
                     </div>
-                    <div className="col-span-2">
-                      <input type="text" value={d.amount} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none" />
+                    <div className="md:col-span-2">
+                      <input type="text" value={d.amount} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20" />
                     </div>
-                    <div className="col-span-2">
-                      <select className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none">
+                    <div className="md:col-span-2">
+                      <select className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20">
                         <option>{d.statutory}</option>
+                        <option>No</option>
                       </select>
                     </div>
-                    <div className="col-span-1 flex justify-end md:justify-center">
-                      <button className="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 transition-colors flex items-center justify-center border border-red-100 dark:border-red-900">
-                        <i className="fas fa-trash-alt text-[10px]"></i>
+                    <div className="md:col-span-1 flex justify-end">
+                      <button className="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 transition-colors flex items-center justify-center">
+                        <i className="fas fa-trash-alt text-xs"></i>
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
               
-              <button className="px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg text-xs font-semibold hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors border border-green-100 dark:border-green-800 flex items-center gap-2 mb-6">
+              <button className="mt-3 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg text-xs font-semibold hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors border border-green-100 dark:border-green-800 flex items-center gap-2">
                 <i className="fas fa-plus"></i> Add Deduction
               </button>
 
               {/* Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800">
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mb-1">India Deductions</div>
-                  <div className="text-lg font-bold text-red-500">₹10,700</div>
-                  <div className="text-[9px] text-gray-400 mt-0.5">PF + PT + TDS</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="p-3 md:p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+                  <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">India Deductions</div>
+                  <div className="text-lg md:text-xl font-bold text-red-500">₹10,700</div>
+                  <div className="text-[9px] md:text-[10px] text-gray-400 mt-0.5">PF + PT + TDS</div>
                 </div>
-                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800">
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mb-1">UAE Deductions (INR)</div>
-                  <div className="text-lg font-bold text-red-500">₹1,125</div>
-                  <div className="text-[9px] text-gray-400 mt-0.5">Gratuity</div>
+                <div className="p-3 md:p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+                  <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">UAE Deductions (INR)</div>
+                  <div className="text-lg md:text-xl font-bold text-red-500">₹1,125</div>
+                  <div className="text-[9px] md:text-[10px] text-gray-400 mt-0.5">Gratuity</div>
                 </div>
-                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800">
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mb-1">Total Deductions</div>
-                  <div className="text-lg font-bold text-red-600 dark:text-red-500">₹11,825</div>
-                  <div className="text-[9px] text-gray-400 mt-0.5">All countries</div>
+                <div className="p-3 md:p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+                  <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Total Deductions</div>
+                  <div className="text-lg md:text-xl font-bold text-red-600 dark:text-red-500">₹11,825</div>
+                  <div className="text-[9px] md:text-[10px] text-gray-400 mt-0.5">All countries</div>
                 </div>
-                <div className="p-3 rounded-xl bg-green-50/50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30">
-                  <div className="text-[10px] text-green-600 dark:text-green-500 font-medium mb-1">Final Net Pay</div>
-                  <div className="text-lg font-bold text-green-600 dark:text-green-400">₹1,63,175</div>
-                  <div className="text-[9px] text-green-500/70 mt-0.5">After all deductions</div>
+                <div className="p-3 md:p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                  <div className="text-[10px] md:text-xs text-green-600 dark:text-green-400 font-medium mb-1">Final Net Pay</div>
+                  <div className="text-lg md:text-xl font-bold text-green-600 dark:text-green-400">₹1,63,175</div>
+                  <div className="text-[9px] md:text-[10px] text-green-500/70 mt-0.5">After all deductions</div>
                 </div>
               </div>
             </div>
-            )}
+          )}
 
-            {currentStep === 5 && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 md:p-6">
-                <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-5 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-md bg-green-50 dark:bg-green-900/20 text-green-500 flex items-center justify-center">
-                    <i className="fas fa-clipboard-check text-xs"></i>
-                  </div>
+          {/* Step 5 - Summary */}
+          {currentStep === 5 && (
+            <div>
+              <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
+                <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                  <i className="fas fa-clipboard-check text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
+                </div>
+                <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
                   Payroll Summary
                 </h3>
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Review the payroll details before final submission.</p>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                    <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800">
-                      <div className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mb-1">Gross Earnings</div>
-                      <div className="text-lg font-bold text-gray-800 dark:text-gray-100">₹80,000</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800">
-                      <div className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mb-1">Total Deductions</div>
-                      <div className="text-lg font-bold text-red-500">₹12,315</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 dark:bg-gray-900/50 dark:border-gray-800">
-                      <div className="text-[10px] text-emerald-600 dark:text-emerald-500 font-medium mb-1">Combined (INR)</div>
-                      <div className="text-lg font-bold text-emerald-600 dark:text-emerald-500">₹1,75,000</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-green-50/50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30">
-                      <div className="text-[10px] text-green-600 dark:text-green-500 font-medium mb-1">Final Net Pay</div>
-                      <div className="text-lg font-bold text-green-600 dark:text-green-400">₹1,63,175</div>
-                    </div>
+              </div>
+              
+              <div className="space-y-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Review the payroll details before final submission.</p>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="p-3 md:p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+                    <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Gross Earnings</div>
+                    <div className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-200">₹80,000</div>
+                  </div>
+                  <div className="p-3 md:p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+                    <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Total Deductions</div>
+                    <div className="text-lg md:text-xl font-bold text-red-500">₹12,315</div>
+                  </div>
+                  <div className="p-3 md:p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                    <div className="text-[10px] md:text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-1">Combined (INR)</div>
+                    <div className="text-lg md:text-xl font-bold text-emerald-600 dark:text-emerald-400">₹1,75,000</div>
+                  </div>
+                  <div className="p-3 md:p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                    <div className="text-[10px] md:text-xs text-green-600 dark:text-green-400 font-medium mb-1">Final Net Pay</div>
+                    <div className="text-lg md:text-xl font-bold text-green-600 dark:text-green-400">₹1,63,175</div>
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 mt-4 border-t border-gray-200 dark:border-gray-700">
-              <button 
-                onClick={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : null}
-                className={`w-full sm:w-auto px-4 py-2 md:py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-xs md:text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 ${currentStep === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={currentStep === 1}
-              >
-                <i className="fas fa-arrow-left"></i> Previous
-              </button>
-              <div className="flex flex-col sm:flex-row gap-2 md:gap-3 w-full sm:w-auto">
-                <button className="w-full sm:w-auto px-4 py-2 md:py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-xs md:text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-transparent text-center">
-                  Save as Draft
-                </button>
-                {currentStep < 5 ? (
-                  <button 
-                    onClick={() => setCurrentStep(currentStep + 1)}
-                    className="w-full sm:w-auto px-4 py-2 md:py-2.5 rounded-xl bg-green-500 text-white text-xs md:text-sm font-semibold hover:bg-green-600 transition-colors shadow-md flex items-center justify-center"
-                  >
-                    Next Step <i className="fas fa-arrow-right ml-1"></i>
-                  </button>
-                ) : (
-                  <button className="w-full sm:w-auto px-4 py-2 md:py-2.5 rounded-xl bg-green-500 text-white text-xs md:text-sm font-semibold hover:bg-green-600 transition-colors shadow-md flex items-center justify-center">
-                    Submit Payroll <i className="fas fa-check ml-1"></i>
-                  </button>
-                )}
-              </div>
             </div>
+          )}
 
+          {/* Action Buttons */}
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 md:pt-6 border-t border-gray-200 dark:border-gray-700">
+            {currentStep > 1 && (
+              <button 
+                onClick={() => setCurrentStep(currentStep - 1)}
+                className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
+              >
+                <i className="fas fa-arrow-left text-xs md:text-sm"></i>
+                <span>Previous</span>
+              </button>
+            )}
+            
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button 
+                className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
+              >
+                <i className="fas fa-save text-xs md:text-sm"></i>
+                <span>Save as Draft</span>
+              </button>
+              
+              {currentStep < 5 ? (
+                <button 
+                  onClick={() => setCurrentStep(currentStep + 1)}
+                  className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
+                >
+                  <span>Next Step</span>
+                  <i className="fas fa-arrow-right text-xs md:text-sm"></i>
+                </button>
+              ) : (
+                <button className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base">
+                  <i className="fas fa-check text-xs md:text-sm"></i>
+                  <span>Submit Payroll</span>
+                </button>
+              )}
+            </div>
           </div>
+        </div>
+      </div>
     </div>
   );
 }

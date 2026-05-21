@@ -213,6 +213,26 @@ const authSlice = createSlice({
         localStorage.setItem("employee-user", JSON.stringify(state.user));
       }
     },
+     updateUser: (state, action) => {
+      const updatedUser = action.payload;
+      state.user = {
+        ...state.user,
+        ...updatedUser,
+        name: updatedUser.name || updatedUser.employee?.name || state.user?.name,
+        email: updatedUser.email || state.user?.email,
+        username: updatedUser.username || state.user?.username,
+      };
+      // Update localStorage
+      localStorage.setItem("user-data", JSON.stringify(state.user));
+      
+      // Update role-specific storage
+      const userType = localStorage.getItem("user-type");
+      if (userType === "admin") {
+        localStorage.setItem("hr-user", JSON.stringify(state.user));
+      } else if (userType === "employee") {
+        localStorage.setItem("employee-user", JSON.stringify(state.user));
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -298,7 +318,8 @@ export const {
   clearError, 
   setRememberMe, 
   clearProfileUpdateError, 
-  updateUserState 
+  updateUserState ,
+  updateUser  
 } = authSlice.actions;
 
 export default authSlice.reducer;

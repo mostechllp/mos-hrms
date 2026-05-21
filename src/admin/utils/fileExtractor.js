@@ -1,5 +1,3 @@
-// src/utils/fileExtractor.js
-
 // Dynamic script loaders
 const loadScript = (id, src) => {
   return new Promise((resolve, reject) => {
@@ -12,7 +10,7 @@ const loadScript = (id, src) => {
     script.src = src;
     script.async = true;
     script.onload = () => resolve();
-    script.onerror = (err) => reject(new Error(`Failed to load script: ${src}`));
+    script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
     document.head.appendChild(script);
   });
 };

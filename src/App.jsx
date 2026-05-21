@@ -74,7 +74,7 @@ const AdminWFH = lazy(() => import("./admin/pages/WFH"));
 const Settings = lazy(() => import("./admin/pages/Settings"));
 const RoleManagement = lazy(() => import("./admin/pages/RoleManagement"));
 const AddPayroll = lazy(() => import("./admin/pages/AddPayroll"));
-const Onboarding = lazy(() => import("./pages/onboarding/Onboarding"));
+const Onboarding = lazy(() => import("./admin/pages/Onboarding"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -132,9 +132,9 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
 
-        {/* Admin Routes */}
+        {/* Admin Routes - Layout wrapper */}
         <Route
-          path="/admin/*"
+          path="/admin"
           element={
             <ProtectedRoute requiredType="admin">
               <LazyWrapper>
@@ -143,6 +143,7 @@ function App() {
             </ProtectedRoute>
           }
         >
+          {/* Admin nested routes - these will render inside AdminLayout */}
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="employees" element={<Employees />} />
@@ -226,12 +227,11 @@ function App() {
           <Route path="wfh" element={<AdminWFH />} />
           <Route path="settings" element={<Settings />} />
           <Route path="role-management" element={<RoleManagement />} />
-          <Route path="*" element={<NotFound />} />
         </Route>
 
-        {/* Employee Routes */}
+        {/* Employee Routes - Layout wrapper */}
         <Route
-          path="/employee/*"
+          path="/employee"
           element={
             <ProtectedRoute requiredType="employee">
               <LazyWrapper>
@@ -240,6 +240,7 @@ function App() {
             </ProtectedRoute>
           }
         >
+          {/* Employee nested routes - these will render inside EmployeeLayout */}
           <Route
             index
             element={<Navigate to="/employee/dashboard" replace />}
@@ -251,10 +252,9 @@ function App() {
           <Route path="task-reports" element={<EmployeeTaskReports />} />
           <Route path="profile" element={<EmployeeProfile />} />
           <Route path="attendance-requests" element={<AttendanceRequests />} />
-          <Route path="*" element={<NotFound />} />
         </Route>
 
-        {/* Catch all - 404 */}
+        {/* Global 404 - No layout, full page */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </ThemeProvider>

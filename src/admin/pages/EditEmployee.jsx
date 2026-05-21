@@ -88,6 +88,7 @@ const EditEmployee = () => {
       nationality: "",
       marital_status: "",
       special_days: [{ name: "", date: "" }],
+      is_skilled: false,
       passport_full_name: "",
       passport_number: "",
       passport_issued_date: "",
@@ -175,6 +176,7 @@ const EditEmployee = () => {
   // Convert date from YYYY-MM-DD to DD/MM/YYYY for display
   const convertToDisplayDate = (dateString) => {
     if (!dateString) return "";
+    if (dateString === "0000-00-00") return "";
     if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
       const [year, month, day] = dateString.split("-");
       return `${day}/${month}/${year}`;
@@ -204,6 +206,11 @@ const EditEmployee = () => {
       setValue("gender", currentEmployee.gender || "male");
       setValue("nationality", currentEmployee.nationality || "");
       setValue("marital_status", currentEmployee.marital_status || "");
+
+      setValue(
+        "is_skilled",
+        currentEmployee.is_skilled === 1 || currentEmployee.is_skilled === true,
+      );
 
       // Handle special days
       try {
@@ -532,6 +539,9 @@ const EditEmployee = () => {
     formData.append("gender", data.gender || "");
     formData.append("nationality", data.nationality || "");
     formData.append("marital_status", data.marital_status || "");
+    if (data.is_skilled !== undefined) {
+      formData.append("is_skilled", data.is_skilled);
+    }
 
     if (data.designation_id)
       formData.append("designation_id", parseInt(data.designation_id));
@@ -1419,6 +1429,46 @@ const EditEmployee = () => {
                         accept="image/*"
                       />
                     </div>
+                  </div>
+
+                  {/* Skilled/Unskilled Dropdown */}
+                  <div className="md:col-span-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
+                      <i className="fas fa-graduation-cap text-green-500 mr-1"></i>
+                      Employee Category <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="is_skilled"
+                      control={control}
+                      render={({ field }) => (
+                        <div className="flex gap-4">
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              value="true"
+                              checked={field.value === true}
+                              onChange={() => field.onChange(true)}
+                              className="mr-2 text-green-500 focus:ring-green-500"
+                            />
+                            <span className="text-sm text-gray-700">
+                              Skilled
+                            </span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              value="false"
+                              checked={field.value === false}
+                              onChange={() => field.onChange(false)}
+                              className="mr-2 text-green-500 focus:ring-green-500"
+                            />
+                            <span className="text-sm text-gray-700">
+                              Unskilled
+                            </span>
+                          </label>
+                        </div>
+                      )}
+                    />
                   </div>
 
                   {/* Educational Documents */}
