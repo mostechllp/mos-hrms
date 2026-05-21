@@ -1,4 +1,4 @@
-import {useMemo } from "react";
+import { useMemo } from "react";
 import { useAppSelector, useAppDispatch } from "../store/hooks";
 import {
   setTaskReportsPagination,
@@ -14,12 +14,12 @@ import {
 const TaskReports = () => {
   const dispatch = useAppDispatch();
   const taskReportsState = useAppSelector((state) => state.taskReports);
-  
+
   // Add safety defaults - FIXES THE ERROR
   const taskReports = taskReportsState?.taskReports || [];
   const pagination = taskReportsState?.pagination || { currentPage: 1, perPage: 10 };
   const search = taskReportsState?.search || '';
-  
+
   // Use useMemo instead of useState + useEffect to prevent infinite loops
   const filteredReports = useMemo(() => {
     let filtered = [...taskReports];
@@ -39,7 +39,7 @@ const TaskReports = () => {
   // Safety check for pagination
   const perPage = pagination?.perPage || 10;
   const currentPage = pagination?.currentPage || 1;
-  
+
   const totalPages = Math.ceil(filteredReports.length / perPage);
   const start = (currentPage - 1) * perPage;
   const currentReports = filteredReports.slice(start, start + perPage);
@@ -84,15 +84,33 @@ const TaskReports = () => {
     );
   };
 
+  const getStatColor = (val, defaultClass) => {
+    if (val === 0) return "text-slate-400 dark:text-slate-500";
+    if (val === 5) return "text-blue-600 dark:text-blue-400";
+    if (val === 14) return "text-green-600 dark:text-green-400";
+    if (val === 18) return "text-blue-600 dark:text-blue-400";
+    if (val === 19) return "text-amber-600 dark:text-amber-400";
+    return defaultClass;
+  };
+
+  const getStatIconColor = (val, defaultClass) => {
+    if (val === 0) return "bg-slate-400/10 text-slate-400 dark:text-slate-500";
+    if (val === 5) return "bg-blue-500/10 text-blue-500";
+    if (val === 14) return "bg-green-500/10 text-green-500";
+    if (val === 18) return "bg-blue-500/10 text-blue-500";
+    if (val === 19) return "bg-amber-500/10 text-amber-500";
+    return defaultClass;
+  };
+
   return (
     <div>
       {/* Stats Grid */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-2 gap-5 mb-7">
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
-          <div className="stat-icon w-12 h-12 rounded-xl bg-green-500/10 text-green-500 flex items-center justify-center text-2xl mx-auto mb-3">
+          <div className={`stat-icon w-12 h-12 rounded-xl flex items-center justify-center text-2xl mx-auto mb-3 ${getStatIconColor(stats.total, "bg-green-500/10 text-green-500")}`}>
             <FiClipboard />
           </div>
-          <div className="stat-number text-3xl font-extrabold text-green-600">
+          <div className={`stat-number text-3xl font-extrabold ${getStatColor(stats.total, "text-green-600")}`}>
             {stats.total}
           </div>
           <div className="stat-label text-xs text-[var(--muted)]">
@@ -100,10 +118,10 @@ const TaskReports = () => {
           </div>
         </div>
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
-          <div className="stat-icon w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-2xl mx-auto mb-3">
+          <div className={`stat-icon w-12 h-12 rounded-xl flex items-center justify-center text-2xl mx-auto mb-3 ${getStatIconColor(stats.thisWeek, "bg-emerald-500/10 text-emerald-500")}`}>
             <FiClipboard />
           </div>
-          <div className="stat-number text-3xl font-extrabold text-blue-500">
+          <div className={`stat-number text-3xl font-extrabold ${getStatColor(stats.thisWeek, "text-emerald-600")}`}>
             {stats.thisWeek}
           </div>
           <div className="stat-label text-xs text-[var(--muted)]">
@@ -229,11 +247,10 @@ const TaskReports = () => {
                 <button
                   key={i}
                   onClick={() => handlePageChange(pageNum)}
-                  className={`w-9 h-9 rounded-lg border text-xs transition-all ${
-                    currentPage === pageNum
+                  className={`w-9 h-9 rounded-lg border text-xs transition-all ${currentPage === pageNum
                       ? "bg-green-500 border-green-500 text-white"
                       : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--surface2)]"
-                  }`}
+                    }`}
                 >
                   {pageNum}
                 </button>
