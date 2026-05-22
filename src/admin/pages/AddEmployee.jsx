@@ -119,7 +119,7 @@ const AddEmployee = () => {
       home_country_number: "",
       role: "",
     },
-    shouldUnregister: true,
+    shouldUnregister: false,
     mode: "onChange",
   });
 
@@ -206,9 +206,6 @@ const AddEmployee = () => {
       const org = organizations.find(
         (org) => org.id === parseInt(watchOrganizationId),
       );
-      console.log("Selected organization:", org);
-      console.log("multi_company value:", org?.multi_company);
-      console.log("Type:", typeof org?.multi_company);
 
       setSelectedOrgDetails(org || null);
 
@@ -251,7 +248,11 @@ const AddEmployee = () => {
   ];
 
   const maritalStatusOptions = ["Single", "Married", "Divorced", "Widowed"];
-  const visaTypeOptions = ["Company Visa", "Family Visa", "Other Visa"];
+  const visaTypeOptions = [
+    { value: "company_visa", label: "Company Visa" },
+    { value: "family_visa", label: "Family Visa" },
+    { value: "other_visa", label: "Other Visa" },
+  ];
 
   const getStepFields = (stepIndex) => {
     switch (stepIndex) {
@@ -275,6 +276,7 @@ const AddEmployee = () => {
         return ["passport_issued_date", "passport_expiry_date"];
       case 2:
         return [
+          "visa_type",
           "visa_number",
           "visa_issued_date",
           "visa_expiry_date",
@@ -489,6 +491,11 @@ const AddEmployee = () => {
   const onSubmit = async (data) => {
     setLoading(true);
 
+    console.log("=== FORM SUBMISSION DEBUG ===");
+    console.log("data.role:", data.role);
+    console.log("data.role type:", typeof data.role);
+    console.log("============================");
+
     // Helper function to convert date from dd/mm/yyyy to YYYY-MM-DD
     const convertDateToBackend = (dateString) => {
       if (!dateString) return "";
@@ -526,13 +533,10 @@ const AddEmployee = () => {
       }
       formData.append("company_id", parseInt(data.company_id));
     } else {
-      // For organizations without multiple companies, you might need to:
-      // Option 1: Don't send company_id (if backend handles it)
-      // Option 2: Send a default company ID
-      // Option 3: Get the default company for this organization
-      formData.append("company_id", ""); // Or handle as per your backend requirement
+      formData.append("company_id", "");
     }
-    formData.append("is_skilled", isSkilled !== null ? isSkilled : false);
+    const isSkilledValue = isSkilled !== null ? (isSkilled ? 1 : 0) : 0;
+    formData.append("is_skilled", isSkilledValue);
 
     if (data.designation_id) {
       formData.append("designation_id", parseInt(data.designation_id));
@@ -591,91 +595,68 @@ const AddEmployee = () => {
       }
     }
 
-    // Passport fields
-    if (data.passport_full_name)
-      formData.append("passport_full_name", data.passport_full_name);
-    if (data.passport_number)
-      formData.append("passport_number", data.passport_number);
-    if (data.passport_issued_date)
-      formData.append(
-        "passport_issued_date",
-        convertDateToBackend(data.passport_issued_date),
-      );
-    if (data.passport_expiry_date)
-      formData.append(
-        "passport_expiry_date",
-        convertDateToBackend(data.passport_expiry_date),
-      );
-    if (data.passport_issued_from)
-      formData.append("passport_issued_from", data.passport_issued_from);
-    if (data.place_of_birth)
-      formData.append("place_of_birth", data.place_of_birth);
-    if (data.father_name) formData.append("father_name", data.father_name);
-    if (data.mother_name) formData.append("mother_name", data.mother_name);
-    if (data.address) formData.append("address", data.address);
+    formData.append("passport_full_name", data.passport_full_name || "");
+    formData.append("passport_number", data.passport_number || "");
+    formData.append(
+      "passport_issued_date",
+      convertDateToBackend(data.passport_issued_date) || "",
+    );
+    formData.append(
+      "passport_expiry_date",
+      convertDateToBackend(data.passport_expiry_date) || "",
+    );
+    formData.append("passport_issued_from", data.passport_issued_from || "");
+    formData.append("place_of_birth", data.place_of_birth || "");
+    formData.append("father_name", data.father_name || "");
+    formData.append("mother_name", data.mother_name || "");
+    formData.append("address", data.address || "");
 
-    // Visa & Labor
-    if (data.visa_number) formData.append("visa_number", data.visa_number);
-    if (data.visa_type) formData.append("visa_type", data.visa_type);
-    if (data.visa_issued_date)
-      formData.append(
-        "visa_issued_date",
-        convertDateToBackend(data.visa_issued_date),
-      );
-    if (data.visa_expiry_date)
-      formData.append(
-        "visa_expiry_date",
-        convertDateToBackend(data.visa_expiry_date),
-      );
-    if (data.labor_number) formData.append("labor_number", data.labor_number);
-    if (data.labor_issued_date)
-      formData.append(
-        "labor_issued_date",
-        convertDateToBackend(data.labor_issued_date),
-      );
-    if (data.labor_expiry_date)
-      formData.append(
-        "labor_expiry_date",
-        convertDateToBackend(data.labor_expiry_date),
-      );
+    formData.append("visa_number", data.visa_number || "");
 
-    // EID
-    if (data.eid_number) formData.append("eid_number", data.eid_number);
-    if (data.eid_issued_date)
-      formData.append(
-        "eid_issued_date",
-        convertDateToBackend(data.eid_issued_date),
-      );
-    if (data.eid_expiry_date)
-      formData.append(
-        "eid_expiry_date",
-        convertDateToBackend(data.eid_expiry_date),
-      );
+    formData.append("visa_type", data.visa_type || "");
 
-    // Contact
-    if (data.dependents) formData.append("dependents", String(data.dependents));
-    if (data.company_email)
-      formData.append("company_email", data.company_email);
-    if (data.company_mobile_number)
-      formData.append("company_mobile_number", data.company_mobile_number);
-    if (data.personal_number)
-      formData.append("personal_number", data.personal_number);
-    if (data.personal_email)
-      formData.append("personal_email", data.personal_email);
-    if (data.other_number) formData.append("other_number", data.other_number);
-    if (data.home_country_number)
-      formData.append("home_country_number", data.home_country_number);
-    if (data.role) formData.append("role", data.role);
+    const visaIssuedConverted = convertDateToBackend(data.visa_issued_date);
+    formData.append("visa_issued_date", visaIssuedConverted);
 
-    // ============ IMPORTANT: Send ALL files as temp paths ============
+    const visaExpiryConverted = convertDateToBackend(data.visa_expiry_date);
+    formData.append("visa_expiry_date", visaExpiryConverted);
 
-    // Avatar (passport size photo) - send temp path
+    formData.append("labor_number", data.labor_number || "");
+
+    const laborIssuedConverted = convertDateToBackend(data.labor_issued_date);
+    formData.append("labor_issued_date", laborIssuedConverted);
+
+    const laborExpiryConverted = convertDateToBackend(data.labor_expiry_date);
+    formData.append("labor_expiry_date", laborExpiryConverted);
+
+    formData.append("eid_number", data.eid_number || "");
+
+    const eidIssuedConverted = convertDateToBackend(data.eid_issued_date);
+    formData.append("eid_issued_date", eidIssuedConverted);
+
+    const eidExpiryConverted = convertDateToBackend(data.eid_expiry_date);
+    formData.append("eid_expiry_date", eidExpiryConverted);
+
+    formData.append(
+      "dependents",
+      data.dependents ? String(data.dependents) : "0",
+    );
+    formData.append("company_email", data.company_email || "");
+    formData.append("company_mobile_number", data.company_mobile_number || "");
+    formData.append("personal_number", data.personal_number || "");
+    formData.append("personal_email", data.personal_email || "");
+    formData.append("other_number", data.other_number || "");
+    formData.append("home_country_number", data.home_country_number || "");
+    formData.append("role_id", data.role || "");
+
+    // ============ Documents - send temp paths ============
+
+    // Avatar
     if (documents.avatar) {
       formData.append("avatar", documents.avatar);
-      console.log("Sending avatar temp path:", documents.avatar);
     }
 
-    // All document fields - send temp paths
+    // All document fields
     const documentFields = [
       "passport_1st_page",
       "passport_2nd_page",
@@ -694,7 +675,6 @@ const AddEmployee = () => {
     documentFields.forEach((field) => {
       if (documents[field]) {
         formData.append(field, documents[field]);
-        console.log(`Sending ${field} temp path:`, documents[field]);
       }
     });
 
@@ -716,18 +696,13 @@ const AddEmployee = () => {
       });
     }
 
-    // Debug: Log all form data
-    console.log("=== FINAL FORM DATA TO BE SENT ===");
-    for (let pair of formData.entries()) {
-      console.log(`${pair[0]}: ${pair[1]}`);
-    }
-
     const result = await dispatch(addEmployee(formData));
 
     if (addEmployee.fulfilled.match(result)) {
       showToast(`Employee added successfully!`, "success");
       navigate("/admin/employees");
     } else {
+      console.error("8. Failed to add employee:", result.payload);
       const errorPayload = result.payload;
       if (errorPayload && errorPayload.errors) {
         const errorMessages = Object.entries(errorPayload.errors).map(
@@ -751,11 +726,6 @@ const AddEmployee = () => {
       // Upload the file to temp storage
       const formData = new FormData();
       formData.append("file", docData.file);
-
-      console.log("=== ALL FORM DATA KEYS ===");
-      for (let pair of formData.entries()) {
-        console.log(`${pair[0]}: ${pair[1]}`);
-      }
 
       const response = await apiClient.post(
         "/admin/employees/upload-temp",
@@ -2047,9 +2017,9 @@ const AddEmployee = () => {
                               className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                             >
                               <option value="">Select Type of Visa</option>
-                              {visaTypeOptions.map((visaType) => (
-                                <option key={visaType} value={visaType}>
-                                  {visaType}
+                              {visaTypeOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
                                 </option>
                               ))}
                             </select>

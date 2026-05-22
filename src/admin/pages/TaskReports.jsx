@@ -495,12 +495,12 @@ const TaskReports = () => {
               <button
                 onClick={() => {
                   handleViewModalClose();
-                  handleAddRemarks(selectedReport);
+                  handleEdit(selectedReport);
                 }}
                 className="px-5 py-2 rounded-full font-semibold bg-green-500 hover:bg-green-600 text-white flex items-center gap-2 transition-all shadow-md hover:shadow-lg text-sm"
               >
-                <i className="fas fa-comment text-white"></i>
-                Edit Remarks
+                <i className="fas fa-edit text-white"></i>
+                Edit
               </button>
             </div>
           </div>
