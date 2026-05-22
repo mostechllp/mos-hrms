@@ -22,6 +22,7 @@ const AddCompany = () => {
     phone: "",
     email: "",
     address: "",
+    trade_license: "", // Added trade_license field
     logo: null,
   });
   const [previewLogo, setPreviewLogo] = useState(null);
@@ -145,6 +146,7 @@ const AddCompany = () => {
       if (formData.phone) submitData.append("phone", formData.phone);
       if (formData.email) submitData.append("email", formData.email);
       if (formData.address) submitData.append("address", formData.address);
+      if (formData.trade_license) submitData.append("trade_license", formData.trade_license); // Added trade_license
 
       // Only append logo if it exists
       if (formData.logo) {
@@ -335,6 +337,26 @@ const AddCompany = () => {
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
             placeholder="Enter company address"
           />
+        </div>
+
+        {/* Trade License - New Field */}
+        <div className="mb-5">
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            Trade License
+          </label>
+          <select
+            name="trade_license"
+            value={formData.trade_license}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+          >
+            <option value="">Select License Type</option>
+            <option value="freezone">Freezone</option>
+            <option value="mainland">Mainland</option>
+          </select>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Select the type of trade license (Freezone or Mainland)
+          </p>
         </div>
 
         {/* Company Logo */}

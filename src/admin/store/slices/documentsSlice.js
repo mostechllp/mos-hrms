@@ -1,39 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import apiClient from "../../../utils/apiClient";
 
-// Helper function to transform form data for API
-// const transformDocumentForAPI = (formData, file) => {
-//   const formDataToSend = new FormData();
-
-//   formDataToSend.append("name", formData.name);
-//   formDataToSend.append("type", formData.type || "all");
-//   formDataToSend.append("description", formData.description || "");
-//   formDataToSend.append("folder_id", formData.folder_id || "");
-//   formDataToSend.append("expiry_date", formData.expiry_date || "");
-//   if (formData.party_id) {
-//     formDataToSend.append("party_id", formData.party_id);
-//   }
-
-//   // if (formData.share_with && Array.isArray(formData.share_with)) {
-//   //   formData.share_with.forEach((id, index) => {
-//   //     formDataToSend.append(`share_with[${index}]`, id);
-//   //   });
-//   // }
-//   if (formData.share_with) {
-//     const shareArray = Array.isArray(formData.share_with)
-//       ? formData.share_with
-//       : formData.share_with.split(",");
-
-//     shareArray.forEach((id, index) => {
-//       formDataToSend.append(`share_with[${index}]`, id);
-//     });
-//   }
-//   if (file) {
-//     formDataToSend.append("file_path", file);
-//   }
-
-//   return formDataToSend;
-// };
 const transformDocumentForAPI = (formData, file) => {
   const formDataToSend = new FormData();
 
@@ -44,23 +11,31 @@ const transformDocumentForAPI = (formData, file) => {
     formDataToSend.append("description", formData.description);
   }
 
-  formDataToSend.append("folder_id", formData.folder_id || "");
+  // Handle folder_id - make sure it's not empty
+  if (formData.folder_id && formData.folder_id !== "") {
+    formDataToSend.append("folder_id", formData.folder_id);
+  } else {
+    formDataToSend.append("folder_id", "");
+  }
 
-  if (formData.expiry_date) {
+  // Handle expiry_date - only send if valid
+  if (formData.expiry_date && formData.expiry_date !== "") {
     formDataToSend.append("expiry_date", formData.expiry_date);
   }
 
-  if (formData.party_id) {
+  // Handle party_id - send null or empty string if not present
+  if (formData.party_id && formData.party_id !== "") {
     formDataToSend.append("party_id", formData.party_id);
+  } else {
+    formDataToSend.append("party_id", "");
   }
 
-  if (formData.share_with) {
-    const shareArray = Array.isArray(formData.share_with)
-      ? formData.share_with
-      : formData.share_with.split(",");
-
-    shareArray.forEach((id, index) => {
-      formDataToSend.append(`share_with[${index}]`, id);
+  // Handle share_with array
+  if (formData.share_with && Array.isArray(formData.share_with)) {
+    formData.share_with.forEach((id, index) => {
+      if (id) {
+        formDataToSend.append(`share_with[${index}]`, id);
+      }
     });
   }
 
@@ -71,6 +46,9 @@ const transformDocumentForAPI = (formData, file) => {
   } else if (file) {
     formDataToSend.append("file_path", file);
   }
+
+  // Add _method for PUT request
+  formDataToSend.append("_method", "PUT");
 
   return formDataToSend;
 };
@@ -147,30 +125,6 @@ export const fetchDocuments = createAsyncThunk(
   },
 );
 
-export const uploadDocumentTemp = createAsyncThunk(
-  "documents/uploadTemp",
-  async (file, { rejectWithValue }) => {
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      
-      const response = await apiClient.post("/admin/documents/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      
-      const result = response.data;
-      if (result.status && result.path) {
-        return { path: result.path, filename: result.filename || file.name };
-      } else {
-        return rejectWithValue("Failed to upload file");
-      }
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to upload file");
-    }
-  }
-);
-
-
 // Fetch single document by ID
 export const fetchDocumentById = createAsyncThunk(
   "documents/fetchById",
@@ -215,11 +169,19 @@ export const uploadDocument = createAsyncThunk(
 );
 
 // Update document
+// Update document
 export const updateDocument = createAsyncThunk(
   "documents/update",
   async ({ id, formData, file }, { rejectWithValue }) => {
     try {
       const dataToSend = transformDocumentForAPI(formData, file);
+      
+      console.log("Updating document ID:", id);
+      console.log("Form data being sent:");
+      for (let [key, value] of dataToSend.entries()) {
+        console.log(key, ":", value);
+      }
+      
       const response = await apiClient.post(
         `/admin/documents/${id}?_method=PUT`,
         dataToSend,
@@ -231,6 +193,17 @@ export const updateDocument = createAsyncThunk(
       );
       return response.data.data || response.data;
     } catch (error) {
+      console.error("Update document error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.response?.data?.message,
+        errors: error.response?.data?.errors
+      });
+      
+      // Return the full error response for better handling
+      if (error.response?.data) {
+        return rejectWithValue(error.response.data);
+      }
       return rejectWithValue(
         error.response?.data?.message || "Failed to update document",
       );
@@ -253,7 +226,7 @@ export const deleteDocument = createAsyncThunk(
   },
 );
 
-// Add this to your documentsSlice.js
+// In documentsSlice.js - Update the uploadToTemp thunk
 export const uploadToTemp = createAsyncThunk(
   "documents/uploadToTemp",
   async (file, { rejectWithValue }) => {
@@ -261,18 +234,40 @@ export const uploadToTemp = createAsyncThunk(
       const formData = new FormData();
       formData.append("file", file);
       
-      const response = await apiClient.post("/admin/employees/upload-temp", formData, {
+      const response = await apiClient.post("/admin/documents/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       
+      // Log the full response to see what you're getting
+      console.log("Full upload response:", response);
+      console.log("Response data:", response.data);
+      
       const result = response.data;
+      
+      // Check different possible response structures
       if (result.status && result.path) {
         return { path: result.path, filename: result.filename || file.name };
-      } else {
-        return rejectWithValue("Failed to upload file to temp storage");
+      } 
+      // If response has data wrapper
+      else if (result.data && result.data.path) {
+        return { path: result.data.path, filename: result.data.filename || file.name };
+      }
+      // If response directly has path
+      else if (result.path) {
+        return { path: result.path, filename: result.filename || file.name };
+      }
+      // If response has file_path
+      else if (result.file_path) {
+        return { path: result.file_path, filename: result.filename || file.name };
+      }
+      else {
+        console.error("Unexpected response structure:", result);
+        return rejectWithValue("Failed to upload file to temp storage: Invalid response structure");
       }
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to upload file");
+      console.error("Upload error:", error);
+      console.error("Error response:", error.response);
+      return rejectWithValue(error.response?.data?.message || error.message || "Failed to upload file");
     }
   }
 );

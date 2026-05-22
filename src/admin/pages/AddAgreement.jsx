@@ -67,33 +67,38 @@ const AddAgreement = () => {
 
   // Upload file to temp storage first
   const uploadFileToTemp = async (file) => {
-    setUploadingToTemp(true);
-    try {
-      const result = await dispatch(uploadToTemp(file));
-      if (uploadToTemp.fulfilled.match(result)) {
-        // eslint-disable-next-line no-unused-vars
-        const { path, filename } = result.payload;
-        setTempFilePath(path);
-        
-        // Auto-populate name if empty
-        if (!formData.name) {
-          const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
-          setFormData(prev => ({ ...prev, name: nameWithoutExt }));
-        }
-        
-        showToast("File uploaded successfully", "success");
-        return true;
-      } else {
-        showToast(result.payload || "Failed to upload file", "error");
-        return false;
+  setUploadingToTemp(true);
+  try {
+    console.log("Uploading file to temp:", file.name);
+    const result = await dispatch(uploadToTemp(file));
+    console.log("Upload result:", result);
+    
+    if (uploadToTemp.fulfilled.match(result)) {
+      const { path, filename } = result.payload;
+      console.log("Temp file uploaded successfully. Path:", path);
+      setTempFilePath(path);
+      
+      // Auto-populate name if empty
+      if (!formData.name) {
+        const nameWithoutExt = filename || file.name.replace(/\.[^/.]+$/, "");
+        setFormData(prev => ({ ...prev, name: nameWithoutExt }));
       }
-    } catch (error) {
-      showToast("Failed to upload file", error);
+      
+      showToast("File uploaded successfully", "success");
+      return true;
+    } else {
+      console.error("Upload failed:", result.payload);
+      showToast(result.payload || "Failed to upload file", "error");
       return false;
-    } finally {
-      setUploadingToTemp(false);
     }
-  };
+  } catch (error) {
+    console.error("Upload error caught:", error);
+    showToast("Failed to upload file", error);
+    return false;
+  } finally {
+    setUploadingToTemp(false);
+  }
+};
 
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
@@ -211,11 +216,11 @@ const AddAgreement = () => {
       share_with: selectedShareWith,
       folder_id: formData.folder_id,
       expiry_date: formData.expiry_date,
-      file_path: tempFilePath, // Send the temp path instead of the file
+      file_path: tempFilePath,
     };
 
     const result = await dispatch(
-      uploadDocument({ formData: documentData, file: null }), // No file, just the path
+      uploadDocument({ formData: documentData, file: null }),
     );
     setUploading(false);
 
@@ -279,11 +284,13 @@ const AddAgreement = () => {
                   <i className="fas fa-file-upload text-4xl md:text-6xl text-green-500"></i>
                 </div>
                 <div className="text-sm md:text-base font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                  {uploadingToTemp ? "Uploading file..." : "Drag & Drop files here or click to upload"}
+                  {uploadingToTemp
+                    ? "Uploading file..."
+                    : "Drag & Drop files here or click to upload"}
                 </div>
                 <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400">
-                  All standard document file types such as .pdf .docx .xls
-                  can be uploaded with a maximum file size of 10 MB
+                  All standard document file types such as .pdf .docx .xls can
+                  be uploaded with a maximum file size of 10 MB
                 </div>
               </div>
               <input
@@ -305,8 +312,16 @@ const AddAgreement = () => {
                       </div>
                       <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400">
                         {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                        {tempFilePath && <span className="text-green-600 ml-2">✓ Uploaded to temp</span>}
-                        {uploadingToTemp && <span className="text-yellow-600 ml-2">Uploading...</span>}
+                        {tempFilePath && (
+                          <span className="text-green-600 ml-2">
+                            ✓ Uploaded to temp
+                          </span>
+                        )}
+                        {uploadingToTemp && (
+                          <span className="text-yellow-600 ml-2">
+                            Uploading...
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -334,8 +349,8 @@ const AddAgreement = () => {
               <div className="space-y-4 md:space-y-5">
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                    <i className="fas fa-tag text-green-500 mr-1"></i>{" "}
-                    Document Name <span className="text-red-500">*</span>
+                    <i className="fas fa-tag text-green-500 mr-1"></i> Document
+                    Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -350,8 +365,8 @@ const AddAgreement = () => {
 
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                    <i className="fas fa-tag text-green-500 mr-1"></i>{" "}
-                    Document Type <span className="text-red-500">*</span>
+                    <i className="fas fa-tag text-green-500 mr-1"></i> Document
+                    Type <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <select
@@ -405,14 +420,16 @@ const AddAgreement = () => {
                           </span>
                         ) : (
                           selectedShareWith.map((id) => {
-                            const user = shareableUsers.find(u => u.id === id);
+                            const user = shareableUsers.find(
+                              (u) => u.id === id,
+                            );
                             return (
                               <span
                                 key={id}
                                 className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 md:px-2 py-0.5 rounded-full text-[10px] md:text-xs"
                               >
                                 <span className="truncate max-w-[80px] md:max-w-none">
-                                  {user ? (user.name || user.email) : id}
+                                  {user ? user.name || user.email : id}
                                 </span>
                                 <i
                                   onClick={(e) => {
@@ -449,7 +466,7 @@ const AddAgreement = () => {
                                 <input
                                   type="checkbox"
                                   checked={selectedShareWith.includes(user.id)}
-                                  onChange={() => { }}
+                                  onChange={() => {}}
                                   className="w-3.5 h-3.5 md:w-4 md:h-4 accent-green-500"
                                 />
                                 <div className="flex-1 min-w-0">
@@ -488,10 +505,7 @@ const AddAgreement = () => {
                         <option value="">Select Folder</option>
                         {folders.length > 0 ? (
                           folders.map((folder) => (
-                            <option
-                              key={folder.id}
-                              value={folder.id}
-                            >
+                            <option key={folder.id} value={folder.id}>
                               {folder.name}
                             </option>
                           ))
@@ -539,7 +553,9 @@ const AddAgreement = () => {
               </Link>
               <button
                 type="submit"
-                disabled={uploading || loading || !tempFilePath || uploadingToTemp}
+                disabled={
+                  uploading || loading || !tempFilePath || uploadingToTemp
+                }
                 className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base disabled:opacity-70"
               >
                 {uploading ? (
