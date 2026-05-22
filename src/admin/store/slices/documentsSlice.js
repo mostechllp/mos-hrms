@@ -50,7 +50,6 @@ const transformDocumentForAPI = (formData, file) => {
     formDataToSend.append("expiry_date", formData.expiry_date);
   }
 
-  // Only append party_id if it has a value
   if (formData.party_id) {
     formDataToSend.append("party_id", formData.party_id);
   }
@@ -65,7 +64,11 @@ const transformDocumentForAPI = (formData, file) => {
     });
   }
 
-  if (file) {
+  // If file_path is provided (temp path), send it as a string
+  // Otherwise, send the actual file
+  if (formData.file_path) {
+    formDataToSend.append("file_path", formData.file_path);
+  } else if (file) {
     formDataToSend.append("file_path", file);
   }
 
@@ -143,6 +146,30 @@ export const fetchDocuments = createAsyncThunk(
     }
   },
 );
+
+export const uploadDocumentTemp = createAsyncThunk(
+  "documents/uploadTemp",
+  async (file, { rejectWithValue }) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      const response = await apiClient.post("/admin/documents/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      
+      const result = response.data;
+      if (result.status && result.path) {
+        return { path: result.path, filename: result.filename || file.name };
+      } else {
+        return rejectWithValue("Failed to upload file");
+      }
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to upload file");
+    }
+  }
+);
+
 
 // Fetch single document by ID
 export const fetchDocumentById = createAsyncThunk(
@@ -226,8 +253,29 @@ export const deleteDocument = createAsyncThunk(
   },
 );
 
-// Get document folders
-// In your documentsSlice.js, update the folder endpoint:
+// Add this to your documentsSlice.js
+export const uploadToTemp = createAsyncThunk(
+  "documents/uploadToTemp",
+  async (file, { rejectWithValue }) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      const response = await apiClient.post("/admin/employees/upload-temp", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      
+      const result = response.data;
+      if (result.status && result.path) {
+        return { path: result.path, filename: result.filename || file.name };
+      } else {
+        return rejectWithValue("Failed to upload file to temp storage");
+      }
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to upload file");
+    }
+  }
+);
 
 // Get document folders
 export const fetchDocumentFolders = createAsyncThunk(

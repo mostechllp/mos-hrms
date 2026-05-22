@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { showToast } from '../common/Toast';
-import { uploadDocument, fetchDocuments } from '../../store/slices/documentsSlice';
+import { uploadDocument, fetchDocuments, fetchDocumentFolders } from '../../store/slices/documentsSlice';
 
 const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
   const dispatch = useDispatch();
@@ -11,10 +11,30 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
   const [fileDescription, setFileDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [fileType, setFileType] = useState('others'); // Changed default to 'others'
+  const [fileType, setFileType] = useState('others');
   const [folderId, setFolderId] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [shareWith, setShareWith] = useState([]);
+  const [isLoadingFolders, setIsLoadingFolders] = useState(false);
+
+  // Fetch folders when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      // eslint-disable-next-line react-hooks/immutability
+      loadFolders();
+    }
+  }, [isOpen]);
+
+  const loadFolders = async () => {
+    setIsLoadingFolders(true);
+    try {
+      await dispatch(fetchDocumentFolders());
+    } catch (error) {
+      console.error('Error loading folders:', error);
+    } finally {
+      setIsLoadingFolders(false);
+    }
+  };
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -45,15 +65,19 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
       return;
     }
 
+    if (!folderId) {
+      showToast('Please select a folder', 'error');
+      return;
+    }
+
     setIsCreating(true);
     
     try {
-      // Create FormData for file upload matching your API structure
       const formData = {
         name: fileName.trim(),
-        type: fileType, // This will be 'others'
+        type: fileType,
         description: fileDescription,
-        folder_id: folderId || '',
+        folder_id: folderId,
         expiry_date: expiryDate || '',
         share_with: shareWith
       };
@@ -61,7 +85,6 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
       console.log('Submitting document with type:', fileType);
       console.log('Form data:', formData);
       
-      // Call the uploadDocument API
       const result = await dispatch(uploadDocument({ formData, file: selectedFile }));
       
       if (uploadDocument.fulfilled.match(result)) {
@@ -153,20 +176,29 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
 
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-              Folder (Optional)
+              Folder <span className="text-red-500">*</span>
             </label>
             <select
               value={folderId}
               onChange={(e) => setFolderId(e.target.value)}
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+              disabled={isLoadingFolders}
             >
-              <option value="">Select Folder</option>
+              <option value="">
+                {isLoadingFolders ? 'Loading folders...' : 'Select Folder'}
+              </option>
               {folders.map((folder) => (
                 <option key={folder.id} value={folder.id}>
                   {folder.name}
                 </option>
               ))}
             </select>
+            {folders.length === 0 && !isLoadingFolders && (
+              <p className="text-xs text-orange-500 dark:text-orange-400 mt-1">
+                <i className="fas fa-exclamation-triangle mr-1"></i>
+                No folders available. Please create a folder first.
+              </p>
+            )}
           </div>
 
           <div>
@@ -246,7 +278,7 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isCreating}
+            disabled={isCreating || isLoadingFolders || folders.length === 0}
             className="px-4 py-2 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all disabled:opacity-70 flex items-center gap-2"
           >
             {isCreating ? (

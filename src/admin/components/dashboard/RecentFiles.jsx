@@ -11,8 +11,9 @@ import DocumentsTable from "../dashboardtables/DocumentsTable";
 import FoldersTable from "../dashboardtables/FoldersTable";
 import AddFolderModal from "../documents/AddFolderModal";
 import AddFileModal from "../documents/AddFileModal";
+import AddDocumentModal from "../documents/AddDocumentModal"; // Import this for editing
 import { fetchDashboard } from "../../store/slices/dashboardSlice";
-import { deleteDocumentFolder } from "../../store/slices/documentsSlice";
+import { deleteDocument, deleteDocumentFolder, fetchDocuments } from "../../store/slices/documentsSlice";
 
 const RecentFiles = () => {
   const dispatch = useDispatch();
@@ -26,8 +27,10 @@ const RecentFiles = () => {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
+  const [isAddDocumentModalOpen, setIsAddDocumentModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingFolder, setEditingFolder] = useState(null);
+  const [editingDocument, setEditingDocument] = useState(null);
 
   const documents = [
     ...(recentData?.organization_files || []),
@@ -58,7 +61,7 @@ const RecentFiles = () => {
           <FoldersTable
             pageDocs={pageDocs}
             start={start}
-            handleView={null} // Disable view for folders
+            handleView={null}
             handleEdit={handleEditFolder}
             handleDeleteClick={handleDeleteClick}
           />
@@ -135,7 +138,7 @@ const RecentFiles = () => {
   const handleAddClick = () => {
     switch (activeFolder) {
       case "folders":
-        setEditingFolder(null); // Reset editing folder for add mode
+        setEditingFolder(null);
         setIsFolderModalOpen(true);
         break;
       case "others":
@@ -159,13 +162,18 @@ const RecentFiles = () => {
   };
 
   const handleFolderAdded = async (updatedFolder) => {
-    await refreshDashboard(); // Refresh to get updated folder list
+    await refreshDashboard();
     showToast(updatedFolder ? "Folder updated successfully" : "Folder created successfully", "success");
   };
 
   const handleFileAdded = async () => {
-    await refreshDashboard(); // Refresh to get updated file list
+    await refreshDashboard();
     showToast("File added successfully", "success");
+  };
+
+  const handleDocumentAdded = async () => {
+    await refreshDashboard();
+    showToast("Document updated successfully", "success");
   };
 
   const handleEditFolder = (folder) => {
@@ -184,11 +192,19 @@ const RecentFiles = () => {
   };
 
   const handleEdit = (doc) => {
-    if (doc.type === 'agreements') {
+    // For "Others" tab - open edit modal
+    if (activeFolder === "others" || doc.type === "others") {
+      setEditingDocument(doc);
+      setIsAddDocumentModalOpen(true);
+    }
+    // For agreements and HR - navigate to edit page
+    else if (doc.type === 'agreements') {
       navigate(`/admin/agreements/edit-agreement/${doc.id}`);
     } else if (doc.type === 'hr') {
       navigate(`/admin/agreements/edit-agreement/${doc.id}`);
-    } else if (doc.type === 'employee') {
+    } 
+    // For employees - navigate to edit employee page
+    else if (activeFolder === "employees" || doc.type === 'employee') {
       navigate(`/admin/employees/edit/${doc.employee_id || doc.id}`);
     }
   };
@@ -206,21 +222,34 @@ const RecentFiles = () => {
     try {
       // Check if it's a folder being deleted
       if (activeFolder === "folders" && selectedDocument.id) {
-        // API call to delete folder
         const result = await dispatch(deleteDocumentFolder(selectedDocument.id));
         if (deleteDocumentFolder.fulfilled.match(result)) {
           showToast(`${selectedDocument.name} deleted successfully`, "success");
-          await refreshDashboard(); // Refresh data after deletion
+          await refreshDashboard();
           setConfirmOpen(false);
           setSelectedDocument(null);
         } else {
           showToast(result.payload || "Failed to delete folder", "error");
         }
-      } else {
-        // For documents/employees deletion
-        // TODO: Add specific API call for documents
+      } 
+      // Check if it's a document (including "Others" tab)
+      else if (selectedDocument.id && selectedDocument.type) {
+        const result = await dispatch(deleteDocument(selectedDocument.id));
+        if (deleteDocument.fulfilled.match(result)) {
+          showToast(`${selectedDocument.name} deleted successfully`, "success");
+          await refreshDashboard();
+          await dispatch(fetchDocuments()); // Refresh documents list
+          setConfirmOpen(false);
+          setSelectedDocument(null);
+        } else {
+          showToast(result.payload || "Failed to delete document", "error");
+        }
+      }
+      // For employees deletion
+      else if (activeFolder === "employees" && selectedDocument.id) {
+        // TODO: Add employee delete API call
         showToast(`${selectedDocument.name} deleted successfully`, "success");
-        await refreshDashboard(); // Refresh data after deletion
+        await refreshDashboard();
         setConfirmOpen(false);
         setSelectedDocument(null);
       }
@@ -266,7 +295,7 @@ const RecentFiles = () => {
                 key={folder.value}
                 onClick={() => {
                   setActiveFolder(folder.value);
-                  setCurrentPage(1); // Reset to first page when changing folders
+                  setCurrentPage(1);
                 }}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${activeFolder === folder.value
                   ? "bg-green-500 text-white"
@@ -349,11 +378,22 @@ const RecentFiles = () => {
         editingFolder={editingFolder}
       />
 
-      {/* Add File Modal */}
+      {/* Add File Modal (for Others tab - create new) */}
       <AddFileModal
         isOpen={isFileModalOpen}
         onClose={() => setIsFileModalOpen(false)}
         onFileAdded={handleFileAdded}
+      />
+
+      {/* Add/Edit Document Modal (for Others tab - edit existing) */}
+      <AddDocumentModal
+        isOpen={isAddDocumentModalOpen}
+        onClose={() => {
+          setIsAddDocumentModalOpen(false);
+          setEditingDocument(null);
+        }}
+        onDocumentAdded={handleDocumentAdded}
+        editingDocument={editingDocument}
       />
     </>
   );
