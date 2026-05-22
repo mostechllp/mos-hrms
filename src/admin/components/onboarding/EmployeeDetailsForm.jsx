@@ -1,9 +1,10 @@
 /* eslint-disable react-hooks/static-components */
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import React, { useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
-import { FiInfo, FiChevronRight, FiChevronLeft, FiSave } from "react-icons/fi";
-import { setStep, updateEmployeeDetails } from "../../store/slices/onboardingSlice";
+import { FiEdit3, FiInfo, FiChevronRight, FiChevronLeft, FiSave } from "react-icons/fi";
+import { setStep, updateEmployeeDetails, resetOnboarding } from "../../store/slices/onboardingSlice";
+import DateInput from "../common/DateInput";
 
 const EmployeeDetailsForm = () => {
   const dispatch = useDispatch();
@@ -14,6 +15,7 @@ const EmployeeDetailsForm = () => {
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors },
   } = useForm({
     defaultValues: employeeDetails,
@@ -33,7 +35,7 @@ const EmployeeDetailsForm = () => {
   };
 
   const handleBack = () => {
-    dispatch(setStep(1));
+    dispatch(resetOnboarding());
   };
 
   const InputField = ({ label, name, type = "text", placeholder, options = null }) => (
@@ -47,7 +49,7 @@ const EmployeeDetailsForm = () => {
             {...register(name, { required: `${label} is required` })}
             className={`w-full px-4 py-2.5 bg-white dark:bg-gray-800 border rounded-xl text-gray-900 dark:text-white transition-all duration-200 outline-none ${errors[name]
                 ? "border-red-500 focus:ring-4 focus:ring-red-500/10"
-                : "border-gray-200 dark:border-gray-700 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10"
+                : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-4 focus:ring-green-500/10"
               }`}
           >
             <option value="">Select {label}</option>
@@ -60,7 +62,7 @@ const EmployeeDetailsForm = () => {
             {...register(name, { required: `${label} is required` })}
             className={`w-full px-4 py-2.5 bg-white dark:bg-gray-800 border rounded-xl text-gray-900 dark:text-white transition-all duration-200 outline-none ${errors[name]
                 ? "border-red-500 focus:ring-4 focus:ring-red-500/10"
-                : "border-gray-200 dark:border-gray-700 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10"
+                : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-4 focus:ring-green-500/10"
               }`}
           />
         )}
@@ -78,7 +80,7 @@ const EmployeeDetailsForm = () => {
           {/* Form Header */}
           <div className="px-8 py-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 text-primary-600 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-xl flex items-center justify-center">
                 <FiInfo size={20} />
               </div>
               <div>
@@ -92,7 +94,7 @@ const EmployeeDetailsForm = () => {
 
             <button
               type="button"
-              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-primary-600 bg-primary-50 dark:bg-primary-900/20 rounded-xl hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-green-600 bg-green-50 dark:bg-green-900/20 rounded-xl hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
             >
               <FiSave size={16} />
               Save Draft
@@ -110,7 +112,7 @@ const EmployeeDetailsForm = () => {
               options={["United Arab Emirates", "India", "Pakistan", "United Kingdom", "United States", "Philippines"]}
             />
             <div className="md:col-span-2">
-              <InputField label="Current Address" name="address" placeholder="Residential address in UAE" />
+              <InputField label="Current Address" name="address" placeholder="Residential address" />
             </div>
             <InputField label="Designation" name="designation" placeholder="e.g. Project Manager" />
             <InputField
@@ -118,7 +120,28 @@ const EmployeeDetailsForm = () => {
               name="department"
               options={["Engineering", "Human Resources", "Marketing", "Sales", "Finance", "Operations"]}
             />
-            <InputField label="Joining Date" name="joiningDate" type="date" />
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                Joining Date
+              </label>
+              <Controller
+                name="joiningDate"
+                control={control}
+                rules={{ required: "Joining Date is required" }}
+                render={({ field }) => (
+                  <DateInput
+                    {...field}
+                    type="joining"
+                    placeholder="dd/mm/yyyy"
+                    error={!!errors.joiningDate}
+                    className="!bg-white dark:!bg-gray-800 !border-gray-200 dark:!border-gray-700 !rounded-xl !text-gray-900 dark:!text-white !px-4 !py-2.5 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10"
+                  />
+                )}
+              />
+              {errors.joiningDate && (
+                <p className="text-xs font-medium text-red-500 mt-1">{errors.joiningDate.message}</p>
+              )}
+            </div>
             <InputField label="Experience Level" name="experience" placeholder="e.g. 5 Years" />
             <div className="md:col-span-2">
               <InputField label="Key Skills" name="skills" placeholder="React, Tailwind, Node.js etc." />

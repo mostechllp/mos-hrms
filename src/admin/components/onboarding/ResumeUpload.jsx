@@ -1,8 +1,8 @@
 /* eslint-disable react-hooks/static-components */
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { FiUploadCloud, FiFileText, FiCheckCircle, FiAlertCircle, FiKey } from "react-icons/fi";
-import { parseResume } from "../../store/slices/onboardingSlice";
+import { FiUploadCloud, FiFileText, FiCheckCircle, FiLoader, FiAlertCircle, FiKey, FiRefreshCw } from "react-icons/fi";
+import { parseResume, resetOnboarding } from "../../store/slices/onboardingSlice";
 import { isOpenRouterConfigured } from "../../utils/openRouterService";
 
 const ResumeUpload = () => {
@@ -93,8 +93,8 @@ const ResumeUpload = () => {
             onDrop={handleDrop}
             className={`relative border-2 border-dashed rounded-3xl p-12 transition-all duration-300 flex flex-col items-center justify-center cursor-pointer group ${
               isDragging
-                ? "border-primary-500 bg-primary-50 dark:bg-primary-900/10"
-                : "border-gray-200 dark:border-gray-700 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                ? "border-green-500 bg-green-50 dark:bg-green-950/15"
+                : "border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-500 hover:bg-gray-50 dark:hover:bg-gray-800/50"
             }`}
           >
             <input
@@ -105,7 +105,7 @@ const ResumeUpload = () => {
             />
             
             <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 transition-transform duration-300 group-hover:scale-110 pointer-events-none ${
-              isDragging ? "bg-primary-500 text-white" : "bg-primary-50 dark:bg-primary-900/20 text-primary-600"
+              isDragging ? "bg-green-500 text-white" : "bg-green-50 dark:bg-green-950/30 text-green-600"
             }`}>
               <FiUploadCloud size={40} />
             </div>
@@ -115,7 +115,7 @@ const ResumeUpload = () => {
                 Drag and drop resume here
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                Supported formats: <span className="font-medium text-gray-700 dark:text-gray-300 underline underline-offset-4 decoration-primary-500/30">PDF, DOCX</span>
+                Supported formats: <span className="font-medium text-gray-700 dark:text-gray-300 underline underline-offset-4 decoration-green-500/30">PDF, DOCX</span>
               </p>
             </div>
           </div>
@@ -126,8 +126,8 @@ const ResumeUpload = () => {
           <div className="flex flex-col items-center justify-center py-12">
             <div className="relative w-24 h-24 mb-6">
               <div className="absolute inset-0 border-4 border-gray-100 dark:border-gray-700 rounded-full"></div>
-              <div className="absolute inset-0 border-4 border-primary-600 rounded-full border-t-transparent animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center text-primary-600">
+              <div className="absolute inset-0 border-4 border-green-600 rounded-full border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center text-green-600">
                 <FiFileText size={32} />
               </div>
             </div>
@@ -141,7 +141,7 @@ const ResumeUpload = () => {
             
             <div className="w-full max-w-xs bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 mt-8 overflow-hidden">
               <div 
-                className="bg-primary-600 h-full transition-all duration-300" 
+                className="bg-green-600 h-full transition-all duration-300" 
                 style={{ width: `${uploadProgress < 100 ? uploadProgress : 95}%` }}
               ></div>
             </div>
@@ -155,16 +155,24 @@ const ResumeUpload = () => {
               <FiCheckCircle size={40} />
             </div>
             <p className="text-xl font-bold text-gray-900 dark:text-white mb-2">Successfully Parsed!</p>
-            <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 px-4 py-2 rounded-xl border border-gray-100 dark:border-gray-700 mb-8">
-              <FiFileText className="text-primary-500" />
+            <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 px-4 py-2 rounded-xl border border-gray-100 dark:border-gray-700 mb-6">
+              <FiFileText className="text-green-500" />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{resumeData.fileName}</span>
             </div>
             
-            <div className="p-4 bg-primary-50 dark:bg-primary-900/10 rounded-2xl border border-primary-100 dark:border-primary-900/30 text-center max-w-sm">
-              <p className="text-sm text-primary-800 dark:text-primary-300">
+            <div className="p-4 bg-green-50 dark:bg-green-950/15 rounded-2xl border border-green-100/50 dark:border-green-900/30 text-center max-w-sm mb-6">
+              <p className="text-sm text-green-800 dark:text-green-300">
                 We've extracted all information. You can now review and edit the details in the next step.
               </p>
             </div>
+
+            <button
+              onClick={() => dispatch(resetOnboarding())}
+              className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-green-600 bg-green-50 dark:bg-green-900/20 rounded-xl hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors border border-green-200/50 dark:border-green-800/50 shadow-sm"
+            >
+              <FiRefreshCw size={16} />
+              Upload a Different Resume
+            </button>
           </div>
         )}
 

@@ -276,7 +276,7 @@ const OnboardingReview = () => {
   const SummaryCard = ({ title, icon: Icon, children }) => (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700 overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center gap-2">
-        <Icon className="text-primary-500" size={18} />
+        <Icon className="text-green-600" size={18} />
         <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">{title}</h3>
       </div>
       <div className="p-6">
@@ -344,23 +344,23 @@ const OnboardingReview = () => {
       )}
 
     <div className="max-w-5xl mx-auto animate-fadeIn space-y-8">
-      {/* Summary Header */}
-      <div className="bg-primary-600 rounded-3xl p-8 text-white shadow-xl shadow-primary-600/20 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
+      {/* Summary Header - Green theme with subtle elegant background styling */}
+      <div className="bg-gradient-to-r from-green-600 to-emerald-700 rounded-3xl p-8 text-white shadow-xl shadow-green-600/20 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative animate-fadeIn">
         <div className="relative z-10">
-          <h2 className="text-2xl font-bold mb-2">Final Review & Submission</h2>
-          <p className="text-primary-100 max-w-md">
+          <h2 className="text-2xl font-bold mb-2 text-white">Final Review & Submission</h2>
+          <p className="text-green-100 max-w-md text-sm leading-relaxed">
             Please verify all information before finalizing the onboarding process. Once submitted, the employee will receive their portal access and offer letter.
           </p>
         </div>
         <div className="relative z-10 flex flex-col items-center gap-2">
-          <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
+          <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-lg">
             <FiCheckCircle size={32} />
           </div>
           <span className="text-xs font-bold uppercase tracking-widest opacity-80">Ready to Submit</span>
         </div>
         {/* Decorative Circles */}
         <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
-        <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-primary-400/20 rounded-full blur-3xl"></div>
+        <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-green-400/20 rounded-full blur-3xl"></div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -391,7 +391,14 @@ const OnboardingReview = () => {
               <div className="flex items-center gap-3 text-sm">
                 <FiShield className="text-gray-400" />
                 <span className="text-gray-500 font-medium w-24">Joining:</span>
-                <span className="text-gray-900 dark:text-gray-300 font-semibold">{employeeDetails.joiningDate}</span>
+                <span className="text-gray-900 dark:text-gray-300 font-semibold">
+                  {employeeDetails.joiningDate?.match(/^\d{4}-\d{2}-\d{2}$/)
+                    ? (() => {
+                        const [year, month, day] = employeeDetails.joiningDate.split("-");
+                        return `${day}/${month}/${year}`;
+                      })()
+                    : employeeDetails.joiningDate}
+                </span>
               </div>
             </div>
           </div>
@@ -402,7 +409,7 @@ const OnboardingReview = () => {
           <div className="space-y-4">
             <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-primary-100 dark:bg-primary-900/30 text-primary-600 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-lg flex items-center justify-center">
                   <FiFileText size={16} />
                 </div>
                 <div className="min-w-0">
