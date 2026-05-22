@@ -33,6 +33,7 @@ const EditCompany = () => {
     phone: "",
     email: "",
     address: "",
+    trade_license: "", // Added trade_license field
     organization_id: "",
   });
 
@@ -94,14 +95,20 @@ const EditCompany = () => {
   // Set form data when company is loaded
   useEffect(() => {
     if (currentCompany) {
+      console.log("Current Company Data:", currentCompany); // Debug log
+      
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         company_name: currentCompany.company_name || currentCompany.name || "",
         phone: currentCompany.phone || "",
         email: currentCompany.email || "",
         address: currentCompany.address || "",
+        trade_license: currentCompany.raw?.trade_license || "", // Make sure this matches the API response
         organization_id: currentCompany.organization_id || organizationId,
       });
+      
+      console.log("Trade license value:", currentCompany.trade_license); // Debug log
+      
       if (currentCompany.logo) {
         setLogoPreview(getFullLogoUrl(currentCompany.logo));
       }
@@ -161,8 +168,11 @@ const EditCompany = () => {
       phone: formData.phone,
       email: formData.email,
       address: formData.address,
+      trade_license: formData.trade_license || null, // Send null if empty
       organization_id: parseInt(organizationId),
     };
+
+    console.log("Submitting company data:", companyData); // Debug log
 
     const result = await dispatch(
       updateCompany({ id: parseInt(id), data: companyData }),
@@ -296,6 +306,26 @@ const EditCompany = () => {
                   className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                   placeholder="Enter email address"
                 />
+              </div>
+
+              {/* Trade License - New Field */}
+              <div>
+                <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                  <i className="fas fa-certificate text-green-500 mr-1"></i> Trade License
+                </label>
+                <select
+                  name="trade_license"
+                  value={formData.trade_license || ""}
+                  onChange={handleChange}
+                  className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                >
+                  <option value="">Select License Type</option>
+                  <option value="freezone">Freezone</option>
+                  <option value="mainland">Mainland</option>
+                </select>
+                <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Select the type of trade license (Freezone or Mainland)
+                </p>
               </div>
 
               {/* Address - Full Width */}

@@ -8,6 +8,7 @@ import {
   fetchParties,
   fetchDocumentById,
   updateDocument,
+  uploadToTemp,
 } from "../store/slices/documentsSlice";
 import { clearError } from "../store/slices/authSlice";
 import AddFolderModal from "../components/documents/AddFolderModal";
@@ -34,11 +35,14 @@ const EditAgreement = () => {
       },
   );
   const [updating, setUpdating] = useState(false);
+  const [uploadingToTemp, setUploadingToTemp] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [tempFilePath, setTempFilePath] = useState(null);
   const [selectedShareWith, setSelectedShareWith] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [replaceFile, setReplaceFile] = useState(false);
   const [fileUrl, setFileUrl] = useState(null);
+  const [autoUpdateName, setAutoUpdateName] = useState(true); // Add this state
   const fileInputRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -59,6 +63,40 @@ const EditAgreement = () => {
   const getFileNameWithoutExtension = (filename) => {
     if (!filename) return "";
     return filename.replace(/\.[^/.]+$/, "");
+  };
+
+  // Upload file to temp storage
+  const uploadFileToTemp = async (file) => {
+    setUploadingToTemp(true);
+    try {
+      const result = await dispatch(uploadToTemp(file));
+      if (uploadToTemp.fulfilled.match(result)) {
+        const { path, filename } = result.payload;
+        setTempFilePath(path);
+        
+        // Auto-populate name if autoUpdateName is true and name is empty OR user hasn't manually changed it
+        if (autoUpdateName) {
+          const nameWithoutExt = filename || getFileNameWithoutExtension(file.name);
+          setFormData(prev => ({ ...prev, name: nameWithoutExt }));
+          showToast(`Document name updated to: ${nameWithoutExt}`, "success");
+        } else if (!formData.name) {
+          // Only update if name is empty
+          const nameWithoutExt = filename || getFileNameWithoutExtension(file.name);
+          setFormData(prev => ({ ...prev, name: nameWithoutExt }));
+        }
+        
+        showToast("File uploaded successfully", "success");
+        return true;
+      } else {
+        showToast(result.payload || "Failed to upload file", "error");
+        return false;
+      }
+    } catch (error) {
+      showToast("Failed to upload file", error);
+      return false;
+    } finally {
+      setUploadingToTemp(false);
+    }
   };
 
   // Function to extract error message from backend response
@@ -105,7 +143,6 @@ const EditAgreement = () => {
   // Set form data when currentDocument is loaded
   useEffect(() => {
     if (currentDocument) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         name: currentDocument.name || "",
         description: currentDocument.description || "",
@@ -171,20 +208,6 @@ const EditAgreement = () => {
     }
   }, [currentDocument]);
 
-  // Fetch initial data
-  useEffect(() => {
-    dispatch(fetchShareableUsers());
-    dispatch(fetchDocumentFolders());
-    dispatch(fetchParties());
-    if (id) {
-      dispatch(fetchDocumentById(id)).then((result) => {
-        console.log("Fetched document data:", result.payload);
-        console.log("file_path type:", typeof result.payload?.file_path);
-        console.log("file_path value:", result.payload?.file_path);
-      });
-    }
-  }, [dispatch, id]);
-
   // Refresh parties when refreshParties flag changes
   useEffect(() => {
     if (refreshParties) {
@@ -208,10 +231,16 @@ const EditAgreement = () => {
       setShowPartyModal(true);
       return;
     }
+    
+    // If user manually changes the name, disable auto-update
+    if (e.target.id === "name") {
+      setAutoUpdateName(false);
+    }
+    
     setFormData({ ...formData, [e.target.id]: e.target.value });
   };
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (file) {
       const fileSize = file.size / 1024 / 1024;
@@ -221,16 +250,20 @@ const EditAgreement = () => {
       }
       setSelectedFile(file);
       setReplaceFile(true);
-
-      // Always update agreement name with the new filename (without extension)
-      const newFileName = getFileNameWithoutExtension(file.name);
-      setFormData((prev) => ({ ...prev, name: newFileName }));
+      
+      // Reset auto-update flag when selecting a new file
+      setAutoUpdateName(true);
+      
+      // Upload to temp immediately
+      await uploadFileToTemp(file);
     }
   };
 
   const removeFile = () => {
     setSelectedFile(null);
+    setTempFilePath(null);
     setReplaceFile(false);
+    setAutoUpdateName(true); // Reset auto-update flag
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -289,6 +322,12 @@ const EditAgreement = () => {
       showToast("Please select a folder", "error");
       return;
     }
+    
+    // If replacing file, check if temp file is uploaded
+    if (replaceFile && !tempFilePath) {
+      showToast("Please wait for file upload to complete", "error");
+      return;
+    }
 
     setUpdating(true);
 
@@ -307,15 +346,22 @@ const EditAgreement = () => {
       share_with: shareWithIds,
       folder_id: formData.folder_id,
       type: "agreements",
-      party_id: formData.party_id,
-      expiry_date: formData.expiryDate,
+      party_id: formData.party_id || null,
+      expiry_date: formData.expiryDate || null,
     };
+
+    // If replacing file, add the temp file path
+    if (replaceFile && tempFilePath) {
+      documentData.file_path = tempFilePath;
+    }
+
+    console.log("Submitting document data:", documentData);
 
     const result = await dispatch(
       updateDocument({
         id: id,
         formData: documentData,
-        file: replaceFile ? selectedFile : null,
+        file: null,
       }),
     );
 
@@ -330,8 +376,33 @@ const EditAgreement = () => {
         navigate("/admin/agreements");
       }, 1200);
     } else {
-      // Extract and show the specific error message from backend
-      const errorMessage = extractErrorMessage(result.payload);
+      const errorPayload = result.payload;
+      console.error("Update failed with payload:", errorPayload);
+      
+      let errorMessage = "Failed to update agreement";
+      
+      if (errorPayload?.errors) {
+        const errors = errorPayload.errors;
+        const errorMessages = [];
+        
+        if (errors.name) errorMessages.push(`Name: ${errors.name.join(", ")}`);
+        if (errors.type) errorMessages.push(`Type: ${errors.type.join(", ")}`);
+        if (errors.folder_id) errorMessages.push(`Folder: ${errors.folder_id.join(", ")}`);
+        if (errors.share_with) errorMessages.push(`Share with: ${errors.share_with.join(", ")}`);
+        if (errors.file_path) errorMessages.push(`File: ${errors.file_path.join(", ")}`);
+        if (errors.expiry_date) errorMessages.push(`Expiry date: ${errors.expiry_date.join(", ")}`);
+        
+        if (errorMessages.length > 0) {
+          errorMessage = errorMessages.join(" | ");
+        } else {
+          errorMessage = errorPayload.message || "Validation error occurred";
+        }
+      } else if (errorPayload?.message) {
+        errorMessage = errorPayload.message;
+      } else if (typeof errorPayload === "string") {
+        errorMessage = errorPayload;
+      }
+      
       showToast(errorMessage, "error");
     }
   };
@@ -359,23 +430,19 @@ const EditAgreement = () => {
   }
 
   // Get current file name from file_path
-  // Get current file name from file_path
   const getCurrentFileName = () => {
     if (!currentDocument?.file_path) return "No file attached";
 
     let filePath = currentDocument.file_path;
 
-    // If file_path is an array, get the first element or join
     if (Array.isArray(filePath)) {
       filePath = filePath[0] || "";
     }
 
-    // If it's an object with path property
     if (typeof filePath === "object" && filePath !== null) {
       filePath = filePath.path || filePath.file_path || "";
     }
 
-    // Ensure it's a string before calling split
     if (typeof filePath !== "string") {
       console.warn("Unexpected file_path type:", typeof filePath, filePath);
       return "Invalid file path";
@@ -384,7 +451,6 @@ const EditAgreement = () => {
     const pathParts = filePath.split("/");
     const fileName = decodeURIComponent(pathParts[pathParts.length - 1]);
 
-    // Clean up temp file names - show original name if available
     if (fileName.startsWith("php") && currentDocument.name) {
       return currentDocument.name;
     }
@@ -392,7 +458,6 @@ const EditAgreement = () => {
     return fileName || "No file attached";
   };
 
-  // Get file icon based on file extension
   // Get file icon based on file extension
   const getFileIcon = (filename) => {
     if (
@@ -473,6 +538,12 @@ const EditAgreement = () => {
                         {formData.name || "Not set"}
                       </span>
                     </div>
+                    {autoUpdateName && replaceFile && (
+                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                        <i className="fas fa-sync-alt mr-1"></i>
+                        Document name will auto-update when file is uploaded
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
@@ -489,10 +560,11 @@ const EditAgreement = () => {
                   <button
                     type="button"
                     onClick={triggerFileInput}
-                    className="px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors text-xs font-semibold flex items-center gap-1"
+                    disabled={uploadingToTemp}
+                    className="px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors text-xs font-semibold flex items-center gap-1 disabled:opacity-50"
                   >
                     <i className="fas fa-sync-alt text-xs"></i>
-                    <span>Replace</span>
+                    <span>{uploadingToTemp ? "Uploading..." : "Replace"}</span>
                   </button>
                 </div>
               </div>
@@ -502,6 +574,7 @@ const EditAgreement = () => {
                 accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.png"
                 onChange={handleFileSelect}
                 className="hidden"
+                disabled={uploadingToTemp}
               />
 
               {/* Show selected file preview if replacing */}
@@ -514,15 +587,17 @@ const EditAgreement = () => {
                         {selectedFile.name}
                       </div>
                       <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400">
-                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB - Will
-                        replace current file
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                        {tempFilePath && <span className="text-green-600 ml-2">✓ Uploaded</span>}
+                        {uploadingToTemp && <span className="text-yellow-600 ml-2">Uploading...</span>}
                       </div>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={removeFile}
-                    className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700 text-red-500 transition-colors self-start sm:self-center"
+                    disabled={uploadingToTemp}
+                    className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700 text-red-500 transition-colors self-start sm:self-center disabled:opacity-50"
                   >
                     <i className="fas fa-times"></i>
                   </button>
@@ -562,6 +637,12 @@ const EditAgreement = () => {
                   placeholder="Enter agreement name"
                   required
                 />
+                {autoUpdateName && replaceFile && (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    <i className="fas fa-info-circle mr-1"></i>
+                    Name will be updated to match the new file. Edit manually to keep current name.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -804,7 +885,7 @@ const EditAgreement = () => {
             </Link>
             <button
               type="submit"
-              disabled={updating || loading}
+              disabled={updating || loading || (replaceFile && !tempFilePath && uploadingToTemp)}
               className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base disabled:opacity-70"
             >
               {updating ? (
