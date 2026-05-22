@@ -38,6 +38,55 @@ const EmployeeDetails = () => {
   }, [currentEmployee]);
 
   useEffect(() => {
+    if (currentEmployee) {
+      console.log("========== EMPLOYEE DETAILS DISPLAY DEBUG ==========");
+      console.log("Full employee object:", currentEmployee);
+
+      // Log step 3 fields specifically
+      console.log("Step 3 Fields from fetched data:");
+      console.log("  - visa_number:", currentEmployee.visa_number);
+      console.log("  - visa_type:", currentEmployee.visa_type);
+      console.log("  - visa_issued_date:", currentEmployee.visa_issued_date);
+      console.log("  - visa_expiry_date:", currentEmployee.visa_expiry_date);
+      console.log("  - labor_number:", currentEmployee.labor_number);
+      console.log("  - labor_issued_date:", currentEmployee.labor_issued_date);
+      console.log("  - labor_expiry_date:", currentEmployee.labor_expiry_date);
+      console.log("  - eid_number:", currentEmployee.eid_number);
+      console.log("  - eid_issued_date:", currentEmployee.eid_issued_date);
+      console.log("  - eid_expiry_date:", currentEmployee.eid_expiry_date);
+
+      // Check if fields exist but are null/undefined
+      const step3Fields = [
+        "visa_number",
+        "visa_type",
+        "visa_issued_date",
+        "visa_expiry_date",
+        "labor_number",
+        "labor_issued_date",
+        "labor_expiry_date",
+        "eid_number",
+        "eid_issued_date",
+        "eid_expiry_date",
+      ];
+
+      step3Fields.forEach((field) => {
+        if (
+          currentEmployee[field] === null ||
+          currentEmployee[field] === undefined
+        ) {
+          console.warn(`  ⚠️ Field ${field} is ${currentEmployee[field]}`);
+        } else if (currentEmployee[field] === "") {
+          console.warn(`  ⚠️ Field ${field} is empty string`);
+        } else {
+          console.log(`  ✓ Field ${field} has value:`, currentEmployee[field]);
+        }
+      });
+
+      console.log("========== EMPLOYEE DETAILS DISPLAY DEBUG END ==========");
+    }
+  }, [currentEmployee]);
+
+  useEffect(() => {
     if (id) {
       // eslint-disable-next-line react-hooks/immutability
       fetchEmployeeData();

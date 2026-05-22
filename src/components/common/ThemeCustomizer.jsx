@@ -16,16 +16,92 @@ const ThemeCustomizer = () => {
 
   const [showColorPicker, setShowColorPicker] = useState(false);
 
-  // Predefined color schemes
-  const colorSchemes = [
-    { name: "Green", value: "green", hex: "#2ecc71" },
-    { name: "Blue", value: "blue", hex: "#3498db" },
-    { name: "Purple", value: "purple", hex: "#9b59b6" },
-    { name: "Orange", value: "orange", hex: "#e67e22" },
-    { name: "Red", value: "red", hex: "#e74c3c" },
-    { name: "Teal", value: "teal", hex: "#1abc9c" },
-    { name: "Pink", value: "pink", hex: "#e84393" },
-  ];
+  // Function to check if a color is light or dark
+  const isLightColor = (hexColor) => {
+    let r, g, b;
+    if (hexColor.startsWith("#")) {
+      r = parseInt(hexColor.slice(1, 3), 16);
+      g = parseInt(hexColor.slice(3, 5), 16);
+      b = parseInt(hexColor.slice(5, 7), 16);
+    } else {
+      return true;
+    }
+    
+    // Calculate luminance
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5;
+  };
+
+  // Function to adjust color brightness
+  const adjustColorBrightness = (hexColor, percent) => {
+    let r, g, b;
+    if (hexColor.startsWith("#")) {
+      r = parseInt(hexColor.slice(1, 3), 16);
+      g = parseInt(hexColor.slice(3, 5), 16);
+      b = parseInt(hexColor.slice(5, 7), 16);
+    } else {
+      return hexColor;
+    }
+
+    r = Math.max(0, Math.min(255, r + (r * percent) / 100));
+    g = Math.max(0, Math.min(255, g + (g * percent) / 100));
+    b = Math.max(0, Math.min(255, b + (b * percent) / 100));
+
+    return `#${Math.round(r).toString(16).padStart(2, "0")}${Math.round(g).toString(16).padStart(2, "0")}${Math.round(b).toString(16).padStart(2, "0")}`;
+  };
+
+  // Get only appropriate colors based on theme mode
+  const getFilteredColorSchemes = () => {
+    const allSchemes = [
+      { name: "Green", value: "green", hex: "#2ecc71", lightHex: "#2ecc71", darkHex: "#1a9e52" },
+      { name: "Blue", value: "blue", hex: "#3498db", lightHex: "#3498db", darkHex: "#2478b5" },
+      { name: "Purple", value: "purple", hex: "#9b59b6", lightHex: "#9b59b6", darkHex: "#7d3c98" },
+      { name: "Orange", value: "orange", hex: "#e67e22", lightHex: "#e67e22", darkHex: "#c0392b" },
+      { name: "Red", value: "red", hex: "#e74c3c", lightHex: "#e74c3c", darkHex: "#c0392b" },
+      { name: "Teal", value: "teal", hex: "#1abc9c", lightHex: "#1abc9c", darkHex: "#148f77" },
+      { name: "Pink", value: "pink", hex: "#e84393", lightHex: "#e84393", darkHex: "#c2185b" },
+    ];
+
+    if (themeMode === "light") {
+      // In light mode, show light/bright colors only
+      return allSchemes.map(scheme => ({
+        ...scheme,
+        hex: scheme.lightHex
+      }));
+    } else {
+      // In dark mode, show darker/muted colors only
+      return allSchemes.map(scheme => ({
+        ...scheme,
+        hex: scheme.darkHex
+      }));
+    }
+  };
+
+  // Handle color change with validation
+  const handleValidatedColorChange = (color) => {
+    if (themeMode === "light" && !isLightColor(color)) {
+      // If in light mode and color is too dark, adjust it to be lighter
+      const adjustedColor = adjustColorBrightness(color, 40);
+      handleColorChange(adjustedColor);
+      // Show warning (optional)
+      console.warn("Dark colors are not recommended in light mode. Adjusted to lighter shade.");
+    } else if (themeMode === "dark" && isLightColor(color)) {
+      // If in dark mode and color is too light, adjust it to be darker
+      const adjustedColor = adjustColorBrightness(color, -40);
+      handleColorChange(adjustedColor);
+      console.warn("Light colors are not recommended in dark mode. Adjusted to darker shade.");
+    } else {
+      handleColorChange(color);
+    }
+  };
+
+  // Custom color picker change handler
+  const handleCustomColorChange = (e) => {
+    const newColor = e.target.value;
+    handleValidatedColorChange(newColor);
+  };
+
+  const filteredSchemes = getFilteredColorSchemes();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -75,7 +151,7 @@ const ThemeCustomizer = () => {
           </div>
 
           <div className="p-4 max-h-96 overflow-y-auto space-y-4">
-            {/* Theme Mode */}
+            {/* Theme Mode with warning */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Theme Mode
@@ -102,37 +178,43 @@ const ThemeCustomizer = () => {
                   <i className="fas fa-moon mr-1 text-xs"></i> Dark
                 </button>
               </div>
+              <p className="text-xs text-amber-500 dark:text-amber-400 mt-2">
+                <i className="fas fa-info-circle mr-1"></i>
+                {themeMode === 'light' 
+                  ? "Light mode works best with bright colors" 
+                  : "Dark mode works best with darker colors"}
+              </p>
             </div>
 
-            {/* Quick Color Schemes */}
+            {/* Quick Color Schemes - Filtered by theme mode */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Quick Colors
+                Quick Colors {themeMode === 'light' ? '(Bright)' : '(Dark)'}
               </label>
               <div className="flex gap-2 flex-wrap">
-                {colorSchemes.map((scheme) => (
+                {filteredSchemes.map((scheme) => (
                   <button
                     key={scheme.value}
                     onClick={() => {
-                      handleColorChange(scheme.hex);
+                      handleValidatedColorChange(scheme.hex);
                       setIsOpen(false);
                     }}
                     className="w-8 h-8 rounded-full transition-all hover:scale-110 shadow-sm"
                     style={{ backgroundColor: scheme.hex }}
-                    title={scheme.name}
+                    title={`${scheme.name} (${themeMode === 'light' ? 'bright' : 'dark'} version)`}
                   />
                 ))}
               </div>
             </div>
 
-            {/* Custom Color Picker */}
+            {/* Custom Color Picker with theme-based restrictions */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Custom Color
               </label>
               <div className="flex items-center gap-3">
                 <div
-                  className="w-10 h-10 rounded-lg border-2 border-gray-200 dark:border-gray-600 cursor-pointer overflow-hidden"
+                  className="w-10 h-10 rounded-lg border-2 border-gray-200 dark:border-gray-600 cursor-pointer overflow-hidden transition-all hover:scale-105"
                   style={{ backgroundColor: primaryColor }}
                   onClick={() => setShowColorPicker(!showColorPicker)}
                 />
@@ -140,13 +222,38 @@ const ThemeCustomizer = () => {
                   <input
                     type="color"
                     value={primaryColor}
-                    onChange={(e) => handleColorChange(e.target.value)}
+                    onChange={handleCustomColorChange}
                     className="w-10 h-10 rounded-lg cursor-pointer"
+                    list={themeMode === 'light' ? "light-colors" : "dark-colors"}
                   />
                 )}
-                <span className="text-xs text-gray-500 font-mono flex-1">
-                  {primaryColor}
-                </span>
+                <div className="flex-1">
+                  <span className="text-xs text-gray-500 font-mono block">
+                    {primaryColor}
+                  </span>
+                  {themeMode === 'light' && !isLightColor(primaryColor) && (
+                    <p className="text-[10px] text-amber-500 mt-1">
+                      <i className="fas fa-exclamation-triangle mr-1"></i>
+                      Dark color may reduce visibility in light mode
+                    </p>
+                  )}
+                  {themeMode === 'dark' && isLightColor(primaryColor) && (
+                    <p className="text-[10px] text-amber-500 mt-1">
+                      <i className="fas fa-exclamation-triangle mr-1"></i>
+                      Bright color may cause eye strain in dark mode
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              {/* Recommended color ranges */}
+              <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                  <i className="fas fa-lightbulb mr-1 text-amber-500"></i>
+                  {themeMode === 'light' 
+                    ? "Recommended: Green, Blue, Teal, Purple - Bright and vibrant colors work best" 
+                    : "Recommended: Dark Green, Navy Blue, Deep Purple, Maroon - Muted and darker colors work best"}
+                </p>
               </div>
             </div>
 
