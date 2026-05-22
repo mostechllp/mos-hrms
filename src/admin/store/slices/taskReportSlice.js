@@ -110,6 +110,66 @@ export const updateTaskReportRemarks = createAsyncThunk(
   }
 );
 
+// Add new task report (Admin)
+export const addTaskReport = createAsyncThunk(
+  "taskReports/add",
+  async (formData, { getState, rejectWithValue }) => {
+    try {
+      // Find employee ID from state.employees.employees
+      const employees = getState().employees?.employees || [];
+      const matchedEmployee = employees.find(
+        (emp) => emp.name?.toLowerCase() === formData.employee?.toLowerCase()
+      );
+
+      const payload = {
+        date: formData.date,
+        employee_id: matchedEmployee ? matchedEmployee.id : null,
+        tasks_completed: formData.tasksCompleted,
+        plan_tomorrow: formData.planForTomorrow,
+        remarks: formData.remarks || null,
+      };
+
+      const response = await apiClient.post("/admin/task-reports", payload);
+      let newReport = response.data?.data || response.data;
+      return transformTaskReportData(newReport);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to add task report"
+      );
+    }
+  }
+);
+
+// Update existing task report (Admin)
+export const updateTaskReport = createAsyncThunk(
+  "taskReports/update",
+  async ({ id, data }, { getState, rejectWithValue }) => {
+    try {
+      // Find employee ID from state.employees.employees
+      const employees = getState().employees?.employees || [];
+      const matchedEmployee = employees.find(
+        (emp) => emp.name?.toLowerCase() === data.employee?.toLowerCase()
+      );
+
+      const payload = {
+        date: data.date,
+        employee_id: matchedEmployee ? matchedEmployee.id : null,
+        tasks_completed: data.tasksCompleted,
+        plan_tomorrow: data.planForTomorrow,
+        remarks: data.remarks || null,
+      };
+
+      const response = await apiClient.put(`/admin/task-reports/${id}`, payload);
+      let updatedReport = response.data?.data || response.data;
+      return transformTaskReportData(updatedReport);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update task report"
+      );
+    }
+  }
+);
+
 // Delete task report (Admin - Delete)
 export const deleteTaskReport = createAsyncThunk(
   "taskReports/delete",
@@ -196,6 +256,42 @@ const taskReportSlice = createSlice({
         }
       })
       .addCase(updateTaskReportRemarks.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+
+      // Add Task Report
+      .addCase(addTaskReport.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(addTaskReport.fulfilled, (state, action) => {
+        state.loading = false;
+        state.taskReports.unshift(action.payload);
+        state.totalCount += 1;
+      })
+      .addCase(addTaskReport.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+
+      // Update Task Report
+      .addCase(updateTaskReport.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateTaskReport.fulfilled, (state, action) => {
+        state.loading = false;
+        const updatedReport = action.payload;
+        const index = state.taskReports.findIndex(r => r.id === updatedReport.id);
+        if (index !== -1) {
+          state.taskReports[index] = updatedReport;
+        }
+        if (state.currentReport?.id === updatedReport.id) {
+          state.currentReport = updatedReport;
+        }
+      })
+      .addCase(updateTaskReport.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
       })

@@ -18,9 +18,9 @@ const Stepper = ({ currentStep }) => {
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-2 ${
                 currentStep > step.id
-                  ? "bg-primary-600 border-primary-600 text-white"
+                  ? "bg-green-600 border-green-600 text-white shadow-sm shadow-green-500/20"
                   : currentStep === step.id
-                  ? "bg-white dark:bg-gray-800 border-primary-600 text-primary-600 ring-4 ring-primary-50 dark:ring-primary-900/20"
+                  ? "bg-white dark:bg-gray-800 border-green-600 text-green-600 ring-4 ring-green-50 dark:ring-green-950/30"
                   : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400"
               }`}
             >
@@ -47,7 +47,7 @@ const Stepper = ({ currentStep }) => {
           {index < steps.length - 1 && (
             <div className="flex-1 h-0.5 mx-4 -mt-10 bg-gray-100 dark:bg-gray-700">
               <div 
-                className="h-full bg-primary-600 transition-all duration-500 ease-in-out" 
+                className="h-full bg-green-600 transition-all duration-500 ease-in-out" 
                 style={{ width: currentStep > step.id ? "100%" : "0%" }}
               />
             </div>

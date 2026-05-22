@@ -16,6 +16,11 @@ const OfferLetterPreview = () => {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generateContent = (empName, pos, date) => {
+    let formattedDate = date;
+    if (date && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = date.split("-");
+      formattedDate = `${day}/${month}/${year}`;
+    }
     return `Date: ${new Date().toLocaleDateString('en-GB')}
 
 To: ${empName || "[Candidate Name]"}
@@ -27,7 +32,7 @@ Dear ${empName || "Candidate"},
 
 On behalf of the Company, we are pleased to offer you the position of ${pos || "[Job Title]"}. We believe your skills and experience will be a valuable asset to our team.
 
-This offer is contingent upon the successful completion of our onboarding process. Your proposed joining date is ${date || "[Joining Date]"}.
+This offer is contingent upon the successful completion of our onboarding process. Your proposed joining date is ${formattedDate || "[Joining Date]"}.
 
 Your compensation will be discussed in detail during the final interview stage. Please review the attached terms and conditions of employment.
 
@@ -200,7 +205,7 @@ UAE Operations`;
       <div className="space-y-6 lg:col-span-1">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700 p-6">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-            <FiSettings className="text-primary-500" />
+            <FiSettings className="text-green-600" />
             Settings
           </h3>
           <div className="space-y-4">
@@ -221,10 +226,10 @@ UAE Operations`;
             <button 
               onClick={downloadPDF} 
               disabled={isGenerating}
-              className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border hover:border-primary-500 transition-all flex flex-col items-center justify-center gap-2 disabled:opacity-50"
+              className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border hover:border-green-500 transition-all flex flex-col items-center justify-center gap-2 disabled:opacity-50"
             >
               {isGenerating ? (
-                <FiLoader size={20} className="text-primary-500 animate-spin" />
+                <FiLoader size={20} className="text-green-600 animate-spin" />
               ) : (
                 <FiDownload size={20} className="text-gray-400" />
               )}
@@ -232,7 +237,7 @@ UAE Operations`;
             </button>
             <button 
               onClick={handlePrint}
-              className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border hover:border-primary-500 transition-all flex flex-col items-center justify-center gap-2"
+              className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border hover:border-green-500 transition-all flex flex-col items-center justify-center gap-2"
             >
               <FiPrinter size={20} className="text-gray-400" />
               <span className="text-[10px] font-bold">PRINT</span>
@@ -246,7 +251,7 @@ UAE Operations`;
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700 overflow-hidden">
           <div className="px-8 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FiFileText className="text-primary-500" />
+              <FiFileText className="text-green-600" />
               <span className="text-sm font-bold">Offer Letter Preview</span>
             </div>
           </div>
