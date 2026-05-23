@@ -40,51 +40,58 @@ const Settings = () => {
           Manage your account settings and preferences
         </p>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-3 p-4 transition-all border-b border-gray-100 dark:border-gray-700 last:border-0 ${
-                    activeTab === tab.id
-                      ? "bg-green-50 dark:bg-green-900/20"
-                      : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Sidebar */}
+        <div className="lg:col-span-1">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full flex items-center gap-3 p-4 transition-all border-b border-gray-100 dark:border-gray-700 last:border-0 ${
+                  activeTab === tab.id
+                    ? "bg-green-500 shadow-md rounded-xl"
+                    : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                }`}
+                style={
+                  activeTab === tab.id
+                    ? { backgroundColor: 'var(--primary-color)', color: 'var(--primary-contrast)' }
+                    : {}
+                }
+              >
+                <div 
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                    activeTab === tab.id ? "" : getColorClasses(tab.color, false)
                   }`}
+                  style={
+                    activeTab === tab.id
+                      ? { backgroundColor: 'var(--primary-contrast)', color: 'var(--primary-color)' }
+                      : {}
+                  }
                 >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${getColorClasses(tab.color, activeTab === tab.id)}`}>
-                    <i className={`${tab.icon} text-base`}></i>
+                  <i className={`${tab.icon} text-base`}></i>
+                </div>
+                <div className="flex-1 text-left">
+                  <div 
+                    className="text-sm font-semibold transition-colors duration-200"
+                    style={activeTab === tab.id ? { color: 'var(--primary-contrast)' } : { color: '' }}
+                  >
+                    {tab.label}
                   </div>
-                  <div className="flex-1 text-left">
-                    <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                      {tab.label}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {tab.id === "profile" && "Personal information"}
-                      {tab.id === "security" && "Password & security"}
-                      {tab.id === "app-settings" && "Application settings"}
-                      {tab.id === "theme" && "Theme & appearance"}
-                    </div>
+                  <div 
+                    className="text-xs transition-colors duration-200"
+                    style={activeTab === tab.id ? { color: 'var(--primary-contrast)', opacity: 0.85 } : { color: '' }}
+                  >
+                    {tab.id === "profile" && <ProfileTab/>}
+                    {tab.id === "security" && <SecurityTab/>}
+                    {tab.id === "app-settings" && <AppSettingsTab/>}
+                    {tab.id === "theme" && <ThemeTab/>}
                   </div>
-                  {activeTab === tab.id && (
-                    <div className="w-1.5 h-8 bg-green-500 rounded-full"></div>
-                  )}
-                </button>
-              ))}
-            </div>
+                </div>
+              </button>
+            ))}
           </div>
-
-          {/* Right Content */}
-          <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 md:p-6 shadow-soft">
-              {activeTab === "profile" && <ProfileTab />}
-              {activeTab === "security" && <SecurityTab />}
-              {activeTab === "app-settings" && <AppSettingsTab />}
-              {activeTab === "theme" && <ThemeTab />}
-            </div>
-          </div>
+        </div>
         </div>
       </main>
     </div>
