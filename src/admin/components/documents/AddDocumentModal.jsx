@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { showToast } from '../common/Toast';
-import { updateDocument, fetchDocumentFolders } from '../../store/slices/documentsSlice';
+import { updateDocument, fetchDocumentFolders, uploadToTemp } from '../../store/slices/documentsSlice';
 
 const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument }) => {
   const dispatch = useDispatch();
@@ -12,6 +12,8 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
   const [fileDescription, setFileDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [uploadingToTemp, setUploadingToTemp] = useState(false);
+  const [tempFilePath, setTempFilePath] = useState(null);
   const [fileType, setFileType] = useState('others');
   const [folderId, setFolderId] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -21,6 +23,41 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
   // Get base URL for file access
   const getBaseUrl = () => {
     return import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin;
+  };
+
+  // Upload file to temp storage first (2-step process)
+  const uploadFileToTemp = async (file) => {
+    setUploadingToTemp(true);
+    try {
+      console.log("Uploading file to temp:", file.name);
+      const result = await dispatch(uploadToTemp(file));
+      console.log("Upload result:", result);
+      
+      if (uploadToTemp.fulfilled.match(result)) {
+        const { path, filename } = result.payload;
+        console.log("Temp file uploaded successfully. Path:", path);
+        setTempFilePath(path);
+        
+        // Auto-populate name if empty and it's a new file or user hasn't changed it
+        if (!fileName || fileName === editingDocument?.name) {
+          const nameWithoutExt = filename || file.name.replace(/\.[^/.]+$/, "");
+          setFileName(nameWithoutExt);
+        }
+        
+        showToast("File uploaded successfully", "success");
+        return true;
+      } else {
+        console.error("Upload failed:", result.payload);
+        showToast(result.payload || "Failed to upload file", "error");
+        return false;
+      }
+    } catch (error) {
+      console.error("Upload error caught:", error);
+      showToast("Failed to upload file", error);
+      return false;
+    } finally {
+      setUploadingToTemp(false);
+    }
   };
 
   // Fetch folders when modal opens
@@ -39,9 +76,28 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
         
         // Set existing file URL
         if (editingDocument.file_path) {
-          const baseUrl = getBaseUrl();
-          const fileUrl = `${baseUrl}/storage/${editingDocument.file_path.replace(/^\/+/, '')}`;
-          setExistingFileUrl(fileUrl);
+          let filePath = editingDocument.file_path;
+          
+          // Handle array case
+          if (Array.isArray(filePath)) {
+            filePath = filePath[0] || "";
+          }
+          
+          // Handle object case
+          if (typeof filePath === "object" && filePath !== null) {
+            filePath = filePath.path || filePath.file_path || "";
+          }
+          
+          if (typeof filePath === "string" && filePath.trim()) {
+            const baseUrl = getBaseUrl();
+            const cleanPath = filePath.replace(/^\/+/, "");
+            const encodedPath = cleanPath
+              .split("/")
+              .map((part) => encodeURIComponent(part))
+              .join("/");
+            const fileUrl = `${baseUrl}/storage/${encodedPath}`;
+            setExistingFileUrl(fileUrl);
+          }
         }
       } else {
         // eslint-disable-next-line react-hooks/immutability
@@ -54,6 +110,8 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
     setFileName('');
     setFileDescription('');
     setSelectedFile(null);
+    setTempFilePath(null);
+    setUploadingToTemp(false);
     setFileType('others');
     setFolderId('');
     setExpiryDate('');
@@ -61,7 +119,7 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
     setIsReplacingFile(false);
   };
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
@@ -70,11 +128,15 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
       }
       setSelectedFile(file);
       setIsReplacingFile(true);
+      
+      // Upload to temp immediately
+      await uploadFileToTemp(file);
     }
   };
 
   const handleRemoveNewFile = () => {
     setSelectedFile(null);
+    setTempFilePath(null);
     setIsReplacingFile(false);
     // Reset file input value
     const fileInput = document.getElementById('file-upload');
@@ -83,6 +145,7 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
 
   const handleCancelReplace = () => {
     setSelectedFile(null);
+    setTempFilePath(null);
     setIsReplacingFile(false);
     const fileInput = document.getElementById('file-upload');
     if (fileInput) fileInput.value = '';
@@ -99,6 +162,12 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
       return;
     }
 
+    // If replacing file, check if temp file is uploaded
+    if (isReplacingFile && !tempFilePath) {
+      showToast('Please wait for file upload to complete', 'error');
+      return;
+    }
+
     setIsUpdating(true);
     
     try {
@@ -110,13 +179,18 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
         expiry_date: expiryDate || '',
       };
       
+      // If replacing file, add the temp file path
+      if (isReplacingFile && tempFilePath) {
+        formData.file_path = tempFilePath;
+      }
+      
       let result;
       if (editingDocument) {
-        // Update existing document - pass the new file if selected, otherwise undefined to keep existing
+        // Update existing document
         result = await dispatch(updateDocument({ 
           id: editingDocument.id, 
           formData, 
-          file: selectedFile || undefined // Only send file if a new one is selected
+          file: null // Send null because we're using temp path
         }));
         
         if (updateDocument.fulfilled.match(result)) {
@@ -124,7 +198,30 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
           onDocumentAdded?.();
           handleClose();
         } else {
-          showToast(result.payload || 'Failed to update document', 'error');
+          const errorPayload = result.payload;
+          let errorMessage = 'Failed to update document';
+          
+          if (errorPayload?.errors) {
+            const errors = errorPayload.errors;
+            const errorMessages = [];
+            
+            if (errors.name) errorMessages.push(`Name: ${errors.name.join(", ")}`);
+            if (errors.folder_id) errorMessages.push(`Folder: ${errors.folder_id.join(", ")}`);
+            if (errors.file_path) errorMessages.push(`File: ${errors.file_path.join(", ")}`);
+            if (errors.expiry_date) errorMessages.push(`Expiry date: ${errors.expiry_date.join(", ")}`);
+            
+            if (errorMessages.length > 0) {
+              errorMessage = errorMessages.join(" | ");
+            } else {
+              errorMessage = errorPayload.message || "Validation error occurred";
+            }
+          } else if (errorPayload?.message) {
+            errorMessage = errorPayload.message;
+          } else if (typeof errorPayload === "string") {
+            errorMessage = errorPayload;
+          }
+          
+          showToast(errorMessage, 'error');
         }
       }
       
@@ -165,7 +262,37 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
     return 'text-gray-500';
   };
 
+  // Get current file name from editing document
+  const getCurrentFileName = () => {
+    if (!editingDocument?.file_path) return 'No file attached';
+    
+    let filePath = editingDocument.file_path;
+    
+    if (Array.isArray(filePath)) {
+      filePath = filePath[0] || "";
+    }
+    
+    if (typeof filePath === "object" && filePath !== null) {
+      filePath = filePath.path || filePath.file_path || "";
+    }
+    
+    if (typeof filePath !== "string") {
+      return 'Invalid file path';
+    }
+    
+    const pathParts = filePath.split("/");
+    const fileName = decodeURIComponent(pathParts[pathParts.length - 1]);
+    
+    if (fileName.startsWith("php") && editingDocument.name) {
+      return editingDocument.name;
+    }
+    
+    return fileName || 'No file attached';
+  };
+
   if (!isOpen) return null;
+
+  const currentFileName = getCurrentFileName();
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]">
@@ -250,10 +377,10 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
               </label>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <i className={`${getFileIcon(editingDocument?.name)} ${getFileColor(editingDocument?.name)} text-2xl`}></i>
+                  <i className={`${getFileIcon(currentFileName)} ${getFileColor(currentFileName)} text-2xl`}></i>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-                      {editingDocument?.file_path?.split('/').pop() || 'Document file'}
+                      {currentFileName}
                     </p>
                     <a
                       href={existingFileUrl}
@@ -303,6 +430,7 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
                           type="file"
                           className="sr-only"
                           onChange={handleFileSelect}
+                          disabled={uploadingToTemp}
                         />
                       </label>
                       <p className="pl-1">or drag and drop</p>
@@ -323,19 +451,27 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
                         </p>
                         <p className="text-xs text-gray-500">
                           {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                          {tempFilePath && !uploadingToTemp && (
+                            <span className="text-green-600 ml-2">✓ Uploaded</span>
+                          )}
+                          {uploadingToTemp && (
+                            <span className="text-yellow-600 ml-2">Uploading...</span>
+                          )}
                         </p>
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={handleCancelReplace}
-                        className="text-gray-500 hover:text-gray-600 text-sm"
+                        disabled={uploadingToTemp}
+                        className="text-gray-500 hover:text-gray-600 text-sm disabled:opacity-50"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={handleRemoveNewFile}
-                        className="text-red-500 hover:text-red-600 text-sm"
+                        disabled={uploadingToTemp}
+                        className="text-red-500 hover:text-red-600 text-sm disabled:opacity-50"
                       >
                         Remove
                       </button>
@@ -377,11 +513,13 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded, editingDocument })
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isUpdating}
+            disabled={isUpdating || uploadingToTemp || (isReplacingFile && !tempFilePath && selectedFile)}
             className="px-4 py-2 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all disabled:opacity-70 flex items-center gap-2"
           >
             {isUpdating ? (
               <><i className="fas fa-spinner fa-spin"></i> Saving...</>
+            ) : uploadingToTemp ? (
+              <><i className="fas fa-spinner fa-spin"></i> Uploading...</>
             ) : (
               <><i className="fas fa-save"></i> Update Document</>
             )}

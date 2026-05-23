@@ -13,6 +13,7 @@ import {
 import { clearError } from "../store/slices/authSlice";
 import AddFolderModal from "../components/documents/AddFolderModal";
 import AddPartyModal from "../components/documents/AddPartyModal";
+import DateInput from "../components/common/DateInput";
 
 const EditAgreement = () => {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ const EditAgreement = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [replaceFile, setReplaceFile] = useState(false);
   const [fileUrl, setFileUrl] = useState(null);
-  const [autoUpdateName, setAutoUpdateName] = useState(true); // Add this state
+  const [autoUpdateName, setAutoUpdateName] = useState(true);
   const fileInputRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -99,37 +100,6 @@ const EditAgreement = () => {
     }
   };
 
-  // Function to extract error message from backend response
-  const extractErrorMessage = (errorPayload) => {
-    console.log("Extracting error from payload:", errorPayload);
-
-    // Check for validation errors object
-    if (errorPayload?.errors) {
-      const errors = errorPayload.errors;
-      // Check for expiry_date error
-      if (errors.expiry_date && Array.isArray(errors.expiry_date)) {
-        return errors.expiry_date[0];
-      }
-      // Check for any other field errors
-      const firstErrorKey = Object.keys(errors)[0];
-      if (firstErrorKey && errors[firstErrorKey][0]) {
-        return errors[firstErrorKey][0];
-      }
-    }
-
-    // Check for message property
-    if (errorPayload?.message) {
-      return errorPayload.message;
-    }
-
-    // If it's a string
-    if (typeof errorPayload === "string") {
-      return errorPayload;
-    }
-
-    return "Failed to update agreement";
-  };
-
   // Fetch initial data
   useEffect(() => {
     dispatch(fetchShareableUsers());
@@ -143,6 +113,7 @@ const EditAgreement = () => {
   // Set form data when currentDocument is loaded
   useEffect(() => {
     if (currentDocument) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         name: currentDocument.name || "",
         description: currentDocument.description || "",
@@ -224,6 +195,11 @@ const EditAgreement = () => {
       dispatch(clearError());
     }
   }, [error, dispatch]);
+
+  // Handle date change for expiry date
+  const handleDateChange = (dateValue) => {
+    setFormData(prev => ({ ...prev, expiryDate: dateValue }));
+  };
 
   const handleChange = (e) => {
     if (e.target.id === "party_id" && e.target.value === "__add_new__") {
@@ -858,12 +834,11 @@ const EditAgreement = () => {
                     <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
                     Expiry Date
                   </label>
-                  <input
-                    type="date"
-                    id="expiryDate"
+                  <DateInput
                     value={formData.expiryDate}
-                    onChange={handleChange}
-                    className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                    onChange={handleDateChange}
+                    placeholder="dd/mm/yyyy"
+                    type="general"
                   />
                   <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
                     <i className="fas fa-info-circle mr-1"></i>

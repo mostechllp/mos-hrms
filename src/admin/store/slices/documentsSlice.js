@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import apiClient from "../../../utils/apiClient";
 
-const transformDocumentForAPI = (formData, file) => {
+const transformDocumentForAPI = (formData, file, isUpdate = false) => {
   const formDataToSend = new FormData();
 
   formDataToSend.append("name", formData.name);
@@ -47,8 +47,10 @@ const transformDocumentForAPI = (formData, file) => {
     formDataToSend.append("file_path", file);
   }
 
-  // Add _method for PUT request
-  formDataToSend.append("_method", "PUT");
+  // Only add _method for update operations
+  if (isUpdate) {
+    formDataToSend.append("_method", "PUT");
+  }
 
   return formDataToSend;
 };
@@ -80,30 +82,6 @@ const transformDocumentFromAPI = (doc) => {
   };
 };
 
-// Fetch all documents
-// export const fetchDocuments = createAsyncThunk(
-//   "documents/fetchAll",
-//   async (_, { rejectWithValue }) => {
-//     try {
-//       const response = await apiClient.get("/admin/documents");
-//       if (
-//         Array.isArray(response.data) &&
-//         response.data.length > 0 &&
-//         response.data[0].key
-//       ) {
-//         return [transformDocumentFromAPI(response.data)];
-//       }
-//       if (Array.isArray(response.data)) {
-//         return response.data.map((doc) => transformDocumentFromAPI(doc));
-//       }
-//       return response.data.data || [];
-//     } catch (error) {
-//       return rejectWithValue(
-//         error.response?.data?.message || "Failed to fetch documents",
-//       );
-//     }
-//   },
-// );
 export const fetchDocuments = createAsyncThunk(
   "documents/fetchAll",
   async (_, { rejectWithValue }) => {
@@ -148,7 +126,7 @@ export const uploadDocument = createAsyncThunk(
   "documents/upload",
   async ({ formData, file }, { rejectWithValue }) => {
     try {
-      const dataToSend = transformDocumentForAPI(formData, file);
+      const dataToSend = transformDocumentForAPI(formData, file, false);
       console.log("Uploading document data:");
       for (let [key, value] of dataToSend.entries()) {
         console.log(key, ":", value);
@@ -168,13 +146,12 @@ export const uploadDocument = createAsyncThunk(
   },
 );
 
-// Update document
-// Update document
+// Update document - FIXED VERSION
 export const updateDocument = createAsyncThunk(
   "documents/update",
   async ({ id, formData, file }, { rejectWithValue }) => {
     try {
-      const dataToSend = transformDocumentForAPI(formData, file);
+      const dataToSend = transformDocumentForAPI(formData, file, true);
       
       console.log("Updating document ID:", id);
       console.log("Form data being sent:");
@@ -182,15 +159,13 @@ export const updateDocument = createAsyncThunk(
         console.log(key, ":", value);
       }
       
-      const response = await apiClient.post(
-        `/admin/documents/${id}?_method=PUT`,
-        dataToSend,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
+      // Use POST with _method=PUT in the form data, NOT in the URL
+      const response = await apiClient.post(`/admin/documents/${id}`, dataToSend, {
+        headers: {
+          "Content-Type": "multipart/form-data",
         },
-      );
+      });
+      
       return response.data.data || response.data;
     } catch (error) {
       console.error("Update document error details:", {
@@ -199,6 +174,23 @@ export const updateDocument = createAsyncThunk(
         message: error.response?.data?.message,
         errors: error.response?.data?.errors
       });
+      
+      // If POST with _method doesn't work, try PUT as fallback
+      if (error.response?.status === 405) {
+        try {
+          console.log("POST method failed, trying PUT as fallback...");
+          const dataToSend = transformDocumentForAPI(formData, file, false);
+          const response = await apiClient.put(`/admin/documents/${id}`, dataToSend, {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          });
+          return response.data.data || response.data;
+        } catch (fallbackError) {
+          console.error("PUT fallback also failed:", fallbackError);
+          return rejectWithValue(fallbackError.response?.data || "Failed to update document");
+        }
+      }
       
       // Return the full error response for better handling
       if (error.response?.data) {
@@ -299,12 +291,13 @@ export const fetchDocumentFolders = createAsyncThunk(
     }
   },
 );
+
 // Folder CRUD operations
 export const addDocumentFolder = createAsyncThunk(
   "documents/addFolder",
   async (folderData, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post("/admin/folders", folderData); // Changed from documents-folders to folders
+      const response = await apiClient.post("/admin/folders", folderData);
       return response.data.data || response.data;
     } catch (error) {
       return rejectWithValue(
@@ -327,6 +320,7 @@ export const deleteDocumentFolder = createAsyncThunk(
     }
   },
 );
+
 export const updateDocumentFolder = createAsyncThunk(
   "documents/updateFolder",
   async ({ id, name }, { rejectWithValue }) => {
@@ -342,7 +336,6 @@ export const updateDocumentFolder = createAsyncThunk(
 );
 
 // Get shareable users
-// In your documentsSlice.js
 export const fetchShareableUsers = createAsyncThunk(
   "documents/fetchShareableUsers",
   async (_, { rejectWithValue }) => {
@@ -364,8 +357,6 @@ export const fetchShareableUsers = createAsyncThunk(
 );
 
 // Party CRUD operations
-// Update the fetchParties thunk in your documentsSlice.js
-
 export const fetchParties = createAsyncThunk(
   "documents/fetchParties",
   async (_, { rejectWithValue }) => {

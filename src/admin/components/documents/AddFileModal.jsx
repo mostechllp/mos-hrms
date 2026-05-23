@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { showToast } from '../common/Toast';
-import { uploadDocument, fetchDocuments, fetchDocumentFolders } from '../../store/slices/documentsSlice';
+import { uploadDocument, fetchDocuments, fetchDocumentFolders, uploadToTemp } from '../../store/slices/documentsSlice';
 
 const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
   const dispatch = useDispatch();
@@ -11,6 +11,8 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
   const [fileDescription, setFileDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [uploadingToTemp, setUploadingToTemp] = useState(false); // Add this state
+  const [tempFilePath, setTempFilePath] = useState(null); // Add this state
   const [fileType, setFileType] = useState('others');
   const [folderId, setFolderId] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -36,7 +38,42 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
     }
   };
 
-  const handleFileSelect = (e) => {
+  // Upload file to temp storage first (2-step process)
+  const uploadFileToTemp = async (file) => {
+    setUploadingToTemp(true);
+    try {
+      console.log("Uploading file to temp:", file.name);
+      const result = await dispatch(uploadToTemp(file));
+      console.log("Upload result:", result);
+      
+      if (uploadToTemp.fulfilled.match(result)) {
+        const { path, filename } = result.payload;
+        console.log("Temp file uploaded successfully. Path:", path);
+        setTempFilePath(path);
+        
+        // Auto-populate name if empty
+        if (!fileName) {
+          const nameWithoutExt = filename || file.name.replace(/\.[^/.]+$/, "");
+          setFileName(nameWithoutExt);
+        }
+        
+        showToast("File uploaded successfully", "success");
+        return true;
+      } else {
+        console.error("Upload failed:", result.payload);
+        showToast(result.payload || "Failed to upload file", "error");
+        return false;
+      }
+    } catch (error) {
+      console.error("Upload error caught:", error);
+      showToast("Failed to upload file", error);
+      return false;
+    } finally {
+      setUploadingToTemp(false);
+    }
+  };
+
+  const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (file) {
       // Validate file size (10MB)
@@ -46,11 +83,9 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
       }
       
       setSelectedFile(file);
-      // Auto-populate filename if empty
-      if (!fileName) {
-        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
-        setFileName(nameWithoutExt);
-      }
+      
+      // Upload to temp immediately
+      await uploadFileToTemp(file);
     }
   };
 
@@ -62,6 +97,11 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
 
     if (!selectedFile) {
       showToast('Please select a file', 'error');
+      return;
+    }
+
+    if (!tempFilePath) {
+      showToast('Please wait for file upload to complete', 'error');
       return;
     }
 
@@ -79,13 +119,14 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
         description: fileDescription,
         folder_id: folderId,
         expiry_date: expiryDate || '',
-        share_with: shareWith
+        share_with: shareWith,
+        file_path: tempFilePath // Send the temp file path instead of the actual file
       };
       
       console.log('Submitting document with type:', fileType);
       console.log('Form data:', formData);
       
-      const result = await dispatch(uploadDocument({ formData, file: selectedFile }));
+      const result = await dispatch(uploadDocument({ formData, file: null })); // Pass null as file since we're using temp path
       
       if (uploadDocument.fulfilled.match(result)) {
         const newFile = result.payload;
@@ -114,6 +155,8 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
     setFileName('');
     setFileDescription('');
     setSelectedFile(null);
+    setTempFilePath(null); // Reset temp file path
+    setUploadingToTemp(false);
     setFileType('others');
     setFolderId('');
     setExpiryDate('');
@@ -245,6 +288,7 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
                       type="file"
                       className="sr-only"
                       onChange={handleFileSelect}
+                      disabled={uploadingToTemp}
                     />
                   </label>
                   <p className="pl-1">or drag and drop</p>
@@ -254,12 +298,24 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
                 </p>
               </div>
             </div>
-            {selectedFile && (
+            {uploadingToTemp && (
+              <div className="mt-2 flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400">
+                <i className="fas fa-spinner fa-spin"></i>
+                <span>Uploading file to server...</span>
+              </div>
+            )}
+            {selectedFile && !uploadingToTemp && (
               <div className="mt-2 flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                 <i className="fas fa-check-circle"></i>
                 <span className="truncate">Selected: {selectedFile.name}</span>
+                {tempFilePath && (
+                  <span className="text-xs text-green-600 ml-2">✓ Uploaded to temp</span>
+                )}
                 <button
-                  onClick={() => setSelectedFile(null)}
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setTempFilePath(null);
+                  }}
                   className="text-red-500 hover:text-red-600 ml-auto"
                 >
                   <i className="fas fa-times"></i>
@@ -278,11 +334,13 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isCreating || isLoadingFolders || folders.length === 0}
+            disabled={isCreating || isLoadingFolders || folders.length === 0 || uploadingToTemp || !tempFilePath}
             className="px-4 py-2 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all disabled:opacity-70 flex items-center gap-2"
           >
             {isCreating ? (
               <><i className="fas fa-spinner fa-spin"></i> Adding...</>
+            ) : uploadingToTemp ? (
+              <><i className="fas fa-spinner fa-spin"></i> Uploading...</>
             ) : (
               <><i className="fas fa-plus"></i> Add File</>
             )}
