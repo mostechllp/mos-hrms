@@ -4,6 +4,7 @@ import { useForm, Controller } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
 import { FiEdit3, FiInfo, FiChevronRight, FiChevronLeft, FiSave } from "react-icons/fi";
 import { setStep, updateEmployeeDetails, resetOnboarding } from "../../store/slices/onboardingSlice";
+import { showToast } from "../../components/common/Toast";
 import DateInput from "../common/DateInput";
 
 const EmployeeDetailsForm = () => {
@@ -16,6 +17,7 @@ const EmployeeDetailsForm = () => {
     handleSubmit,
     reset,
     control,
+    getValues,
     formState: { errors },
   } = useForm({
     defaultValues: employeeDetails,
@@ -36,6 +38,16 @@ const EmployeeDetailsForm = () => {
 
   const handleBack = () => {
     dispatch(resetOnboarding());
+  };
+
+  const handleSaveDraft = () => {
+    const currentData = getValues();
+    const draftState = {
+      ...onboardingState,
+      employeeDetails: { ...onboardingState.employeeDetails, ...currentData }
+    };
+    localStorage.setItem("onboarding-draft", JSON.stringify(draftState));
+    showToast("Draft saved successfully!", "success");
   };
 
   const InputField = ({ label, name, type = "text", placeholder, options = null }) => (
@@ -94,6 +106,7 @@ const EmployeeDetailsForm = () => {
 
             <button
               type="button"
+              onClick={handleSaveDraft}
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-green-600 bg-green-50 dark:bg-green-900/20 rounded-xl hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
             >
               <FiSave size={16} />

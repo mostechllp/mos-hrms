@@ -69,6 +69,9 @@ const onboardingSlice = createSlice({
     },
     completeOnboarding: (state) => {
       state.onboardingComplete = true;
+    },
+    restoreDraft: (state, action) => {
+      return { ...state, ...action.payload };
     }
   },
   extraReducers: (builder) => {
@@ -95,7 +98,8 @@ export const {
   updateEmployeeDetails, 
   updateOfferLetter, 
   resetOnboarding,
-  completeOnboarding 
+  completeOnboarding,
+  restoreDraft
 } = onboardingSlice.actions;
 
 export default onboardingSlice.reducer;
