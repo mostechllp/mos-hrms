@@ -56,30 +56,45 @@ const ThemeTab = () => {
               onClick={() => setThemeMode('light')}
               className={`p-4 rounded-xl border-2 transition-all text-left ${
                 themeMode === 'light'
-                  ? 'border-green-500 bg-green-500 text-white shadow-md'
+                  ? 'border-green-500 shadow-md'
                   : 'border-gray-200 dark:border-gray-700 hover:border-green-300'
               }`}
+              style={
+                themeMode === 'light'
+                  ? { backgroundColor: 'var(--primary-color)', color: 'var(--primary-contrast)' }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                  themeMode === 'light' ? 'bg-white/20 text-white' : 'bg-yellow-500 text-white'
-                }`}>
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all"
+                  style={
+                    themeMode === 'light'
+                      ? { backgroundColor: 'var(--primary-contrast)', color: 'var(--primary-color)' }
+                      : { backgroundColor: '#eab308', color: '#ffffff' }
+                  }
+                >
                   <i className="fas fa-sun text-lg"></i>
                 </div>
                 <div>
-                  <div className={`font-semibold transition-colors duration-200 ${
-                    themeMode === 'light'
-                      ? 'text-white'
-                      : 'text-gray-800 dark:text-gray-200'
-                  }`}>Light Mode</div>
-                  <div className={`text-xs transition-colors duration-200 ${
-                    themeMode === 'light'
-                      ? 'text-white/80'
-                      : 'text-gray-500 dark:text-gray-400'
-                  }`}>Bright and clean interface</div>
+                  <div 
+                    className="font-semibold transition-colors duration-200"
+                    style={themeMode === 'light' ? { color: 'var(--primary-contrast)' } : {}}
+                  >
+                    Light Mode
+                  </div>
+                  <div 
+                    className="text-xs transition-colors duration-200"
+                    style={themeMode === 'light' ? { color: 'var(--primary-contrast)', opacity: 0.85 } : {}}
+                  >
+                    Bright and clean interface
+                  </div>
                 </div>
                 {themeMode === 'light' && (
-                  <i className="fas fa-check-circle text-white ml-auto text-xl"></i>
+                  <i 
+                    className="fas fa-check-circle ml-auto text-xl"
+                    style={{ color: 'var(--primary-contrast)' }}
+                  ></i>
                 )}
               </div>
             </button>
@@ -88,30 +103,45 @@ const ThemeTab = () => {
               onClick={() => setThemeMode('dark')}
               className={`p-4 rounded-xl border-2 transition-all text-left ${
                 themeMode === 'dark'
-                  ? 'border-green-500 bg-green-500 text-white shadow-md'
+                  ? 'border-green-500 shadow-md'
                   : 'border-gray-200 dark:border-gray-700 hover:border-green-300'
               }`}
+              style={
+                themeMode === 'dark'
+                  ? { backgroundColor: 'var(--primary-color)', color: 'var(--primary-contrast)' }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                  themeMode === 'dark' ? 'bg-white/20 text-white' : 'bg-gray-700 text-white'
-                }`}>
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all"
+                  style={
+                    themeMode === 'dark'
+                      ? { backgroundColor: 'var(--primary-contrast)', color: 'var(--primary-color)' }
+                      : { backgroundColor: '#374151', color: '#ffffff' }
+                  }
+                >
                   <i className="fas fa-moon text-lg"></i>
                 </div>
                 <div>
-                  <div className={`font-semibold transition-colors duration-200 ${
-                    themeMode === 'dark'
-                      ? 'text-white'
-                      : 'text-gray-800 dark:text-gray-200'
-                  }`}>Dark Mode</div>
-                  <div className={`text-xs transition-colors duration-200 ${
-                    themeMode === 'dark'
-                      ? 'text-white/80'
-                      : 'text-gray-500 dark:text-gray-400'
-                  }`}>Easy on the eyes, great for night</div>
+                  <div 
+                    className="font-semibold transition-colors duration-200"
+                    style={themeMode === 'dark' ? { color: 'var(--primary-contrast)' } : {}}
+                  >
+                    Dark Mode
+                  </div>
+                  <div 
+                    className="text-xs transition-colors duration-200"
+                    style={themeMode === 'dark' ? { color: 'var(--primary-contrast)', opacity: 0.85 } : {}}
+                  >
+                    Easy on the eyes, great for night
+                  </div>
                 </div>
                 {themeMode === 'dark' && (
-                  <i className="fas fa-check-circle text-white ml-auto text-xl"></i>
+                  <i 
+                    className="fas fa-check-circle ml-auto text-xl"
+                    style={{ color: 'var(--primary-contrast)' }}
+                  ></i>
                 )}
               </div>
             </button>
