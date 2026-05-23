@@ -8,6 +8,7 @@ import { fetchOrganizations } from "../../store/slices/organizationSlice";
 import { fetchCompanies } from "../../store/slices/companySlice";
 import { fetchDesignations } from "../../store/slices/designationSlice";
 import { fetchDepartments } from "../../store/slices/departmentSlice";
+import { fetchRoles } from "../../store/slices/roleSlice";
 import React from "react";
 import apiClient from "../../../utils/apiClient";
 
@@ -21,6 +22,7 @@ const OnboardingReview = () => {
   const { companies = [] } = useSelector((state) => state.companies || {});
   const { designations = [] } = useSelector((state) => state.designations || {});
   const { departments = [] } = useSelector((state) => state.departments || {});
+  const { roles = [] } = useSelector((state) => state.roles || {});
 
   // Local state for duplicate submission prevention and loader
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -31,6 +33,7 @@ const OnboardingReview = () => {
     dispatch(fetchOrganizations());
     dispatch(fetchDesignations());
     dispatch(fetchDepartments());
+    dispatch(fetchRoles());
   }, [dispatch]);
 
   // Dynamically fetch companies once organizations are available or user organization context is resolved
@@ -107,9 +110,13 @@ const OnboardingReview = () => {
       const matchedDepartment = departments.find(
         (d) => d.name?.toLowerCase().trim() === (employeeDetails.department || "").toLowerCase().trim()
       );
+      const matchedRole = roles.find(
+        (r) => r.name?.toLowerCase().trim() === "employee"
+      );
 
       const designation_id = matchedDesignation ? matchedDesignation.id : (designations[0]?.id || null);
       const department_id = matchedDepartment ? matchedDepartment.id : (departments[0]?.id || null);
+      const role_id = matchedRole ? matchedRole.id : (roles.find(r => r.name?.toLowerCase().includes("employee"))?.id || roles[0]?.id || null);
 
       // Candidate's name parsing
       const fullName = (employeeDetails.fullName || "").trim();
@@ -161,6 +168,7 @@ const OnboardingReview = () => {
         organization_id: orgId ? parseInt(orgId) : undefined,
         department_id: department_id ? parseInt(department_id) : undefined,
         designation_id: designation_id ? parseInt(designation_id) : undefined,
+        role_id: role_id ? parseInt(role_id) : undefined,
         type: "employee",
         status: "active",
         role: "Employee",
@@ -189,6 +197,8 @@ const OnboardingReview = () => {
           return "Your session has expired. Please log in again and retry.";
         if (msg.includes("server error") || msg.includes("500"))
           return "The server encountered an error. Please try again in a moment.";
+        if (msg.includes("role") && (msg.includes("required") || msg.includes("invalid") || msg.includes("id")))
+          return "A valid role is required. Please check that a default 'Employee' role exists.";
         return "Unable to create the employee record. Please verify the details and try again.";
       };
 
