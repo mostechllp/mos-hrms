@@ -2,7 +2,7 @@ import  { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { FiCheck } from "react-icons/fi";
-import { resetOnboarding } from "../store/slices/onboardingSlice";
+import { resetOnboarding, restoreDraft } from "../store/slices/onboardingSlice";
 import ResumeUpload from "../components/onboarding/ResumeUpload";
 import EmployeeDetailsForm from "../components/onboarding/EmployeeDetailsForm";
 import OfferLetterPreview from "../components/onboarding/OfferLetterPreview";
@@ -16,10 +16,23 @@ const Onboarding = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-
+  // Handle restoring draft on mount
+  useEffect(() => {
+    const draft = localStorage.getItem("onboarding-draft");
+    // Only restore if we are at step 1 and haven't parsed a resume yet
+    if (draft && currentStep === 1 && !onboardingState.resumeData) {
+      try {
+        const parsedDraft = JSON.parse(draft);
+        dispatch(restoreDraft(parsedDraft));
+      } catch (err) {
+        console.error("Failed to restore onboarding draft:", err);
+      }
+    }
+  }, [dispatch, currentStep, onboardingState.resumeData]);
 
   useEffect(() => {
     if (onboardingComplete) {
+      localStorage.removeItem("onboarding-draft"); // Clear draft on completion
       dispatch(resetOnboarding());
       navigate("/admin/employees");
     }
