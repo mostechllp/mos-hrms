@@ -27,6 +27,8 @@ const EditEmployee = () => {
   const [stepErrors, setStepErrors] = useState({});
   const [uploadingFiles, setUploadingFiles] = useState({});
   const [selectedOrgDetails, setSelectedOrgDetails] = useState(null);
+  const [selectedCompanyDetails, setSelectedCompanyDetails] = useState(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // Document file states - matching AddEmployee structure
   const [documents, setDocuments] = useState({
@@ -128,6 +130,7 @@ const EditEmployee = () => {
   });
 
   const watchOrganizationId = watch("organization_id");
+  const watchCompanyId = watch("company_id");
   const watchDob = watch("dob");
   const watchJoiningDate = watch("joining_date");
   const passportIssued = watch("passport_issued_date");
@@ -159,11 +162,68 @@ const EditEmployee = () => {
         dispatch(fetchCompanies(watchOrganizationId));
       } else {
         setValue("company_id", "");
+        setSelectedCompanyDetails(null);
       }
     } else {
       setSelectedOrgDetails(null);
+      setSelectedCompanyDetails(null);
     }
   }, [watchOrganizationId, organizations, dispatch, setValue]);
+
+  // Get company details when company_id changes
+  // Get company details when company_id changes or when companies are loaded
+  useEffect(() => {
+    if (watchCompanyId && companies.length > 0) {
+      const company = companies.find(
+        (comp) => comp.id === parseInt(watchCompanyId),
+      );
+      console.log("Company details from watch:", company);
+      setSelectedCompanyDetails(company || null);
+
+      // Clear labor fields if company has freezone trade license
+      if (company && company.raw?.trade_license === "freezone") {
+        setValue("labor_number", "");
+        setValue("labor_issued_date", "");
+        setValue("labor_expiry_date", "");
+      }
+    } else if (watchCompanyId && companies.length === 0) {
+      // If companies not loaded yet but we have a company ID, set it from existing data
+      if (currentEmployee?.user?.company) {
+        console.log(
+          "Setting company from currentEmployee:",
+          currentEmployee.user.company,
+        );
+        setSelectedCompanyDetails(currentEmployee.user.company);
+      }
+    } else {
+      setSelectedCompanyDetails(null);
+    }
+  }, [watchCompanyId, companies, setValue, currentEmployee]);
+
+  // After companies are loaded, set the selected company details from currentEmployee
+  useEffect(() => {
+    if (
+      companies.length > 0 &&
+      currentEmployee &&
+      !selectedCompanyDetails &&
+      formInitialized
+    ) {
+      const companyId =
+        currentEmployee.user?.company?.id || currentEmployee.user?.company_id;
+      if (companyId) {
+        const company = companies.find(
+          (comp) => comp.id === parseInt(companyId),
+        );
+        if (company) {
+          console.log(
+            "Setting company details after companies loaded:",
+            company,
+          );
+          setSelectedCompanyDetails(company);
+        }
+      }
+    }
+  }, [companies, currentEmployee, selectedCompanyDetails, formInitialized]);
 
   // Fetch employee data
   useEffect(() => {
@@ -188,13 +248,24 @@ const EditEmployee = () => {
   // Set form values when employee data is loaded
   useEffect(() => {
     if (currentEmployee && !formInitialized) {
+      setIsInitializing(true);
       console.log("Initializing form with employee data:", currentEmployee);
 
       // Basic Info
       setValue("first_name", currentEmployee.first_name || "");
       setValue("last_name", currentEmployee.last_name || "");
-      setValue("organization_id", currentEmployee.user?.organization_id || "");
-      setValue("company_id", currentEmployee.user?.company?.id || "");
+
+      const orgId = currentEmployee.user?.organization_id || "";
+      setValue("organization_id", orgId);
+
+      // Get company ID from user object
+      const companyId =
+        currentEmployee.user?.company?.id ||
+        currentEmployee.user?.company_id ||
+        "";
+      console.log("Setting company_id to:", companyId);
+      setValue("company_id", companyId);
+
       setValue("designation_id", currentEmployee.user?.designation_id || "");
       setValue("department_id", currentEmployee.user?.department_id || "");
       setValue("employee_id", currentEmployee.employee_id || "");
@@ -306,6 +377,17 @@ const EditEmployee = () => {
       );
       setValue("role", currentEmployee.user?.role_id || "");
 
+      // Set selected company details for trade license display
+      if (companyId && companies.length > 0) {
+        const company = companies.find(
+          (comp) => comp.id === parseInt(companyId),
+        );
+        if (company) {
+          console.log("Found company details:", company);
+          setSelectedCompanyDetails(company);
+        }
+      }
+
       // Set existing documents
       const docs = {};
       const docFields = [
@@ -332,8 +414,11 @@ const EditEmployee = () => {
       setExistingDocuments(docs);
 
       setFormInitialized(true);
+      setTimeout(() => {
+        setIsInitializing(false);
+      }, 100);
     }
-  }, [currentEmployee, setValue, formInitialized]);
+  }, [currentEmployee, setValue, formInitialized, companies]);
 
   // Updated steps to match AddEmployee (4 steps)
   const steps = [
@@ -367,11 +452,10 @@ const EditEmployee = () => {
 
   const getStepFields = (stepIndex) => {
     switch (stepIndex) {
-      case 0:
-        return [
+      case 0: {
+        const fields = [
           "first_name",
           "organization_id",
-          "company_id",
           "designation_id",
           "department_id",
           "type",
@@ -379,20 +463,39 @@ const EditEmployee = () => {
           "joining_date",
           "special_days",
         ];
+        // Only add company_id to validation if multi_company is "Yes"
+        if (selectedOrgDetails?.multi_company === "Yes") {
+          fields.push("company_id");
+        }
+        return fields;
+      }
       case 1:
         return ["passport_issued_date", "passport_expiry_date"];
-      case 2:
+      case 2: {
+        const laborFields = [];
+
+        // Only require labor fields if company trade license is "mainland"
+        if (selectedCompanyDetails?.raw?.trade_license === "mainland") {
+          laborFields.push(
+            "labor_number",
+            "labor_issued_date",
+            "labor_expiry_date",
+          );
+        }
+
         return [
           "visa_type",
+          "visa_number",
           "visa_issued_date",
           "visa_expiry_date",
-          "labor_issued_date",
-          "labor_expiry_date",
+          ...laborFields,
+          "eid_number",
           "eid_issued_date",
           "eid_expiry_date",
         ];
+      }
       case 3:
-        return ["company_email", "personal_email"];
+        return ["company_email", "personal_email", "type", "role"];
       default:
         return [];
     }
@@ -478,7 +581,7 @@ const EditEmployee = () => {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
       setStepErrors((prev) => ({ ...prev, [currentStep]: true }));
-      showToast("Please fix the errors before proceeding", "error");
+      showToast("Please fill the required fields", "error");
     }
   };
 
@@ -547,7 +650,7 @@ const EditEmployee = () => {
     formData.append("nationality", data.nationality || "");
     formData.append("marital_status", data.marital_status || "");
     if (data.is_skilled !== undefined) {
-      formData.append("is_skilled", data.is_skilled);
+      formData.append("is_skilled", data.is_skilled ? 1 : 0);
     }
 
     if (data.designation_id)
@@ -617,17 +720,26 @@ const EditEmployee = () => {
         "visa_expiry_date",
         convertDateToBackend(data.visa_expiry_date),
       );
-    if (data.labor_number) formData.append("labor_number", data.labor_number);
-    if (data.labor_issued_date)
-      formData.append(
-        "labor_issued_date",
-        convertDateToBackend(data.labor_issued_date),
-      );
-    if (data.labor_expiry_date)
-      formData.append(
-        "labor_expiry_date",
-        convertDateToBackend(data.labor_expiry_date),
-      );
+
+    // Only send labor data if company trade license is "mainland"
+    if (selectedCompanyDetails?.raw?.trade_license === "mainland") {
+      if (data.labor_number) formData.append("labor_number", data.labor_number);
+      if (data.labor_issued_date)
+        formData.append(
+          "labor_issued_date",
+          convertDateToBackend(data.labor_issued_date),
+        );
+      if (data.labor_expiry_date)
+        formData.append(
+          "labor_expiry_date",
+          convertDateToBackend(data.labor_expiry_date),
+        );
+    } else {
+      formData.append("labor_number", "");
+      formData.append("labor_issued_date", "");
+      formData.append("labor_expiry_date", "");
+    }
+
     if (data.eid_number) formData.append("eid_number", data.eid_number);
     if (data.eid_issued_date)
       formData.append(
@@ -653,7 +765,7 @@ const EditEmployee = () => {
     if (data.other_number) formData.append("other_number", data.other_number);
     if (data.home_country_number)
       formData.append("home_country_number", data.home_country_number);
-    if (data.role) formData.append("role", data.role);
+    if (data.role) formData.append("role_id", data.role);
 
     // Avatar - send temp path if new file uploaded
     if (documents.avatar) {
@@ -739,6 +851,7 @@ const EditEmployee = () => {
     organization_id: { required: "Organization is required" },
     designation_id: { required: "Designation is required" },
     department_id: { required: "Department is required" },
+    role: { required: "Role is required" },
     personal_email: {
       required: "Personal email is required",
       pattern: {
@@ -750,28 +863,140 @@ const EditEmployee = () => {
 
   // Date validation functions
   const validateIssueDate = (issueDate, expiryDate, fieldName) => {
+    // Skip validation during initial form load
+    if (isInitializing) return true;
+
     if (!issueDate) return true;
+
+    // Parse the date string correctly
+    let issue;
+    try {
+      // Handle DD/MM/YYYY format
+      if (
+        typeof issueDate === "string" &&
+        issueDate.match(/^\d{2}\/\d{2}\/\d{4}$/)
+      ) {
+        const [day, month, year] = issueDate.split("/");
+        issue = new Date(year, month - 1, day);
+      } else {
+        issue = new Date(issueDate);
+      }
+
+      // Check if date is valid
+      if (isNaN(issue.getTime())) {
+        console.warn(`Invalid issue date: ${issueDate}`);
+        return true; // Skip validation for invalid dates during initialization
+      }
+    } catch (e) {
+      console.warn(`Error parsing issue date: ${issueDate}`, e);
+      return true;
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const issue = new Date(issueDate);
-    if (issue > today) return `${fieldName} cannot be in the future`;
-    if (expiryDate && issue >= new Date(expiryDate))
-      return `Issued date must be before expiry date`;
+    issue.setHours(0, 0, 0, 0);
+
+    if (issue > today) {
+      return `${fieldName} cannot be in the future`;
+    }
+
+    if (expiryDate) {
+      let expiry;
+      try {
+        if (
+          typeof expiryDate === "string" &&
+          expiryDate.match(/^\d{2}\/\d{2}\/\d{4}$/)
+        ) {
+          const [day, month, year] = expiryDate.split("/");
+          expiry = new Date(year, month - 1, day);
+        } else {
+          expiry = new Date(expiryDate);
+        }
+        expiry.setHours(0, 0, 0, 0);
+
+        if (issue >= expiry) {
+          return `Issued date must be before expiry date`;
+        }
+      } catch (e) {
+        console.warn(`Error parsing expiry date: ${expiryDate}`, e);
+      }
+    }
+
     return true;
   };
 
   const validateExpiryDate = (expiryDate, issueDate, fieldName) => {
+    console.log(`Validating ${fieldName}:`, {
+      expiryDate,
+      issueDate,
+      isInitializing,
+    });
+    // Skip validation during initial form load
+    if (isInitializing) return true;
+
     if (!expiryDate) return true;
+
+    // Parse the date string correctly
+    let expiry;
+    try {
+      // Handle DD/MM/YYYY format
+      if (
+        typeof expiryDate === "string" &&
+        expiryDate.match(/^\d{2}\/\d{2}\/\d{4}$/)
+      ) {
+        const [day, month, year] = expiryDate.split("/");
+        expiry = new Date(year, month - 1, day);
+      } else {
+        expiry = new Date(expiryDate);
+      }
+
+      // Check if date is valid
+      if (isNaN(expiry.getTime())) {
+        console.warn(`Invalid expiry date: ${expiryDate}`);
+        return true; // Skip validation for invalid dates during initialization
+      }
+    } catch (e) {
+      console.warn(`Error parsing expiry date: ${expiryDate}`, e);
+      return true;
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const expiry = new Date(expiryDate);
-    if (expiry < today) return `${fieldName} cannot be in the past`;
-    if (issueDate && expiry <= new Date(issueDate))
-      return `Expiry date must be after issued date`;
+
+    // Compare dates (reset time part for accurate comparison)
+    expiry.setHours(0, 0, 0, 0);
+
+    if (expiry < today) {
+      return `${fieldName} cannot be in the past`;
+    }
+
+    // Parse issue date if provided
+    if (issueDate) {
+      let issue;
+      try {
+        if (
+          typeof issueDate === "string" &&
+          issueDate.match(/^\d{2}\/\d{2}\/\d{4}$/)
+        ) {
+          const [day, month, year] = issueDate.split("/");
+          issue = new Date(year, month - 1, day);
+        } else {
+          issue = new Date(issueDate);
+        }
+        issue.setHours(0, 0, 0, 0);
+
+        if (expiry <= issue) {
+          return `Expiry date must be after issued date`;
+        }
+      } catch (e) {
+        console.warn(`Error parsing issue date: ${issueDate}`, e);
+      }
+    }
+
     return true;
   };
 
-  // DocumentUpload component (same as AddEmployee)
+  // DocumentUpload component
   const DocumentUpload = ({
     fieldKey,
     label,
@@ -1105,6 +1330,11 @@ const EditEmployee = () => {
                             {companies.map((company) => (
                               <option key={company.id} value={company.id}>
                                 {company.company_name || company.name}
+                                {company.raw?.trade_license && (
+                                  <span className="text-xs text-gray-500 ml-1">
+                                    ({company.raw?.trade_license})
+                                  </span>
+                                )}
                               </option>
                             ))}
                           </select>
@@ -1117,6 +1347,51 @@ const EditEmployee = () => {
                       )}
                     />
                   </div>
+
+                  {/* Show trade license info when company is selected */}
+                  {selectedCompanyDetails &&
+                    selectedCompanyDetails.raw?.trade_license && (
+                      <div className="md:col-span-2">
+                        <div
+                          className={`p-3 rounded-lg ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "bg-blue-50 border border-blue-200" : "bg-yellow-50 border border-yellow-200"}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <i
+                              className={`fas ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "fa-building" : "fa-globe"} ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "text-blue-600" : "text-yellow-600"}`}
+                            ></i>
+                            <span className="text-sm font-semibold text-gray-700">
+                              Company Trade License:{" "}
+                              <span
+                                className={
+                                  selectedCompanyDetails.raw?.trade_license ===
+                                  "mainland"
+                                    ? "text-blue-600"
+                                    : "text-yellow-600"
+                                }
+                              >
+                                {selectedCompanyDetails.raw?.trade_license.toUpperCase()}
+                              </span>
+                            </span>
+                            {selectedCompanyDetails.raw?.trade_license ===
+                              "mainland" && (
+                              <span className="text-xs text-gray-600 ml-2">
+                                <i className="fas fa-info-circle mr-1"></i>
+                                Labor details are required for Mainland
+                                companies
+                              </span>
+                            )}
+                            {selectedCompanyDetails.raw?.trade_license ===
+                              "freezone" && (
+                              <span className="text-xs text-gray-600 ml-2">
+                                <i className="fas fa-info-circle mr-1"></i>
+                                Labor details are not required for Freezone
+                                companies
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                   {/* Designation */}
                   <div>
@@ -1283,7 +1558,7 @@ const EditEmployee = () => {
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
                       Special Days
                     </label>
-                     <div className="space-y-3">
+                    <div className="space-y-3">
                       {fields.map((field, index) => (
                         <div key={field.id} className="flex gap-3 items-start">
                           <div className="flex-1">
@@ -1291,7 +1566,7 @@ const EditEmployee = () => {
                               name={`special_days.${index}.name`}
                               control={control}
                               rules={{
-                                required: "Name is required"
+                                required: "Name is required",
                               }}
                               render={({ field }) => (
                                 <div>
@@ -1300,8 +1575,8 @@ const EditEmployee = () => {
                                     type="text"
                                     placeholder="e.g., Birthday / Anniversary"
                                     className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:outline-none ${
-                                      errors?.special_days?.[index]?.name 
-                                        ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" 
+                                      errors?.special_days?.[index]?.name
+                                        ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
                                         : "border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                                     }`}
                                   />
@@ -1319,7 +1594,7 @@ const EditEmployee = () => {
                               name={`special_days.${index}.date`}
                               control={control}
                               rules={{
-                                required: "Date is required"
+                                required: "Date is required",
                               }}
                               render={({ field }) => (
                                 <div>
@@ -1327,7 +1602,9 @@ const EditEmployee = () => {
                                     type="special_day"
                                     {...field}
                                     placeholder="dd/mm/yyyy"
-                                    error={!!errors?.special_days?.[index]?.date}
+                                    error={
+                                      !!errors?.special_days?.[index]?.date
+                                    }
                                   />
                                   {errors?.special_days?.[index]?.date && (
                                     <p className="mt-1 text-xs text-red-500">
@@ -1360,7 +1637,6 @@ const EditEmployee = () => {
                   </div>
 
                   {/* Employee ID */}
-                  {/* Employee ID - Disabled in Edit Mode */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
@@ -1369,7 +1645,6 @@ const EditEmployee = () => {
                     <Controller
                       name="employee_id"
                       control={control}
-                      rules={validationRules.employee_id}
                       render={({ field }) => (
                         <>
                           <input
@@ -1503,35 +1778,39 @@ const EditEmployee = () => {
                     />
                   </div>
 
-                  {/* Educational Documents */}
-                  <div className="md:col-span-2">
-                    <div className="border-t border-gray-200 pt-4 mt-2">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                        Educational Documents
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Educational Documents - Only show if Skilled is true */}
+                  {watch("is_skilled") === true && (
+                    <>
+                      <div className="md:col-span-2">
+                        <div className="border-t border-gray-200 pt-4 mt-2">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                            Educational Documents
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <DocumentUpload
+                              fieldKey="educational_1st_page"
+                              label="Educational Certificate (Front)"
+                              icon="fas fa-graduation-cap"
+                            />
+                            <DocumentUpload
+                              fieldKey="educational_2nd_page"
+                              label="Educational Certificate (Back)"
+                              icon="fas fa-graduation-cap"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Home Country ID */}
+                      <div className="md:col-span-2">
                         <DocumentUpload
-                          fieldKey="educational_1st_page"
-                          label="Educational Certificate (Front)"
-                          icon="fas fa-graduation-cap"
-                        />
-                        <DocumentUpload
-                          fieldKey="educational_2nd_page"
-                          label="Educational Certificate (Back)"
-                          icon="fas fa-graduation-cap"
+                          fieldKey="home_country_id_proof"
+                          label="Home Country ID Proof"
+                          icon="fas fa-home"
                         />
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Home Country ID */}
-                  <div className="md:col-span-2">
-                    <DocumentUpload
-                      fieldKey="home_country_id_proof"
-                      label="Home Country ID Proof"
-                      icon="fas fa-home"
-                    />
-                  </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -1608,12 +1887,17 @@ const EditEmployee = () => {
                       name="passport_issued_date"
                       control={control}
                       rules={{
-                        validate: (value) =>
-                          validateIssueDate(
+                        validate: (value) => {
+                          // Skip validation if no value
+                          if (!value) return true;
+                          // Skip validation during initialization
+                          if (isInitializing) return true;
+                          return validateIssueDate(
                             value,
                             passportExpiry,
                             "Passport issued date",
-                          ),
+                          );
+                        },
                       }}
                       render={({ field }) => (
                         <DateInput
@@ -1633,12 +1917,17 @@ const EditEmployee = () => {
                       name="passport_expiry_date"
                       control={control}
                       rules={{
-                        validate: (value) =>
-                          validateExpiryDate(
+                        validate: (value) => {
+                          // Skip validation if no value
+                          if (!value) return true;
+                          // Skip validation during initialization
+                          if (isInitializing) return true;
+                          return validateExpiryDate(
                             value,
                             passportIssued,
                             "Passport expiry date",
-                          ),
+                          );
+                        },
                       }}
                       render={({ field }) => (
                         <DateInput
@@ -1766,81 +2055,113 @@ const EditEmployee = () => {
                   </h3>
                 </div>
                 <div className="space-y-6">
-                  {/* Labor Section */}
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-4">
-                      Labor Details
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          Labor Number
-                        </label>
-                        <Controller
-                          name="labor_number"
-                          control={control}
-                          render={({ field }) => (
-                            <input
-                              {...field}
-                              type="text"
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
-                              placeholder="Enter Labor Number"
-                            />
-                          )}
-                        />
-                      </div>
+                  {/* Labor Section - Only show for Mainland companies */}
+                  {selectedCompanyDetails?.raw?.trade_license ===
+                    "mainland" && (
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-4">
+                        Labor Details
+                        <span className="text-xs text-red-500 ml-2">
+                          * Required for Mainland companies
+                        </span>
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            Labor Number <span className="text-red-500">*</span>
+                          </label>
+                          <Controller
+                            name="labor_number"
+                            control={control}
+                            rules={{
+                              required:
+                                selectedCompanyDetails?.raw?.trade_license ===
+                                "mainland"
+                                  ? "Labor number is required for Mainland companies"
+                                  : false,
+                            }}
+                            render={({ field }) => (
+                              <>
+                                <input
+                                  {...field}
+                                  type="text"
+                                  className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.labor_number ? "border-red-500" : "border-gray-200"}`}
+                                  placeholder="Enter Labor Number"
+                                />
+                                {errors.labor_number && (
+                                  <p className="mt-1 text-xs text-red-500">
+                                    {errors.labor_number.message}
+                                  </p>
+                                )}
+                              </>
+                            )}
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          Labor Issued Date
-                        </label>
-                        <Controller
-                          name="labor_issued_date"
-                          control={control}
-                          rules={{
-                            validate: (value) =>
-                              validateIssueDate(
-                                value,
-                                laborExpiry,
-                                "Labor issued date",
-                              ),
-                          }}
-                          render={({ field }) => (
-                            <DateInput
-                              {...field}
-                              placeholder="dd/mm/yyyy"
-                              error={!!errors.labor_issued_date}
-                            />
-                          )}
-                        />
-                      </div>
+                        <div>
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            Labor Issued Date{" "}
+                            <span className="text-red-500">*</span>
+                          </label>
+                          <Controller
+                            name="labor_issued_date"
+                            control={control}
+                            rules={{
+                              required:
+                                selectedCompanyDetails?.raw?.trade_license ===
+                                "mainland"
+                                  ? "Labor issued date is required for Mainland companies"
+                                  : false,
+                              validate: (value) =>
+                                validateIssueDate(
+                                  value,
+                                  laborExpiry,
+                                  "Labor issued date",
+                                ),
+                            }}
+                            render={({ field }) => (
+                              <DateInput
+                                {...field}
+                                placeholder="dd/mm/yyyy"
+                                error={!!errors.labor_issued_date}
+                              />
+                            )}
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          Labor Expiry Date
-                        </label>
-                        <Controller
-                          name="labor_expiry_date"
-                          control={control}
-                          rules={{
-                            validate: (value) =>
-                              validateExpiryDate(
-                                value,
-                                laborIssued,
-                                "Labor expiry date",
-                              ),
-                          }}
-                          render={({ field }) => (
-                            <DateInput
-                              {...field}
-                              placeholder="dd/mm/yyyy"
-                              error={!!errors.labor_expiry_date}
-                            />
-                          )}
-                        />
+                        <div>
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            Labor Expiry Date{" "}
+                            <span className="text-red-500">*</span>
+                          </label>
+                          <Controller
+                            name="labor_expiry_date"
+                            control={control}
+                            rules={{
+                              required:
+                                selectedCompanyDetails?.raw?.trade_license ===
+                                "mainland"
+                                  ? "Labor expiry date is required for Mainland companies"
+                                  : false,
+                              validate: (value) =>
+                                validateExpiryDate(
+                                  value,
+                                  laborIssued,
+                                  "Labor expiry date",
+                                ),
+                            }}
+                            render={({ field }) => (
+                              <DateInput
+                                {...field}
+                                placeholder="dd/mm/yyyy"
+                                error={!!errors.labor_expiry_date}
+                              />
+                            )}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Visa Section */}
                   <div className="border border-gray-200 rounded-lg p-4">
@@ -2030,16 +2351,22 @@ const EditEmployee = () => {
                           label="Visa Page Copy"
                           icon="fas fa-file-contract"
                         />
-                        <DocumentUpload
-                          fieldKey="labor_card"
-                          label="Labor Card Copy"
-                          icon="fas fa-id-card"
-                        />
-                        <DocumentUpload
-                          fieldKey="labor_contract"
-                          label="Attach Labor Contract"
-                          icon="fas fa-file-signature"
-                        />
+                        {/* Only show labor documents for Mainland companies */}
+                        {selectedCompanyDetails?.raw?.trade_license ===
+                          "mainland" && (
+                          <>
+                            <DocumentUpload
+                              fieldKey="labor_card"
+                              label="Labor Card Copy"
+                              icon="fas fa-id-card"
+                            />
+                            <DocumentUpload
+                              fieldKey="labor_contract"
+                              label="Attach Labor Contract"
+                              icon="fas fa-file-signature"
+                            />
+                          </>
+                        )}
                         <DocumentUpload
                           fieldKey="eid_1st_page"
                           label="EID Front Side"
@@ -2165,7 +2492,6 @@ const EditEmployee = () => {
                     <Controller
                       name="company_email"
                       control={control}
-                      rules={validationRules.company_email}
                       render={({ field }) => (
                         <>
                           <input
