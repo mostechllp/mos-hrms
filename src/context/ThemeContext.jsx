@@ -35,11 +35,24 @@ export const ThemeProvider = ({ children }) => {
       return color;
     }
     
-    r = Math.max(0, Math.min(255, r + (r * percent) / 100));
-    g = Math.max(0, Math.min(255, g + (g * percent) / 100));
-    b = Math.max(0, Math.min(255, b + (b * percent) / 100));
+    if (percent > 0) {
+      // Lighten towards white (255)
+      r = r + (255 - r) * (percent / 100);
+      g = g + (255 - g) * (percent / 100);
+      b = b + (255 - b) * (percent / 100);
+    } else {
+      // Darken towards black (0)
+      const dec = -percent / 100;
+      r = r - r * dec;
+      g = g - g * dec;
+      b = b - b * dec;
+    }
     
-    return `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`;
+    r = Math.max(0, Math.min(255, Math.round(r)));
+    g = Math.max(0, Math.min(255, Math.round(g)));
+    b = Math.max(0, Math.min(255, Math.round(b)));
+    
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   };
 
   // Apply theme mode and CSS variables
@@ -88,24 +101,70 @@ export const ThemeProvider = ({ children }) => {
     
     const darkerShade = adjustColor(primaryColor, -30);
     const lighterShade = adjustColor(primaryColor, 30);
-    const veryLightShade = adjustColor(primaryColor, 60);
     
+    // Calculate YIQ contrast color for text on primary background
+    const getContrastColor = (hexColor) => {
+      if (!hexColor || !hexColor.startsWith('#')) return '#ffffff';
+      const r = parseInt(hexColor.slice(1, 3), 16);
+      const g = parseInt(hexColor.slice(3, 5), 16);
+      const b = parseInt(hexColor.slice(5, 7), 16);
+      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+      return (yiq >= 128) ? '#111827' : '#ffffff';
+    };
+    
+    // Calculate readable text color based on background
+    const getReadablePrimaryTextColor = (hexColor, isDark) => {
+      if (!hexColor || !hexColor.startsWith('#')) return hexColor;
+      const r = parseInt(hexColor.slice(1, 3), 16);
+      const g = parseInt(hexColor.slice(3, 5), 16);
+      const b = parseInt(hexColor.slice(5, 7), 16);
+      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+      
+      if (isDark) {
+        // Dark mode: make sure text color is bright enough
+        return (yiq < 120) ? '#ffffff' : hexColor;
+      } else {
+        // Light mode: make sure text color is dark enough
+        return (yiq > 200) ? '#1a2e22' : hexColor;
+      }
+    };
+
+    // Calculate a truly light highlight background color for Light Mode
+    const getLightHighlightColor = (hexColor) => {
+      if (!hexColor || !hexColor.startsWith('#')) return '#f3f4f6';
+      const r = parseInt(hexColor.slice(1, 3), 16);
+      const g = parseInt(hexColor.slice(3, 5), 16);
+      const b = parseInt(hexColor.slice(5, 7), 16);
+      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+      
+      // If primary color is dark (yiq < 128), we lighten it by 92% to get a beautiful light gray-green highlight.
+      // If primary color is light, we lighten it by 82% to get a perfect light shade.
+      const percent = (yiq < 128) ? 92 : 82;
+      return adjustColor(hexColor, percent);
+    };
+
+    const primaryContrast = getContrastColor(primaryColor);
+    const primaryText = getReadablePrimaryTextColor(primaryColor, themeMode === 'dark');
+    const veryLightShade = getLightHighlightColor(primaryColor);
+
     root.style.setProperty('--primary-color', primaryColor);
     root.style.setProperty('--primary-dark', darkerShade);
     root.style.setProperty('--primary-light', lighterShade);
     root.style.setProperty('--primary-very-light', veryLightShade);
     root.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${primaryColor}, ${darkerShade})`);
     root.style.setProperty('--primary-glow', `${primaryColor}20`);
+    root.style.setProperty('--primary-contrast', primaryContrast);
+    root.style.setProperty('--primary-text', primaryText);
     
     // Update Tailwind theme
     // eslint-disable-next-line react-hooks/immutability
-    updateTailwindTheme(primaryColor);
+    updateTailwindTheme(primaryColor, primaryContrast, primaryText);
     
     localStorage.setItem('primaryColor', primaryColor);
-  }, [primaryColor]);
+  }, [primaryColor, themeMode]);
 
   // Update dynamic Tailwind theme
-  const updateTailwindTheme = (color) => {
+  const updateTailwindTheme = (color, contrastColor = 'white', primaryText = color) => {
     let styleTag = document.getElementById('dynamic-theme');
     if (!styleTag) {
       styleTag = document.createElement('style');
@@ -117,19 +176,23 @@ export const ThemeProvider = ({ children }) => {
     
     styleTag.innerHTML = `
       /* Dynamic Theme Classes */
-      .bg-primary-custom { background-color: ${color} !important; }
-      .text-primary-custom { color: ${color} !important; }
+      .bg-primary-custom { 
+        background-color: ${color} !important; 
+        color: ${contrastColor} !important;
+      }
+      .text-primary-custom { color: ${primaryText} !important; }
       .border-primary-custom { border-color: ${color} !important; }
       .ring-primary-custom { ring-color: ${color} !important; }
       
       .hover\\:bg-primary-custom:hover { background-color: ${adjustColor(color, -10)} !important; }
-      .hover\\:text-primary-custom:hover { color: ${adjustColor(color, -10)} !important; }
+      .hover\\:text-primary-custom:hover { color: ${primaryText} !important; }
       
       .bg-primary-light-custom { background-color: ${adjustColor(color, 20)} !important; }
-      .text-primary-light-custom { color: ${adjustColor(color, 20)} !important; }
+      .text-primary-light-custom { color: ${primaryText} !important; }
       
       .bg-gradient-primary-custom { 
         background: linear-gradient(135deg, ${color}, ${darkerShade}) !important; 
+        color: ${contrastColor} !important;
       }
       
       /* Focus rings */
@@ -159,7 +222,7 @@ export const ThemeProvider = ({ children }) => {
       /* Selection color */
       ::selection {
         background-color: ${color} !important;
-        color: white !important;
+        color: ${contrastColor} !important;
       }
     `;
   };

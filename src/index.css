@@ -294,10 +294,12 @@
 
   .bg-green-500 {
     background-color: var(--primary-color) !important;
+    color: var(--primary-contrast) !important;
   }
 
   .bg-green-600 {
     background-color: var(--primary-dark) !important;
+    color: var(--primary-contrast) !important;
   }
 
   .bg-green-50 {
@@ -306,13 +308,14 @@
 
   .bg-gradient-to-r.from-green-500.to-green-600 {
     background: var(--primary-gradient) !important;
+    color: var(--primary-contrast) !important;
   }
 
   .text-green-500,
   .text-green-600,
   i.text-green-500,
   i.text-green-600 {
-    color: var(--primary-color) !important;
+    color: var(--primary-text) !important;
   }
 
   .text-green-500.hover\:text-green-600:hover {
@@ -341,7 +344,7 @@
 
   /* Sidebar active state */
   .sidebar-item.active i {
-    color: var(--primary-color) !important;
+    color: var(--primary-text) !important;
   }
 
   .sidebar-item.active {
@@ -351,15 +354,18 @@
   /* Buttons */
   .btn-primary {
     background-color: var(--primary-color) !important;
+    color: var(--primary-contrast) !important;
   }
 
   .btn-primary:hover {
     background-color: var(--primary-dark) !important;
+    color: var(--primary-contrast) !important;
   }
 
   /* Notification badge */
   .notification-badge {
     background-color: var(--primary-color) !important;
+    color: var(--primary-contrast) !important;
   }
 
   * {
