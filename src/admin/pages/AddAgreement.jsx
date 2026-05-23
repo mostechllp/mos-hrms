@@ -11,6 +11,7 @@ import {
 } from "../store/slices/documentsSlice";
 import { clearError } from "../store/slices/authSlice";
 import AddFolderModal from "../components/documents/AddFolderModal";
+import DateInput from "../components/common/DateInput";
 
 const AddAgreement = () => {
   const navigate = useNavigate();
@@ -67,38 +68,38 @@ const AddAgreement = () => {
 
   // Upload file to temp storage first
   const uploadFileToTemp = async (file) => {
-  setUploadingToTemp(true);
-  try {
-    console.log("Uploading file to temp:", file.name);
-    const result = await dispatch(uploadToTemp(file));
-    console.log("Upload result:", result);
-    
-    if (uploadToTemp.fulfilled.match(result)) {
-      const { path, filename } = result.payload;
-      console.log("Temp file uploaded successfully. Path:", path);
-      setTempFilePath(path);
+    setUploadingToTemp(true);
+    try {
+      console.log("Uploading file to temp:", file.name);
+      const result = await dispatch(uploadToTemp(file));
+      console.log("Upload result:", result);
       
-      // Auto-populate name if empty
-      if (!formData.name) {
-        const nameWithoutExt = filename || file.name.replace(/\.[^/.]+$/, "");
-        setFormData(prev => ({ ...prev, name: nameWithoutExt }));
+      if (uploadToTemp.fulfilled.match(result)) {
+        const { path, filename } = result.payload;
+        console.log("Temp file uploaded successfully. Path:", path);
+        setTempFilePath(path);
+        
+        // Auto-populate name if empty
+        if (!formData.name) {
+          const nameWithoutExt = filename || file.name.replace(/\.[^/.]+$/, "");
+          setFormData(prev => ({ ...prev, name: nameWithoutExt }));
+        }
+        
+        showToast("File uploaded successfully", "success");
+        return true;
+      } else {
+        console.error("Upload failed:", result.payload);
+        showToast(result.payload || "Failed to upload file", "error");
+        return false;
       }
-      
-      showToast("File uploaded successfully", "success");
-      return true;
-    } else {
-      console.error("Upload failed:", result.payload);
-      showToast(result.payload || "Failed to upload file", "error");
+    } catch (error) {
+      console.error("Upload error caught:", error);
+      showToast("Failed to upload file", error);
       return false;
+    } finally {
+      setUploadingToTemp(false);
     }
-  } catch (error) {
-    console.error("Upload error caught:", error);
-    showToast("Failed to upload file", error);
-    return false;
-  } finally {
-    setUploadingToTemp(false);
-  }
-};
+  };
 
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
@@ -186,6 +187,14 @@ const AddAgreement = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Handle date change for expiry date
+  const handleDateChange = (dateValue) => {
+    setFormData((prev) => ({
+      ...prev,
+      expiry_date: dateValue,
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -530,13 +539,16 @@ const AddAgreement = () => {
                       <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
                       Expiry Date
                     </label>
-                    <input
-                      type="date"
-                      id="expiry_date"
+                    <DateInput
                       value={formData.expiry_date}
-                      onChange={handleChange}
-                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                      onChange={handleDateChange}
+                      placeholder="dd/mm/yyyy"
+                      type="general"
                     />
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                      <i className="fas fa-info-circle mr-1"></i>
+                      Expiry date must be a future date
+                    </p>
                   </div>
                 </div>
               </div>

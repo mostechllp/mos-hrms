@@ -28,16 +28,17 @@ const Settings = () => {
   };
 
   return (
-    <div className="w-full overflow-x-hidden px-4 md:px-6">
-      {/* Page Header */}
-      <div className="mb-4 md:mb-6">
-        <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
-          <i className="fas fa-sliders-h mr-2"></i> Settings
-        </h2>
-        <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">
+    <div className="w-full overflow-x-hidden">
+      <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
+        {/* Page Header*/}
+        <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
+          <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+            <i className="fas fa-sliders-h mr-2"></i> Settings
+          </h2>
+        </div>
+        <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 -mt-3 mb-4 md:mb-6">
           Manage your account settings and preferences
         </p>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Sidebar */}
@@ -81,27 +82,18 @@ const Settings = () => {
                     className="text-xs transition-colors duration-200"
                     style={activeTab === tab.id ? { color: 'var(--primary-contrast)', opacity: 0.85 } : { color: '' }}
                   >
-                    {tab.id === "profile" && "Personal information"}
-                    {tab.id === "security" && "Password & security"}
-                    {tab.id === "app-settings" && "Application settings"}
-                    {tab.id === "theme" && "Theme & appearance"}
+                    {tab.id === "profile" && <ProfileTab/>}
+                    {tab.id === "security" && <SecurityTab/>}
+                    {tab.id === "app-settings" && <AppSettingsTab/>}
+                    {tab.id === "theme" && <ThemeTab/>}
                   </div>
                 </div>
               </button>
             ))}
           </div>
         </div>
-
-        {/* Right Content */}
-        <div className="lg:col-span-2">
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 md:p-6 shadow-soft">
-            {activeTab === "profile" && <ProfileTab />}
-            {activeTab === "security" && <SecurityTab />}
-            {activeTab === "app-settings" && <AppSettingsTab />}
-            {activeTab === "theme" && <ThemeTab />}
-          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
