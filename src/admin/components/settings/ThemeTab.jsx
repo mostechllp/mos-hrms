@@ -56,20 +56,45 @@ const ThemeTab = () => {
               onClick={() => setThemeMode('light')}
               className={`p-4 rounded-xl border-2 transition-all text-left ${
                 themeMode === 'light'
-                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                  ? 'border-green-500 shadow-md'
                   : 'border-gray-200 dark:border-gray-700 hover:border-green-300'
               }`}
+              style={
+                themeMode === 'light'
+                  ? { backgroundColor: 'var(--primary-color)', color: 'var(--primary-contrast)' }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center">
-                  <i className="fas fa-sun text-white text-lg"></i>
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all"
+                  style={
+                    themeMode === 'light'
+                      ? { backgroundColor: 'var(--primary-contrast)', color: 'var(--primary-color)' }
+                      : { backgroundColor: '#eab308', color: '#ffffff' }
+                  }
+                >
+                  <i className="fas fa-sun text-lg"></i>
                 </div>
                 <div>
-                  <div className="font-semibold text-gray-800 dark:text-gray-200">Light Mode</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Bright and clean interface</div>
+                  <div 
+                    className="font-semibold transition-colors duration-200"
+                    style={themeMode === 'light' ? { color: 'var(--primary-contrast)' } : {}}
+                  >
+                    Light Mode
+                  </div>
+                  <div 
+                    className="text-xs transition-colors duration-200"
+                    style={themeMode === 'light' ? { color: 'var(--primary-contrast)', opacity: 0.85 } : {}}
+                  >
+                    Bright and clean interface
+                  </div>
                 </div>
                 {themeMode === 'light' && (
-                  <i className="fas fa-check-circle text-green-500 ml-auto text-xl"></i>
+                  <i 
+                    className="fas fa-check-circle ml-auto text-xl"
+                    style={{ color: 'var(--primary-contrast)' }}
+                  ></i>
                 )}
               </div>
             </button>
@@ -78,20 +103,45 @@ const ThemeTab = () => {
               onClick={() => setThemeMode('dark')}
               className={`p-4 rounded-xl border-2 transition-all text-left ${
                 themeMode === 'dark'
-                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                  ? 'border-green-500 shadow-md'
                   : 'border-gray-200 dark:border-gray-700 hover:border-green-300'
               }`}
+              style={
+                themeMode === 'dark'
+                  ? { backgroundColor: 'var(--primary-color)', color: 'var(--primary-contrast)' }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center">
-                  <i className="fas fa-moon text-white text-lg"></i>
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all"
+                  style={
+                    themeMode === 'dark'
+                      ? { backgroundColor: 'var(--primary-contrast)', color: 'var(--primary-color)' }
+                      : { backgroundColor: '#374151', color: '#ffffff' }
+                  }
+                >
+                  <i className="fas fa-moon text-lg"></i>
                 </div>
                 <div>
-                  <div className="font-semibold text-gray-800 dark:text-gray-200">Dark Mode</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Easy on the eyes, great for night</div>
+                  <div 
+                    className="font-semibold transition-colors duration-200"
+                    style={themeMode === 'dark' ? { color: 'var(--primary-contrast)' } : {}}
+                  >
+                    Dark Mode
+                  </div>
+                  <div 
+                    className="text-xs transition-colors duration-200"
+                    style={themeMode === 'dark' ? { color: 'var(--primary-contrast)', opacity: 0.85 } : {}}
+                  >
+                    Easy on the eyes, great for night
+                  </div>
                 </div>
                 {themeMode === 'dark' && (
-                  <i className="fas fa-check-circle text-green-500 ml-auto text-xl"></i>
+                  <i 
+                    className="fas fa-check-circle ml-auto text-xl"
+                    style={{ color: 'var(--primary-contrast)' }}
+                  ></i>
                 )}
               </div>
             </button>
@@ -231,8 +281,8 @@ const ThemeTab = () => {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <div 
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm"
-                  style={{ backgroundColor: primaryColor }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shadow-sm"
+                  style={{ backgroundColor: primaryColor, color: "var(--primary-contrast)" }}
                 >
                   A
                 </div>
@@ -243,16 +293,16 @@ const ThemeTab = () => {
               </div>
               <div>
                 <button 
-                  className="px-4 py-2 rounded-lg text-white text-sm font-semibold shadow-sm transition-all"
-                  style={{ backgroundColor: primaryColor }}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all"
+                  style={{ backgroundColor: primaryColor, color: "var(--primary-contrast)" }}
                 >
                   Sample Button
                 </button>
               </div>
               <div className="flex gap-2">
                 <span 
-                  className="px-2 py-1 rounded-full text-xs font-semibold text-white"
-                  style={{ backgroundColor: primaryColor }}
+                  className="px-2 py-1 rounded-full text-xs font-semibold"
+                  style={{ backgroundColor: primaryColor, color: "var(--primary-contrast)" }}
                 >
                   Badge
                 </span>
