@@ -8,6 +8,7 @@ import {
   fetchParties,
   fetchDocumentById,
   updateDocument,
+  uploadToTemp,
 } from "../store/slices/documentsSlice";
 import { clearError } from "../store/slices/authSlice";
 import AddFolderModal from "../components/documents/AddFolderModal";
@@ -26,14 +27,22 @@ const EditAgreement = () => {
     error,
   } = useSelector(
     (state) =>
-      state.documents || { shareableUsers: [], folders: [], parties: [], currentDocument: null },
+      state.documents || {
+        shareableUsers: [],
+        folders: [],
+        parties: [],
+        currentDocument: null,
+      },
   );
   const [updating, setUpdating] = useState(false);
+  const [uploadingToTemp, setUploadingToTemp] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [tempFilePath, setTempFilePath] = useState(null);
   const [selectedShareWith, setSelectedShareWith] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [replaceFile, setReplaceFile] = useState(false);
   const [fileUrl, setFileUrl] = useState(null);
+  const [autoUpdateName, setAutoUpdateName] = useState(true); // Add this state
   const fileInputRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -56,10 +65,44 @@ const EditAgreement = () => {
     return filename.replace(/\.[^/.]+$/, "");
   };
 
+  // Upload file to temp storage
+  const uploadFileToTemp = async (file) => {
+    setUploadingToTemp(true);
+    try {
+      const result = await dispatch(uploadToTemp(file));
+      if (uploadToTemp.fulfilled.match(result)) {
+        const { path, filename } = result.payload;
+        setTempFilePath(path);
+        
+        // Auto-populate name if autoUpdateName is true and name is empty OR user hasn't manually changed it
+        if (autoUpdateName) {
+          const nameWithoutExt = filename || getFileNameWithoutExtension(file.name);
+          setFormData(prev => ({ ...prev, name: nameWithoutExt }));
+          showToast(`Document name updated to: ${nameWithoutExt}`, "success");
+        } else if (!formData.name) {
+          // Only update if name is empty
+          const nameWithoutExt = filename || getFileNameWithoutExtension(file.name);
+          setFormData(prev => ({ ...prev, name: nameWithoutExt }));
+        }
+        
+        showToast("File uploaded successfully", "success");
+        return true;
+      } else {
+        showToast(result.payload || "Failed to upload file", "error");
+        return false;
+      }
+    } catch (error) {
+      showToast("Failed to upload file", error);
+      return false;
+    } finally {
+      setUploadingToTemp(false);
+    }
+  };
+
   // Function to extract error message from backend response
   const extractErrorMessage = (errorPayload) => {
     console.log("Extracting error from payload:", errorPayload);
-    
+
     // Check for validation errors object
     if (errorPayload?.errors) {
       const errors = errorPayload.errors;
@@ -73,17 +116,17 @@ const EditAgreement = () => {
         return errors[firstErrorKey][0];
       }
     }
-    
+
     // Check for message property
     if (errorPayload?.message) {
       return errorPayload.message;
     }
-    
+
     // If it's a string
     if (typeof errorPayload === "string") {
       return errorPayload;
     }
-    
+
     return "Failed to update agreement";
   };
 
@@ -100,7 +143,6 @@ const EditAgreement = () => {
   // Set form data when currentDocument is loaded
   useEffect(() => {
     if (currentDocument) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         name: currentDocument.name || "",
         description: currentDocument.description || "",
@@ -110,26 +152,58 @@ const EditAgreement = () => {
       });
 
       // Set selected share with users/parties
-      if (currentDocument.shared_users && currentDocument.shared_users.length > 0) {
-        const shareNames = currentDocument.shared_users.map(user => user.name || user.email);
+      if (
+        currentDocument.shared_users &&
+        currentDocument.shared_users.length > 0
+      ) {
+        const shareNames = currentDocument.shared_users.map(
+          (user) => user.name || user.email,
+        );
         setSelectedShareWith(shareNames);
-      } else if (currentDocument.share_with && currentDocument.share_with.length > 0) {
+      } else if (
+        currentDocument.share_with &&
+        currentDocument.share_with.length > 0
+      ) {
         setSelectedShareWith(currentDocument.share_with);
       }
 
-      // Build file URL from file_path
+      // Build file URL from file_path - FIXED to handle different data types
       if (currentDocument.file_path) {
-        let baseUrl = import.meta.env.VITE_API_URL || '';
-        baseUrl = baseUrl.replace('/api', '').replace(/\/$/, '');
-        
-        if (!baseUrl) {
-          baseUrl = window.location.origin;
+        let filePath = currentDocument.file_path;
+
+        // Handle array case
+        if (Array.isArray(filePath)) {
+          filePath = filePath[0] || "";
         }
-        
-        const encodedPath = currentDocument.file_path.split('/').map(part => encodeURIComponent(part)).join('/');
-        let fullUrl = `${baseUrl}/storage/${encodedPath}`;
-        
-        setFileUrl(fullUrl);
+
+        // Handle object case
+        if (typeof filePath === "object" && filePath !== null) {
+          filePath = filePath.path || filePath.file_path || "";
+        }
+
+        // Only proceed if we have a valid string
+        if (typeof filePath === "string" && filePath.trim()) {
+          let baseUrl = import.meta.env.VITE_API_URL || "";
+          baseUrl = baseUrl.replace("/api", "").replace(/\/$/, "");
+
+          if (!baseUrl) {
+            baseUrl = window.location.origin;
+          }
+
+          // Clean up the path and encode properly
+          const cleanPath = filePath.replace(/^\/+/, "");
+          const encodedPath = cleanPath
+            .split("/")
+            .map((part) => encodeURIComponent(part))
+            .join("/");
+          let fullUrl = `${baseUrl}/storage/${encodedPath}`;
+
+          setFileUrl(fullUrl);
+          console.log("File URL built:", fullUrl);
+        } else {
+          console.warn("Invalid file_path format:", currentDocument.file_path);
+          setFileUrl(null);
+        }
       }
     }
   }, [currentDocument]);
@@ -157,10 +231,16 @@ const EditAgreement = () => {
       setShowPartyModal(true);
       return;
     }
+    
+    // If user manually changes the name, disable auto-update
+    if (e.target.id === "name") {
+      setAutoUpdateName(false);
+    }
+    
     setFormData({ ...formData, [e.target.id]: e.target.value });
   };
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (file) {
       const fileSize = file.size / 1024 / 1024;
@@ -171,16 +251,19 @@ const EditAgreement = () => {
       setSelectedFile(file);
       setReplaceFile(true);
       
-      // Always update agreement name with the new filename (without extension)
-      const newFileName = getFileNameWithoutExtension(file.name);
-      setFormData(prev => ({ ...prev, name: newFileName }));
+      // Reset auto-update flag when selecting a new file
+      setAutoUpdateName(true);
       
+      // Upload to temp immediately
+      await uploadFileToTemp(file);
     }
   };
 
   const removeFile = () => {
     setSelectedFile(null);
+    setTempFilePath(null);
     setReplaceFile(false);
+    setAutoUpdateName(true); // Reset auto-update flag
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -239,6 +322,12 @@ const EditAgreement = () => {
       showToast("Please select a folder", "error");
       return;
     }
+    
+    // If replacing file, check if temp file is uploaded
+    if (replaceFile && !tempFilePath) {
+      showToast("Please wait for file upload to complete", "error");
+      return;
+    }
 
     setUpdating(true);
 
@@ -257,16 +346,23 @@ const EditAgreement = () => {
       share_with: shareWithIds,
       folder_id: formData.folder_id,
       type: "agreements",
-      party_id: formData.party_id,
-      expiry_date: formData.expiryDate,
+      party_id: formData.party_id || null,
+      expiry_date: formData.expiryDate || null,
     };
 
+    // If replacing file, add the temp file path
+    if (replaceFile && tempFilePath) {
+      documentData.file_path = tempFilePath;
+    }
+
+    console.log("Submitting document data:", documentData);
+
     const result = await dispatch(
-      updateDocument({ 
-        id: id, 
-        formData: documentData, 
-        file: replaceFile ? selectedFile : null 
-      })
+      updateDocument({
+        id: id,
+        formData: documentData,
+        file: null,
+      }),
     );
 
     setUpdating(false);
@@ -280,15 +376,40 @@ const EditAgreement = () => {
         navigate("/admin/agreements");
       }, 1200);
     } else {
-      // Extract and show the specific error message from backend
-      const errorMessage = extractErrorMessage(result.payload);
+      const errorPayload = result.payload;
+      console.error("Update failed with payload:", errorPayload);
+      
+      let errorMessage = "Failed to update agreement";
+      
+      if (errorPayload?.errors) {
+        const errors = errorPayload.errors;
+        const errorMessages = [];
+        
+        if (errors.name) errorMessages.push(`Name: ${errors.name.join(", ")}`);
+        if (errors.type) errorMessages.push(`Type: ${errors.type.join(", ")}`);
+        if (errors.folder_id) errorMessages.push(`Folder: ${errors.folder_id.join(", ")}`);
+        if (errors.share_with) errorMessages.push(`Share with: ${errors.share_with.join(", ")}`);
+        if (errors.file_path) errorMessages.push(`File: ${errors.file_path.join(", ")}`);
+        if (errors.expiry_date) errorMessages.push(`Expiry date: ${errors.expiry_date.join(", ")}`);
+        
+        if (errorMessages.length > 0) {
+          errorMessage = errorMessages.join(" | ");
+        } else {
+          errorMessage = errorPayload.message || "Validation error occurred";
+        }
+      } else if (errorPayload?.message) {
+        errorMessage = errorPayload.message;
+      } else if (typeof errorPayload === "string") {
+        errorMessage = errorPayload;
+      }
+      
       showToast(errorMessage, "error");
     }
   };
 
   const openFileInNewTab = () => {
     if (fileUrl) {
-      window.open(fileUrl, '_blank');
+      window.open(fileUrl, "_blank");
     } else {
       showToast("File URL not available", "error");
     }
@@ -310,23 +431,56 @@ const EditAgreement = () => {
 
   // Get current file name from file_path
   const getCurrentFileName = () => {
-    if (currentDocument?.file_path) {
-      const pathParts = currentDocument.file_path.split('/');
-      return decodeURIComponent(pathParts[pathParts.length - 1]);
+    if (!currentDocument?.file_path) return "No file attached";
+
+    let filePath = currentDocument.file_path;
+
+    if (Array.isArray(filePath)) {
+      filePath = filePath[0] || "";
     }
-    return "No file attached";
+
+    if (typeof filePath === "object" && filePath !== null) {
+      filePath = filePath.path || filePath.file_path || "";
+    }
+
+    if (typeof filePath !== "string") {
+      console.warn("Unexpected file_path type:", typeof filePath, filePath);
+      return "Invalid file path";
+    }
+
+    const pathParts = filePath.split("/");
+    const fileName = decodeURIComponent(pathParts[pathParts.length - 1]);
+
+    if (fileName.startsWith("php") && currentDocument.name) {
+      return currentDocument.name;
+    }
+
+    return fileName || "No file attached";
   };
 
   // Get file icon based on file extension
   const getFileIcon = (filename) => {
-    if (!filename || filename === "No file attached") return "fas fa-file-alt";
-    const ext = filename.split('.').pop()?.toLowerCase();
-    if (ext === 'pdf') return "fas fa-file-pdf";
-    if (ext === 'doc' || ext === 'docx') return "fas fa-file-word";
-    if (ext === 'xls' || ext === 'xlsx') return "fas fa-file-excel";
-    if (ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'gif') return "fas fa-file-image";
-    if (ext === 'txt') return "fas fa-file-alt";
-    return "fas fa-file-alt";
+    if (
+      !filename ||
+      filename === "No file attached" ||
+      filename === "Invalid file path"
+    ) {
+      return "fas fa-file-alt";
+    }
+    const ext = filename.split(".").pop()?.toLowerCase();
+    const iconMap = {
+      pdf: "fas fa-file-pdf",
+      doc: "fas fa-file-word",
+      docx: "fas fa-file-word",
+      xls: "fas fa-file-excel",
+      xlsx: "fas fa-file-excel",
+      jpg: "fas fa-file-image",
+      jpeg: "fas fa-file-image",
+      png: "fas fa-file-image",
+      gif: "fas fa-file-image",
+      txt: "fas fa-file-alt",
+    };
+    return iconMap[ext] || "fas fa-file-alt";
   };
 
   const currentFileName = getCurrentFileName();
@@ -343,9 +497,7 @@ const EditAgreement = () => {
           Agreements
         </Link>
         <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
-        <span className="text-gray-500 dark:text-gray-400">
-          Edit Agreement
-        </span>
+        <span className="text-gray-500 dark:text-gray-400">Edit Agreement</span>
       </div>
 
       {/* Page Header */}
@@ -373,14 +525,25 @@ const EditAgreement = () => {
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <i className={`${fileIcon} text-2xl md:text-3xl text-blue-500 flex-shrink-0`}></i>
+                  <i
+                    className={`${fileIcon} text-2xl md:text-3xl text-blue-500 flex-shrink-0`}
+                  ></i>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm md:text-base font-medium text-gray-800 dark:text-gray-200 truncate">
                       {currentFileName}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Agreement Name: <span className="font-semibold text-green-600 dark:text-green-400">{formData.name || "Not set"}</span>
+                      Agreement Name:{" "}
+                      <span className="font-semibold text-green-600 dark:text-green-400">
+                        {formData.name || "Not set"}
+                      </span>
                     </div>
+                    {autoUpdateName && replaceFile && (
+                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                        <i className="fas fa-sync-alt mr-1"></i>
+                        Document name will auto-update when file is uploaded
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
@@ -397,10 +560,11 @@ const EditAgreement = () => {
                   <button
                     type="button"
                     onClick={triggerFileInput}
-                    className="px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors text-xs font-semibold flex items-center gap-1"
+                    disabled={uploadingToTemp}
+                    className="px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors text-xs font-semibold flex items-center gap-1 disabled:opacity-50"
                   >
                     <i className="fas fa-sync-alt text-xs"></i>
-                    <span>Replace</span>
+                    <span>{uploadingToTemp ? "Uploading..." : "Replace"}</span>
                   </button>
                 </div>
               </div>
@@ -410,8 +574,9 @@ const EditAgreement = () => {
                 accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.png"
                 onChange={handleFileSelect}
                 className="hidden"
+                disabled={uploadingToTemp}
               />
-              
+
               {/* Show selected file preview if replacing */}
               {selectedFile && (
                 <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -422,20 +587,23 @@ const EditAgreement = () => {
                         {selectedFile.name}
                       </div>
                       <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400">
-                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB - Will replace current file
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                        {tempFilePath && <span className="text-green-600 ml-2">✓ Uploaded</span>}
+                        {uploadingToTemp && <span className="text-yellow-600 ml-2">Uploading...</span>}
                       </div>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={removeFile}
-                    className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700 text-red-500 transition-colors self-start sm:self-center"
+                    disabled={uploadingToTemp}
+                    className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700 text-red-500 transition-colors self-start sm:self-center disabled:opacity-50"
                   >
                     <i className="fas fa-times"></i>
                   </button>
                 </div>
               )}
-              
+
               {!fileUrl && currentDocument && (
                 <div className="mt-3 text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded">
                   <i className="fas fa-info-circle mr-1"></i>
@@ -469,6 +637,12 @@ const EditAgreement = () => {
                   placeholder="Enter agreement name"
                   required
                 />
+                {autoUpdateName && replaceFile && (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    <i className="fas fa-info-circle mr-1"></i>
+                    Name will be updated to match the new file. Edit manually to keep current name.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -491,8 +665,8 @@ const EditAgreement = () => {
                 {/* Share With Dropdown */}
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                    <i className="fas fa-share-alt text-green-500 mr-1"></i> Share
-                    with <span className="text-red-500">*</span>
+                    <i className="fas fa-share-alt text-green-500 mr-1"></i>{" "}
+                    Share with <span className="text-red-500">*</span>
                   </label>
                   <div className="relative" ref={dropdownRef}>
                     <div
@@ -541,12 +715,16 @@ const EditAgreement = () => {
                             {shareableUsers.map((user) => (
                               <div
                                 key={user.id || user.name}
-                                onClick={() => toggleShareItem(user.name || user.email)}
+                                onClick={() =>
+                                  toggleShareItem(user.name || user.email)
+                                }
                                 className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                               >
                                 <input
                                   type="checkbox"
-                                  checked={selectedShareWith.includes(user.name || user.email)}
+                                  checked={selectedShareWith.includes(
+                                    user.name || user.email,
+                                  )}
                                   onChange={() => {}}
                                   className="w-3.5 h-3.5 md:w-4 md:h-4 accent-green-500"
                                 />
@@ -572,7 +750,8 @@ const EditAgreement = () => {
                 {/* Party Field */}
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                    <i className="fas fa-building text-green-500 mr-1"></i> Party
+                    <i className="fas fa-building text-green-500 mr-1"></i>{" "}
+                    Party
                   </label>
                   <div>
                     <select
@@ -586,7 +765,9 @@ const EditAgreement = () => {
                         parties.map((party) => (
                           <option key={party.id} value={party.id}>
                             {party.name}{" "}
-                            {party.company_name ? `(${party.company_name})` : ""}
+                            {party.company_name
+                              ? `(${party.company_name})`
+                              : ""}
                           </option>
                         ))
                       ) : (
@@ -651,10 +832,7 @@ const EditAgreement = () => {
                       <option value="">Select Folder</option>
                       {folders.length > 0 ? (
                         folders.map((folder) => (
-                          <option
-                            key={folder.id}
-                            value={folder.id}
-                          >
+                          <option key={folder.id} value={folder.id}>
                             {folder.name}
                           </option>
                         ))
@@ -707,7 +885,7 @@ const EditAgreement = () => {
             </Link>
             <button
               type="submit"
-              disabled={updating || loading}
+              disabled={updating || loading || (replaceFile && !tempFilePath && uploadingToTemp)}
               className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base disabled:opacity-70"
             >
               {updating ? (

@@ -54,6 +54,7 @@ const EditEmployee = () => {
   const { currentEmployee, loading: employeeLoading } = useSelector(
     (state) => state.employees || {},
   );
+  console.log("Current emp: ", currentEmployee);
   const { organizations = [] } = useSelector(
     (state) => state.organizations || {},
   );
@@ -193,7 +194,7 @@ const EditEmployee = () => {
       setValue("first_name", currentEmployee.first_name || "");
       setValue("last_name", currentEmployee.last_name || "");
       setValue("organization_id", currentEmployee.user?.organization_id || "");
-      setValue("company_id", currentEmployee.company_id || "");
+      setValue("company_id", currentEmployee.user?.company?.id || "");
       setValue("designation_id", currentEmployee.user?.designation_id || "");
       setValue("department_id", currentEmployee.user?.department_id || "");
       setValue("employee_id", currentEmployee.employee_id || "");
@@ -358,7 +359,11 @@ const EditEmployee = () => {
     "Other",
   ];
   const maritalStatusOptions = ["Single", "Married", "Divorced", "Widowed"];
-  const visaTypeOptions = ["Company Visa", "Family Visa", "Other Visa"];
+  const visaTypeOptions = [
+    { value: "company_visa", label: "Company Visa" },
+    { value: "family_visa", label: "Family Visa" },
+    { value: "other_visa", label: "Other Visa" },
+  ];
 
   const getStepFields = (stepIndex) => {
     switch (stepIndex) {
@@ -378,6 +383,7 @@ const EditEmployee = () => {
         return ["passport_issued_date", "passport_expiry_date"];
       case 2:
         return [
+          "visa_type",
           "visa_issued_date",
           "visa_expiry_date",
           "labor_issued_date",
@@ -1852,12 +1858,13 @@ const EditEmployee = () => {
                           render={({ field }) => (
                             <select
                               {...field}
+                              value={field.value || ""}
                               className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
                             >
                               <option value="">Select Type of Visa</option>
-                              {visaTypeOptions.map((visaType) => (
-                                <option key={visaType} value={visaType}>
-                                  {visaType}
+                              {visaTypeOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
                                 </option>
                               ))}
                             </select>
@@ -2205,23 +2212,31 @@ const EditEmployee = () => {
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                      Role
+                      Role <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="role"
                       control={control}
+                      rules={{ required: "Role is required" }}
                       render={({ field }) => (
-                        <select
-                          {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
-                        >
-                          <option value="">Select Role</option>
-                          {roles.map((role) => (
-                            <option key={role.id} value={role.id}>
-                              {role.name}
-                            </option>
-                          ))}
-                        </select>
+                        <>
+                          <select
+                            {...field}
+                            value={field.value || ""}
+                            onChange={(e) => {
+                              console.log("Role changed to:", e.target.value);
+                              field.onChange(e.target.value);
+                            }}
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                          >
+                            <option value="">Select Role</option>
+                            {roles.map((role) => (
+                              <option key={role.id} value={role.id.toString()}>
+                                {role.name}
+                              </option>
+                            ))}
+                          </select>
+                        </>
                       )}
                     />
                   </div>

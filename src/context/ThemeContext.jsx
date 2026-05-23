@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from "react";
 
 const ThemeContext = createContext();
 
@@ -6,22 +6,22 @@ const ThemeContext = createContext();
 export const useAppTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) {
-    throw new Error('useAppTheme must be used within ThemeProvider');
+    throw new Error("useAppTheme must be used within ThemeProvider");
   }
   return context;
 };
 
 export const ThemeProvider = ({ children }) => {
   const [primaryColor, setPrimaryColor] = useState(() => {
-    return localStorage.getItem('primaryColor') || '#2ecc71';
+    return localStorage.getItem("primaryColor") || "#2ecc71";
   });
-  
+
   const [fontSize, setFontSize] = useState(() => {
-    return parseInt(localStorage.getItem('fontSize')) || 13;
+    return parseInt(localStorage.getItem("fontSize")) || 13;
   });
-  
+
   const [themeMode, setThemeMode] = useState(() => {
-    return localStorage.getItem('themeMode') || 'light';
+    return localStorage.getItem("themeMode") || "light";
   });
 
   // Helper function to adjust color brightness
@@ -137,8 +137,6 @@ export const ThemeProvider = ({ children }) => {
       const b = parseInt(hexColor.slice(5, 7), 16);
       const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
       
-      // If primary color is dark (yiq < 128), we lighten it by 92% to get a beautiful light gray-green highlight.
-      // If primary color is light, we lighten it by 82% to get a perfect light shade.
       const percent = (yiq < 128) ? 92 : 82;
       return adjustColor(hexColor, percent);
     };
@@ -155,6 +153,7 @@ export const ThemeProvider = ({ children }) => {
     root.style.setProperty('--primary-glow', `${primaryColor}20`);
     root.style.setProperty('--primary-contrast', primaryContrast);
     root.style.setProperty('--primary-text', primaryText);
+    root.style.setProperty('--primary-contrast-text', primaryContrast);
     
     // Update Tailwind theme
     // eslint-disable-next-line react-hooks/immutability
@@ -163,7 +162,6 @@ export const ThemeProvider = ({ children }) => {
     localStorage.setItem('primaryColor', primaryColor);
   }, [primaryColor, themeMode]);
 
-  // Update dynamic Tailwind theme
   const updateTailwindTheme = (color, contrastColor = 'white', primaryText = color) => {
     let styleTag = document.getElementById('dynamic-theme');
     if (!styleTag) {
@@ -181,6 +179,7 @@ export const ThemeProvider = ({ children }) => {
         color: ${contrastColor} !important;
       }
       .text-primary-custom { color: ${primaryText} !important; }
+      .text-primary-contrast { color: ${contrastColor} !important; }
       .border-primary-custom { border-color: ${color} !important; }
       .ring-primary-custom { ring-color: ${color} !important; }
       
@@ -192,6 +191,17 @@ export const ThemeProvider = ({ children }) => {
       
       .bg-gradient-primary-custom { 
         background: linear-gradient(135deg, ${color}, ${darkerShade}) !important; 
+        color: ${contrastColor} !important;
+      }
+      
+      /* Button with contrast text */
+      .btn-primary-custom {
+        background-color: ${color} !important;
+        color: ${contrastColor} !important;
+      }
+      
+      .btn-primary-custom:hover {
+        background-color: ${adjustColor(color, -10)} !important;
         color: ${contrastColor} !important;
       }
       
@@ -230,7 +240,7 @@ export const ThemeProvider = ({ children }) => {
   // Apply font size
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}px`;
-    localStorage.setItem('fontSize', fontSize);
+    localStorage.setItem("fontSize", fontSize);
   }, [fontSize]);
 
   const handleColorChange = (color) => {
@@ -239,15 +249,15 @@ export const ThemeProvider = ({ children }) => {
 
   const handleColorSchemeChange = (scheme) => {
     const schemes = {
-      green: '#2ecc71',
-      blue: '#3498db',
-      purple: '#9b59b6',
-      orange: '#e67e22',
-      red: '#e74c3c',
-      teal: '#1abc9c',
-      pink: '#e84393',
+      green: "#2ecc71",
+      blue: "#3498db",
+      purple: "#9b59b6",
+      orange: "#e67e22",
+      red: "#e74c3c",
+      teal: "#1abc9c",
+      pink: "#e84393",
     };
-    
+
     if (schemes[scheme]) {
       setPrimaryColor(schemes[scheme]);
     }
@@ -263,43 +273,45 @@ export const ThemeProvider = ({ children }) => {
       const img = new Image();
       img.src = URL.createObjectURL(imageFile);
       img.onload = () => {
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         canvas.width = img.width;
         canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
-        
-        let r = 0, g = 0, b = 0;
+
+        let r = 0,
+          g = 0,
+          b = 0;
         let count = 0;
-        
+
         for (let i = 0; i < data.length; i += 4) {
-          if (data[i] > 200 && data[i+1] > 200 && data[i+2] > 200) continue;
-          if (data[i] < 50 && data[i+1] < 50 && data[i+2] < 50) continue;
-          
+          if (data[i] > 200 && data[i + 1] > 200 && data[i + 2] > 200) continue;
+          if (data[i] < 50 && data[i + 1] < 50 && data[i + 2] < 50) continue;
+
           r += data[i];
-          g += data[i+1];
-          b += data[i+2];
+          g += data[i + 1];
+          b += data[i + 2];
           count++;
         }
-        
+
         if (count > 0) {
           r = Math.floor(r / count);
           g = Math.floor(g / count);
           b = Math.floor(b / count);
           resolve(rgbToHex(r, g, b));
         } else {
-          resolve('#2ecc71');
+          resolve("#2ecc71");
         }
-        
+
         URL.revokeObjectURL(img.src);
       };
     });
   };
 
   const rgbToHex = (r, g, b) => {
-    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
   };
 
   const handleExtractFromLogo = async (file) => {
@@ -310,9 +322,9 @@ export const ThemeProvider = ({ children }) => {
   };
 
   const resetToDefaults = () => {
-    setPrimaryColor('#2ecc71');
+    setPrimaryColor("#2ecc71");
     setFontSize(13);
-    setThemeMode('light');
+    setThemeMode("light");
   };
 
   return (

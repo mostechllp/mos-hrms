@@ -49,6 +49,7 @@ const AddEmployee = () => {
   const [additionalDocuments, setAdditionalDocuments] = useState([]);
   const [isSkilled, setIsSkilled] = useState(false);
   const [selectedOrgDetails, setSelectedOrgDetails] = useState(null);
+  const [selectedCompanyDetails, setSelectedCompanyDetails] = useState(null); // Add this state
 
   // Fetch data from slices
   const { organizations = [] } = useSelector(
@@ -119,7 +120,7 @@ const AddEmployee = () => {
       home_country_number: "",
       role: "",
     },
-    shouldUnregister: true,
+    shouldUnregister: false,
     mode: "onChange",
   });
 
@@ -130,6 +131,7 @@ const AddEmployee = () => {
   });
 
   const watchOrganizationId = watch("organization_id");
+  const watchCompanyId = watch("company_id");
   const watchDob = watch("dob");
   const watchJoiningDate = watch("joining_date");
   const passportIssued = watch("passport_issued_date");
@@ -200,15 +202,11 @@ const AddEmployee = () => {
   }, [dispatch]);
 
   // Fetch companies when organization changes
-  // Fetch companies when organization changes
   useEffect(() => {
     if (watchOrganizationId) {
       const org = organizations.find(
         (org) => org.id === parseInt(watchOrganizationId),
       );
-      console.log("Selected organization:", org);
-      console.log("multi_company value:", org?.multi_company);
-      console.log("Type:", typeof org?.multi_company);
 
       setSelectedOrgDetails(org || null);
 
@@ -218,11 +216,32 @@ const AddEmployee = () => {
       } else {
         // Clear company selection if organization doesn't have multiple companies
         setValue("company_id", "");
+        setSelectedCompanyDetails(null);
       }
     } else {
       setSelectedOrgDetails(null);
+      setSelectedCompanyDetails(null);
     }
   }, [watchOrganizationId, organizations, dispatch, setValue]);
+
+  // Get company details when company_id changes
+  useEffect(() => {
+    if (watchCompanyId && companies.length > 0) {
+      const company = companies.find(
+        (comp) => comp.id === parseInt(watchCompanyId),
+      );
+      setSelectedCompanyDetails(company || null);
+      
+      // Clear labor fields if company has freezone trade license
+      if (company && company.raw?.trade_license === "freezone") {
+        setValue("labor_number", "");
+        setValue("labor_issued_date", "");
+        setValue("labor_expiry_date", "");
+      }
+    } else {
+      setSelectedCompanyDetails(null);
+    }
+  }, [watchCompanyId, companies, setValue]);
 
   const steps = [
     { number: 1, title: "Basic Info", icon: "fas fa-user-circle" },
@@ -251,7 +270,11 @@ const AddEmployee = () => {
   ];
 
   const maritalStatusOptions = ["Single", "Married", "Divorced", "Widowed"];
-  const visaTypeOptions = ["Company Visa", "Family Visa", "Other Visa"];
+  const visaTypeOptions = [
+    { value: "company_visa", label: "Company Visa" },
+    { value: "family_visa", label: "Family Visa" },
+    { value: "other_visa", label: "Other Visa" },
+  ];
 
   const getStepFields = (stepIndex) => {
     switch (stepIndex) {
@@ -275,17 +298,27 @@ const AddEmployee = () => {
       case 1:
         return ["passport_issued_date", "passport_expiry_date"];
       case 2:
+        { const laborFields = [];
+        
+        // Only require labor fields if company trade license is "mainland"
+        if (selectedCompanyDetails?.raw?.trade_license === "mainland") {
+          laborFields.push(
+            "labor_number",
+            "labor_issued_date",
+            "labor_expiry_date"
+          );
+        }
+        
         return [
+          "visa_type",
           "visa_number",
           "visa_issued_date",
           "visa_expiry_date",
-          "labor_number",
-          "labor_issued_date",
-          "labor_expiry_date",
+          ...laborFields,
           "eid_number",
           "eid_issued_date",
           "eid_expiry_date",
-        ];
+        ]; }
       case 3:
         return ["company_email", "personal_email", "type", "role"];
       default:
@@ -490,6 +523,11 @@ const AddEmployee = () => {
   const onSubmit = async (data) => {
     setLoading(true);
 
+    console.log("=== FORM SUBMISSION DEBUG ===");
+    console.log("data.role:", data.role);
+    console.log("data.role type:", typeof data.role);
+    console.log("============================");
+
     // Helper function to convert date from dd/mm/yyyy to YYYY-MM-DD
     const convertDateToBackend = (dateString) => {
       if (!dateString) return "";
@@ -527,13 +565,10 @@ const AddEmployee = () => {
       }
       formData.append("company_id", parseInt(data.company_id));
     } else {
-      // For organizations without multiple companies, you might need to:
-      // Option 1: Don't send company_id (if backend handles it)
-      // Option 2: Send a default company ID
-      // Option 3: Get the default company for this organization
-      formData.append("company_id", ""); // Or handle as per your backend requirement
+      formData.append("company_id", "");
     }
-    formData.append("is_skilled", isSkilled !== null ? isSkilled : false);
+    const isSkilledValue = isSkilled !== null ? (isSkilled ? 1 : 0) : 0;
+    formData.append("is_skilled", isSkilledValue);
 
     if (data.designation_id) {
       formData.append("designation_id", parseInt(data.designation_id));
@@ -592,91 +627,76 @@ const AddEmployee = () => {
       }
     }
 
-    // Passport fields
-    if (data.passport_full_name)
-      formData.append("passport_full_name", data.passport_full_name);
-    if (data.passport_number)
-      formData.append("passport_number", data.passport_number);
-    if (data.passport_issued_date)
-      formData.append(
-        "passport_issued_date",
-        convertDateToBackend(data.passport_issued_date),
-      );
-    if (data.passport_expiry_date)
-      formData.append(
-        "passport_expiry_date",
-        convertDateToBackend(data.passport_expiry_date),
-      );
-    if (data.passport_issued_from)
-      formData.append("passport_issued_from", data.passport_issued_from);
-    if (data.place_of_birth)
-      formData.append("place_of_birth", data.place_of_birth);
-    if (data.father_name) formData.append("father_name", data.father_name);
-    if (data.mother_name) formData.append("mother_name", data.mother_name);
-    if (data.address) formData.append("address", data.address);
+    formData.append("passport_full_name", data.passport_full_name || "");
+    formData.append("passport_number", data.passport_number || "");
+    formData.append(
+      "passport_issued_date",
+      convertDateToBackend(data.passport_issued_date) || "",
+    );
+    formData.append(
+      "passport_expiry_date",
+      convertDateToBackend(data.passport_expiry_date) || "",
+    );
+    formData.append("passport_issued_from", data.passport_issued_from || "");
+    formData.append("place_of_birth", data.place_of_birth || "");
+    formData.append("father_name", data.father_name || "");
+    formData.append("mother_name", data.mother_name || "");
+    formData.append("address", data.address || "");
 
-    // Visa & Labor
-    if (data.visa_number) formData.append("visa_number", data.visa_number);
-    if (data.visa_type) formData.append("visa_type", data.visa_type);
-    if (data.visa_issued_date)
-      formData.append(
-        "visa_issued_date",
-        convertDateToBackend(data.visa_issued_date),
-      );
-    if (data.visa_expiry_date)
-      formData.append(
-        "visa_expiry_date",
-        convertDateToBackend(data.visa_expiry_date),
-      );
-    if (data.labor_number) formData.append("labor_number", data.labor_number);
-    if (data.labor_issued_date)
-      formData.append(
-        "labor_issued_date",
-        convertDateToBackend(data.labor_issued_date),
-      );
-    if (data.labor_expiry_date)
-      formData.append(
-        "labor_expiry_date",
-        convertDateToBackend(data.labor_expiry_date),
-      );
+    formData.append("visa_number", data.visa_number || "");
 
-    // EID
-    if (data.eid_number) formData.append("eid_number", data.eid_number);
-    if (data.eid_issued_date)
-      formData.append(
-        "eid_issued_date",
-        convertDateToBackend(data.eid_issued_date),
-      );
-    if (data.eid_expiry_date)
-      formData.append(
-        "eid_expiry_date",
-        convertDateToBackend(data.eid_expiry_date),
-      );
+    formData.append("visa_type", data.visa_type || "");
 
-    // Contact
-    if (data.dependents) formData.append("dependents", String(data.dependents));
-    if (data.company_email)
-      formData.append("company_email", data.company_email);
-    if (data.company_mobile_number)
-      formData.append("company_mobile_number", data.company_mobile_number);
-    if (data.personal_number)
-      formData.append("personal_number", data.personal_number);
-    if (data.personal_email)
-      formData.append("personal_email", data.personal_email);
-    if (data.other_number) formData.append("other_number", data.other_number);
-    if (data.home_country_number)
-      formData.append("home_country_number", data.home_country_number);
-    if (data.role) formData.append("role", data.role);
+    const visaIssuedConverted = convertDateToBackend(data.visa_issued_date);
+    formData.append("visa_issued_date", visaIssuedConverted);
 
-    // ============ IMPORTANT: Send ALL files as temp paths ============
+    const visaExpiryConverted = convertDateToBackend(data.visa_expiry_date);
+    formData.append("visa_expiry_date", visaExpiryConverted);
 
-    // Avatar (passport size photo) - send temp path
-    if (documents.avatar) {
-      formData.append("avatar", documents.avatar);
-      console.log("Sending avatar temp path:", documents.avatar);
+    // Only send labor data if company trade license is "mainland"
+    if (selectedCompanyDetails?.raw?.trade_license === "mainland") {
+      formData.append("labor_number", data.labor_number || "");
+      
+      const laborIssuedConverted = convertDateToBackend(data.labor_issued_date);
+      formData.append("labor_issued_date", laborIssuedConverted);
+
+      const laborExpiryConverted = convertDateToBackend(data.labor_expiry_date);
+      formData.append("labor_expiry_date", laborExpiryConverted);
+    } else {
+      // Send empty strings for freezone companies
+      formData.append("labor_number", "");
+      formData.append("labor_issued_date", "");
+      formData.append("labor_expiry_date", "");
     }
 
-    // All document fields - send temp paths
+    formData.append("eid_number", data.eid_number || "");
+
+    const eidIssuedConverted = convertDateToBackend(data.eid_issued_date);
+    formData.append("eid_issued_date", eidIssuedConverted);
+
+    const eidExpiryConverted = convertDateToBackend(data.eid_expiry_date);
+    formData.append("eid_expiry_date", eidExpiryConverted);
+
+    formData.append(
+      "dependents",
+      data.dependents ? String(data.dependents) : "0",
+    );
+    formData.append("company_email", data.company_email || "");
+    formData.append("company_mobile_number", data.company_mobile_number || "");
+    formData.append("personal_number", data.personal_number || "");
+    formData.append("personal_email", data.personal_email || "");
+    formData.append("other_number", data.other_number || "");
+    formData.append("home_country_number", data.home_country_number || "");
+    formData.append("role_id", data.role || "");
+
+    // ============ Documents - send temp paths ============
+
+    // Avatar
+    if (documents.avatar) {
+      formData.append("avatar", documents.avatar);
+    }
+
+    // All document fields
     const documentFields = [
       "passport_1st_page",
       "passport_2nd_page",
@@ -695,7 +715,6 @@ const AddEmployee = () => {
     documentFields.forEach((field) => {
       if (documents[field]) {
         formData.append(field, documents[field]);
-        console.log(`Sending ${field} temp path:`, documents[field]);
       }
     });
 
@@ -717,18 +736,13 @@ const AddEmployee = () => {
       });
     }
 
-    // Debug: Log all form data
-    console.log("=== FINAL FORM DATA TO BE SENT ===");
-    for (let pair of formData.entries()) {
-      console.log(`${pair[0]}: ${pair[1]}`);
-    }
-
     const result = await dispatch(addEmployee(formData));
 
     if (addEmployee.fulfilled.match(result)) {
       showToast(`Employee added successfully!`, "success");
       navigate("/admin/employees");
     } else {
+      console.error("8. Failed to add employee:", result.payload);
       const errorPayload = result.payload;
       if (errorPayload && errorPayload.errors) {
         const errorMessages = Object.entries(errorPayload.errors).map(
@@ -752,11 +766,6 @@ const AddEmployee = () => {
       // Upload the file to temp storage
       const formData = new FormData();
       formData.append("file", docData.file);
-
-      console.log("=== ALL FORM DATA KEYS ===");
-      for (let pair of formData.entries()) {
-        console.log(`${pair[0]}: ${pair[1]}`);
-      }
 
       const response = await apiClient.post(
         "/admin/employees/upload-temp",
@@ -1107,6 +1116,11 @@ const AddEmployee = () => {
                             {companies.map((company) => (
                               <option key={company.id} value={company.id}>
                                 {company.company_name || company.name}
+                                {company.raw?.trade_license && (
+                                  <span className="text-xs text-gray-500 ml-1">
+                                    ({company.raw?.trade_license})
+                                  </span>
+                                )}
                               </option>
                             ))}
                           </select>
@@ -1119,6 +1133,35 @@ const AddEmployee = () => {
                       )}
                     />
                   </div>
+
+                  {/* Show trade license info when company is selected */}
+                  {selectedCompanyDetails && selectedCompanyDetails.raw?.trade_license && (
+                    <div className="md:col-span-2">
+                      <div className={`p-3 rounded-lg ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "bg-blue-50 border border-blue-200" : "bg-yellow-50 border border-yellow-200"}`}>
+                        <div className="flex items-center gap-2">
+                          <i className={`fas ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "fa-building" : "fa-globe"} ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "text-blue-600" : "text-yellow-600"}`}></i>
+                          <span className="text-sm font-semibold text-gray-700">
+                            Company Trade License:{" "}
+                            <span className={selectedCompanyDetails.raw?.trade_license === "mainland" ? "text-blue-600" : "text-yellow-600"}>
+                              {selectedCompanyDetails.raw?.trade_license.toUpperCase()}
+                            </span>
+                          </span>
+                          {selectedCompanyDetails.raw?.trade_license === "mainland" && (
+                            <span className="text-xs text-gray-600 ml-2">
+                              <i className="fas fa-info-circle mr-1"></i>
+                              Labor details are required for Mainland companies
+                            </span>
+                          )}
+                          {selectedCompanyDetails.raw?.trade_license === "freezone" && (
+                            <span className="text-xs text-gray-600 ml-2">
+                              <i className="fas fa-info-circle mr-1"></i>
+                              Labor details are not required for Freezone companies
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
@@ -1957,99 +2000,114 @@ const AddEmployee = () => {
                   </h3>
                 </div>
                 <div className="space-y-6">
-                  {/* Labor Section */}
-                  <div className="border border-gray-200 rounded-lg p-4 md:p-5">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
-                      <i className="fas fa-briefcase text-green-500 mr-2"></i>
-                      Labor Details
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
-                      <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
-                          Labor Number
-                        </label>
-                        <Controller
-                          name="labor_number"
-                          control={control}
-                          render={({ field }) => (
-                            <input
-                              {...field}
-                              type="text"
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                              placeholder="Enter Labor Number"
-                            />
-                          )}
-                        />
-                      </div>
+                  {/* Labor Section - Only show for Mainland companies */}
+                  {selectedCompanyDetails?.raw?.trade_license === "mainland" && (
+                    <div className="border border-gray-200 rounded-lg p-4 md:p-5">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
+                        <i className="fas fa-briefcase text-green-500 mr-2"></i>
+                        Labor Details
+                        <span className="text-xs text-red-500 ml-2">* Required for Mainland companies</span>
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                        <div>
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
+                            Labor Number <span className="text-red-500">*</span>
+                          </label>
+                          <Controller
+                            name="labor_number"
+                            control={control}
+                            rules={{ 
+                              required: selectedCompanyDetails?.raw?.trade_license === "mainland" ? "Labor number is required for Mainland companies" : false 
+                            }}
+                            render={({ field }) => (
+                              <>
+                                <input
+                                  {...field}
+                                  type="text"
+                                  className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:ring-2 ${errors.labor_number ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                                  placeholder="Enter Labor Number"
+                                />
+                                {errors.labor_number && (
+                                  <p className="mt-1 text-xs text-red-500">
+                                    {errors.labor_number.message}
+                                  </p>
+                                )}
+                              </>
+                            )}
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
-                          Labor Issued Date
-                        </label>
-                        <Controller
-                          name="labor_issued_date"
-                          control={control}
-                          rules={{
-                            validate: (value) =>
-                              validateIssueDate(
-                                value,
-                                laborExpiry,
-                                "Labor issued date",
-                              ),
-                          }}
-                          render={({ field }) => (
-                            <>
-                              <DateInput
-                                {...field}
-                                placeholder="dd/mm/yyyy"
-                                error={!!errors.labor_issued_date}
-                              />
-                              {errors.labor_issued_date && (
-                                <p className="mt-1 text-xs text-red-500">
-                                  {errors.labor_issued_date.message}
-                                </p>
-                              )}
-                            </>
-                          )}
-                        />
-                      </div>
+                        <div>
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
+                            Labor Issued Date <span className="text-red-500">*</span>
+                          </label>
+                          <Controller
+                            name="labor_issued_date"
+                            control={control}
+                            rules={{
+                              required: selectedCompanyDetails?.raw?.trade_license === "mainland" ? "Labor issued date is required for Mainland companies" : false,
+                              validate: (value) =>
+                                validateIssueDate(
+                                  value,
+                                  laborExpiry,
+                                  "Labor issued date",
+                                ),
+                            }}
+                            render={({ field }) => (
+                              <>
+                                <DateInput
+                                  {...field}
+                                  placeholder="dd/mm/yyyy"
+                                  error={!!errors.labor_issued_date}
+                                />
+                                {errors.labor_issued_date && (
+                                  <p className="mt-1 text-xs text-red-500">
+                                    {errors.labor_issued_date.message}
+                                  </p>
+                                )}
+                              </>
+                            )}
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
-                          <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
-                          Labor Expiry Date
-                        </label>
-                        <Controller
-                          name="labor_expiry_date"
-                          control={control}
-                          rules={{
-                            validate: (value) =>
-                              validateExpiryDate(
-                                value,
-                                laborIssued,
-                                "Labor expiry date",
-                              ),
-                          }}
-                          render={({ field }) => (
-                            <>
-                              <DateInput
-                                {...field}
-                                placeholder="dd/mm/yyyy"
-                                error={!!errors.labor_expiry_date}
-                              />
-                              {errors.labor_expiry_date && (
-                                <p className="mt-1 text-xs text-red-500">
-                                  {errors.labor_expiry_date.message}
-                                </p>
-                              )}
-                            </>
-                          )}
-                        />
+                        <div>
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
+                            Labor Expiry Date <span className="text-red-500">*</span>
+                          </label>
+                          <Controller
+                            name="labor_expiry_date"
+                            control={control}
+                            rules={{
+                              required: selectedCompanyDetails?.raw?.trade_license === "mainland" ? "Labor expiry date is required for Mainland companies" : false,
+                              validate: (value) =>
+                                validateExpiryDate(
+                                  value,
+                                  laborIssued,
+                                  "Labor expiry date",
+                                ),
+                            }}
+                            render={({ field }) => (
+                              <>
+                                <DateInput
+                                  {...field}
+                                  placeholder="dd/mm/yyyy"
+                                  error={!!errors.labor_expiry_date}
+                                />
+                                {errors.labor_expiry_date && (
+                                  <p className="mt-1 text-xs text-red-500">
+                                    {errors.labor_expiry_date.message}
+                                  </p>
+                                )}
+                              </>
+                            )}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Visa Section */}
                   <div className="border border-gray-200 rounded-lg p-4 md:p-5">
@@ -2072,9 +2130,9 @@ const AddEmployee = () => {
                               className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                             >
                               <option value="">Select Type of Visa</option>
-                              {visaTypeOptions.map((visaType) => (
-                                <option key={visaType} value={visaType}>
-                                  {visaType}
+                              {visaTypeOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
                                 </option>
                               ))}
                             </select>
@@ -2276,16 +2334,21 @@ const AddEmployee = () => {
                           label="Visa Page Copy"
                           icon="fas fa-file-contract"
                         />
-                        <DocumentUpload
-                          fieldKey="labor_card"
-                          label="Labor Card Copy"
-                          icon="fas fa-id-card"
-                        />
-                        <DocumentUpload
-                          fieldKey="labor_contract"
-                          label="Attach Labor Contract"
-                          icon="fas fa-file-signature"
-                        />
+                        {/* Only show labor documents for Mainland companies */}
+                        {selectedCompanyDetails?.raw?.trade_license === "mainland" && (
+                          <>
+                            <DocumentUpload
+                              fieldKey="labor_card"
+                              label="Labor Card Copy"
+                              icon="fas fa-id-card"
+                            />
+                            <DocumentUpload
+                              fieldKey="labor_contract"
+                              label="Attach Labor Contract"
+                              icon="fas fa-file-signature"
+                            />
+                          </>
+                        )}
                         <DocumentUpload
                           fieldKey="eid_1st_page"
                           label="EID Front Side"
