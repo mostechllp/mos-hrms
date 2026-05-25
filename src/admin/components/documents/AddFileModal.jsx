@@ -42,13 +42,10 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
   const uploadFileToTemp = async (file) => {
     setUploadingToTemp(true);
     try {
-      console.log("Uploading file to temp:", file.name);
       const result = await dispatch(uploadToTemp(file));
-      console.log("Upload result:", result);
       
       if (uploadToTemp.fulfilled.match(result)) {
         const { path, filename } = result.payload;
-        console.log("Temp file uploaded successfully. Path:", path);
         setTempFilePath(path);
         
         // Auto-populate name if empty
@@ -123,8 +120,6 @@ const AddFileModal = ({ isOpen, onClose, onFileAdded }) => {
         file_path: tempFilePath // Send the temp file path instead of the actual file
       };
       
-      console.log('Submitting document with type:', fileType);
-      console.log('Form data:', formData);
       
       const result = await dispatch(uploadDocument({ formData, file: null })); // Pass null as file since we're using temp path
       
