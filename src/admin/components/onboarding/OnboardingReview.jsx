@@ -104,37 +104,86 @@ const OnboardingReview = () => {
       const orgId = hrUser?.employee?.organization_id || hrUser?.organization_id || (organizations[0]?.id || "");
       const companyId = hrUser?.employee?.company_id || hrUser?.company_id || (companies[0]?.id || "");
 
+      // ── Step 1: Fetch latest roles directly from API to avoid stale Redux state ──
+      let activeRoles = [...roles];
+      try {
+        const rolesRes = await apiClient.get("/admin/roles");
+        const fetched = rolesRes.data?.data || rolesRes.data;
+        if (Array.isArray(fetched) && fetched.length > 0) {
+          activeRoles = fetched;
+        }
+      } catch (_) {
+        // fall back to Redux roles
+      }
+
+      // ── Step 2: Find 'Employee' role — auto-create if missing ──
+      let employeeRole =
+        activeRoles.find((r) => r.name?.toLowerCase().trim() === "employee") ||
+        activeRoles.find((r) => r.name?.toLowerCase().includes("employee")) ||
+        activeRoles[0] ||
+        null;
+
+      if (!employeeRole) {
+        try {
+          const createRes = await apiClient.post("/admin/roles", {
+            name: "Employee",
+            description: "Default Employee Role",
+            status: "active",
+          });
+          const created = createRes.data?.data || createRes.data;
+          if (created?.id) {
+            employeeRole = created;
+            dispatch(fetchRoles()); // sync Redux state
+          }
+        } catch (createErr) {
+          console.error("Failed to auto-create Employee role:", createErr);
+        }
+      }
+
+      // ── Step 3: Resolve IDs ──
       const matchedDesignation = designations.find(
         (d) => d.name?.toLowerCase().trim() === (employeeDetails.designation || "").toLowerCase().trim()
       );
       const matchedDepartment = departments.find(
         (d) => d.name?.toLowerCase().trim() === (employeeDetails.department || "").toLowerCase().trim()
       );
-      const matchedRole = roles.find(
-        (r) => r.name?.toLowerCase().trim() === "employee"
-      );
 
-      const designation_id = matchedDesignation ? matchedDesignation.id : (designations[0]?.id || null);
-      const department_id = matchedDepartment ? matchedDepartment.id : (departments[0]?.id || null);
-      const role_id = matchedRole ? matchedRole.id : (roles.find(r => r.name?.toLowerCase().includes("employee"))?.id || roles[0]?.id || null);
+      const designation_id = matchedDesignation?.id || designations[0]?.id || null;
+      const department_id = matchedDepartment?.id || departments[0]?.id || null;
+      const role_id = employeeRole?.id || null;
 
-      // Candidate's name parsing
+      // ── Step 4: Guard — if still no role, show actionable error ──
+      if (!role_id) {
+        setErrorModal({
+          isOpen: true,
+          title: "System Configuration Required",
+          errors: [{
+            field: "Employee Role Missing",
+            message: "No 'Employee' role exists in the system and it could not be created automatically. Please go to Settings → Roles and create an 'Employee' role, then retry onboarding.",
+          }],
+        });
+        showToast("Onboarding failed: No Employee role found in the system.", "error");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // ── Step 5: Parse full name ──
       const fullName = (employeeDetails.fullName || "").trim();
       const parts = fullName.split(" ");
       const first_name = parts[0] || "Unknown";
       const last_name = parts.slice(1).join(" ") || "";
 
-      // Generate randomized DOB and valid employee_id
+      // ── Step 6: Generate DOB + Employee ID ──
       const dob = generateRandomDob();
       const employeeId = generateEmployeeId(dob, employeeDetails.joiningDate);
 
-      // Clean phone: remove +, spaces, dashes — keep digits only
+      // ── Step 7: Clean phone number ──
       const cleanPhone = (employeeDetails.phone || "")
         .replace(/\+/g, "")
         .replace(/[\s\-]/g, "")
         .trim();
 
-      // Nationality mapping: "India" -> "Indian", etc.
+      // ── Step 8: Nationality mapping ──
       const nationalityMap = {
         "india": "Indian",
         "pakistan": "Pakistani",
@@ -146,40 +195,42 @@ const OnboardingReview = () => {
       const rawNationality = (employeeDetails.nationality || "Indian").trim();
       const candidateNationality = nationalityMap[rawNationality.toLowerCase()] || rawNationality;
 
-      // Ensure joining_date is in YYYY-MM-DD format
+      // ── Step 9: Normalize joining date to YYYY-MM-DD ──
       let joiningDate = employeeDetails.joiningDate || "";
       if (joiningDate.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
         const [day, month, year] = joiningDate.split("/");
         joiningDate = `${year}-${month}-${day}`;
       }
 
-      // Build JSON body matching the API exactly
-      const body = {
-        first_name,
-        last_name,
-        employee_id: employeeId,
-        gender: "male",
-        dob,
-        marital_status: "single",
-        personal_email: employeeDetails.email || "",
-        phone: cleanPhone,
-        joining_date: joiningDate,
-        nationality: candidateNationality,
-        organization_id: orgId ? parseInt(orgId) : undefined,
-        department_id: department_id ? parseInt(department_id) : undefined,
-        designation_id: designation_id ? parseInt(designation_id) : undefined,
-        role_id: role_id ? parseInt(role_id) : undefined,
-        type: "employee",
-        status: "active",
-        role: "Employee",
-        address: employeeDetails.address || "",
-      };
+      // ── Step 10: Build FormData payload (backend requires multipart, same as AddEmployee) ──
+      console.log("[Onboarding] Resolved role_id:", role_id, "| employeeRole:", employeeRole);
+      console.log("[Onboarding] Resolved designation_id:", designation_id, "| department_id:", department_id);
 
-      // Always send company_id — backend requires this key to exist
-      body.company_id = companyId ? parseInt(companyId) : null;
+      const body = new FormData();
+      body.append("first_name", first_name);
+      body.append("last_name", last_name);
+      body.append("employee_id", employeeId);
+      body.append("gender", "male");
+      body.append("dob", dob);
+      body.append("marital_status", "single");
+      body.append("personal_email", employeeDetails.email || "");
+      body.append("phone", cleanPhone);
+      body.append("joining_date", joiningDate);
+      body.append("nationality", candidateNationality);
+      if (orgId) body.append("organization_id", String(parseInt(orgId)));
+      body.append("company_id", companyId ? String(parseInt(companyId)) : "");
+      if (department_id) body.append("department_id", String(parseInt(department_id)));
+      if (designation_id) body.append("designation_id", String(parseInt(designation_id)));
+      body.append("role_id", String(parseInt(role_id)));
+      body.append("type", "employee");
+      body.append("status", "active");
+      body.append("address", employeeDetails.address || "");
 
+      // Debug: log all FormData entries
+      console.log("[Onboarding] FormData entries:");
+      for (let [k, v] of body.entries()) console.log(`  ${k}: ${v}`);
 
-      // Convert raw API/SQL errors to client-friendly messages
+      // ── Step 11: Friendly error mapper ──
       const getFriendlyErrorMessage = (rawMsg) => {
         if (!rawMsg) return "Something went wrong. Please try again.";
         const msg = rawMsg.toLowerCase();
@@ -198,11 +249,11 @@ const OnboardingReview = () => {
         if (msg.includes("server error") || msg.includes("500"))
           return "The server encountered an error. Please try again in a moment.";
         if (msg.includes("role") && (msg.includes("required") || msg.includes("invalid") || msg.includes("id")))
-          return "A valid role is required. Please check that a default 'Employee' role exists.";
+          return "A valid role is required. Please ensure an 'Employee' role exists in Settings → Roles.";
         return "Unable to create the employee record. Please verify the details and try again.";
       };
 
-      // Map raw API field names to client-friendly labels
+      // ── Field label map for error display ──
       const fieldLabels = {
         first_name: "First Name",
         last_name: "Last Name",
@@ -220,15 +271,16 @@ const OnboardingReview = () => {
         company_id: "Company",
         department_id: "Department",
         designation_id: "Designation",
+        role_id: "Role",
         type: "Employee Type",
         status: "Status",
-        role: "Role",
         address: "Address",
         passport_number: "Passport Number",
         visa_number: "Visa Number",
         eid_number: "EID Number",
       };
 
+      // ── Step 12: Submit ──
       let apiSuccess = false;
       try {
         await apiClient.post("/admin/employees", body);
@@ -239,7 +291,6 @@ const OnboardingReview = () => {
         const errData = apiError.response?.data;
 
         if (errData?.errors && Object.keys(errData.errors).length > 0) {
-          // Structured validation errors — map each field
           const errorList = Object.entries(errData.errors).map(
             ([field, msgs]) => ({
               field: fieldLabels[field] || field.replace(/_/g, " "),
@@ -252,7 +303,6 @@ const OnboardingReview = () => {
             errors: errorList,
           });
         } else {
-          // General server error — convert to friendly message
           const rawMsg = errData?.message || "";
           setErrorModal({
             isOpen: true,
@@ -263,7 +313,6 @@ const OnboardingReview = () => {
         showToast("Employee creation failed. Please fix the issue and try again.", "error");
       }
 
-      // Only complete onboarding if employee was created successfully
       if (apiSuccess) {
         dispatch(completeOnboarding());
         showToast("Onboarding submitted successfully!", "success");
@@ -281,6 +330,11 @@ const OnboardingReview = () => {
 
   const handleBack = () => {
     dispatch(setStep(3));
+  };
+
+  const handleSaveDraft = () => {
+    localStorage.setItem("onboarding-draft", JSON.stringify(onboardingState));
+    showToast("Draft saved successfully!", "success");
   };
 
   const SummaryCard = ({ title, icon: Icon, children }) => (
@@ -458,6 +512,7 @@ const OnboardingReview = () => {
 
         <div className="flex items-center gap-3 md:gap-4 w-full sm:w-auto">
           <button
+            onClick={handleSaveDraft}
             className="flex-1 sm:flex-none px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-full border border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all text-sm whitespace-nowrap"
           >
             <span className="sm:hidden">Save Draft</span>

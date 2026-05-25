@@ -167,15 +167,6 @@ const TaskReports = () => {
             Task Report
           </h2>
         </div>
-        <button
-          onClick={() => {
-            setEditingReport(null);
-            setEditModalOpen(true);
-          }}
-          className="px-4 py-2 bg-[#10B981] hover:bg-[#059669] text-white rounded-full font-bold text-sm flex items-center gap-2 transition-all shadow-sm"
-        >
-          <i className="fas fa-plus"></i> Add Task Report
-        </button>
       </div>
 
       {/* Dashboard Layout: 2x2 Grid (Left) + 1 Large Card (Right) */}
