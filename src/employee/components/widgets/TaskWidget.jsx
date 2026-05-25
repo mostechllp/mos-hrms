@@ -92,7 +92,7 @@ const TaskWidget = () => {
       >
         <i className="fas fa-list-check text-white text-2xl"></i>
         {pendingCount > 0 && (
-          <span className="floating-badge absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center border-2 border-[var(--surface)]">
+          <span className="floating-badge absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center border-2 border-white">
             {pendingCount}
           </span>
         )}
@@ -102,7 +102,7 @@ const TaskWidget = () => {
       {isOpen && (
         <div
           ref={widgetRef}
-          className="widget-panel fixed bg-[#9753B3] rounded-xl shadow-lg border border-[var(--border)] z-1001 flex flex-col overflow-hidden"
+          className="widget-panel fixed bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-1001 flex flex-col overflow-hidden"
           style={{
             left: position.x !== null ? `${position.x}px` : 'auto',
             right: position.x === null ? '90px' : 'auto',
@@ -113,7 +113,7 @@ const TaskWidget = () => {
           }}
         >
           <div
-            className="widget-header bg-gradient-to-r from-purple-600 to-purple-700 text-white p-3.5 flex justify-between items-center cursor-grab active:cursor-grabbing select-none"
+            className="widget-header bg-gradient-to-r from-purple-400 to-purple-500 dark:from-purple-600 dark:to-purple-700 text-gray-800 dark:text-white p-3.5 flex justify-between items-center cursor-grab active:cursor-grabbing select-none"
             onMouseDown={handleMouseDown}
           >
             <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -122,41 +122,41 @@ const TaskWidget = () => {
             <div className="widget-actions flex gap-2">
               <button
                 onClick={() => dispatch(clearCompletedTasks())}
-                className="bg-white/20 border-none text-white w-7 h-7 rounded-md text-xs cursor-pointer hover:bg-white/30"
+                className="bg-black/10 hover:bg-black/20 dark:bg-white/20 dark:hover:bg-white/30 border-none text-gray-700 dark:text-white w-7 h-7 rounded-md text-xs cursor-pointer transition-colors"
                 title="Clear completed tasks"
               >
                 <i className="fas fa-check-double"></i>
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="bg-white/20 border-none text-white w-7 h-7 rounded-md text-xs cursor-pointer hover:bg-white/30"
+                className="bg-black/10 hover:bg-black/20 dark:bg-white/20 dark:hover:bg-white/30 border-none text-gray-700 dark:text-white w-7 h-7 rounded-md text-xs cursor-pointer transition-colors"
               >
                 <i className="fas fa-compress"></i>
               </button>
             </div>
           </div>
           
-          <div className="widget-content flex flex-col h-[300px]">
-            <ul className="task-list list-none flex-1 overflow-y-auto pr-1">
+          <div className="widget-content flex flex-col h-[300px] p-3">
+            <ul className="task-list list-none flex-1 overflow-y-auto pr-1 custom-scrollbar">
               {tasks.length === 0 ? (
-                <li className="text-center text-[var(--muted)] text-xs py-4">
+                <li className="text-center text-gray-400 dark:text-gray-500 text-xs py-4">
                   No tasks yet. Add one below!
                 </li>
               ) : (
                 tasks.map((task, idx) => (
-                  <li key={idx} className="task-item bg-[var(--surface2)] border border-[var(--border)] rounded-lg p-2.5 mb-2 flex items-center gap-2.5">
+                  <li key={idx} className="task-item bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-2.5 mb-2 flex items-center gap-2.5 hover:shadow-sm transition-shadow">
                     <input
                       type="checkbox"
                       checked={task.completed}
                       onChange={() => dispatch(toggleTask(idx))}
-                      className="w-4 h-4 cursor-pointer accent-green-500"
+                      className="w-4 h-4 cursor-pointer accent-purple-500 dark:accent-purple-400"
                     />
-                    <span className={`task-text flex-1 text-xs text-[var(--text)] ${task.completed ? 'line-through text-[var(--muted)]' : ''}`}>
+                    <span className={`task-text flex-1 text-sm text-gray-700 dark:text-gray-200 ${task.completed ? 'line-through text-gray-400 dark:text-gray-500' : ''}`}>
                       {task.text}
                     </span>
                     <button
                       onClick={() => dispatch(deleteTask(idx))}
-                      className="task-delete bg-none border-none text-red-500 cursor-pointer hover:text-red-600"
+                      className="task-delete bg-none border-none text-red-400 dark:text-red-500 cursor-pointer hover:text-red-600 dark:hover:text-red-400 transition-colors p-1"
                     >
                       <i className="fas fa-trash"></i>
                     </button>
@@ -165,25 +165,26 @@ const TaskWidget = () => {
               )}
             </ul>
             
-            <div className="add-task-form flex gap-2 mt-2 pt-2 border-t border-[var(--border)]">
+            <div className="add-task-form flex gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
               <input
                 type="text"
                 value={newTask}
                 onChange={(e) => setNewTask(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Add a new task..."
-                className="flex-1 bg-[var(--surface2)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs outline-none focus:border-green-500 text-[var(--text)]"
+                className="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-purple-400 dark:focus:border-purple-500 focus:ring-1 focus:ring-purple-400 dark:focus:ring-purple-500 transition-all"
               />
               <button
                 onClick={handleAddTask}
-                className="bg-green-500 border-none rounded-lg px-4 text-white cursor-pointer hover:bg-green-600"
+                className="bg-purple-500 hover:bg-purple-600 dark:bg-purple-600 dark:hover:bg-purple-700 border-none rounded-lg px-4 text-white cursor-pointer transition-colors flex items-center gap-1"
               >
-                <i className="fas fa-plus"></i>
+                <i className="fas fa-plus text-xs"></i>
+                <span className="hidden sm:inline text-sm">Add</span>
               </button>
             </div>
           </div>
           
-          <div className="widget-footer p-2.5 border-t border-[var(--border)] text-[10px] text-[var(--muted)] text-center bg-[var(--surface2)]">
+          <div className="widget-footer p-2.5 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-500 dark:text-gray-400 text-center bg-gray-50 dark:bg-gray-700">
             <span id="taskCount">{pendingCount}</span> tasks pending
           </div>
         </div>

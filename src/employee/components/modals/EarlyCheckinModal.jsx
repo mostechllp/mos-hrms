@@ -1,7 +1,13 @@
 import { useState } from "react";
+import { useDispatch } from "react-redux";
 import { showToast } from "../common/Toast";
+import BaseModal from "./BaseModal";
+import { submitAttendanceRequest } from "../../store/slices/attendanceTypeSlice";
+import DateInput from "../../../admin/components/common/DateInput"
+import { TimeInput } from "../common/TimeInput";
 
 const EarlyCheckinModal = ({ isOpen, onClose }) => {
+  const dispatch = useDispatch();
   const [formData, setFormData] = useState({
     date: "",
     time: "",
@@ -19,92 +25,68 @@ const EarlyCheckinModal = ({ isOpen, onClose }) => {
 
     setLoading(true);
     try {
-      // Replace with your actual API call
-      // await apiClient.post("/attendance-requests/early-checkin", formData);
+      await dispatch(submitAttendanceRequest({
+        type: "early_check_in",
+        request_date: formData.date,
+        request_time: formData.time,
+        reason: formData.reason,
+      })).unwrap();
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
       showToast("Early check-in request submitted successfully", "success");
       onClose();
       setFormData({ date: "", time: "", reason: "" });
     } catch (error) {
-      showToast("Failed to submit request", error);
+      showToast(error || "Failed to submit request", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1200] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-gray-900">Early Check-in Request</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <i className="fas fa-times text-xl"></i>
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Date <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Time <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="time"
-              value={formData.time}
-              onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Reason <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={formData.reason}
-              onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-              rows="4"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Provide a valid reason..."
-              required
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-all disabled:opacity-50"
-            >
-              {loading ? "Submitting..." : "Submit Request"}
-            </button>
-          </div>
-        </form>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Early Check-in Request"
+      loading={loading}
+      onSubmit={handleSubmit}
+    >
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Date <span className="text-red-500">*</span>
+        </label>
+        <DateInput
+          value={formData.date}
+          onChange={(date) => setFormData({ ...formData, date })}
+          placeholder="dd/mm/yyyy"
+          className="w-full"
+        />
       </div>
-    </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Time <span className="text-red-500">*</span>
+        </label>
+        <TimeInput
+          value={formData.time}
+          onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Reason <span className="text-red-500">*</span>
+        </label>
+        <textarea
+          value={formData.reason}
+          onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+          rows="4"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+          placeholder="Provide a valid reason..."
+          required
+        />
+      </div>
+    </BaseModal>
   );
 };
 
