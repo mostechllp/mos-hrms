@@ -31,8 +31,6 @@ const AddPartyModal = ({ isOpen, onClose, onPartyAdded }) => {
       const response = await apiClient.post("/admin/parties", formData);
       const newParty = response.data.data || response.data;
       
-      // Log the response to debug
-      console.log("Party created successfully:", newParty);
       
       showToast('Party added successfully', 'success');
       
