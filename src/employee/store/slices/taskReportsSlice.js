@@ -1,35 +1,60 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import apiClient from '../../../utils/apiClient';
 
-const loadTaskReportsFromStorage = () => {
-  const saved = localStorage.getItem('employeeTaskReports');
-  if (saved) return JSON.parse(saved);
-  return [
-    {
-      id: 1,
-      date: "06 Apr 2026",
-      tasksCompleted: "Completed dashboard UI, fixed sidebar issues",
-      planTomorrow: "Work on WFH module integration",
-      remarks: "Need design review"
-    },
-    {
-      id: 2,
-      date: "05 Apr 2026",
-      tasksCompleted: "Created WFH page and modal, fixed theme issues",
-      planTomorrow: "Testing and bug fixes",
-      remarks: "All good"
-    },
-    {
-      id: 3,
-      date: "04 Apr 2026",
-      tasksCompleted: "Fixed widget colors in light/dark mode",
-      planTomorrow: "Continue with task reports",
-      remarks: "Widgets working properly"
+// Fetch task reports from API
+export const fetchTaskReports = createAsyncThunk(
+  'taskReports/fetchAll',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get('/employee/task-reports');
+      console.log("Fetch task reports response:", response.data);
+      
+      if (response.data?.status === "success") {
+        // Make sure we return the data array
+        const reports = response.data.data || [];
+        console.log("Reports to store:", reports);
+        return reports;
+      }
+      return rejectWithValue(response.data?.message || "Failed to fetch task reports");
+    } catch (error) {
+      console.error("Fetch task reports error:", error);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch task reports"
+      );
     }
-  ];
-};
+  }
+);
+
+// Save task report
+export const saveTaskReport = createAsyncThunk(
+  'taskReports/save',
+  async ({ tasks_completed, plan_tomorrow }, { rejectWithValue, dispatch }) => {
+    try {
+      const response = await apiClient.post('/employee/task-reports', {
+        tasks_completed,
+        plan_tomorrow
+      });
+      console.log("Save task report response:", response.data);
+      
+      if (response.data?.status === "success") {
+        // Refresh the list after saving
+        await dispatch(fetchTaskReports());
+        return response.data.data;
+      }
+      return rejectWithValue(response.data?.message || "Failed to save task report");
+    } catch (error) {
+      console.error("Save task report error:", error);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to save task report"
+      );
+    }
+  }
+);
 
 const initialState = {
-  taskReports: loadTaskReportsFromStorage(),
+  taskReports: [],
+  loading: false,
+  error: null,
   pagination: {
     currentPage: 1,
     perPage: 10,
@@ -41,38 +66,59 @@ const taskReportsSlice = createSlice({
   name: 'taskReports',
   initialState,
   reducers: {
-    addTaskReport: (state, action) => {
-      state.taskReports.unshift(action.payload);
-      localStorage.setItem('employeeTaskReports', JSON.stringify(state.taskReports));
-    },
-    updateTaskReport: (state, action) => {
-      const { id, data } = action.payload;
-      const index = state.taskReports.findIndex(r => r.id === id);
-      if (index !== -1) {
-        state.taskReports[index] = { ...state.taskReports[index], ...data };
-        localStorage.setItem('employeeTaskReports', JSON.stringify(state.taskReports));
-      }
-    },
-    deleteTaskReport: (state, action) => {
-      state.taskReports = state.taskReports.filter(r => r.id !== action.payload);
-      localStorage.setItem('employeeTaskReports', JSON.stringify(state.taskReports));
-    },
     setTaskReportsPagination: (state, action) => {
-      state.pagination.currentPage = action.payload.currentPage;
-      state.pagination.perPage = action.payload.perPage;
+      state.pagination = {
+        ...state.pagination,
+        currentPage: action.payload.currentPage,
+        perPage: action.payload.perPage,
+      };
     },
     setTaskReportsSearch: (state, action) => {
       state.search = action.payload;
       state.pagination.currentPage = 1;
     },
+    clearTaskReportsError: (state) => {
+      state.error = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Fetch Task Reports
+      .addCase(fetchTaskReports.pending, (state) => {
+        console.log("Fetch pending...");
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchTaskReports.fulfilled, (state, action) => {
+        console.log("Fetch fulfilled, payload:", action.payload);
+        state.loading = false;
+        state.taskReports = action.payload; // Make sure this is set correctly
+        state.error = null;
+        console.log("Updated state.taskReports:", state.taskReports);
+      })
+      .addCase(fetchTaskReports.rejected, (state, action) => {
+        console.log("Fetch rejected:", action.payload);
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Save Task Report
+      .addCase(saveTaskReport.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(saveTaskReport.fulfilled, (state) => {
+        console.log("Save fulfilled");
+        state.error = null;
+      })
+      .addCase(saveTaskReport.rejected, (state, action) => {
+        state.error = action.payload;
+      });
   },
 });
 
 export const { 
-  addTaskReport, 
-  updateTaskReport, 
-  deleteTaskReport, 
   setTaskReportsPagination,
-  setTaskReportsSearch 
+  setTaskReportsSearch,
+  clearTaskReportsError
 } = taskReportsSlice.actions;
 export default taskReportsSlice.reducer;
