@@ -1,4 +1,3 @@
-// store/slices/wfhSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import apiClient from "../../../utils/apiClient";
 
@@ -126,6 +125,7 @@ const wfhSlice = createSlice({
       .addCase(fetchWFHRequests.fulfilled, (state, action) => {
         state.loading = false;
         state.wfhRequests = action.payload;
+        state.requests = action.payload;
       })
       .addCase(fetchWFHRequests.rejected, (state, action) => {
         state.loading = false;
@@ -140,6 +140,7 @@ const wfhSlice = createSlice({
       .addCase(addWFHRequest.fulfilled, (state, action) => {
         state.submitting = false;
         state.wfhRequests.unshift(action.payload);
+        state.requests.unshift(action.payload);
       })
       .addCase(addWFHRequest.rejected, (state, action) => {
         state.submitting = false;

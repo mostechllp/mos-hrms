@@ -1,4 +1,5 @@
-import  { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { FiEye, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiLogIn, FiClock, FiChevronDown } from "react-icons/fi";
 import { MdFingerprint } from "react-icons/md";
 import { showToast } from "../components/common/Toast";
@@ -7,8 +8,22 @@ import MissedPunchOutModal from "../components/modals/MissedPunchoutModal";
 import MissedPunchInModal from "../components/modals/MissedPunchInModal";
 import LateCheckinModal from "../components/modals/LateCheckinModal";
 import EarlyCheckinModal from "../components/modals/EarlyCheckinModal";
+import { clearAttendanceError, fetchAttendanceRequests } from "../store/slices/attendanceTypeSlice";
 
 const AttendanceRequests = () => {
+  const dispatch = useDispatch();
+  
+  // Get state from Redux
+  const {
+    requests = [],
+    // eslint-disable-next-line no-unused-vars
+    filter = { type: 'all', status: 'all', search: '' },
+    // eslint-disable-next-line no-unused-vars
+    pagination = { currentPage: 1, perPage: 10 },
+    loading = false,
+    error = null,
+  } = useSelector((state) => state.EmpAttendanceType || {});
+  
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEarlyCheckin, setShowEarlyCheckin] = useState(false);
@@ -16,57 +31,30 @@ const AttendanceRequests = () => {
   const [showMissedPunchIn, setShowMissedPunchIn] = useState(false);
   const [showMissedPunchOut, setShowMissedPunchOut] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [filter, setFilter] = useState({ status: "all", search: "" });
-  const [pagination, setPagination] = useState({ currentPage: 1, perPage: 10 });
-  const [loading, setLoading] = useState(false);
-  const [requests, setRequests] = useState([]);
+  const [localFilter, setLocalFilter] = useState({ status: "all", search: "" });
+  const [localPagination, setLocalPagination] = useState({ currentPage: 1, perPage: 10 });
 
-  // Fetch attendance requests
-  const fetchAttendanceRequests = async () => {
-    setLoading(true);
+  // Fetch attendance requests on component mount
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
+    loadAttendanceRequests();
+  }, []);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      showToast(error, "error");
+      dispatch(clearAttendanceError());
+    }
+  }, [error, dispatch]);
+
+  const loadAttendanceRequests = async () => {
     try {
-      // Mock data for now
-      const mockData = [
-        {
-          id: 1,
-          type: "early_checkin",
-          date: "2026-05-11",
-          time: "08:30",
-          reason: "Had an early meeting",
-          status: "Pending",
-          created_at: "2026-05-11T08:00:00.000000Z",
-        },
-        {
-          id: 2,
-          type: "late_checkin",
-          date: "2026-05-10",
-          time: "10:15",
-          reason: "Traffic jam",
-          status: "Approved",
-          created_at: "2026-05-10T09:00:00.000000Z",
-        },
-        {
-          id: 3,
-          type: "missed_punch_in",
-          date: "2026-05-09",
-          time: "09:00",
-          reason: "Forgot to punch in",
-          status: "Rejected",
-          created_at: "2026-05-09T18:00:00.000000Z",
-        },
-      ];
-      setRequests(mockData);
+      await dispatch(fetchAttendanceRequests()).unwrap();
     } catch (error) {
-      showToast("Failed to fetch attendance requests", error);
-    } finally {
-      setLoading(false);
+      console.error("Failed to load attendance requests:", error);
     }
   };
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchAttendanceRequests();
-  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -81,20 +69,24 @@ const AttendanceRequests = () => {
 
   const getRequestTypeLabel = (type) => {
     const types = {
-      early_checkin: "Early Check-in",
-      late_checkin: "Late Check-in",
+      early_check_in: "Early Check-in",
+      late_check_in: "Late Check-in",
       missed_punch_in: "Missed Punch In",
       missed_punch_out: "Missed Punch Out",
+      early_checkin: "Early Check-in", // Fallback for old format
+      late_checkin: "Late Check-in", // Fallback for old format
     };
-    return types[type] || type;
+    return types[type] || type?.replace(/_/g, ' ') || type;
   };
 
   const getRequestTypeIcon = (type) => {
     const icons = {
-      early_checkin: <FiSun className="text-[var(--muted)] text-xs" />,
-      late_checkin: <FiMoon className="text-[var(--muted)] text-xs" />,
+      early_check_in: <FiSun className="text-[var(--muted)] text-xs" />,
+      late_check_in: <FiMoon className="text-[var(--muted)] text-xs" />,
       missed_punch_in: <MdFingerprint className="text-[var(--muted)] text-xs" />,
       missed_punch_out: <FiLogIn className="text-[var(--muted)] text-xs" />,
+      early_checkin: <FiSun className="text-[var(--muted)] text-xs" />,
+      late_checkin: <FiMoon className="text-[var(--muted)] text-xs" />,
     };
     return icons[type] || <FiClock className="text-[var(--muted)] text-xs" />;
   };
@@ -102,18 +94,19 @@ const AttendanceRequests = () => {
   const getFilteredRequests = () => {
     let filtered = [...requests];
     
-    if (filter.status !== "all") {
+    if (localFilter.status !== "all") {
       filtered = filtered.filter(
-        (r) => r.status?.toLowerCase() === filter.status.toLowerCase()
+        (r) => r.status?.toLowerCase() === localFilter.status.toLowerCase()
       );
     }
     
-    if (filter.search) {
-      const searchLower = filter.search.toLowerCase();
+    if (localFilter.search) {
+      const searchLower = localFilter.search.toLowerCase();
       filtered = filtered.filter(
         (r) =>
           getRequestTypeLabel(r.type).toLowerCase().includes(searchLower) ||
-          (r.reason || "").toLowerCase().includes(searchLower)
+          (r.reason || "").toLowerCase().includes(searchLower) ||
+          (r.status || "").toLowerCase().includes(searchLower)
       );
     }
     
@@ -121,23 +114,48 @@ const AttendanceRequests = () => {
   };
 
   const filteredRequests = getFilteredRequests();
-  const totalPages = Math.ceil(filteredRequests.length / pagination.perPage);
-  const start = (pagination.currentPage - 1) * pagination.perPage;
-  const currentRequests = filteredRequests.slice(start, start + pagination.perPage);
+  const totalPages = Math.ceil(filteredRequests.length / localPagination.perPage);
+  const start = (localPagination.currentPage - 1) * localPagination.perPage;
+  const currentRequests = filteredRequests.slice(start, start + localPagination.perPage);
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch (error) {
+      return "-", error;
+    }
   };
 
   const formatTime = (timeString) => {
     if (!timeString) return "-";
+    // If time is in HH:MM:SS format, extract HH:MM
+    if (timeString.includes(':')) {
+      const parts = timeString.split(':');
+      return `${parts[0]}:${parts[1]}`;
+    }
     return timeString;
+  };
+
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return "-";
+    try {
+      const date = new Date(dateTimeString);
+      return date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (error) {
+      return "-", error;
+    }
   };
 
   const handleViewDetails = (request) => {
@@ -155,9 +173,11 @@ const AttendanceRequests = () => {
   const openRequestModal = (type) => {
     setShowDropdown(false);
     switch(type) {
+      case "early_check_in":
       case "early_checkin":
         setShowEarlyCheckin(true);
         break;
+      case "late_check_in":
       case "late_checkin":
         setShowLateCheckin(true);
         break;
@@ -173,26 +193,54 @@ const AttendanceRequests = () => {
   };
 
   const handleSearch = (e) => {
-    setFilter({ ...filter, search: e.target.value });
+    setLocalFilter({ ...localFilter, search: e.target.value });
+    setLocalPagination({ ...localPagination, currentPage: 1 });
+  };
+
+  const handleStatusFilter = (status) => {
+    setLocalFilter({ ...localFilter, status });
+    setLocalPagination({ ...localPagination, currentPage: 1 });
   };
 
   const handleEntriesChange = (e) => {
-    setPagination({ currentPage: 1, perPage: parseInt(e.target.value) });
+    setLocalPagination({ currentPage: 1, perPage: parseInt(e.target.value) });
   };
 
   const handlePageChange = (page) => {
-    setPagination({ ...pagination, currentPage: page });
+    setLocalPagination({ ...localPagination, currentPage: page });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const handleModalClose = () => {
+    setShowEarlyCheckin(false);
+    setShowLateCheckin(false);
+    setShowMissedPunchIn(false);
+    setShowMissedPunchOut(false);
+    // Refresh the list after modal closes
+    loadAttendanceRequests();
+  };
+
+  // Show loading state
+  if (loading && requests.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500 dark:text-gray-400">Loading attendance requests...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
-      {/* Stats Grid - Matching TaskReports style */}
+      {/* Stats Grid */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-5 mb-7">
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
           <div className="stat-icon w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-2xl mx-auto mb-3">
             <FiClock />
           </div>
-          <div className="stat-number text-3xl font-extrabold text-blue-600">
+          <div className="stat-number text-3xl font-extrabold text-blue-600 dark:text-blue-400">
             {stats.total}
           </div>
           <div className="stat-label text-xs text-[var(--muted)]">
@@ -259,7 +307,7 @@ const AttendanceRequests = () => {
             <div className="absolute right-0 mt-2 w-64 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg overflow-hidden z-50">
               <div className="py-1">
                 <button
-                  onClick={() => openRequestModal("early_checkin")}
+                  onClick={() => openRequestModal("early_check_in")}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--surface2)] transition-colors"
                 >
                   <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-500 flex items-center justify-center">
@@ -272,7 +320,7 @@ const AttendanceRequests = () => {
                 </button>
                 
                 <button
-                  onClick={() => openRequestModal("late_checkin")}
+                  onClick={() => openRequestModal("late_check_in")}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--surface2)] transition-colors"
                 >
                   <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center">
@@ -321,9 +369,9 @@ const AttendanceRequests = () => {
           {["all", "pending", "approved", "rejected"].map((status) => (
             <button
               key={status}
-              onClick={() => setFilter({ ...filter, status })}
+              onClick={() => handleStatusFilter(status)}
               className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all whitespace-nowrap capitalize ${
-                filter.status === status
+                localFilter.status === status
                   ? "bg-green-500 text-white shadow-md"
                   : "bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface2)]"
               }`}
@@ -334,12 +382,12 @@ const AttendanceRequests = () => {
         </div>
       </div>
 
-      {/* Action Bar - Matching TaskReports style */}
+      {/* Action Bar */}
       <div className="files-actions flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
         <div className="entries-select flex items-center gap-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-full px-3.5 py-1.5 text-xs text-[var(--text-secondary)]">
           <span>Show entries</span>
           <select
-            value={pagination.perPage}
+            value={localPagination.perPage}
             onChange={handleEntriesChange}
             className="border-none outline-none bg-transparent font-semibold text-[var(--text)] cursor-pointer"
           >
@@ -354,7 +402,7 @@ const AttendanceRequests = () => {
             <FiSearch className="text-[var(--muted)] text-xs" />
             <input
               type="text"
-              value={filter.search}
+              value={localFilter.search}
               onChange={handleSearch}
               placeholder="Search by type, reason..."
               className="border-none outline-none bg-transparent text-xs text-[var(--text)] w-36 sm:w-44"
@@ -363,7 +411,7 @@ const AttendanceRequests = () => {
         </div>
       </div>
 
-      {/* Table - Matching TaskReports style */}
+      {/* Table */}
       <div className="attendance-requests-table-wrapper bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-x-auto shadow-sm">
         <table className="attendance-requests-table w-full border-collapse text-xs min-w-[900px]">
           <thead>
@@ -395,8 +443,11 @@ const AttendanceRequests = () => {
             {loading ? (
               <tr>
                 <td colSpan="7" className="text-center py-8 text-[var(--muted)]">
-                  Loading...
-                </td>
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                    Loading...
+                  </div>
+                 </td>
               </tr>
             ) : currentRequests.length === 0 ? (
               <tr>
@@ -405,7 +456,7 @@ const AttendanceRequests = () => {
                     <FiClock className="text-4xl text-[var(--muted)]" />
                     <p>No attendance requests found.</p>
                   </div>
-                </td>
+                 </td>
               </tr>
             ) : (
               currentRequests.map((request, idx) => (
@@ -415,7 +466,7 @@ const AttendanceRequests = () => {
                 >
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
                     {start + idx + 1}
-                  </td>
+                   </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)]">
                     <div className="flex items-center gap-2">
                       {getRequestTypeIcon(request.type)}
@@ -423,19 +474,19 @@ const AttendanceRequests = () => {
                         {getRequestTypeLabel(request.type)}
                       </span>
                     </div>
-                  </td>
+                   </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] whitespace-nowrap">
-                    {formatDate(request.date)}
-                  </td>
+                    {formatDate(request.request_date || request.date)}
+                   </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
-                    {formatTime(request.time)}
-                  </td>
+                    {formatTime(request.request_time || request.time)}
+                   </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] max-w-[200px] truncate" title={request.reason}>
-                    {request.reason}
-                  </td>
+                    {request.reason || "-"}
+                   </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)]">
                     <StatusBadge status={request.status} />
-                  </td>
+                   </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)]">
                     <button
                       onClick={() => handleViewDetails(request)}
@@ -444,46 +495,49 @@ const AttendanceRequests = () => {
                     >
                       <FiEye className="text-sm" />
                     </button>
-                  </td>
-                </tr>
+                   </td>
+                 </tr>
               ))
             )}
           </tbody>
-        </table>
+         </table>
       </div>
 
-      {/* Pagination - Matching TaskReports style */}
+      {/* Pagination */}
       {filteredRequests.length > 0 && (
         <div className="pagination-container flex flex-col sm:flex-row justify-between items-center gap-3 mt-5">
           <div className="text-xs text-[var(--muted)]">
             Showing {start + 1} to{" "}
-            {Math.min(start + pagination.perPage, filteredRequests.length)} of{" "}
+            {Math.min(start + localPagination.perPage, filteredRequests.length)} of{" "}
             {filteredRequests.length} entries
           </div>
           <div className="page-buttons flex gap-1.5 flex-wrap">
             <button
-              onClick={() => handlePageChange(pagination.currentPage - 1)}
-              disabled={pagination.currentPage === 1}
+              onClick={() => handlePageChange(localPagination.currentPage - 1)}
+              disabled={localPagination.currentPage === 1}
               className="w-9 h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text)]"
             >
               <FiChevronLeft className="mx-auto" />
             </button>
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => handlePageChange(i + 1)}
-                className={`w-9 h-9 rounded-lg border text-xs transition-all ${
-                  pagination.currentPage === i + 1
-                    ? "bg-blue-500 border-green-500 text-white"
-                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)]"
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
+            {[...Array(Math.min(totalPages, 10))].map((_, i) => {
+              const pageNum = i + 1;
+              return (
+                <button
+                  key={i}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`w-9 h-9 rounded-lg border text-xs transition-all ${
+                    localPagination.currentPage === pageNum
+                      ? "bg-green-500 border-green-500 text-white"
+                      : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--surface2)]"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
             <button
-              onClick={() => handlePageChange(pagination.currentPage + 1)}
-              disabled={pagination.currentPage === totalPages}
+              onClick={() => handlePageChange(localPagination.currentPage + 1)}
+              disabled={localPagination.currentPage === totalPages}
               className="w-9 h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text)]"
             >
               <FiChevronRight className="mx-auto" />
@@ -492,7 +546,7 @@ const AttendanceRequests = () => {
         </div>
       )}
 
-      {/* Details Modal - Updated to match theme */}
+      {/* Details Modal */}
       {showDetailsModal && selectedRequest && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1100] flex items-center justify-center p-4" onClick={() => setShowDetailsModal(false)}>
           <div className="bg-[var(--surface)] max-w-md w-full rounded-2xl p-6 shadow-xl border border-[var(--border)]" onClick={(e) => e.stopPropagation()}>
@@ -509,15 +563,15 @@ const AttendanceRequests = () => {
               </div>
               <div className="flex py-2 border-b border-[var(--border)]">
                 <span className="font-semibold text-[var(--text)] w-28">Date:</span>
-                <span className="text-[var(--text-secondary)]">{formatDate(selectedRequest.date)}</span>
+                <span className="text-[var(--text-secondary)]">{formatDate(selectedRequest.request_date || selectedRequest.date)}</span>
               </div>
               <div className="flex py-2 border-b border-[var(--border)]">
                 <span className="font-semibold text-[var(--text)] w-28">Time:</span>
-                <span className="text-[var(--text-secondary)]">{selectedRequest.time}</span>
+                <span className="text-[var(--text-secondary)]">{formatTime(selectedRequest.request_time || selectedRequest.time)}</span>
               </div>
               <div className="flex py-2 border-b border-[var(--border)]">
                 <span className="font-semibold text-[var(--text)] w-28">Reason:</span>
-                <span className="text-[var(--text-secondary)]">{selectedRequest.reason}</span>
+                <span className="text-[var(--text-secondary)]">{selectedRequest.reason || "-"}</span>
               </div>
               <div className="flex py-2 border-b border-[var(--border)]">
                 <span className="font-semibold text-[var(--text)] w-28">Status:</span>
@@ -525,7 +579,7 @@ const AttendanceRequests = () => {
               </div>
               <div className="flex py-2">
                 <span className="font-semibold text-[var(--text)] w-28">Submitted:</span>
-                <span className="text-[var(--text-secondary)]">{formatDate(selectedRequest.created_at)}</span>
+                <span className="text-[var(--text-secondary)]">{formatDateTime(selectedRequest.created_at)}</span>
               </div>
             </div>
             <div className="flex justify-end mt-6 pt-4 border-t border-[var(--border)]">
@@ -543,31 +597,19 @@ const AttendanceRequests = () => {
       {/* Modals */}
       <EarlyCheckinModal
         isOpen={showEarlyCheckin} 
-        onClose={() => {
-          setShowEarlyCheckin(false);
-          fetchAttendanceRequests();
-        }} 
+        onClose={handleModalClose}
       />
       <LateCheckinModal
         isOpen={showLateCheckin} 
-        onClose={() => {
-          setShowLateCheckin(false);
-          fetchAttendanceRequests();
-        }} 
+        onClose={handleModalClose}
       />
       <MissedPunchInModal 
         isOpen={showMissedPunchIn} 
-        onClose={() => {
-          setShowMissedPunchIn(false);
-          fetchAttendanceRequests();
-        }} 
+        onClose={handleModalClose}
       />
       <MissedPunchOutModal
         isOpen={showMissedPunchOut} 
-        onClose={() => {
-          setShowMissedPunchOut(false);
-          fetchAttendanceRequests();
-        }} 
+        onClose={handleModalClose}
       />
     </div>
   );

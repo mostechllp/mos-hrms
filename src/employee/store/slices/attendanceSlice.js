@@ -23,7 +23,7 @@ export const fetchDashboardData = createAsyncThunk(
   }
 );
 
-// ✅ Punch In
+// Punch In
 export const punchIn = createAsyncThunk(
   "attendance/punchIn",
   async (_, { rejectWithValue }) => {
@@ -55,7 +55,7 @@ export const punchIn = createAsyncThunk(
   }
 );
 
-// ✅ Punch Out
+// Punch Out
 export const punchOut = createAsyncThunk(
   "attendance/punchOut",
   async ({ tasks_completed, plan_tomorrow }, { rejectWithValue }) => {
@@ -114,7 +114,7 @@ const attendanceSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // ✅ Fetch Dashboard Data
+      // Fetch Dashboard Data
       .addCase(fetchDashboardData.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -134,7 +134,7 @@ const attendanceSlice = createSlice({
         state.error = action.payload;
       })
       
-      // ✅ Punch In
+      // Punch In
       .addCase(punchIn.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -150,7 +150,7 @@ const attendanceSlice = createSlice({
         state.error = action.payload;
       })
 
-      // ✅ Punch Out
+      // Punch Out
       .addCase(punchOut.pending, (state) => {
         state.loading = true;
         state.error = null;
