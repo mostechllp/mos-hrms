@@ -3,23 +3,30 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import { punchIn, punchOut, fetchDashboardData } from '../store/slices/attendanceSlice';
-import TaskReports from '../components/attendance/taskReports';
+import PunchOutModal from '../components/modals/PunchOutModal';
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 const Dashboard = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { isPunchedIn, punchInTime, loading, dashboardData } = useSelector((state) => state.attendance);
+  const { loading, dashboardData } = useSelector((state) => state.EmpAttendance);
+
+  // Use dashboard data as source of truth (not Redux isPunchedIn)
+  const todayAttendance = dashboardData?.today_attendance || {};
+  const isActuallyPunchedIn = todayAttendance.punched_in === true && todayAttendance.punched_out !== true;
+  const punchInTimeFromApi = todayAttendance.punch_in_time;
+  const canPunch = dashboardData?.can_punch ?? true;
 
   const [currentTime, setCurrentTime] = useState('');
   const [currentDate, setCurrentDate] = useState('');
   const [showPunchOutModal, setShowPunchOutModal] = useState(false);
   const [toast, setToast] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const chartRef = useRef(null);
 
   // Show toast notification
-  const showToast = (message, type = 'success') => {
+  const showToastMessage = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
@@ -38,22 +45,28 @@ const Dashboard = () => {
     };
     updateDateTime();
     const interval = setInterval(updateDateTime, 1000);
-
     return () => clearInterval(interval);
   }, []);
 
   // Handle Punch In/Out
   const handlePunch = async () => {
-    if (!isPunchedIn) {
+    if (!isActuallyPunchedIn) {
+      // Check if can punch in
+      if (!canPunch) {
+        showToastMessage("❌ You cannot punch in at this time", "error");
+        return;
+      }
+      
       // Punch In
+      setIsSubmitting(true);
       const result = await dispatch(punchIn());
+      setIsSubmitting(false);
 
       if (punchIn.fulfilled.match(result)) {
-        showToast("✅ Punched in successfully!", "success");
-        // Refresh dashboard data after punch in
-        dispatch(fetchDashboardData());
+        showToastMessage("✅ Punched in successfully!", "success");
+        await dispatch(fetchDashboardData());
       } else {
-        showToast(result.payload || "❌ Punch in failed", "error");
+        showToastMessage(result.payload || "❌ Punch in failed", "error");
       }
     } else {
       // Open modal for Punch Out
@@ -63,21 +76,66 @@ const Dashboard = () => {
 
   // Handle Punch Out Submit
   const handlePunchOutSubmit = async (data) => {
+    setIsSubmitting(true);
     const result = await dispatch(punchOut(data));
+    setIsSubmitting(false);
 
     if (punchOut.fulfilled.match(result)) {
-      showToast("✅ Punched out successfully!", "success");
+      showToastMessage("✅ Punched out successfully!", "success");
       setShowPunchOutModal(false);
-      // Refresh dashboard data after punch out
-      dispatch(fetchDashboardData());
+      await dispatch(fetchDashboardData());
     } else {
-      showToast(result.payload || "❌ Punch out failed", "error");
+      showToastMessage(result.payload || "❌ Punch out failed", "error");
+    }
+  };
+
+  // Format punch time with proper timezone handling
+  const formatPunchTime = (time) => {
+    if (!time) return '—';
+    try {
+      // Parse the time string (assuming it's in UTC or server time)
+      let date;
+      
+      // If time is in HH:MM:SS format (just time, no date)
+      if (typeof time === 'string' && time.match(/^\d{2}:\d{2}:\d{2}$/)) {
+        // Create a date object with today's date and the given time
+        const now = new Date();
+        const [hours, minutes, seconds] = time.split(':');
+        date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(hours), parseInt(minutes), parseInt(seconds));
+      } 
+      // If time is a full datetime string
+      else if (typeof time === 'string' && time.includes('T')) {
+        date = new Date(time);
+      }
+      // If time is already a Date object
+      else if (time instanceof Date) {
+        date = time;
+      }
+      // Try parsing as string
+      else {
+        date = new Date(time);
+      }
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return time; // Return original if can't parse
+      }
+      
+      // Convert to local time and format
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return time;
     }
   };
 
   // Prepare chart data from attendance history
   const getChartData = () => {
-    if (!dashboardData?.attendance_history) {
+    if (!dashboardData?.attendance_history || dashboardData.attendance_history.length === 0) {
       return {
         labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
         datasets: [{
@@ -104,9 +162,9 @@ const Dashboard = () => {
       // Find attendance for this date
       const attendance = dashboardData.attendance_history.find(a => a.log_date === dateStr);
       if (attendance && attendance.punch_in && attendance.punch_out) {
-        const punchInTime = new Date(attendance.punch_in);
-        const punchOutTime = new Date(attendance.punch_out);
-        const hours = (punchOutTime - punchInTime) / (1000 * 60 * 60);
+        const punchInTimeDate = new Date(attendance.punch_in);
+        const punchOutTimeDate = new Date(attendance.punch_out);
+        const hours = (punchOutTimeDate - punchInTimeDate) / (1000 * 60 * 60);
         hoursWorked.push(Math.round(hours * 10) / 10);
       } else {
         hoursWorked.push(0);
@@ -151,13 +209,6 @@ const Dashboard = () => {
     },
   };
 
-  // Format punch time
-  const formatPunchTime = (time) => {
-    if (!time) return '—';
-    const date = new Date(time);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  };
-
   // Get employee name
   const getEmployeeName = () => {
     if (dashboardData?.employee) {
@@ -173,6 +224,44 @@ const Dashboard = () => {
     }
     return user?.role?.name || user?.role || 'Employee';
   };
+
+  // Determine if button should be disabled
+  const isButtonDisabled = () => {
+    if (loading || isSubmitting) return true;
+    
+    // If not punched in, check if can punch
+    if (!isActuallyPunchedIn && !canPunch) return true;
+    
+    return false;
+  };
+
+  // Get button text
+  const getButtonText = () => {
+    if (loading || isSubmitting) return 'Processing...';
+    return isActuallyPunchedIn ? 'Punch Out' : 'Punch In';
+  };
+
+  // Get status display
+  const getStatusDisplay = () => {
+    if (isActuallyPunchedIn) {
+      return { text: 'Punched In ✓', color: 'text-green-500' };
+    }
+    if (todayAttendance.punched_out === true) {
+      return { text: 'Punched Out ✓', color: 'text-blue-500' };
+    }
+    return { text: 'Not Punched In', color: 'text-red-500' };
+  };
+
+  const statusDisplay = getStatusDisplay();
+  const displayPunchTime = punchInTimeFromApi || todayAttendance.punch_in_time;
+
+  // Debug log to see what time we're getting
+  useEffect(() => {
+    if (displayPunchTime) {
+      console.log("Raw punch time from API:", displayPunchTime);
+      console.log("Formatted punch time:", formatPunchTime(displayPunchTime));
+    }
+  }, [displayPunchTime]);
 
   return (
     <div>
@@ -204,25 +293,25 @@ const Dashboard = () => {
           </div>
           <div className="punch-item text-center">
             <div className="punch-label text-xs text-[var(--muted)] mb-2">Punch In Time</div>
-            <div className={`punch-value text-2xl font-bold ${isPunchedIn ? 'text-green-500' : 'text-[var(--text)]'}`}>
-              {formatPunchTime(punchInTime || dashboardData?.today_attendance?.punch_in_time)}
+            <div className={`punch-value text-2xl font-bold ${isActuallyPunchedIn ? 'text-green-500' : 'text-[var(--text)]'}`}>
+              {formatPunchTime(displayPunchTime)}
             </div>
           </div>
           <div className="punch-item text-center">
             <div className="punch-label text-xs text-[var(--muted)] mb-2">Status</div>
-            <div className={`punch-value text-lg font-bold ${isPunchedIn ? 'text-green-500' : 'text-red-500'}`}>
-              {isPunchedIn ? 'Punched In ✓' : 'Not Punched In'}
-              {isPunchedIn && <span className="ml-2 text-xs animate-pulse">●</span>}
+            <div className={`punch-value text-lg font-bold ${statusDisplay.color}`}>
+              {statusDisplay.text}
+              {isActuallyPunchedIn && <span className="ml-2 text-xs animate-pulse">●</span>}
             </div>
           </div>
         </div>
         <button
           onClick={handlePunch}
-          disabled={loading || dashboardData?.can_punch === false}
+          disabled={isButtonDisabled()}
           className="punch-btn bg-green-500 border-none text-white py-3 px-8 rounded-full font-semibold text-sm cursor-pointer transition-all flex items-center gap-2 hover:bg-green-600 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <i className="fas fa-fingerprint"></i>
-          {loading ? 'Processing...' : (isPunchedIn ? 'Punch Out' : 'Punch In')}
+          {getButtonText()}
         </button>
       </div>
 
@@ -268,7 +357,7 @@ const Dashboard = () => {
       </div>
 
       {/* Recent Activity Section */}
-      {dashboardData?.attendance_history?.length > 0 && (
+      {dashboardData?.attendance_history && dashboardData.attendance_history.length > 0 && (
         <div className="recent-activity bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
           <h3 className="text-base font-semibold text-[var(--text)] mb-5 flex items-center gap-2">
             <i className="fas fa-history"></i> Recent Activity
@@ -292,10 +381,10 @@ const Dashboard = () => {
                     <tr key={index} className="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors">
                       <td className="py-3 px-4 text-[var(--text)]">{attendance.log_date}</td>
                       <td className="py-3 px-4 text-[var(--text)]">
-                        {attendance.punch_in ? new Date(attendance.punch_in).toLocaleTimeString() : '-'}
+                        {attendance.punch_in ? formatPunchTime(attendance.punch_in) : '-'}
                       </td>
                       <td className="py-3 px-4 text-[var(--text)]">
-                        {attendance.punch_out ? new Date(attendance.punch_out).toLocaleTimeString() : '-'}
+                        {attendance.punch_out ? formatPunchTime(attendance.punch_out) : '-'}
                       </td>
                       <td className="py-3 px-4 text-[var(--text)] font-semibold">
                         {hours !== '-' ? `${hours} hrs` : '-'}
@@ -310,11 +399,11 @@ const Dashboard = () => {
       )}
 
       {/* Punch Out Modal */}
-      <TaskReports
+      <PunchOutModal
         isOpen={showPunchOutModal}
         onClose={() => setShowPunchOutModal(false)}
         onSubmit={handlePunchOutSubmit}
-        loading={loading}
+        loading={isSubmitting}
       />
 
       {/* Toast Notification */}
