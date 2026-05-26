@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { showToast } from '../../components/common/Toast';
 import { fetchEmployeeById } from '@admin/store/slices/employeeSlice';
-import { fetchLeaveTypes, updateLeaveAllocation } from '@admin/store/slices/LeaveSlice';
+import { fetchLeaveTypes, fetchLeaveBalances, updateLeaveAllocation } from '@admin/store/slices/LeaveSlice';
 
 const EditLeaveAllocation = () => {
   const { id } = useParams();
@@ -15,14 +15,14 @@ const EditLeaveAllocation = () => {
   const [updating, setUpdating] = useState(false);
   const [leaveBalances, setLeaveBalances] = useState({});
   const [photoError, setPhotoError] = useState(false);
+  const [fetchingBalances, setFetchingBalances] = useState(true);
   
-  console.log("Employee: ", currentEmployee)
+  console.log("Employee: ", currentEmployee);
 
   // Helper function to get employee photo URL
   const getEmployeePhoto = () => {
     if (!currentEmployee) return null;
     
-    // Check multiple possible photo fields
     const photoValue = 
       currentEmployee.avatar ||
       currentEmployee.avatar_path ||
@@ -33,13 +33,11 @@ const EditLeaveAllocation = () => {
     
     if (!photoValue || photoError) return null;
     
-    // Handle object type avatar
     if (typeof photoValue === "object" && photoValue.path) {
       const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
       return `${baseUrl}/storage/${photoValue.path}`;
     }
     
-    // Handle string paths
     if (typeof photoValue === "string") {
       if (photoValue.startsWith("/tmp/")) {
         const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
@@ -56,6 +54,7 @@ const EditLeaveAllocation = () => {
     return null;
   };
 
+  // Fetch employee and leave types
   useEffect(() => {
     if (id) {
       dispatch(fetchEmployeeById(id));
@@ -63,43 +62,79 @@ const EditLeaveAllocation = () => {
     }
   }, [dispatch, id]);
 
+  // Fetch leave balances for this specific employee
   useEffect(() => {
-    if (currentEmployee && leaveTypes.length > 0) {
-      const initialAllocs = {};
-      
-      // Map leave allocations by leave_type_id
-      currentEmployee.leave_allocations?.forEach(alloc => {
-        const leaveTypeId = alloc.leave_type_id || alloc.leave_type?.id;
-        if (leaveTypeId) {
-          initialAllocs[leaveTypeId] = alloc.allocated || alloc.allocated_days || 0;
+    const fetchBalances = async () => {
+      if (id && leaveTypes.length > 0) {
+        setFetchingBalances(true);
+        try {
+          const result = await dispatch(fetchLeaveBalances({ employee_id: parseInt(id) })).unwrap();
+          console.log("Fetched leave balances:", result);
+          
+          // Initialize allocations object
+          const initialAllocs = {};
+          const balances = {};
+          
+          // Handle different response structures
+          let allocationsData = [];
+          
+          if (result && result.allocations) {
+            // If result has allocations object
+            allocationsData = Object.values(result.allocations);
+          } else if (result && Array.isArray(result)) {
+            allocationsData = result;
+          } else if (result && result.data && Array.isArray(result.data)) {
+            allocationsData = result.data;
+          }
+          
+          console.log("Processed allocations data:", allocationsData);
+          
+          // Populate allocations and balances
+          allocationsData.forEach(alloc => {
+            const leaveTypeId = alloc.leave_type_id || alloc.leave_type?.id;
+            if (leaveTypeId) {
+              // Get allocated days (handle different field names)
+              const allocatedDays = parseFloat(alloc.allocated_days || alloc.allocated || 0);
+              const usedDays = parseFloat(alloc.used || 0);
+              
+              initialAllocs[leaveTypeId] = allocatedDays;
+              
+              balances[leaveTypeId] = {
+                allocated: allocatedDays,
+                used: usedDays,
+                remaining: allocatedDays - usedDays
+              };
+            }
+          });
+          
+          // Set default 0 for leave types without allocations
+          leaveTypes.forEach(type => {
+            if (!initialAllocs[type.id]) {
+              initialAllocs[type.id] = 0;
+            }
+          });
+          
+          console.log("Final allocations to display:", initialAllocs);
+          console.log("Final balances:", balances);
+          
+          setAllocations(initialAllocs);
+          setLeaveBalances(balances);
+        } catch (error) {
+          console.error("Failed to fetch leave balances:", error);
+          // Initialize with zeros if fetch fails
+          const defaultAllocs = {};
+          leaveTypes.forEach(type => {
+            defaultAllocs[type.id] = 0;
+          });
+          setAllocations(defaultAllocs);
+        } finally {
+          setFetchingBalances(false);
         }
-      });
-      
-      // Set allocations for all leave types (with 0 for those without allocations)
-      leaveTypes.forEach(type => {
-        if (!initialAllocs[type.id]) {
-          initialAllocs[type.id] = 0;
-        }
-      });
-      
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setAllocations(initialAllocs);
-      
-      // Set leave balances
-      const balances = {};
-      currentEmployee.leave_allocations?.forEach(alloc => {
-        const leaveTypeId = alloc.leave_type_id || alloc.leave_type?.id;
-        if (leaveTypeId) {
-          balances[leaveTypeId] = {
-            allocated: alloc.allocated || alloc.allocated_days || 0,
-            used: alloc.used || 0,
-            remaining: (alloc.allocated || alloc.allocated_days || 0) - (alloc.used || 0)
-          };
-        }
-      });
-      setLeaveBalances(balances);
-    }
-  }, [currentEmployee, leaveTypes]);
+      }
+    };
+    
+    fetchBalances();
+  }, [dispatch, id, leaveTypes]);
 
   const handleAllocationChange = (leaveTypeId, value) => {
     const numValue = parseInt(value) || 0;
@@ -119,6 +154,8 @@ const EditLeaveAllocation = () => {
         allocationsData[leaveTypeId] = allocated;
       });
       
+      console.log("Saving allocations:", allocationsData);
+      
       // Send single request with all allocations
       const result = await dispatch(updateLeaveAllocation({
         employee_id: parseInt(id),
@@ -130,7 +167,8 @@ const EditLeaveAllocation = () => {
         navigate('/admin/leaves/allocations');
       }
     } catch (error) {
-      showToast(error || 'Failed to update allocations', 'error');
+      console.error("Update error:", error);
+      showToast(error?.message || 'Failed to update allocations', 'error');
     } finally {
       setUpdating(false);
     }
@@ -149,7 +187,8 @@ const EditLeaveAllocation = () => {
     return balance?.used || 0;
   };
 
-  if (loading || !currentEmployee || leaveTypes.length === 0) {
+  // Show loading state while fetching data
+  if (loading || fetchingBalances || !currentEmployee || leaveTypes.length === 0) {
     return (
       <div className="w-full px-4 md:px-6">
         <div className="flex justify-center items-center h-64">
@@ -200,7 +239,6 @@ const EditLeaveAllocation = () => {
           
           {/* Profile Section with Photo */}
           <div className="flex items-center gap-3 mb-4">
-            {/* Profile Photo */}
             {photoUrl ? (
               <img
                 src={photoUrl}
@@ -210,7 +248,6 @@ const EditLeaveAllocation = () => {
               />
             ) : null}
             
-            {/* Fallback Initials Avatar */}
             {(!photoUrl || photoError) && (
               <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-sm">
                 {employeeInitials || '?'}
@@ -289,6 +326,16 @@ const EditLeaveAllocation = () => {
                 return 'fas fa-calendar-alt';
               };
               
+              const currentAllocation = allocations[type.id] || 0;
+              const usedDays = getUsedDays(type.id);
+              const balance = getCurrentBalance(type.id);
+              
+              console.log(`Leave type ${type.name} (ID: ${type.id}):`, {
+                currentAllocation,
+                usedDays,
+                balance
+              });
+              
               return (
                 <div key={type.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
                   <div className="flex items-center gap-2 w-1/3">
@@ -300,7 +347,7 @@ const EditLeaveAllocation = () => {
                   <div className="w-20">
                     <input
                       type="number"
-                      value={allocations[type.id] || 0}
+                      value={currentAllocation}
                       onChange={(e) => handleAllocationChange(type.id, e.target.value)}
                       min="0"
                       className="w-full px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20"
@@ -309,13 +356,13 @@ const EditLeaveAllocation = () => {
                   </div>
                   <div className="w-24 text-right">
                     <span className="text-xs text-gray-500">
-                      Balance: <span className="font-medium text-green-600">{getCurrentBalance(type.id)}</span>
+                      Balance: <span className="font-medium text-green-600">{balance}</span>
                     </span>
                   </div>
-                  {getUsedDays(type.id) > 0 && (
+                  {usedDays > 0 && (
                     <div className="w-16 text-right">
                       <span className="text-xs text-gray-400">
-                        Used: {getUsedDays(type.id)}
+                        Used: {usedDays}
                       </span>
                     </div>
                   )}

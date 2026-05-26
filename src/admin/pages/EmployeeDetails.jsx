@@ -14,10 +14,17 @@ import {
   FiArrowLeft,
   FiXCircle,
   FiCreditCard,
-  FiBookOpen,
   FiPhoneCall,
+  FiFlag,
+  FiHeart,
+  FiHome,
+  FiCalendar,
+  FiAward,
 } from "react-icons/fi";
-import { FaIdCard } from "react-icons/fa";
+import { FaIdCard, FaVenusMars, FaPassport } from "react-icons/fa";
+import { fetchOrganizations } from "../store/slices/organizationSlice";
+import { fetchCompanies } from "../store/slices/companySlice";
+import { fetchRoles } from "../store/slices/roleSlice";
 
 const EmployeeDetails = () => {
   const navigate = useNavigate();
@@ -27,64 +34,10 @@ const EmployeeDetails = () => {
   const [activeTab, setActiveTab] = useState("basic");
 
   const { currentEmployee } = useSelector((state) => state.employees || {});
-
-  useEffect(() => {
-    if (currentEmployee) {
-      console.log("EmployeeDetails currentEmployee:", currentEmployee);
-      console.log("Avatar value:", currentEmployee.avatar);
-      // eslint-disable-next-line react-hooks/immutability
-      console.log("Resolved photo URL:", getEmployeePhoto());
-    }
-  }, [currentEmployee]);
-
-  useEffect(() => {
-    if (currentEmployee) {
-      console.log("========== EMPLOYEE DETAILS DISPLAY DEBUG ==========");
-      console.log("Full employee object:", currentEmployee);
-
-      // Log step 3 fields specifically
-      console.log("Step 3 Fields from fetched data:");
-      console.log("  - visa_number:", currentEmployee.visa_number);
-      console.log("  - visa_type:", currentEmployee.visa_type);
-      console.log("  - visa_issued_date:", currentEmployee.visa_issued_date);
-      console.log("  - visa_expiry_date:", currentEmployee.visa_expiry_date);
-      console.log("  - labor_number:", currentEmployee.labor_number);
-      console.log("  - labor_issued_date:", currentEmployee.labor_issued_date);
-      console.log("  - labor_expiry_date:", currentEmployee.labor_expiry_date);
-      console.log("  - eid_number:", currentEmployee.eid_number);
-      console.log("  - eid_issued_date:", currentEmployee.eid_issued_date);
-      console.log("  - eid_expiry_date:", currentEmployee.eid_expiry_date);
-
-      // Check if fields exist but are null/undefined
-      const step3Fields = [
-        "visa_number",
-        "visa_type",
-        "visa_issued_date",
-        "visa_expiry_date",
-        "labor_number",
-        "labor_issued_date",
-        "labor_expiry_date",
-        "eid_number",
-        "eid_issued_date",
-        "eid_expiry_date",
-      ];
-
-      step3Fields.forEach((field) => {
-        if (
-          currentEmployee[field] === null ||
-          currentEmployee[field] === undefined
-        ) {
-          console.warn(`  ⚠️ Field ${field} is ${currentEmployee[field]}`);
-        } else if (currentEmployee[field] === "") {
-          console.warn(`  ⚠️ Field ${field} is empty string`);
-        } else {
-          console.log(`  ✓ Field ${field} has value:`, currentEmployee[field]);
-        }
-      });
-
-      console.log("========== EMPLOYEE DETAILS DISPLAY DEBUG END ==========");
-    }
-  }, [currentEmployee]);
+  const { organizations = [] } = useSelector(
+    (state) => state.organizations || {},
+  );
+  const { roles = [] } = useSelector((state) => state.roles || {});
 
   useEffect(() => {
     if (id) {
@@ -92,6 +45,27 @@ const EmployeeDetails = () => {
       fetchEmployeeData();
     }
   }, [dispatch, id]);
+
+  useEffect(() => {
+    // Fetch organizations, companies, and roles for display
+    dispatch(fetchOrganizations());
+    dispatch(fetchCompanies());
+    dispatch(fetchRoles());
+  }, [dispatch]);
+
+  const getOrganizationName = (organizationId) => {
+    if (!organizationId) return "N/A";
+    const org = organizations.find(
+      (org) => org.id === parseInt(organizationId),
+    );
+    return org?.name || "N/A";
+  };
+
+  const getRoleName = (roleId) => {
+    if (!roleId) return "N/A";
+    const role = roles.find((role) => role.id === parseInt(roleId));
+    return role?.name || `Role ID: ${roleId}`;
+  };
 
   const fetchEmployeeData = async () => {
     setLoading(true);
@@ -104,15 +78,6 @@ const EmployeeDetails = () => {
     }
   };
 
-  useEffect(() => {
-    if (currentEmployee) {
-      console.log("EmployeeDetails currentEmployee:", currentEmployee);
-      console.log("Avatar path:", currentEmployee.avatar_path);
-      console.log("Avatar value:", currentEmployee.avatar);
-      console.log("Resolved photo URL:", getEmployeePhoto());
-    }
-  }, [currentEmployee]);
-
   const getDocumentUrl = (documentPath) => {
     if (!documentPath) return null;
     const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
@@ -122,12 +87,8 @@ const EmployeeDetails = () => {
   const getPhotoUrl = (photoValue) => {
     if (!photoValue) return null;
 
-    // Handle temporary PHP paths
     if (photoValue.startsWith("/tmp/")) {
-      // You'll need to get the actual file from the backend
-      // This might require an additional API call or the backend should return a proper URL
       const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
-      // If your backend serves temp files
       return `${baseUrl}/storage/temp/${photoValue.replace("/tmp/", "")}`;
     }
 
@@ -147,7 +108,6 @@ const EmployeeDetails = () => {
   };
 
   const getEmployeePhoto = () => {
-    // Check all possible fields where avatar/photo might be stored
     const possiblePhotoFields = [
       currentEmployee?.avatar,
       currentEmployee?.avatar_path,
@@ -156,28 +116,21 @@ const EmployeeDetails = () => {
       currentEmployee?.photo,
       currentEmployee?.user?.avatar,
       currentEmployee?.user?.avatar_path,
-      currentEmployee?.user?.passport_size_photo,
-      currentEmployee?.user?.profile_photo,
     ];
 
     for (const fieldValue of possiblePhotoFields) {
       if (fieldValue && typeof fieldValue === "string") {
         const resolvedPhoto = getPhotoUrl(fieldValue);
-        if (resolvedPhoto) {
-          console.log("Found photo at:", resolvedPhoto);
-          return resolvedPhoto;
-        }
+        if (resolvedPhoto) return resolvedPhoto;
       }
     }
 
-    // If avatar is an object (as seen in your response), check if it has a path property
     if (currentEmployee?.avatar && typeof currentEmployee.avatar === "object") {
       if (currentEmployee.avatar.path) {
         return getPhotoUrl(currentEmployee.avatar.path);
       }
     }
 
-    console.log("No photo found in employee data");
     return null;
   };
 
@@ -185,20 +138,16 @@ const EmployeeDetails = () => {
     if (!dateValue) return "N/A";
 
     try {
-      // If it's already a Date object
       if (dateValue instanceof Date) {
-        return dateValue.toLocaleDateString("en-GB"); // DD/MM/YYYY format
+        return dateValue.toLocaleDateString("en-GB");
       }
 
-      // If it's a string
       if (typeof dateValue === "string") {
-        // Check if it's in YYYY-MM-DD format
         if (dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
           const [year, month, day] = dateValue.split("-");
-          return `${day}/${month}/${year}`; // Convert to DD/MM/YYYY for display
+          return `${day}/${month}/${year}`;
         }
 
-        // Try parsing as ISO string
         const date = new Date(dateValue);
         if (!isNaN(date.getTime())) {
           return date.toLocaleDateString("en-GB");
@@ -212,27 +161,21 @@ const EmployeeDetails = () => {
     }
   };
 
-  // Update the formatSpecialDays function
   const formatSpecialDays = (specialDays) => {
-    console.log("Formatting special days:", specialDays);
-
     if (!specialDays) return null;
 
     try {
       let days = specialDays;
 
-      // If it's a string, try to parse it
       if (typeof specialDays === "string") {
         try {
           days = JSON.parse(specialDays);
-          console.log("Parsed special days string:", days);
         } catch (e) {
           console.error("Failed to parse special days string:", e);
           return null;
         }
       }
 
-      // If it's an array
       if (Array.isArray(days) && days.length > 0) {
         return days.map((day) => ({
           name: day.name,
@@ -240,7 +183,6 @@ const EmployeeDetails = () => {
         }));
       }
 
-      // If special days is an object with the array inside
       if (days && days.special_days && Array.isArray(days.special_days)) {
         return days.special_days.map((day) => ({
           name: day.name,
@@ -255,9 +197,16 @@ const EmployeeDetails = () => {
     }
   };
 
+  // Check if employee is skilled
+  const isSkilled = () => {
+    return (
+      currentEmployee?.is_skilled === 1 || currentEmployee?.is_skilled === true
+    );
+  };
+
   const tabs = [
     { id: "basic", label: "Basic Info", icon: <FiUser /> },
-    { id: "passport", label: "Passport", icon: <FiBookOpen /> },
+    { id: "passport", label: "Passport", icon: <FaPassport /> },
     { id: "visa", label: "Visa & Labor", icon: <FiCreditCard /> },
     { id: "eid", label: "EID", icon: <FaIdCard /> },
     { id: "contact", label: "Contact", icon: <FiPhoneCall /> },
@@ -283,16 +232,21 @@ const EmployeeDetails = () => {
     { key: "passport_id_page", label: "Passport ID", icon: "fas fa-id-card" },
     { key: "visa_page", label: "Visa Page", icon: "fas fa-file-contract" },
     { key: "labor_card", label: "Labor Card", icon: "fas fa-id-card" },
-    { key: "eid_1st_page", label: "EID 1st Page", icon: "fas fa-id-card" },
-    { key: "eid_2nd_page", label: "EID 2nd Page", icon: "fas fa-id-card" },
+    {
+      key: "labor_contract",
+      label: "Labor Contract",
+      icon: "fas fa-file-signature",
+    },
+    { key: "eid_1st_page", label: "EID Front Side", icon: "fas fa-id-card" },
+    { key: "eid_2nd_page", label: "EID Back Side", icon: "fas fa-id-card" },
     {
       key: "educational_1st_page",
-      label: "Educational Certificate 1",
+      label: "Educational Certificate (Front)",
       icon: "fas fa-graduation-cap",
     },
     {
       key: "educational_2nd_page",
-      label: "Educational Certificate 2",
+      label: "Educational Certificate (Back)",
       icon: "fas fa-graduation-cap",
     },
     {
@@ -417,6 +371,11 @@ const EmployeeDetails = () => {
                   <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
                     ID: {currentEmployee.employee_id}
                   </span>
+                  {isSkilled() && (
+                    <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                      <FiAward className="inline mr-1" /> Skilled
+                    </span>
+                  )}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-4 justify-center md:justify-start text-sm text-gray-600">
                   <div className="flex items-center gap-1">
@@ -494,19 +453,27 @@ const EmployeeDetails = () => {
                         {currentEmployee.user?.type || "N/A"}
                       </p>
                     </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                        Employee Category
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1">
+                        {isSkilled() ? "Skilled" : "Unskilled"}
+                      </p>
+                    </div>
                   </div>
                   <div className="space-y-4">
                     <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Gender
+                      <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                        <FaVenusMars /> Gender
                       </label>
                       <p className="text-gray-800 font-medium mt-1 capitalize">
                         {currentEmployee.gender || "N/A"}
                       </p>
                     </div>
                     <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Date of Birth
+                      <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                        <FiCalendar /> Date of Birth
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
                         {currentEmployee.dob
@@ -515,8 +482,8 @@ const EmployeeDetails = () => {
                       </p>
                     </div>
                     <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Joining Date
+                      <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                        <FiCalendar /> Joining Date
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
                         {currentEmployee.joining_date
@@ -525,36 +492,28 @@ const EmployeeDetails = () => {
                       </p>
                     </div>
                     <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Special Days
+                      <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                        <FiFlag /> Nationality
                       </label>
-                      <div className="mt-2 space-y-2">
-                        {(() => {
-                          const formattedSpecialDays = formatSpecialDays(
-                            currentEmployee.special_days,
-                          );
-                          if (
-                            !formattedSpecialDays ||
-                            formattedSpecialDays.length === 0
-                          ) {
-                            return (
-                              <p className="text-gray-800 font-medium">N/A</p>
-                            );
-                          }
-                          return formattedSpecialDays.map((day, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center gap-2 text-gray-800"
-                            >
-                              <span className="inline-flex items-center justify-center w-6 h-6 bg-green-100 text-green-600 rounded-full text-xs font-semibold">
-                                {index + 1}
-                              </span>
-                              <span className="font-medium">{day.name}:</span>
-                              <span className="text-gray-600">{day.date}</span>
-                            </div>
-                          ));
-                        })()}
-                      </div>
+                      <p className="text-gray-800 font-medium mt-1">
+                        {currentEmployee.nationality || "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                        <FiHeart /> Marital Status
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1 capitalize">
+                        {currentEmployee.marital_status || "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                        Dependents
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1">
+                        {currentEmployee.dependents || "0"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -567,12 +526,34 @@ const EmployeeDetails = () => {
                   <div className="space-y-4">
                     <div className="border-b border-gray-100 pb-3">
                       <label className="text-xs text-gray-500 uppercase tracking-wide">
+                        Organization
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1">
+                        {getOrganizationName(
+                          currentEmployee.user?.organization_id,
+                        )}
+                      </p>
+                    </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide">
                         Company
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.user?.company?.company_name || "N/A"}
+                        {currentEmployee.user?.company?.company_name ||
+                          currentEmployee.user?.company?.name ||
+                          "N/A"}
                       </p>
                     </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                        Trade License Type
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1 capitalize">
+                        {currentEmployee.user?.company?.trade_license || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
                     <div className="border-b border-gray-100 pb-3">
                       <label className="text-xs text-gray-500 uppercase tracking-wide">
                         Designation
@@ -581,8 +562,6 @@ const EmployeeDetails = () => {
                         {currentEmployee.user?.designation?.name || "N/A"}
                       </p>
                     </div>
-                  </div>
-                  <div className="space-y-4">
                     <div className="border-b border-gray-100 pb-3">
                       <label className="text-xs text-gray-500 uppercase tracking-wide">
                         Department
@@ -591,7 +570,61 @@ const EmployeeDetails = () => {
                         {currentEmployee.user?.department?.name || "N/A"}
                       </p>
                     </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                        Role
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1">
+                        {getRoleName(currentEmployee.user?.role_id)}
+                      </p>
+                    </div>
                   </div>
+                </div>
+
+                {/* Special Days Section */}
+                <h3 className="text-lg font-semibold text-gray-800 mt-6 mb-4 flex items-center gap-2">
+                  <FiHeart className="text-green-500" /> Special Days
+                </h3>
+                <div className="border-t border-gray-100 pt-4">
+                  {(() => {
+                    const formattedSpecialDays = formatSpecialDays(
+                      currentEmployee.special_days,
+                    );
+                    if (
+                      !formattedSpecialDays ||
+                      formattedSpecialDays.length === 0
+                    ) {
+                      return (
+                        <p className="text-gray-600">
+                          No special days recorded
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {formattedSpecialDays.map((day, index) => (
+                          <div
+                            key={index}
+                            className="bg-gray-50 rounded-lg p-3 flex items-center gap-3"
+                          >
+                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                              <span className="text-green-600 font-semibold text-sm">
+                                {index + 1}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-800">
+                                {day.name}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {day.date}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -600,7 +633,7 @@ const EmployeeDetails = () => {
             {activeTab === "passport" && (
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <FiBookOpen className="text-green-500" /> Passport Details
+                  <FaPassport className="text-green-500" /> Passport Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
@@ -622,6 +655,44 @@ const EmployeeDetails = () => {
                     </div>
                     <div className="border-b border-gray-100 pb-3">
                       <label className="text-xs text-gray-500 uppercase tracking-wide">
+                        Issued From
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1">
+                        {currentEmployee.passport_issued_from || "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                        Issued Date
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1">
+                        {currentEmployee.passport_issued_date
+                          ? formatDate(currentEmployee.passport_issued_date)
+                          : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                        Expiry Date
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1">
+                        {currentEmployee.passport_expiry_date
+                          ? formatDate(currentEmployee.passport_expiry_date)
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                        Place of Birth
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1">
+                        {currentEmployee.place_of_birth || "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide">
                         Father's Name
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
@@ -637,53 +708,11 @@ const EmployeeDetails = () => {
                       </p>
                     </div>
                   </div>
-                  <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Place of Birth
-                      </label>
-                      <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.place_of_birth || "N/A"}
-                      </p>
-                    </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Issued From
-                      </label>
-                      <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.passport_issued_from || "N/A"}
-                      </p>
-                    </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Issued Date
-                      </label>
-                      <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.passport_issued_date
-                          ? new Date(
-                              currentEmployee.passport_issued_date,
-                            ).toLocaleDateString()
-                          : "N/A"}
-                      </p>
-                    </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Expiry Date
-                      </label>
-                      <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.passport_expiry_date
-                          ? new Date(
-                              currentEmployee.passport_expiry_date,
-                            ).toLocaleDateString()
-                          : "N/A"}
-                      </p>
-                    </div>
-                  </div>
                 </div>
                 <div className="mt-6">
                   <div className="border-b border-gray-100 pb-3">
-                    <label className="text-xs text-gray-500 uppercase tracking-wide">
-                      Address
+                    <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                      <FiHome /> Address
                     </label>
                     <p className="text-gray-800 font-medium mt-1">
                       {currentEmployee.address || "N/A"}
@@ -703,6 +732,14 @@ const EmployeeDetails = () => {
                   <div className="space-y-4">
                     <div className="border-b border-gray-100 pb-3">
                       <label className="text-xs text-gray-500 uppercase tracking-wide">
+                        Visa Type
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1 capitalize">
+                        {currentEmployee.visa_type?.replace("_", " ") || "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide">
                         Visa Number
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
@@ -715,9 +752,7 @@ const EmployeeDetails = () => {
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
                         {currentEmployee.visa_issued_date
-                          ? new Date(
-                              currentEmployee.visa_issued_date,
-                            ).toLocaleDateString()
+                          ? formatDate(currentEmployee.visa_issued_date)
                           : "N/A"}
                       </p>
                     </div>
@@ -727,9 +762,7 @@ const EmployeeDetails = () => {
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
                         {currentEmployee.visa_expiry_date
-                          ? new Date(
-                              currentEmployee.visa_expiry_date,
-                            ).toLocaleDateString()
+                          ? formatDate(currentEmployee.visa_expiry_date)
                           : "N/A"}
                       </p>
                     </div>
@@ -749,9 +782,7 @@ const EmployeeDetails = () => {
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
                         {currentEmployee.labor_issued_date
-                          ? new Date(
-                              currentEmployee.labor_issued_date,
-                            ).toLocaleDateString()
+                          ? formatDate(currentEmployee.labor_issued_date)
                           : "N/A"}
                       </p>
                     </div>
@@ -761,9 +792,7 @@ const EmployeeDetails = () => {
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
                         {currentEmployee.labor_expiry_date
-                          ? new Date(
-                              currentEmployee.labor_expiry_date,
-                            ).toLocaleDateString()
+                          ? formatDate(currentEmployee.labor_expiry_date)
                           : "N/A"}
                       </p>
                     </div>
@@ -794,9 +823,7 @@ const EmployeeDetails = () => {
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
                         {currentEmployee.eid_issued_date
-                          ? new Date(
-                              currentEmployee.eid_issued_date,
-                            ).toLocaleDateString()
+                          ? formatDate(currentEmployee.eid_issued_date)
                           : "N/A"}
                       </p>
                     </div>
@@ -806,36 +833,8 @@ const EmployeeDetails = () => {
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
                         {currentEmployee.eid_expiry_date
-                          ? new Date(
-                              currentEmployee.eid_expiry_date,
-                            ).toLocaleDateString()
+                          ? formatDate(currentEmployee.eid_expiry_date)
                           : "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Dependents
-                      </label>
-                      <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.dependents || "0"}
-                      </p>
-                    </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Nationality
-                      </label>
-                      <p className="text-gray-800 font-medium mt-1">
-                        {currentEmployee.nationality || "N/A"}
-                      </p>
-                    </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Marital Status
-                      </label>
-                      <p className="text-gray-800 font-medium mt-1 capitalize">
-                        {currentEmployee.marital_status || "N/A"}
                       </p>
                     </div>
                   </div>
@@ -869,7 +868,7 @@ const EmployeeDetails = () => {
                     </div>
                     <div className="border-b border-gray-100 pb-3">
                       <label className="text-xs text-gray-500 uppercase tracking-wide">
-                        Company Mobile
+                        Company Mobile Number
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
                         {currentEmployee.company_mobile_number || "N/A"}
@@ -912,6 +911,24 @@ const EmployeeDetails = () => {
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <FiFileText className="text-green-500" /> Employee Documents
                 </h3>
+
+                {/* Avatar/Photo Document */}
+                {(currentEmployee.avatar || currentEmployee.avatar_path) && (
+                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-semibold text-gray-700 mb-3">
+                      Profile Photo
+                    </h4>
+                    <a
+                      href={getEmployeePhoto()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                      <FiDownload /> View Profile Photo
+                    </a>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {documentFields.map((doc) => {
                     const documentPath = currentEmployee[doc.key];
