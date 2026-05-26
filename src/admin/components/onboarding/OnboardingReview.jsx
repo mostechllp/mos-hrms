@@ -223,7 +223,7 @@ const OnboardingReview = () => {
       if (designation_id) body.append("designation_id", String(parseInt(designation_id)));
       body.append("role_id", String(parseInt(role_id)));
       body.append("type", "employee");
-      body.append("status", "active");
+      body.append("status", "onboarding");
       body.append("address", employeeDetails.address || "");
       body.append("basic_salary", employeeDetails.basicSalary || "");
       body.append("other_allowance", employeeDetails.otherAllowance || "0");
