@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Laptop, AlertTriangle, Check, ArrowRight, ShieldAlert } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { showToast } from "../components/common/Toast";
+import OffboardingHeader from "../components/offboarding/OffboardingHeader";
 
 const AssetReturn = () => {
   const navigate = useNavigate();
@@ -50,10 +51,8 @@ const AssetReturn = () => {
     <div className="min-h-screen bg-gray-50/30 dark:bg-gray-900/40 p-4 sm:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
 
-        {/* Breadcrumb row */}
-        <div className="w-full bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200/50 dark:border-gray-700/50 rounded-lg px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
-          Screen 4 — Asset Return
-        </div>
+        {/* SaaS Offboarding Header */}
+        <OffboardingHeader currentStep={4} />
 
         {/* Main Content Card */}
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-soft p-6 sm:p-8 space-y-8">

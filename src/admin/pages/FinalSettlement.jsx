@@ -2,6 +2,7 @@ import React from "react";
 import { Info, Check, X, Calculator, ArrowRight, DollarSign } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { showToast } from "../components/common/Toast";
+import OffboardingHeader from "../components/offboarding/OffboardingHeader";
 
 const FinalSettlement = () => {
   const navigate = useNavigate();
@@ -9,7 +10,7 @@ const FinalSettlement = () => {
   const handleApprove = () => {
     showToast("Final settlement approved successfully", "success");
     setTimeout(() => {
-      navigate("/admin/dashboard");
+      navigate("/admin/employees/letters-and-clearance");
     }, 1500);
   };
 
@@ -19,12 +20,10 @@ const FinalSettlement = () => {
 
   return (
     <div className="min-h-screen bg-gray-50/30 dark:bg-gray-900/40 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
 
-        {/* Breadcrumb row */}
-        <div className="w-full bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200/50 dark:border-gray-700/50 rounded-lg px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
-          Screen 6 — Gratuity & Full & Final Settlement
-        </div>
+        {/* SaaS Offboarding Header */}
+        <OffboardingHeader currentStep={6} />
 
         {/* Info Banner */}
         <div className="bg-blue-50 dark:bg-blue-950/30 border-l-4 border-blue-500 p-4 rounded-r-lg flex items-start gap-3 shadow-sm">

@@ -81,6 +81,7 @@ const OffboardingChecklist = lazy(() => import("./admin/pages/OffboardingCheckli
 const AssetReturn = lazy(() => import("./admin/pages/AssetReturn"));
 const ExitInterview = lazy(() => import("./admin/pages/ExitInterview"));
 const FinalSettlement = lazy(() => import("./admin/pages/FinalSettlement"));
+const LettersAndClearance = lazy(() => import("./admin/pages/LettersAndClearance"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -161,6 +162,7 @@ function App() {
           <Route path="employees/asset-return" element={<AssetReturn />} />
           <Route path="employees/exit-interview" element={<ExitInterview />} />
           <Route path="employees/final-settlement" element={<FinalSettlement />} />
+          <Route path="employees/letters-and-clearance" element={<LettersAndClearance />} />
           <Route path="employees/edit/:id" element={<EditEmployee />} />
           <Route path="employees/:id" element={<EmployeeDetails />} />
           <Route path="organizations" element={<Organizations />} />
