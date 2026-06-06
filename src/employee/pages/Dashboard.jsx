@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
@@ -9,6 +10,7 @@ ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 const Dashboard = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
   const { loading, dashboardData } = useSelector((state) => state.EmpAttendance);
 
@@ -23,6 +25,18 @@ const Dashboard = () => {
   const [showPunchOutModal, setShowPunchOutModal] = useState(false);
   const [toast, setToast] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tick, setTick] = useState(0);
+  const [isOnBreak, setIsOnBreak] = useState(localStorage.getItem('attendance-on-break') === 'true');
+  const [breakStartTime, setBreakStartTime] = useState(localStorage.getItem('attendance-break-start-time'));
+  const [totalBreakMs, setTotalBreakMs] = useState(parseInt(localStorage.getItem('attendance-total-break-ms') || '0', 10));
+  const [numberOfBreaks, setNumberOfBreaks] = useState(parseInt(localStorage.getItem('attendance-breaks-count') || '0', 10));
+  const [breakHistory, setBreakHistory] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('attendance-break-history')) || [];
+    } catch (e) {
+      return [];
+    }
+  });
   const chartRef = useRef(null);
 
   // Show toast notification
@@ -42,6 +56,7 @@ const Dashboard = () => {
       const now = new Date();
       setCurrentTime(now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
       setCurrentDate(now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
+      setTick(prev => prev + 1);
     };
     updateDateTime();
     const interval = setInterval(updateDateTime, 1000);
@@ -74,6 +89,40 @@ const Dashboard = () => {
     }
   };
 
+  const handleBreakToggle = () => {
+    if (!isOnBreak) {
+      // Start break
+      const nowStr = new Date().toISOString();
+      setIsOnBreak(true);
+      setBreakStartTime(nowStr);
+      setNumberOfBreaks(prev => {
+        const newCount = prev + 1;
+        localStorage.setItem('attendance-breaks-count', newCount.toString());
+        return newCount;
+      });
+      localStorage.setItem('attendance-on-break', 'true');
+      localStorage.setItem('attendance-break-start-time', nowStr);
+      showToastMessage("⏸️ Break Started", "success");
+    } else {
+      // End break
+      const breakStart = new Date(breakStartTime);
+      const breakEnd = new Date();
+      const diff = breakEnd - breakStart;
+      const newTotal = totalBreakMs + diff;
+      
+      const newHistory = [...breakHistory, { start: breakStartTime, end: breakEnd.toISOString(), durationMs: diff }];
+      setBreakHistory(newHistory);
+      localStorage.setItem('attendance-break-history', JSON.stringify(newHistory));
+
+      setIsOnBreak(false);
+      setTotalBreakMs(newTotal);
+      localStorage.setItem('attendance-on-break', 'false');
+      localStorage.setItem('attendance-total-break-ms', newTotal.toString());
+      localStorage.removeItem('attendance-break-start-time');
+      showToastMessage("▶️ Work Resumed", "success");
+    }
+  };
+
   // Handle Punch Out Submit
   const handlePunchOutSubmit = async (data) => {
     setIsSubmitting(true);
@@ -83,54 +132,71 @@ const Dashboard = () => {
     if (punchOut.fulfilled.match(result)) {
       showToastMessage("✅ Punched out successfully!", "success");
       setShowPunchOutModal(false);
+      
+      // Clear break state
+      setIsOnBreak(false);
+      setTotalBreakMs(0);
+      setNumberOfBreaks(0);
+      setBreakHistory([]);
+      localStorage.removeItem('attendance-on-break');
+      localStorage.removeItem('attendance-break-start-time');
+      localStorage.removeItem('attendance-total-break-ms');
+      localStorage.removeItem('attendance-breaks-count');
+      localStorage.removeItem('attendance-break-history');
+
       await dispatch(fetchDashboardData());
+      
+      // Redirect to Task Reports page
+      setTimeout(() => {
+        navigate('/employee/task-reports');
+      }, 1500);
     } else {
       showToastMessage(result.payload || "❌ Punch out failed", "error");
     }
   };
 
   // Format punch time with proper timezone handling
-  const formatPunchTime = (time) => {
-    if (!time) return '—';
+  const parsePunchTime = (time) => {
+    if (!time) return null;
     try {
-      // Parse the time string (assuming it's in UTC or server time)
-      let date;
-      
-      // If time is in HH:MM:SS format (just time, no date)
       if (typeof time === 'string' && time.match(/^\d{2}:\d{2}:\d{2}$/)) {
-        // Create a date object with today's date and the given time
         const now = new Date();
         const [hours, minutes, seconds] = time.split(':');
-        date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(hours), parseInt(minutes), parseInt(seconds));
-      } 
-      // If time is a full datetime string
-      else if (typeof time === 'string' && time.includes('T')) {
-        date = new Date(time);
+        // Backend sends time in UTC, so parse it as UTC
+        return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), parseInt(hours, 10), parseInt(minutes, 10), parseInt(seconds, 10)));
       }
-      // If time is already a Date object
-      else if (time instanceof Date) {
-        date = time;
+      if (typeof time === 'string' && time.includes('T')) {
+        // If no timezone indicator, assume UTC by appending Z
+        if (!time.match(/(Z|[+-]\d{2}:\d{2})$/)) {
+          return new Date(`${time}Z`);
+        }
+        return new Date(time);
       }
-      // Try parsing as string
-      else {
-        date = new Date(time);
+      if (typeof time === 'string' && time.includes(' ')) {
+        const isoTime = time.replace(' ', 'T');
+        // If no timezone indicator, assume UTC by appending Z
+        if (!isoTime.match(/(Z|[+-]\d{2}:\d{2})$/)) {
+          return new Date(`${isoTime}Z`);
+        }
+        return new Date(isoTime);
       }
-      
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        return time; // Return original if can't parse
+      if (time instanceof Date) {
+        return time;
       }
-      
-      // Convert to local time and format
-      return date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: true 
-      });
-    } catch (error) {
-      console.error('Error formatting time:', error);
-      return time;
+      return new Date(time);
+    } catch (e) {
+      return null;
     }
+  };
+
+  const formatPunchTime = (time) => {
+    const date = parsePunchTime(time);
+    if (!date || isNaN(date.getTime())) return time || '—';
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
   };
 
   // Prepare chart data from attendance history
@@ -162,10 +228,14 @@ const Dashboard = () => {
       // Find attendance for this date
       const attendance = dashboardData.attendance_history.find(a => a.log_date === dateStr);
       if (attendance && attendance.punch_in && attendance.punch_out) {
-        const punchInTimeDate = new Date(attendance.punch_in);
-        const punchOutTimeDate = new Date(attendance.punch_out);
-        const hours = (punchOutTimeDate - punchInTimeDate) / (1000 * 60 * 60);
-        hoursWorked.push(Math.round(hours * 10) / 10);
+        const punchInTimeDate = parsePunchTime(attendance.punch_in);
+        const punchOutTimeDate = parsePunchTime(attendance.punch_out);
+        if (punchInTimeDate && punchOutTimeDate && !isNaN(punchInTimeDate.getTime()) && !isNaN(punchOutTimeDate.getTime())) {
+          const hours = (punchOutTimeDate - punchInTimeDate) / (1000 * 60 * 60);
+          hoursWorked.push(Math.round(hours * 10) / 10);
+        } else {
+          hoursWorked.push(0);
+        }
       } else {
         hoursWorked.push(0);
       }
@@ -255,6 +325,58 @@ const Dashboard = () => {
   const statusDisplay = getStatusDisplay();
   const displayPunchTime = punchInTimeFromApi || todayAttendance.punch_in_time;
 
+  const getDuration = () => {
+    if (!displayPunchTime) return '00h 00m 00s';
+    
+    const startTime = parsePunchTime(displayPunchTime);
+    if (!startTime || isNaN(startTime.getTime())) return '00h 00m 00s';
+
+    let endTime;
+    if (isActuallyPunchedIn) {
+      if (isOnBreak && breakStartTime) {
+        endTime = new Date(breakStartTime); // Freeze timer at break start
+      } else {
+        endTime = new Date();
+      }
+    } else if (todayAttendance.punched_out === true) {
+      const outTime = todayAttendance.punch_out_time || todayAttendance.punch_out;
+      if (outTime) {
+        endTime = parsePunchTime(outTime);
+      } else {
+        return '00h 00m 00s';
+      }
+    } else {
+      return '00h 00m 00s';
+    }
+
+    if (!endTime || isNaN(endTime.getTime())) return '00h 00m 00s';
+
+    let diff = Math.max(0, endTime - startTime);
+    diff -= totalBreakMs; // subtract accumulated break time
+    diff = Math.max(0, diff);
+
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+
+    return `${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+  };
+
+  const formatBreakDuration = (ms) => {
+    let currentTotalMs = ms;
+    if (isOnBreak && breakStartTime) {
+      currentTotalMs += Math.max(0, new Date() - new Date(breakStartTime));
+    }
+    
+    if (currentTotalMs <= 0) return '00h 00m 00s';
+    
+    const h = Math.floor(currentTotalMs / 3600000);
+    const m = Math.floor((currentTotalMs % 3600000) / 60000);
+    const s = Math.floor((currentTotalMs % 60000) / 1000);
+
+    return `${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+  };
+
   // Debug log to see what time we're getting
   useEffect(() => {
     if (displayPunchTime) {
@@ -298,22 +420,99 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="punch-item text-center">
+            <div className="punch-label text-xs text-[var(--muted)] mb-2">Duration</div>
+            <div className={`punch-value text-2xl font-bold text-blue-500`}>
+              {getDuration()}
+            </div>
+          </div>
+          <div className="punch-item text-center">
             <div className="punch-label text-xs text-[var(--muted)] mb-2">Status</div>
-            <div className={`punch-value text-lg font-bold ${statusDisplay.color}`}>
-              {statusDisplay.text}
-              {isActuallyPunchedIn && <span className="ml-2 text-xs animate-pulse">●</span>}
+            <div className={`punch-value text-lg font-bold ${isOnBreak ? 'text-amber-500' : statusDisplay.color}`}>
+              {isOnBreak ? 'On Break ☕' : statusDisplay.text}
+              {isActuallyPunchedIn && !isOnBreak && <span className="ml-2 text-xs animate-pulse">●</span>}
             </div>
           </div>
         </div>
-        <button
-          onClick={handlePunch}
-          disabled={isButtonDisabled()}
-          className="punch-btn bg-green-500 border-none text-white py-3 px-8 rounded-full font-semibold text-sm cursor-pointer transition-all flex items-center gap-2 hover:bg-green-600 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <i className="fas fa-fingerprint"></i>
-          {getButtonText()}
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          {isActuallyPunchedIn && (
+            <button
+              onClick={handleBreakToggle}
+              className={`break-btn border-none text-white py-3 px-6 rounded-full font-semibold text-sm cursor-pointer transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-md ${isOnBreak ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-500 hover:bg-blue-600'}`}
+            >
+              <i className={`fas ${isOnBreak ? 'fa-play' : 'fa-pause'}`}></i>
+              {isOnBreak ? 'Resume Work' : 'Take Break'}
+            </button>
+          )}
+          <button
+            onClick={handlePunch}
+            disabled={isButtonDisabled() || isOnBreak}
+            className={`punch-btn border-none text-white py-3 px-8 rounded-full font-semibold text-sm transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${isActuallyPunchedIn ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}
+          >
+            <i className="fas fa-fingerprint"></i>
+            {getButtonText()}
+          </button>
+        </div>
       </div>
+
+      {/* Break Details Card */}
+      {(numberOfBreaks > 0 || isOnBreak) && (
+        <div className="break-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 md:p-6 mb-7 flex flex-col gap-5">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-5 w-full">
+            <div className="flex items-center gap-4 w-full sm:w-auto justify-center sm:justify-start">
+              <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center text-xl">
+                <i className="fas fa-coffee"></i>
+              </div>
+              <div className="text-center sm:text-left">
+                <h3 className="text-base font-semibold text-[var(--text)]">Break Details</h3>
+                <p className="text-xs text-[var(--muted)]">Your break summary for today</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-8 md:gap-12 flex-wrap justify-center sm:justify-end flex-1 w-full sm:w-auto">
+              {isOnBreak && breakStartTime && (
+                <div className="break-stat text-center">
+                  <div className="text-xs text-[var(--muted)] mb-1">Started At</div>
+                  <div className="text-lg font-bold text-[var(--text)]">
+                    {new Date(breakStartTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              )}
+              <div className="break-stat text-center">
+                <div className="text-xs text-[var(--muted)] mb-1">Total Break Time</div>
+                <div className="text-xl font-bold text-amber-500">
+                  {formatBreakDuration(totalBreakMs)}
+                </div>
+              </div>
+              <div className="break-stat text-center">
+                <div className="text-xs text-[var(--muted)] mb-1">Breaks Taken</div>
+                <div className="text-xl font-bold text-[var(--text)]">
+                  {numberOfBreaks}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-[var(--border)] w-full text-sm">
+            <div className="font-semibold text-[var(--text)] mb-3 flex items-center gap-2">
+              <i className="fas fa-list-ul text-[var(--muted)]"></i> History
+            </div>
+            <div className="flex flex-col gap-2">
+              {breakHistory.map((b, i) => (
+                <div key={i} className="text-[var(--text)] flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--muted)]"></span>
+                  Break {i + 1}: {new Date(b.start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} - {new Date(b.end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} ({Math.round(b.durationMs / 60000)} min)
+                </div>
+              ))}
+              {isOnBreak && breakStartTime && (
+                <div className="text-amber-500 font-medium flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  Break {breakHistory.length + 1}: {new Date(breakStartTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} - Ongoing ({Math.floor((new Date() - new Date(breakStartTime)) / 60000)} min)
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-3 gap-5 mb-7">
@@ -374,8 +573,10 @@ const Dashboard = () => {
               </thead>
               <tbody>
                 {dashboardData.attendance_history.slice(0, 5).map((attendance, index) => {
-                  const hours = attendance.punch_in && attendance.punch_out
-                    ? ((new Date(attendance.punch_out) - new Date(attendance.punch_in)) / (1000 * 60 * 60)).toFixed(1)
+                  const pIn = parsePunchTime(attendance.punch_in);
+                  const pOut = parsePunchTime(attendance.punch_out);
+                  const hours = (pIn && pOut && !isNaN(pIn.getTime()) && !isNaN(pOut.getTime()))
+                    ? ((pOut - pIn) / (1000 * 60 * 60)).toFixed(1)
                     : '-';
                   return (
                     <tr key={index} className="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors">
