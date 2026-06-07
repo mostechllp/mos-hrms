@@ -133,6 +133,22 @@ export const uploadAttendanceFile = createAsyncThunk(
   }
 );
 
+export const createManualAttendance = createAsyncThunk(
+  "attendance/createManual",
+  async (data, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post(`/admin/attendance/manual`, data);
+      return response.data;
+    } catch (error) {
+      if (error.response?.data?.errors) {
+        const msgs = Object.values(error.response.data.errors).flat();
+        return rejectWithValue(msgs.join(", "));
+      }
+      return rejectWithValue(error.response?.data?.message || "Failed to create attendance");
+    }
+  }
+);
+
 export const fetchUploadStatus = createAsyncThunk(
   "attendance/fetchUploadStatus",
   async (id, { rejectWithValue }) => {

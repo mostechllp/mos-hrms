@@ -24,13 +24,6 @@ const AppSettingsTab = () => {
       route: "/admin/departments",
       color: "purple",
     },
-    {
-      title: "Leave Types",
-      description: "Configure leave categories and policies",
-      icon: "fas fa-calendar-alt",
-      route: "/admin/leaves/leave-types",
-      color: "orange",
-    },
   ];
 
   const getColorClasses = (color) => {
