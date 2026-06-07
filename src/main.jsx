@@ -11,7 +11,7 @@ import { Toaster } from "react-hot-toast";
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <Provider store={store}>
-      <BrowserRouter>
+      <BrowserRouter basename="/Mostech-HRMS">
         <LoadingProvider>
           <Toaster
             position="top-right"

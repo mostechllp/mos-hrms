@@ -90,6 +90,28 @@ const Dashboard = () => {
   const [pendingPunchSubmitting, setPendingPunchSubmitting] = useState(false);
   const chartRef = useRef(null);
 
+  // Helper function to format time in 12-hour format
+  const formatTo12Hour = (timeString) => {
+    if (!timeString) return "";
+    try {
+      // Parse time string (expected format: "HH:MM" or "HH:MM:SS")
+      let hours, minutes;
+      if (timeString.includes(":")) {
+        const parts = timeString.split(":");
+        hours = parseInt(parts[0], 10);
+        minutes = parts[1];
+      } else {
+        return timeString;
+      }
+      
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const hours12 = hours % 12 || 12;
+      return `${hours12}:${minutes} ${ampm}`;
+    } catch (e) {
+      return timeString;
+    }
+  };
+
   // Show toast notification
   const showToastMessage = (message, type = "success") => {
     setToast({ message, type });
@@ -102,29 +124,27 @@ const Dashboard = () => {
   }, [dispatch]);
 
   // Add to Dashboard component
-useEffect(() => {
-  const checkPendingPunchOut = async () => {
-    if (dashboardData?.pending_punch_out) {
-      // If API returns pending punch-out info
-      setPendingPunchDate(dashboardData.pending_punch_out.date);
-      setShowPendingModal(true);
-    } else if (!canPunch && !isActuallyPunchedIn && dashboardData?.error_message) {
-      // Check if the error message contains pending punch-out info
-      const errorMsg = dashboardData.error_message;
-      if (errorMsg.includes("pending punch-out")) {
-        const dateMatch = errorMsg.match(/(\d{4}-\d{2}-\d{2})/);
-        if (dateMatch) {
-          setPendingPunchDate(dateMatch[1]);
-          setShowPendingModal(true);
+  useEffect(() => {
+    const checkPendingPunchOut = async () => {
+      if (dashboardData?.pending_punch_out) {
+        setPendingPunchDate(dashboardData.pending_punch_out.date);
+        setShowPendingModal(true);
+      } else if (!canPunch && !isActuallyPunchedIn && dashboardData?.error_message) {
+        const errorMsg = dashboardData.error_message;
+        if (errorMsg.includes("pending punch-out")) {
+          const dateMatch = errorMsg.match(/(\d{4}-\d{2}-\d{2})/);
+          if (dateMatch) {
+            setPendingPunchDate(dateMatch[1]);
+            setShowPendingModal(true);
+          }
         }
       }
+    };
+    
+    if (dashboardData) {
+      checkPendingPunchOut();
     }
-  };
-  
-  if (dashboardData) {
-    checkPendingPunchOut();
-  }
-}, [dashboardData]);
+  }, [dashboardData]);
 
   // Update date and time
   useEffect(() => {
@@ -151,28 +171,24 @@ useEffect(() => {
   // Handle Punch In/Out
   const handlePunch = async () => {
     if (!isActuallyPunchedIn) {
-      // Check if can punch in
       if (!canPunch) {
         showToastMessage("❌ You cannot punch in at this time", "error");
         return;
       }
 
-      // Punch In
       setIsSubmitting(true);
       const result = await dispatch(punchIn());
       setIsSubmitting(false);
 
       if (punchIn.fulfilled.match(result)) {
-        showToastMessage("✅ Punched in successfully!", "success");
+        showToastMessage("Punched in successfully!", "success");
         await dispatch(fetchDashboardData());
       } else {
-        // Check if error is about pending punch-out
         const errorMsg = result.payload || "❌ Punch in failed";
         if (
           errorMsg.includes("pending punch-out") ||
           errorMsg.includes("forgot to punch out")
         ) {
-          // Extract the date from error message
           const dateMatch = errorMsg.match(/(\d{4}-\d{2}-\d{2})/);
           if (dateMatch) {
             setPendingPunchDate(dateMatch[1]);
@@ -185,61 +201,55 @@ useEffect(() => {
         }
       }
     } else {
-      // Open modal for Punch Out (today)
       setShowPunchOutModal(true);
     }
   };
 
   const handlePendingPunchOut = async (data) => {
-  setPendingPunchSubmitting(true);
+    setPendingPunchSubmitting(true);
 
-  // This punches out for the previous day (the pending date)
-  const result = await dispatch(
-    punchOut({
-      tasks_completed: data.tasks_completed,
-      plan_tomorrow: data.plan_tomorrow,
-      pending_works: data.pending_works || '' // Include pending works
-    }),
-  );
-
-  setPendingPunchSubmitting(false);
-
-  if (punchOut.fulfilled.match(result)) {
-    showToastMessage(
-      `✅ Successfully punched out for ${pendingPunchDate}! You can now punch in today.`,
-      "success",
+    const result = await dispatch(
+      punchOut({
+        tasks_completed: data.tasks_completed,
+        plan_tomorrow: data.plan_tomorrow,
+        pending_tasks: data.pending_tasks || ''
+      }),
     );
-    setShowPendingModal(false);
 
-    // Clear any break state
-    setIsOnBreak(false);
-    setTotalBreakMs(0);
-    setNumberOfBreaks(0);
-    setBreakHistory([]);
-    localStorage.removeItem("attendance-on-break");
-    localStorage.removeItem("attendance-break-start-time");
-    localStorage.removeItem("attendance-total-break-ms");
-    localStorage.removeItem("attendance-breaks-count");
-    localStorage.removeItem("attendance-break-history");
+    setPendingPunchSubmitting(false);
 
-    // Refresh dashboard data
-    await dispatch(fetchDashboardData());
+    if (punchOut.fulfilled.match(result)) {
+      showToastMessage(
+        `Successfully punched out for ${pendingPunchDate}! You can now punch in today.`,
+        "success",
+      );
+      setShowPendingModal(false);
 
-    // Now the user can punch in for today
-    setTimeout(() => {
-      showToastMessage("You can now punch in for today", "success");
-    }, 1000);
-  } else {
-    showToastMessage(
-      result.payload || "❌ Failed to complete pending punch out",
-      "error",
-    );
-  }
-};
+      setIsOnBreak(false);
+      setTotalBreakMs(0);
+      setNumberOfBreaks(0);
+      setBreakHistory([]);
+      localStorage.removeItem("attendance-on-break");
+      localStorage.removeItem("attendance-break-start-time");
+      localStorage.removeItem("attendance-total-break-ms");
+      localStorage.removeItem("attendance-breaks-count");
+      localStorage.removeItem("attendance-break-history");
+
+      await dispatch(fetchDashboardData());
+
+      setTimeout(() => {
+        showToastMessage("You can now punch in for today", "success");
+      }, 1000);
+    } else {
+      showToastMessage(
+        result.payload || "❌ Failed to complete pending punch out",
+        "error",
+      );
+    }
+  };
 
   const handleBreakToggle = () => {
     if (!isOnBreak) {
-      // Start break
       const nowStr = new Date().toISOString();
       setIsOnBreak(true);
       setBreakStartTime(nowStr);
@@ -252,7 +262,6 @@ useEffect(() => {
       localStorage.setItem("attendance-break-start-time", nowStr);
       showToastMessage("⏸️ Break Started", "success");
     } else {
-      // End break
       const breakStart = new Date(breakStartTime);
       const breakEnd = new Date();
       const diff = breakEnd - breakStart;
@@ -281,42 +290,49 @@ useEffect(() => {
     }
   };
 
-  // Handle Punch Out Submit
-  // Handle Punch Out Submit
-const handlePunchOutSubmit = async (data) => {
-  setIsSubmitting(true);
-  const result = await dispatch(punchOut({
-    tasks_completed: data.tasks_completed,
-    plan_tomorrow: data.plan_tomorrow,
-    pending_works: data.pending_works || '' // Include pending works
-  }));
-  setIsSubmitting(false);
+  const handlePunchOutSubmit = async (data) => {
+    console.group("🔍 PUNCH OUT SUBMIT DEBUG");
+    console.log("📤 Submitting punch out with data:", {
+      tasks_completed: data.tasks_completed,
+      plan_tomorrow: data.plan_tomorrow,
+      pending_tasks: data.pending_tasks || ''
+    });
+    
+    setIsSubmitting(true);
+    const result = await dispatch(punchOut({
+      tasks_completed: data.tasks_completed,
+      plan_tomorrow: data.plan_tomorrow,
+      pending_tasks: data.pending_tasks || ''
+    }));
+    
+    console.log("📥 Punch out result:", result);
+    console.groupEnd();
+    
+    setIsSubmitting(false);
 
-  if (punchOut.fulfilled.match(result)) {
-    showToastMessage("✅ Punched out successfully!", "success");
-    setShowPunchOutModal(false);
+    if (punchOut.fulfilled.match(result)) {
+      console.log("✅ Punch out successful! Response:", result.payload);
+      showToastMessage("Punched out successfully!", "success");
+      setShowPunchOutModal(false);
 
-    // Clear break state
-    setIsOnBreak(false);
-    setTotalBreakMs(0);
-    setNumberOfBreaks(0);
-    setBreakHistory([]);
-    localStorage.removeItem("attendance-on-break");
-    localStorage.removeItem("attendance-break-start-time");
-    localStorage.removeItem("attendance-total-break-ms");
-    localStorage.removeItem("attendance-breaks-count");
-    localStorage.removeItem("attendance-break-history");
+      setIsOnBreak(false);
+      setTotalBreakMs(0);
+      setNumberOfBreaks(0);
+      setBreakHistory([]);
+      localStorage.removeItem("attendance-on-break");
+      localStorage.removeItem("attendance-break-start-time");
+      localStorage.removeItem("attendance-total-break-ms");
+      localStorage.removeItem("attendance-breaks-count");
+      localStorage.removeItem("attendance-break-history");
 
-    await dispatch(fetchDashboardData());
-
-    // Redirect to Task Reports page
-    setTimeout(() => {
-      navigate("/employee/task-reports");
-    }, 1500);
-  } else {
-    showToastMessage(result.payload || "❌ Punch out failed", "error");
-  }
-};
+      await dispatch(fetchDashboardData());
+      
+      showToastMessage("Task report has been saved! You can view it in Task Reports section.", "success");
+    } else {
+      console.error("❌ Punch out failed:", result.payload);
+      showToastMessage(result.payload || "❌ Punch out failed", "error");
+    }
+  };
 
   // Format punch time with proper timezone handling
   const parsePunchTime = (time) => {
@@ -325,7 +341,6 @@ const handlePunchOutSubmit = async (data) => {
       if (typeof time === "string" && time.match(/^\d{2}:\d{2}:\d{2}$/)) {
         const now = new Date();
         const [hours, minutes, seconds] = time.split(":");
-        // Backend sends time in UTC, so parse it as UTC
         return new Date(
           Date.UTC(
             now.getUTCFullYear(),
@@ -338,7 +353,6 @@ const handlePunchOutSubmit = async (data) => {
         );
       }
       if (typeof time === "string" && time.includes("T")) {
-        // If no timezone indicator, assume UTC by appending Z
         if (!time.match(/(Z|[+-]\d{2}:\d{2})$/)) {
           return new Date(`${time}Z`);
         }
@@ -346,7 +360,6 @@ const handlePunchOutSubmit = async (data) => {
       }
       if (typeof time === "string" && time.includes(" ")) {
         const isoTime = time.replace(" ", "T");
-        // If no timezone indicator, assume UTC by appending Z
         if (!isoTime.match(/(Z|[+-]\d{2}:\d{2})$/)) {
           return new Date(`${isoTime}Z`);
         }
@@ -391,7 +404,6 @@ const handlePunchOutSubmit = async (data) => {
       };
     }
 
-    // Get last 7 days
     const last7Days = [];
     const hoursWorked = [];
 
@@ -402,7 +414,6 @@ const handlePunchOutSubmit = async (data) => {
       const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
       last7Days.push(dayName);
 
-      // Find attendance for this date
       const attendance = dashboardData.attendance_history.find(
         (a) => a.log_date === dateStr,
       );
@@ -484,10 +495,7 @@ const handlePunchOutSubmit = async (data) => {
   // Determine if button should be disabled
   const isButtonDisabled = () => {
     if (loading || isSubmitting) return true;
-
-    // If not punched in, check if can punch
     if (!isActuallyPunchedIn && !canPunch) return true;
-
     return false;
   };
 
@@ -520,7 +528,7 @@ const handlePunchOutSubmit = async (data) => {
     let endTime;
     if (isActuallyPunchedIn) {
       if (isOnBreak && breakStartTime) {
-        endTime = new Date(breakStartTime); // Freeze timer at break start
+        endTime = new Date(breakStartTime);
       } else {
         endTime = new Date();
       }
@@ -539,7 +547,7 @@ const handlePunchOutSubmit = async (data) => {
     if (!endTime || isNaN(endTime.getTime())) return "00h 00m 00s";
 
     let diff = Math.max(0, endTime - startTime);
-    diff -= totalBreakMs; // subtract accumulated break time
+    diff -= totalBreakMs;
     diff = Math.max(0, diff);
 
     const h = Math.floor(diff / 3600000);
@@ -689,10 +697,13 @@ const handlePunchOutSubmit = async (data) => {
                     Started At
                   </div>
                   <div className="text-lg font-bold text-[var(--text)]">
-                    {new Date(breakStartTime).toLocaleTimeString("en-US", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {formatTo12Hour(
+                      new Date(breakStartTime).toLocaleTimeString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })
+                    )}
                   </div>
                 </div>
               )}
@@ -727,17 +738,21 @@ const handlePunchOutSubmit = async (data) => {
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--muted)]"></span>
                   Break {i + 1}:{" "}
-                  {new Date(b.start).toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  })}{" "}
+                  {formatTo12Hour(
+                    new Date(b.start).toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })
+                  )}{" "}
                   -{" "}
-                  {new Date(b.end).toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  })}{" "}
+                  {formatTo12Hour(
+                    new Date(b.end).toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })
+                  )}{" "}
                   ({Math.round(b.durationMs / 60000)} min)
                 </div>
               ))}
@@ -745,11 +760,13 @@ const handlePunchOutSubmit = async (data) => {
                 <div className="text-amber-500 font-medium flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
                   Break {breakHistory.length + 1}:{" "}
-                  {new Date(breakStartTime).toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  })}{" "}
+                  {formatTo12Hour(
+                    new Date(breakStartTime).toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })
+                  )}{" "}
                   - Ongoing (
                   {Math.floor((new Date() - new Date(breakStartTime)) / 60000)}{" "}
                   min)

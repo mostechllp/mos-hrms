@@ -5,6 +5,8 @@ import SearchBar from "../components/common/SearchBar";
 import EntriesSelector from "../components/common/EntriesSelector";
 import UploadAttendanceModal from "../components/attendance/UploadAttendanceModal";
 import ManualAttendanceModal from "../components/attendance/ManualAttendanceModal";
+import EditAttendanceModal from "../components/attendance/EditAttendanceModal";
+import ConfirmModal from "../components/common/ConfirmModal";
 import { showToast } from "../../components/common/Toast";
 import Pagination from "../components/common/Paginations";
 import {
@@ -18,6 +20,8 @@ import {
   fetchAbsentees,
   clearUploadStatus,
   createManualAttendance,
+  updateAttendance,
+  deleteAttendance,
 } from "../store/slices/attendanceSlice";
 
 const Attendances = () => {
@@ -38,7 +42,12 @@ const Attendances = () => {
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedAttendance, setSelectedAttendance] = useState(null);
   const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [companyFilter, setCompanyFilter] = useState("all");
   const [nameFilter, setNameFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -47,48 +56,34 @@ const Attendances = () => {
   const [refreshLoading, setRefreshLoading] = useState(false);
 
   const pollingRef = useRef(null);
-  // Always holds latest filter values — no stale closure issues
   const filtersRef = useRef({ currentPage, perPage, companyFilter, searchTerm, nameFilter });
+  
   useEffect(() => {
     filtersRef.current = { currentPage, perPage, companyFilter, searchTerm, nameFilter };
   });
 
-  // ─── Core fetch function — always reads live filters from ref ─────────────
   const fetchAll = useCallback(() => {
-  const f = filtersRef.current;
-  console.log("🔄 Fetching attendance with filters:", {
-    page: f.currentPage,
-    per_page: f.perPage,
-    company: f.companyFilter !== "all" ? f.companyFilter : undefined,
-    search: f.searchTerm || undefined,
-    name: f.nameFilter || undefined,
-  });
-  
-  return Promise.all([
-    dispatch(fetchAttendanceRecords({
-      page: f.currentPage,
-      per_page: f.perPage,
-      company: f.companyFilter !== "all" ? f.companyFilter : undefined,
-      search: f.searchTerm || undefined,
-      name: f.nameFilter || undefined,
-    })).then(result => {
-      console.log("📊 fetchAttendanceRecords result:", result);
-      return result;
-    }),
-    dispatch(fetchPunchInToday()),
-    dispatch(fetchPunchInYesterday()),
-    dispatch(fetchPunchOutToday()),
-    dispatch(fetchLateComers()),
-    dispatch(fetchAbsentees()),
-  ]);
-}, [dispatch]);
+    const f = filtersRef.current;
+    return Promise.all([
+      dispatch(fetchAttendanceRecords({
+        page: f.currentPage,
+        per_page: f.perPage,
+        company: f.companyFilter !== "all" ? f.companyFilter : undefined,
+        search: f.searchTerm || undefined,
+        name: f.nameFilter || undefined,
+      })),
+      dispatch(fetchPunchInToday()),
+      dispatch(fetchPunchInYesterday()),
+      dispatch(fetchPunchOutToday()),
+      dispatch(fetchLateComers()),
+      dispatch(fetchAbsentees()),
+    ]);
+  }, [dispatch]);
 
-  // ─── Load data on filter / page change ───────────────────────────────────
   useEffect(() => {
     fetchAll();
   }, [currentPage, perPage, companyFilter, searchTerm, nameFilter]);
 
-  // ─── Stop polling helper ──────────────────────────────────────────────────
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -96,7 +91,6 @@ const Attendances = () => {
     }
   }, []);
 
-  // ─── Start polling when upload is processing ──────────────────────────────
   useEffect(() => {
     if (uploadStatusId && uploadStatus === "processing") {
       stopPolling();
@@ -107,11 +101,8 @@ const Attendances = () => {
     return stopPolling;
   }, [uploadStatusId, uploadStatus]);
 
-  // ─── React to upload status changes — use ref to avoid stale closure ─────
-  // We track the "handled" uploadStatusId so we never double-fire
   const handledUploadRef = useRef(null);
 
-  // ─── React to upload status changes ─────────────────────────────────────────
   useEffect(() => {
     if (!uploadStatusId) return;
     if (handledUploadRef.current === uploadStatusId) return;
@@ -120,12 +111,8 @@ const Attendances = () => {
       handledUploadRef.current = uploadStatusId;
       stopPolling();
       showToast("Attendance file processed successfully!", "success");
-
-      // ✅ Reset to page 1 so new records are visible
       setCurrentPage(1);
-      // fetchAll() will auto-trigger from the currentPage useEffect above
       dispatch(clearUploadStatus());
-
     } else if (uploadStatus === "failed") {
       handledUploadRef.current = uploadStatusId;
       stopPolling();
@@ -133,7 +120,7 @@ const Attendances = () => {
       dispatch(clearUploadStatus());
     }
   }, [uploadStatus, uploadStatusId]);
-  // ─── Manual refresh ───────────────────────────────────────────────────────
+
   const refreshAllData = async () => {
     setRefreshLoading(true);
     try {
@@ -146,17 +133,13 @@ const Attendances = () => {
     }
   };
 
-  // ─── Upload submit ────────────────────────────────────────────────────────
-  // ✅ Fix
   const handleUploadComplete = async ({ file }) => {
     try {
       const result = await dispatch(uploadAttendanceFile({ file })).unwrap();
       setShowUploadModal(false);
-
       if (result.status === "completed") {
         showToast("Attendance file uploaded successfully!", "success");
-        setCurrentPage(1); // ✅ reset to page 1
-        // fetchAll triggers automatically via useEffect
+        setCurrentPage(1);
       } else {
         showToast("File uploaded! Processing in background…", "info");
       }
@@ -165,51 +148,88 @@ const Attendances = () => {
     }
   };
 
-  // In Attendances.jsx, update the handleManualSubmit function:
-const handleManualSubmit = async (formData) => {
-  setManualSubmitting(true);
-  try {
-    // The formData from modal is already formatted correctly
-    const submissionData = {
-      employee_id: formData.employee_id,
-      date: formData.date,
-      punch_in: formData.punch_in,  // Already "YYYY-MM-DD HH:MM:SS"
-      punch_out: formData.punch_out, // Already "YYYY-MM-DD HH:MM:SS" or null
-    };
-    
-    await dispatch(createManualAttendance(submissionData)).unwrap();
-    showToast("Attendance created successfully!", "success");
-    setShowManualModal(false);
-    
-    // ✅ Force refresh all data immediately
-    setCurrentPage(1); // Reset to page 1
-    
-    // ✅ Explicitly refetch all data
-    const f = filtersRef.current;
-    await Promise.all([
-      dispatch(fetchAttendanceRecords({
-        page: 1, // Use page 1 instead of currentPage
-        per_page: f.perPage,
-        company: f.companyFilter !== "all" ? f.companyFilter : undefined,
-        search: f.searchTerm || undefined,
-        name: f.nameFilter || undefined,
-      })),
-      dispatch(fetchPunchInToday()),
-      dispatch(fetchPunchInYesterday()),
-      dispatch(fetchPunchOutToday()),
-      dispatch(fetchLateComers()),
-      dispatch(fetchAbsentees()),
-    ]);
-    
-  } catch (error) {
-    console.error("Manual submission error:", error);
-    showToast(typeof error === "string" ? error : error?.message || "Creation failed", "error");
-  } finally {
-    setManualSubmitting(false);
-  }
-};
+  const handleManualSubmit = async (formData) => {
+    setManualSubmitting(true);
+    try {
+      const submissionData = {
+        employee_id: formData.employee_id,
+        date: formData.date,
+        punch_in: formData.punch_in,
+        punch_out: formData.punch_out,
+      };
+      
+      await dispatch(createManualAttendance(submissionData)).unwrap();
+      showToast("Attendance created successfully!", "success");
+      setShowManualModal(false);
+      setCurrentPage(1);
+      
+      const f = filtersRef.current;
+      await Promise.all([
+        dispatch(fetchAttendanceRecords({
+          page: 1,
+          per_page: f.perPage,
+          company: f.companyFilter !== "all" ? f.companyFilter : undefined,
+          search: f.searchTerm || undefined,
+          name: f.nameFilter || undefined,
+        })),
+        dispatch(fetchPunchInToday()),
+        dispatch(fetchPunchInYesterday()),
+        dispatch(fetchPunchOutToday()),
+        dispatch(fetchLateComers()),
+        dispatch(fetchAbsentees()),
+      ]);
+    } catch (error) {
+      console.error("Manual submission error:", error);
+      showToast(typeof error === "string" ? error : error?.message || "Creation failed", "error");
+    } finally {
+      setManualSubmitting(false);
+    }
+  };
 
-  // ─── Filter / pagination handlers ────────────────────────────────────────
+  const handleEditClick = (record) => {
+    setSelectedAttendance(record);
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (id, data) => {
+    setEditSubmitting(true);
+    try {
+      await dispatch(updateAttendance({ id, data })).unwrap();
+      showToast("Attendance updated successfully!", "success");
+      setShowEditModal(false);
+      setSelectedAttendance(null);
+      await fetchAll();
+    } catch (error) {
+      console.error("Edit submission error:", error);
+      showToast(typeof error === "string" ? error : error?.message || "Update failed", "error");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleDeleteClick = (record) => {
+    setSelectedAttendance(record);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedAttendance) return;
+    
+    setDeleteSubmitting(true);
+    try {
+      await dispatch(deleteAttendance(selectedAttendance.id)).unwrap();
+      showToast("Attendance deleted successfully!", "success");
+      setShowDeleteModal(false);
+      setSelectedAttendance(null);
+      await fetchAll();
+    } catch (error) {
+      console.error("Delete error:", error);
+      showToast(typeof error === "string" ? error : error?.message || "Delete failed", "error");
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
   const handlePageChange = (page) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -219,7 +239,6 @@ const handleManualSubmit = async (formData) => {
   const handleNameFilterChange = (e) => { setNameFilter(e.target.value); setCurrentPage(1); };
   const handleSearchChange = (value) => { setSearchTerm(value); setCurrentPage(1); };
 
-  // ─── Derived display values ───────────────────────────────────────────────
   const totalFiltered = totalCount || records.length;
   const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
   const start = (currentPage - 1) * perPage;
@@ -260,10 +279,8 @@ const handleManualSubmit = async (formData) => {
 
   return (
     <div className="w-full overflow-x-hidden">
-
-      {/* ── Stats Cards ─────────────────────────────────────────────────────── */}
+      {/* Stats Cards */}
       <div className="stats-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-6">
-
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
           <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1 md:mb-2">
             <i className="fas fa-users text-green-600 dark:text-green-400 text-sm md:text-lg"></i>
@@ -308,22 +325,18 @@ const handleManualSubmit = async (formData) => {
         </div>
       </div>
 
-      {/* ── Upload processing banner ─────────────────────────────────────────── */}
+      {/* Upload processing banner */}
       {uploadStatus === "processing" && (
         <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-center gap-3">
           <i className="fas fa-spinner fa-spin text-blue-500"></i>
           <div className="flex-1">
-            <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-              Processing attendance file…
-            </span>
-            <p className="text-xs text-blue-500 dark:text-blue-400 mt-0.5">
-              The table will refresh automatically when complete.
-            </p>
+            <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">Processing attendance file…</span>
+            <p className="text-xs text-blue-500 dark:text-blue-400 mt-0.5">The table will refresh automatically when complete.</p>
           </div>
         </div>
       )}
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
         <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent flex flex-wrap items-center gap-2">
           Attendance Records
@@ -333,7 +346,7 @@ const handleManualSubmit = async (formData) => {
         </h2>
       </div>
 
-      {/* ── Filters ─────────────────────────────────────────────────────────── */}
+      {/* Filters */}
       <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
         <select
           value={companyFilter}
@@ -365,7 +378,7 @@ const handleManualSubmit = async (formData) => {
         </button>
       </div>
 
-      {/* ── Actions bar ─────────────────────────────────────────────────────── */}
+      {/* Actions bar */}
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-5">
         <EntriesSelector value={perPage} onChange={handlePerPageChange} />
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
@@ -390,7 +403,7 @@ const handleManualSubmit = async (formData) => {
         </div>
       </div>
 
-      {/* ── Table ───────────────────────────────────────────────────────────── */}
+      {/* Table */}
       {loading && records.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
           <i className="fas fa-spinner fa-spin text-3xl text-green-500 mb-3"></i>
@@ -399,11 +412,11 @@ const handleManualSubmit = async (formData) => {
       ) : (
         <>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
-            <div className="min-w-[900px] md:min-w-0">
+            <div className="min-w-[1000px] md:min-w-0">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                    {["Sl.No.", "Department", "Employee Name", "Date", "Punch In", "Punch Out", "Status"].map((h) => (
+                    {["Sl.No.", "Department", "Employee Name", "Date", "Punch In", "Punch Out", "Status", "Actions"].map((h) => (
                       <th key={h} className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
                         {h}
                       </th>
@@ -451,11 +464,29 @@ const handleManualSubmit = async (formData) => {
                           {record.status}
                         </span>
                       </td>
+                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEditClick(record)}
+                            className="text-blue-500 hover:text-blue-600 transition-colors"
+                            title="Edit"
+                          >
+                            <i className="fas fa-edit"></i>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(record)}
+                            className="text-red-500 hover:text-red-600 transition-colors"
+                            title="Delete"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   {records.length === 0 && (
                     <tr>
-                      <td colSpan="7" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan="8" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                         No attendance records found
                       </td>
                     </tr>
@@ -486,6 +517,31 @@ const handleManualSubmit = async (formData) => {
         onClose={() => setShowManualModal(false)}
         onSubmit={handleManualSubmit}
         submitting={manualSubmitting}
+      />
+
+      <EditAttendanceModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedAttendance(null);
+        }}
+        onSubmit={handleEditSubmit}
+        submitting={editSubmitting}
+        attendance={selectedAttendance}
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setSelectedAttendance(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Attendance Record"
+        message={`Are you sure you want to delete attendance record for ${selectedAttendance?.employeeName || "this employee"} on ${selectedAttendance?.date || "this date"}? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        loading={deleteSubmitting}
       />
     </div>
   );
