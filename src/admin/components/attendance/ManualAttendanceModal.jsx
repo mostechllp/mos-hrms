@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchEmployees } from '../../store/slices/employeeSlice';
+import { TimeInput } from '../common/TimeInput';
+import DateInput from '../common/DateInput';
 
 const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
   const [formData, setFormData] = useState({
@@ -25,56 +27,49 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleDateChange = (dateValue) => {
+    setFormData(prev => ({ ...prev, date: dateValue }));
+  };
+
+  const handleTimeChange = (e, fieldName) => {
+    const { value } = e.target;
+    setFormData(prev => ({ ...prev, [fieldName]: value }));
+  };
+
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
+    e.preventDefault();
+    setError('');
 
-  if (!formData.employee_id || !formData.date || !formData.punch_in) {
-    return setError('Employee ID, Date, and Punch In are required fields');
-  }
-
-  // Validate that punch_out is after punch_in if both are provided
-  if (formData.punch_in && formData.punch_out) {
-    const punchInTime = formData.punch_in;
-    const punchOutTime = formData.punch_out;
-    
-    if (punchOutTime <= punchInTime) {
-      return setError('Punch Out time must be after Punch In time');
+    if (!formData.employee_id || !formData.date || !formData.punch_in) {
+      return setError('Employee ID, Date, and Punch In are required fields');
     }
-  }
 
-  // Validate date format
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(formData.date)) {
-    return setError('Date must be in YYYY-MM-DD format');
-  }
+    // Validate that punch_out is after punch_in if both are provided
+    if (formData.punch_in && formData.punch_out) {
+      const punchInTime = formData.punch_in;
+      const punchOutTime = formData.punch_out;
+      
+      if (punchOutTime <= punchInTime) {
+        return setError('Punch Out time must be after Punch In time');
+      }
+    }
 
-  // Validate time format (HH:MM)
-  const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-  if (!timeRegex.test(formData.punch_in)) {
-    return setError('Punch In time must be in HH:MM format (24-hour)');
-  }
-  
-  if (formData.punch_out && !timeRegex.test(formData.punch_out)) {
-    return setError('Punch Out time must be in HH:MM format (24-hour)');
-  }
-
-  try {
-    // Format the data for API - transform to full datetime format
-    const formattedData = {
-      employee_id: formData.employee_id,
-      date: formData.date,
-      // Combine date and time into full datetime format (YYYY-MM-DD HH:MM:SS)
-      punch_in: `${formData.date} ${formData.punch_in}:00`,
-      punch_out: formData.punch_out ? `${formData.date} ${formData.punch_out}:00` : null,
-    };
-    
-    await onSubmit(formattedData);
-    handleClose();
-  } catch (err) {
-    setError(typeof err === 'string' ? err : err?.message || 'Failed to submit attendance.');
-  }
-};
+    try {
+      // Format the data for API - transform to full datetime format
+      const formattedData = {
+        employee_id: formData.employee_id,
+        date: formData.date,
+        // Combine date and time into full datetime format (YYYY-MM-DD HH:MM:SS)
+        punch_in: `${formData.date} ${formData.punch_in}:00`,
+        punch_out: formData.punch_out ? `${formData.date} ${formData.punch_out}:00` : null,
+      };
+      
+      await onSubmit(formattedData);
+      handleClose();
+    } catch (err) {
+      setError(typeof err === 'string' ? err : err?.message || 'Failed to submit attendance.');
+    }
+  };
 
   const handleClose = () => {
     setFormData({
@@ -138,30 +133,30 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Date <span className="text-red-500">*</span>
             </label>
-            <input
-              type="date"
-              name="date"
+            <DateInput
               value={formData.date}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
-              required
+              onChange={handleDateChange}
+              type="general"
+              className="w-full"
+              placeholder="Select date"
             />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Format: DD/MM/YYYY
+            </p>
           </div>
 
           <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Punch In Time <span className="text-red-500">*</span>
             </label>
-            <input
-              type="time"
-              name="punch_in"
+            <TimeInput
               value={formData.punch_in}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
-              required
+              onChange={(e) => handleTimeChange(e, 'punch_in')}
+              className="w-full"
+              required={true}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Format: HH:MM (24-hour)
+              Select time (24-hour format)
             </p>
           </div>
 
@@ -169,15 +164,14 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Punch Out Time
             </label>
-            <input
-              type="time"
-              name="punch_out"
+            <TimeInput
               value={formData.punch_out}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+              onChange={(e) => handleTimeChange(e, 'punch_out')}
+              className="w-full"
+              required={false}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Optional. Format: HH:MM (24-hour)
+              Optional. Select time (24-hour format)
             </p>
           </div>
 

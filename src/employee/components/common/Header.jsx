@@ -1,17 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAppSelector } from '../../store/hooks';
-import { useAppTheme } from '../../../context/ThemeContext'; // Import theme context
+import { useAppTheme } from '../../../context/ThemeContext';
 import { logoutUser } from '../../../store/slices/authSlice';
 
 const Header = ({ onMenuClick }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
-  const { themeMode, setThemeMode } = useAppTheme(); // Use theme context
+  const { themeMode, setThemeMode } = useAppTheme();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
+  const menuRef = useRef(null);
 
   useEffect(() => {
     const updateDate = () => {
@@ -30,15 +31,14 @@ const Header = ({ onMenuClick }) => {
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      const wrapper = document.querySelector('.avatar-wrapper');
-      if (showProfileMenu && wrapper && !wrapper.contains(e.target)) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
         setShowProfileMenu(false);
       }
     };
     
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [showProfileMenu]);
+  }, []);
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
@@ -47,7 +47,7 @@ const Header = ({ onMenuClick }) => {
   };
 
   return (
-    <header className="header bg-[var(--surface)] border-b border-[var(--border)] py-3 px-4 md:px-6 sticky top-0 z-100 flex items-center justify-between flex-wrap gap-3">
+    <header className="header bg-[var(--surface)] border-b border-[var(--border)] py-3 px-4 md:px-6 sticky top-0 z-50 flex items-center justify-between flex-wrap gap-3">
       <div className="header-left flex items-center gap-4">
         <button 
           onClick={onMenuClick}
@@ -66,7 +66,6 @@ const Header = ({ onMenuClick }) => {
           <i className="far fa-calendar-alt"></i> {currentDate}
         </div>
         
-        {/* Updated theme toggle to use ThemeProvider */}
         <div className="theme-toggle flex bg-[var(--surface2)] border border-[var(--border)] rounded-full p-0.5 gap-0.5">
           <button
             onClick={() => setThemeMode('light')}
@@ -86,7 +85,8 @@ const Header = ({ onMenuClick }) => {
           </button>
         </div>
         
-        <div className="avatar-wrapper relative">
+        {/* Fixed dropdown wrapper */}
+        <div className="avatar-wrapper relative" ref={menuRef}>
           <div 
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="avatar w-10 h-10 rounded-xl overflow-hidden cursor-pointer shadow-lg"
@@ -101,7 +101,7 @@ const Header = ({ onMenuClick }) => {
           </div>
           
           {showProfileMenu && (
-            <div className="profile-menu absolute top-[55px] right-0 w-64 bg-[var(--surface)] rounded-2xl shadow-lg border border-[var(--border)] overflow-hidden z-999">
+            <div className="profile-menu absolute top-[calc(100%+8px)] right-0 w-64 bg-[var(--surface)] rounded-2xl shadow-lg border border-[var(--border)] overflow-visible z-[9999]">
               <div className="profile-header flex gap-3 p-4 items-center border-b border-[var(--border)]">
                 {user?.avatar ? (
                   <img src={user.avatar} alt="Profile" className="w-12 h-12 rounded-xl object-cover" />
@@ -120,14 +120,14 @@ const Header = ({ onMenuClick }) => {
                 className="menu-item flex items-center gap-3 px-4 py-3.5 hover:bg-[var(--surface2)] text-[var(--text)] no-underline transition-colors"
                 onClick={() => setShowProfileMenu(false)}
               >
-                <i className="fas fa-user text-green-500"></i> 
+                <i className="fas fa-user text-green-500 w-5"></i> 
                 <span>My Profile</span>
               </Link>
               <button 
                 onClick={handleLogout}
-                className="menu-item flex items-center gap-3 px-4 py-3.5 hover:bg-[var(--surface2)] text-[var(--text)] w-full text-left transition-colors"
+                className="menu-item flex items-center gap-3 px-4 py-3.5 hover:bg-[var(--surface2)] text-[var(--text)] w-full text-left transition-colors cursor-pointer"
               >
-                <i className="fas fa-arrow-right-from-bracket text-green-500"></i> 
+                <i className="fas fa-arrow-right-from-bracket text-green-500 w-5"></i> 
                 <span>Sign out</span>
               </button>
             </div>
