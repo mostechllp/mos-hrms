@@ -15,9 +15,17 @@ const Leaves = () => {
   const pagination = leavesState?.pagination || { currentPage: 1, perPage: 10 };
   const loading = leavesState?.loading || false;
   
-  // Use useMemo instead of useState + useEffect to prevent infinite loops
+  // Filter only Annual Leave records
+  const annualLeaves = useMemo(() => {
+    return leaves.filter(leave => {
+      const leaveType = typeof leave.leave_type === 'object' ? leave.leave_type?.name : leave.leave_type;
+      return leaveType === 'Annual Leave' || leaveType === 'Annual';
+    });
+  }, [leaves]);
+  
+  // Use useMemo for filtered leaves
   const filteredLeaves = useMemo(() => {
-    let filtered = [...leaves];
+    let filtered = [...annualLeaves];
     
     if (filter.status && filter.status !== 'all') {
       filtered = filtered.filter(l => {
@@ -38,12 +46,12 @@ const Leaves = () => {
     }
     
     return filtered;
-  }, [leaves, filter.status, filter.search]); // Only recompute when these change
+  }, [annualLeaves, filter.status, filter.search]);
   
-  // Fetch leaves on component mount - only once
+  // Fetch leaves on component mount
   useEffect(() => {
     dispatch(fetchEmployeeLeaves());
-  }, [dispatch]); // Empty dependency array - only runs once
+  }, [dispatch]);
   
   // Safety check for pagination
   const perPage = pagination?.perPage || 10;
@@ -55,11 +63,11 @@ const Leaves = () => {
   
   // Helper functions
   const getLeaveTypeName = (leaveType) => {
-    if (!leaveType) return '-';
+    if (!leaveType) return 'Annual Leave';
     if (typeof leaveType === 'object') {
-      return leaveType.name || leaveType.leave_type || '-';
+      return leaveType.name || 'Annual Leave';
     }
-    return leaveType;
+    return leaveType === 'Annual Leave' || leaveType === 'Annual' ? 'Annual Leave' : leaveType;
   };
   
   const getStatus = (status) => {
@@ -82,11 +90,11 @@ const Leaves = () => {
   };
   
   const stats = useMemo(() => ({
-    total: leaves.length,
-    pending: leaves.filter(l => getStatus(l.status) === 'pending').length,
-    approved: leaves.filter(l => getStatus(l.status) === 'approved').length,
-    rejected: leaves.filter(l => getStatus(l.status) === 'rejected').length,
-  }), [leaves]);
+    total: annualLeaves.length,
+    pending: annualLeaves.filter(l => getStatus(l.status) === 'pending').length,
+    approved: annualLeaves.filter(l => getStatus(l.status) === 'approved').length,
+    rejected: annualLeaves.filter(l => getStatus(l.status) === 'rejected').length,
+  }), [annualLeaves]);
   
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -96,7 +104,7 @@ const Leaves = () => {
         day: '2-digit', month: 'short', year: 'numeric'
       });
     } catch (error) {
-      return '-', error;
+      return '-';
     }
   };
   
@@ -108,7 +116,7 @@ const Leaves = () => {
       const days = Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1;
       return days;
     } catch (error) {
-      return 0, error;
+      return 0;
     }
   };
   
@@ -141,7 +149,7 @@ const Leaves = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[var(--muted)]">Loading leaves...</p>
+          <p className="text-[var(--muted)]">Loading leave requests...</p>
         </div>
       </div>
     );
@@ -158,7 +166,7 @@ const Leaves = () => {
             </div>
           </div>
           <div className="stat-number text-2xl md:text-3xl font-extrabold text-green-600">{stats.total}</div>
-          <div className="stat-label text-xs text-[var(--muted)]">Total Leaves Taken</div>
+          <div className="stat-label text-xs text-[var(--muted)]">Total Annual Leaves</div>
         </div>
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 md:p-5">
           <div className="stat-header flex justify-between items-center mb-3">
@@ -190,30 +198,33 @@ const Leaves = () => {
       </div>
       
       <div className="leaves-header flex flex-col md:flex-row justify-between items-start md:items-center gap-5 mb-7">
-        <h2 className="text-xl md:text-2xl font-semibold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent">
-          My Leave Requests
-        </h2>
-        <Link to="/employee/request-leave" className="request-btn bg-green-500 text-white py-2.5 px-6 rounded-full font-semibold text-sm flex items-center gap-2 hover:bg-green-600 hover:-translate-y-0.5 transition-all">
-          <FiPlus /> Request Leave
+        <div>
+          <h2 className="text-xl md:text-2xl font-semibold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent">
+            My Annual Leave Requests
+          </h2>
+          <p className="text-sm text-[var(--muted)] mt-1">Manage your annual leave applications</p>
+        </div>
+        <Link to="/employee/request-leave" className="request-btn bg-green-500 text-white py-2.5 px-6 rounded-full font-semibold text-sm flex items-center gap-2 hover:bg-green-600 hover:-translate-y-0.5 transition-all shadow-md">
+          <FiPlus /> Request Annual Leave
         </Link>
       </div>
       
       {/* Status Tabs */}
       <div className="status-tabs flex flex-wrap gap-2.5 mb-6 pb-3 border-b border-[var(--border)]">
-  {['all', 'Pending', 'Approved', 'Rejected'].map(status => (
-    <button
-      key={status}
-      onClick={() => handleStatusFilter(status)}
-      className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-        (filter.status === status.toLowerCase()) || (status === 'all' && filter.status === 'all')
-          ? 'bg-green-500 text-white'
-          : 'bg-[var(--surface2)] text-[var(--text-secondary)] hover:bg-green-100 hover:text-green-600'
-      }`}
-    >
-      {status === 'all' ? 'All Requests' : status}
-    </button>
-  ))}
-</div>
+        {['all', 'Pending', 'Approved', 'Rejected'].map(status => (
+          <button
+            key={status}
+            onClick={() => handleStatusFilter(status)}
+            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+              (filter.status === status.toLowerCase()) || (status === 'all' && filter.status === 'all')
+                ? 'bg-green-500 text-white shadow-sm'
+                : 'bg-[var(--surface2)] text-[var(--text-secondary)] hover:bg-green-100 hover:text-green-600'
+            }`}
+          >
+            {status === 'all' ? 'All Requests' : status}
+          </button>
+        ))}
+      </div>
       
       {/* Action Bar */}
       <div className="files-actions flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
@@ -237,7 +248,7 @@ const Leaves = () => {
               type="text"
               value={filter.search || ''}
               onChange={handleSearch}
-              placeholder="Search by type, status..."
+              placeholder="Search by status or reason..."
               className="border-none outline-none bg-transparent text-xs text-[var(--text)] w-36 sm:w-44"
             />
           </div>
@@ -248,23 +259,29 @@ const Leaves = () => {
       <div className="leave-table-wrapper bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-x-auto shadow-sm">
         <table className="leave-table w-full border-collapse text-xs min-w-[900px]">
           <thead>
-            <tr>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)] w-16">#</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">Type</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">From</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">To</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">Days</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">Claim Salary</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">Document</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">Status</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface)] border-b border-[var(--border)]">Reason</th>
+            <tr className="bg-[var(--surface2)]">
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] border-b border-[var(--border)] w-16">#</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] border-b border-[var(--border)]">Leave Type</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] border-b border-[var(--border)]">From</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] border-b border-[var(--border)]">To</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] border-b border-[var(--border)]">Days</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] border-b border-[var(--border)]">Claim Salary</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] border-b border-[var(--border)]">Document</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] border-b border-[var(--border)]">Status</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] border-b border-[var(--border)]">Reason</th>
             </tr>
           </thead>
           <tbody>
             {currentLeaves.length === 0 ? (
               <tr>
                 <td colSpan="9" className="text-center py-8 text-[var(--muted)]">
-                  No leave requests found
+                  <div className="flex flex-col items-center gap-2">
+                    <FiCalendar className="text-3xl text-[var(--muted)]" />
+                    <p>No annual leave requests found</p>
+                    <Link to="/employee/request-leave" className="text-green-500 hover:underline text-sm mt-2">
+                      Request Annual Leave →
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -278,10 +295,15 @@ const Leaves = () => {
                 return (
                   <tr key={leave.id || idx} className="hover:bg-[var(--surface2)] transition-colors">
                     <td className="py-3.5 px-4 border-b border-[var(--border)] text-center">{start + idx + 1}</td>
-                    <td className="py-3.5 px-4 border-b border-[var(--border)] font-semibold text-[var(--text)]">{leaveTypeName}</td>
+                    <td className="py-3.5 px-4 border-b border-[var(--border)]">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full text-[11px] font-semibold">
+                        <FiCalendar className="text-xs" />
+                        {leaveTypeName}
+                      </span>
+                    </td>
                     <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">{formatDate(leave.start_date)}</td>
                     <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">{formatDate(leave.end_date)}</td>
-                    <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">{days}</td>
+                    <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] font-semibold">{days}</td>
                     <td className="py-3.5 px-4 border-b border-[var(--border)]">
                       <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold ${
                         claimSalary === 'Yes' 
@@ -293,13 +315,16 @@ const Leaves = () => {
                     </td>
                     <td className="py-3.5 px-4 border-b border-[var(--border)]">
                       {hasDoc ? (
-                        <a href="#" className="text-blue-500 cursor-pointer hover:underline">View</a>
+                        <a href="#" className="text-blue-500 cursor-pointer hover:underline flex items-center gap-1">
+                          <i className="fas fa-file-pdf"></i>
+                          View
+                        </a>
                       ) : '-'}
                     </td>
                     <td className="py-3.5 px-4 border-b border-[var(--border)]">
                       <StatusBadge status={statusName} />
                     </td>
-                    <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] max-w-[200px] truncate" title={leave.reason}>
+                    <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] max-w-[250px] truncate" title={leave.reason}>
                       {leave.reason || '-'}
                     </td>
                   </tr>
@@ -311,7 +336,7 @@ const Leaves = () => {
       </div>
       
       {/* Pagination */}
-      {filteredLeaves.length > 0 && totalPages > 0 && (
+      {filteredLeaves.length > 0 && totalPages > 1 && (
         <div className="pagination-container flex flex-col sm:flex-row justify-between items-center gap-3 mt-5">
           <div className="text-xs text-[var(--muted)]">
             Showing {start + 1} to {Math.min(start + perPage, filteredLeaves.length)} of {filteredLeaves.length} entries

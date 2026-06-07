@@ -2,7 +2,7 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import apiClient from '../../../utils/apiClient';
 
 // Fetch Employee Leaves
-// Fetch Employee Leaves - Use admin API to get all leaves for this employee
+/// Fetch Employee Leaves
 export const fetchEmployeeLeaves = createAsyncThunk(
   "leaves/fetchEmployeeLeaves",
   async (_, { getState, rejectWithValue }) => {
@@ -15,33 +15,47 @@ export const fetchEmployeeLeaves = createAsyncThunk(
       console.log("Fetching leaves for employee ID:", employeeId);
       
       // Use admin endpoint to get leaves for this employee
-      const response = await apiClient.get(`/admin/leaves?employee_id=${employeeId}`);
+      const response = await apiClient.get(`/employee/leaves`);
       console.log("Admin leaves response:", response.data);
       
       let leavesData = [];
       
       if (response.data && response.data.status === "success") {
-        if (Array.isArray(response.data.data)) {
+        // Check the actual response structure from Postman
+        if (response.data.data && response.data.data.leaves && Array.isArray(response.data.data.leaves)) {
+          // Structure: { status: "success", data: { leaves: [...], user: {...} } }
+          leavesData = response.data.data.leaves;
+          console.log("Found leaves in data.leaves:", leavesData);
+        } else if (Array.isArray(response.data.data)) {
+          // Structure: { status: "success", data: [...] }
           leavesData = response.data.data;
+          console.log("Found leaves in data array:", leavesData);
         } else if (response.data.data && Array.isArray(response.data.data.data)) {
+          // Structure: { status: "success", data: { data: [...] } }
           leavesData = response.data.data.data;
+          console.log("Found leaves in data.data:", leavesData);
         } else {
           leavesData = [];
+          console.log("No leaves found in response");
         }
         
         // Transform the data to ensure consistent format
         const transformedLeaves = leavesData.map(leave => ({
           id: leave.id,
-          leave_type: leave.leave_type?.name || leave.leave_type || leave.type,
+          leave_type: leave.leave_type?.name || leave.leave_type || "Annual Leave",
           leave_type_id: leave.leave_type_id || leave.leave_type?.id,
-          start_date: leave.start_date || leave.from_date,
-          end_date: leave.end_date || leave.to_date,
-          duration_days: leave.duration_days || leave.days,
+          start_date: leave.start_date?.split('T')[0] || leave.start_date,
+          end_date: leave.end_date?.split('T')[0] || leave.end_date,
+          duration_days: leave.duration_days,
           reason: leave.reason,
           status: leave.status,
           claim_salary: leave.claim_salary,
           document: leave.document,
-          created_at: leave.created_at
+          created_at: leave.created_at,
+          // Add these for backward compatibility
+          from_date: leave.start_date?.split('T')[0] || leave.start_date,
+          to_date: leave.end_date?.split('T')[0] || leave.end_date,
+          type: leave.leave_type?.name || leave.leave_type || "Annual Leave"
         }));
         
         console.log("Transformed leaves:", transformedLeaves);
@@ -114,84 +128,105 @@ export const fetchLeaveBalance = createAsyncThunk(
 );
 
 // Store New Leave Request - Updated to use employee API balance
+// Store New Leave Request - Updated to work with new form data structure
 export const addLeaveRequest = createAsyncThunk(
   "leaves/storeLeaveRequest",
   async (formData, { rejectWithValue, dispatch, getState }) => {
     try {
+      console.log("Raw formData received:", formData);
+      
+      let leaveTypeId, startDate, endDate, reason, claimSalary, year, document;
+      
+      // Check if formData is FormData or regular object
+      if (formData instanceof FormData) {
+        // Extract values from FormData
+        leaveTypeId = formData.get('leave_type_id');
+        startDate = formData.get('start_date');
+        endDate = formData.get('end_date');
+        reason = formData.get('reason');
+        claimSalary = formData.get('claim_salary');
+        year = formData.get('year');
+        document = formData.get('document');
+      } else {
+        // Regular object (JSON payload)
+        leaveTypeId = formData.leave_type_id;
+        startDate = formData.start_date;
+        endDate = formData.end_date;
+        reason = formData.reason;
+        claimSalary = formData.claim_salary;
+        year = formData.year;
+        document = formData.document;
+      }
+      
+      console.log("Extracted values:", {
+        leaveTypeId,
+        startDate,
+        endDate,
+        reason,
+        claimSalary,
+        year
+      });
+      
       // Get the current state
       const state = getState();
       const leaveBalances = state.EmpLeaves?.leaveBalances || {};
       
-      // Find the leave type ID and balance from the employee API data
-      let leaveTypeId = null;
-      let leaveTypeBalance = null;
+      // Calculate total days
+      const from = new Date(startDate);
+      const to = new Date(endDate);
+      const totalDays = Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1;
       
+      console.log("Total days calculated:", totalDays);
+      
+      // Find the leave type balance for validation
+      let leaveTypeBalance = null;
       for (const [name, balance] of Object.entries(leaveBalances)) {
-        if (name === formData.leaveType && balance.id) {
-          leaveTypeId = balance.id;
+        if (balance.leave_type_id === parseInt(leaveTypeId) || balance.id === parseInt(leaveTypeId)) {
           leaveTypeBalance = balance;
           break;
         }
       }
       
-      // If not found in balances, use mapping as fallback
-      const leaveTypeMapping = {
-        'Sick Leave': 1,
-        'Annual Leave': 2,
-        'Casual Leave': 3,
-        'Unpaid Leave': 4,
-        'Maternity Leave': 5,
-        'Paternity Leave': 6,
-        'Emergency Leave': 7,
-        'Study / Exam Leave': 8,
-        'Bereavement Leave': 9
-      };
-      
-      if (!leaveTypeId) {
-        leaveTypeId = leaveTypeMapping[formData.leaveType];
+      // Frontend validation using the employee API balance (skip for Unpaid Leave)
+      const isUnpaidLeave = leaveTypeId == 4; // Assuming 4 is Unpaid Leave
+      if (!isUnpaidLeave && leaveTypeBalance && totalDays > leaveTypeBalance.remaining && leaveTypeBalance.remaining >= 0) {
+        return rejectWithValue(`Insufficient balance. You have only ${leaveTypeBalance.remaining} days remaining for this leave type`);
       }
       
-      // Get current year
-      const currentYear = new Date().getFullYear();
+      // Prepare payload for API
+      let payload;
+      let headers = {};
       
-      // Calculate total days
-      const from = new Date(formData.fromDate);
-      const to = new Date(formData.toDate);
-      const totalDays = Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1;
-      
-      // Frontend validation using the employee API balance
-      if (leaveTypeBalance && totalDays > leaveTypeBalance.remaining && leaveTypeBalance.remaining >= 0 && formData.leaveType !== 'Unpaid Leave') {
-        return rejectWithValue(`Insufficient balance. You have only ${leaveTypeBalance.remaining} days remaining for ${formData.leaveType}`);
+      if (document && document instanceof File) {
+        // Use FormData for file upload
+        payload = new FormData();
+        payload.append('leave_type_id', leaveTypeId);
+        payload.append('start_date', startDate);
+        payload.append('end_date', endDate);
+        payload.append('reason', reason);
+        payload.append('claim_salary', claimSalary);
+        payload.append('year', year);
+        payload.append('document', document);
+        headers = { 'Content-Type': 'multipart/form-data' };
+        
+        console.log("Sending as FormData with file");
+      } else {
+        // Send as JSON
+        payload = {
+          leave_type_id: parseInt(leaveTypeId),
+          start_date: startDate,
+          end_date: endDate,
+          reason: reason,
+          claim_salary: parseInt(claimSalary),
+          year: parseInt(year)
+        };
+        headers = { 'Content-Type': 'application/json' };
+        
+        console.log("Sending as JSON:", payload);
       }
       
-      // Use FormData for file upload
-      const formPayload = new FormData();
-      formPayload.append('leave_type_id', leaveTypeId);
-      formPayload.append('start_date', formData.fromDate);
-      formPayload.append('end_date', formData.toDate);
-      formPayload.append('reason', formData.reason);
-      formPayload.append('claim_salary', formData.claimSalary === "Yes" ? 1 : 0);
-      formPayload.append('year', currentYear);
-      
-      if (formData.document) {
-        formPayload.append('document', formData.document);
-      }
-      
-      console.log("Sending leave request with payload:", {
-        leave_type_id: leaveTypeId,
-        start_date: formData.fromDate,
-        end_date: formData.toDate,
-        reason: formData.reason,
-        claim_salary: formData.claimSalary === "Yes" ? 1 : 0,
-        year: currentYear
-      });
-      console.log("Leave type balance from frontend (employee API):", leaveTypeBalance);
-      
-      const response = await apiClient.post("/employee/leaves", formPayload, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // Use the correct API endpoint
+      const response = await apiClient.post("/employee/leaves", payload, { headers });
       
       console.log("Store leave response:", response.data);
       

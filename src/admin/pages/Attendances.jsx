@@ -55,22 +55,33 @@ const Attendances = () => {
 
   // ─── Core fetch function — always reads live filters from ref ─────────────
   const fetchAll = useCallback(() => {
-    const f = filtersRef.current;
-    return Promise.all([
-      dispatch(fetchAttendanceRecords({
-        page: f.currentPage,
-        per_page: f.perPage,
-        company: f.companyFilter !== "all" ? f.companyFilter : undefined,
-        search: f.searchTerm || undefined,
-        name: f.nameFilter || undefined,
-      })),
-      dispatch(fetchPunchInToday()),
-      dispatch(fetchPunchInYesterday()),
-      dispatch(fetchPunchOutToday()),
-      dispatch(fetchLateComers()),
-      dispatch(fetchAbsentees()),
-    ]);
-  }, [dispatch]);
+  const f = filtersRef.current;
+  console.log("🔄 Fetching attendance with filters:", {
+    page: f.currentPage,
+    per_page: f.perPage,
+    company: f.companyFilter !== "all" ? f.companyFilter : undefined,
+    search: f.searchTerm || undefined,
+    name: f.nameFilter || undefined,
+  });
+  
+  return Promise.all([
+    dispatch(fetchAttendanceRecords({
+      page: f.currentPage,
+      per_page: f.perPage,
+      company: f.companyFilter !== "all" ? f.companyFilter : undefined,
+      search: f.searchTerm || undefined,
+      name: f.nameFilter || undefined,
+    })).then(result => {
+      console.log("📊 fetchAttendanceRecords result:", result);
+      return result;
+    }),
+    dispatch(fetchPunchInToday()),
+    dispatch(fetchPunchInYesterday()),
+    dispatch(fetchPunchOutToday()),
+    dispatch(fetchLateComers()),
+    dispatch(fetchAbsentees()),
+  ]);
+}, [dispatch]);
 
   // ─── Load data on filter / page change ───────────────────────────────────
   useEffect(() => {
@@ -154,11 +165,11 @@ const Attendances = () => {
     }
   };
 
-  const handleManualSubmit = async (formData) => {
+  // In Attendances.jsx, update the handleManualSubmit function:
+const handleManualSubmit = async (formData) => {
   setManualSubmitting(true);
   try {
     // The formData from modal is already formatted correctly
-    // Don't reformat it again!
     const submissionData = {
       employee_id: formData.employee_id,
       date: formData.date,
@@ -169,7 +180,27 @@ const Attendances = () => {
     await dispatch(createManualAttendance(submissionData)).unwrap();
     showToast("Attendance created successfully!", "success");
     setShowManualModal(false);
-    setCurrentPage(1);
+    
+    // ✅ Force refresh all data immediately
+    setCurrentPage(1); // Reset to page 1
+    
+    // ✅ Explicitly refetch all data
+    const f = filtersRef.current;
+    await Promise.all([
+      dispatch(fetchAttendanceRecords({
+        page: 1, // Use page 1 instead of currentPage
+        per_page: f.perPage,
+        company: f.companyFilter !== "all" ? f.companyFilter : undefined,
+        search: f.searchTerm || undefined,
+        name: f.nameFilter || undefined,
+      })),
+      dispatch(fetchPunchInToday()),
+      dispatch(fetchPunchInYesterday()),
+      dispatch(fetchPunchOutToday()),
+      dispatch(fetchLateComers()),
+      dispatch(fetchAbsentees()),
+    ]);
+    
   } catch (error) {
     console.error("Manual submission error:", error);
     showToast(typeof error === "string" ? error : error?.message || "Creation failed", "error");
