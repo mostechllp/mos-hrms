@@ -14,6 +14,7 @@ import {
   punchIn,
   punchOut,
   fetchDashboardData,
+  pendingPunchOut,
 } from "../store/slices/attendanceSlice";
 import PunchOutModal from "../components/modals/PunchOutModal";
 import PendingPunchOutModal from "../components/attendance/PendingPunchoutModal";
@@ -172,7 +173,7 @@ const Dashboard = () => {
   const handlePunch = async () => {
     if (!isActuallyPunchedIn) {
       if (!canPunch) {
-        showToastMessage("❌ You cannot punch in at this time", "error");
+        showToastMessage("You cannot punch in at this time", "error");
         return;
       }
 
@@ -184,7 +185,7 @@ const Dashboard = () => {
         showToastMessage("Punched in successfully!", "success");
         await dispatch(fetchDashboardData());
       } else {
-        const errorMsg = result.payload || "❌ Punch in failed";
+        const errorMsg = result.payload || "Punch in failed";
         if (
           errorMsg.includes("pending punch-out") ||
           errorMsg.includes("forgot to punch out")
@@ -205,48 +206,55 @@ const Dashboard = () => {
     }
   };
 
-  const handlePendingPunchOut = async (data) => {
-    setPendingPunchSubmitting(true);
+  // In Dashboard.jsx, update the handlePendingPunchOut function
 
-    const result = await dispatch(
-      punchOut({
-        tasks_completed: data.tasks_completed,
-        plan_tomorrow: data.plan_tomorrow,
-        pending_tasks: data.pending_tasks || ''
-      }),
+const handlePendingPunchOut = async (data) => {
+  setPendingPunchSubmitting(true);
+
+  const result = await dispatch(
+    pendingPunchOut({
+      tasks_completed: data.tasks_completed,
+      plan_tomorrow: data.plan_tomorrow,
+      pending_works: data.pending_works || '',
+      punch_out_time: data.punch_out_time,
+      date: pendingPunchDate
+    })
+  );
+
+  setPendingPunchSubmitting(false);
+
+  if (pendingPunchOut.fulfilled.match(result)) {
+    showToastMessage(
+      `Successfully punched out for ${pendingPunchDate}! You can now punch in today.`,
+      "success",
     );
+    setShowPendingModal(false);
 
-    setPendingPunchSubmitting(false);
+    // Clear any break state
+    setIsOnBreak(false);
+    setTotalBreakMs(0);
+    setNumberOfBreaks(0);
+    setBreakHistory([]);
+    localStorage.removeItem("attendance-on-break");
+    localStorage.removeItem("attendance-break-start-time");
+    localStorage.removeItem("attendance-total-break-ms");
+    localStorage.removeItem("attendance-breaks-count");
+    localStorage.removeItem("attendance-break-history");
 
-    if (punchOut.fulfilled.match(result)) {
-      showToastMessage(
-        `Successfully punched out for ${pendingPunchDate}! You can now punch in today.`,
-        "success",
-      );
-      setShowPendingModal(false);
+    // Refresh dashboard data
+    await dispatch(fetchDashboardData());
 
-      setIsOnBreak(false);
-      setTotalBreakMs(0);
-      setNumberOfBreaks(0);
-      setBreakHistory([]);
-      localStorage.removeItem("attendance-on-break");
-      localStorage.removeItem("attendance-break-start-time");
-      localStorage.removeItem("attendance-total-break-ms");
-      localStorage.removeItem("attendance-breaks-count");
-      localStorage.removeItem("attendance-break-history");
-
-      await dispatch(fetchDashboardData());
-
-      setTimeout(() => {
-        showToastMessage("You can now punch in for today", "success");
-      }, 1000);
-    } else {
-      showToastMessage(
-        result.payload || "❌ Failed to complete pending punch out",
-        "error",
-      );
-    }
-  };
+    // Now the user can punch in for today
+    setTimeout(() => {
+      showToastMessage("You can now punch in for today", "success");
+    }, 1000);
+  } else {
+    showToastMessage(
+      result.payload || "Failed to complete pending punch out",
+      "error",
+    );
+  }
+};
 
   const handleBreakToggle = () => {
     if (!isOnBreak) {
