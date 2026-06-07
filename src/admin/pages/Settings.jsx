@@ -1,8 +1,8 @@
 import { useState } from "react";
 import ProfileTab from "../components/settings/ProfileTab";
 import SecurityTab from "../components/settings/SecurityTab";
-import AppSettingsTab from "../components/settings/AppSettingsTab";
 import ThemeTab from "../components/settings/ThemeTab";
+import WorkingHoursTab from "../components/settings/WorkingHoursTab";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("profile");
@@ -10,18 +10,28 @@ const Settings = () => {
   const tabs = [
     { id: "profile", label: "Profile", icon: "fas fa-user", color: "blue" },
     { id: "security", label: "Security", icon: "fas fa-lock", color: "green" },
-    { id: "app-settings", label: "App Settings", icon: "fas fa-cog", color: "purple" },
+    {
+      id: "working-hours",
+      label: "Working Hours",
+      icon: "fas fa-clock",
+      color: "purple",
+    },
     { id: "theme", label: "Others", icon: "fas fa-palette", color: "orange" },
   ];
 
   const getColorClasses = (color, isActive) => {
     if (isActive) {
       switch (color) {
-        case "blue": return "bg-blue-500 text-white";
-        case "green": return "bg-green-500 text-white";
-        case "purple": return "bg-purple-500 text-white";
-        case "orange": return "bg-orange-500 text-white";
-        default: return "bg-green-500 text-white";
+        case "blue":
+          return "bg-blue-500 text-white";
+        case "green":
+          return "bg-green-500 text-white";
+        case "purple":
+          return "bg-purple-500 text-white";
+        case "orange":
+          return "bg-orange-500 text-white";
+        default:
+          return "bg-green-500 text-white";
       }
     }
     return "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400";
@@ -53,7 +63,9 @@ const Settings = () => {
                     : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
                 }`}
               >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${getColorClasses(tab.color, activeTab === tab.id)}`}>
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${getColorClasses(tab.color, activeTab === tab.id)}`}
+                >
                   <i className={`${tab.icon} text-base`}></i>
                 </div>
                 <div className="flex-1 text-left">
@@ -64,6 +76,7 @@ const Settings = () => {
                     {tab.id === "profile" && "Personal information"}
                     {tab.id === "security" && "Password & security"}
                     {tab.id === "app-settings" && "Application settings"}
+                    {tab.id === "working-hours" && "Manage working hours of employees"}
                     {tab.id === "theme" && "Theme & appearance"}
                   </div>
                 </div>
@@ -80,7 +93,7 @@ const Settings = () => {
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 md:p-6 shadow-soft">
             {activeTab === "profile" && <ProfileTab />}
             {activeTab === "security" && <SecurityTab />}
-            {activeTab === "app-settings" && <AppSettingsTab />}
+            {activeTab === "working-hours" && <WorkingHoursTab />}
             {activeTab === "theme" && <ThemeTab />}
           </div>
         </div>

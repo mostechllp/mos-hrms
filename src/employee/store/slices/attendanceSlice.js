@@ -59,12 +59,12 @@ export const punchIn = createAsyncThunk(
 // In your taskReportsSlice.js or attendanceSlice.js
 export const punchOut = createAsyncThunk(
   "attendance/punchOut",
-  async ({ tasks_completed, plan_tomorrow, pending_works }, { rejectWithValue }) => {
+  async ({ tasks_completed, plan_tomorrow, pending_tasks }, { rejectWithValue }) => {
     try {
       const response = await apiClient.post("/employee/punch-out", {
         tasks_completed,
         plan_tomorrow,
-        pending_works, // Add this field
+        pending_tasks, // Add this field
       });
       
       if (response.data && response.data.status === "success") {

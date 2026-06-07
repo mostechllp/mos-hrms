@@ -15,14 +15,16 @@ import {
   FiAlertCircle,
 } from "react-icons/fi";
 import apiClient from "../../utils/apiClient";
-import { fetchUserProfile, updateProfile, clearUpdateSuccess } from "../../admin/store/slices/settingsSlice";
+import { updateUserProfile } from "../../admin/store/slices/authSlice"; // Import the updateUser action
 
 const Profile = () => {
   const dispatch = useDispatch();
   const { user: authUser } = useSelector((state) => state.auth);
-  const { profile, loading: profileLoading, updateSuccess, error } = useSelector((state) => state.settings);
-  const fileInputRef = useRef(null);
   
+  const fileInputRef = useRef(null);
+
+  console.log("Authuser: ", authUser)
+
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -33,7 +35,7 @@ const Profile = () => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    personalEmail: "",
+    email: "",
     personalNumber: "",
     address: "",
   });
@@ -51,105 +53,76 @@ const Profile = () => {
   const getAvatarUrl = () => {
     if (avatarPreview) return avatarPreview;
     if (avatarError) return null;
-    
-    const avatar = authUser?.avatar || profile?.avatar;
+
+    const avatar = authUser?.avatar;
     if (!avatar) return null;
-    
-    if (typeof avatar === 'string' && (avatar.startsWith('http://') || avatar.startsWith('https://'))) {
+
+    if (
+      typeof avatar === "string" &&
+      (avatar.startsWith("http://") || avatar.startsWith("https://"))
+    ) {
       return avatar;
     }
-    
-    const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || window.location.origin;
-    
+
+    const baseUrl =
+      import.meta.env.VITE_API_URL?.replace("/api", "") ||
+      window.location.origin;
+
     if (typeof avatar === "object" && avatar.path) {
       return `${baseUrl}/storage/${avatar.path}`;
     }
-    
+
     if (typeof avatar === "string") {
       if (avatar.startsWith("/storage/")) return `${baseUrl}${avatar}`;
       if (avatar.startsWith("storage/")) return `${baseUrl}/${avatar}`;
       return `${baseUrl}/storage/${avatar}`;
     }
-    
+
     return null;
   };
 
-  // Helper function to parse full name into first and last name
+  // Helper function to parse full name
   const parseFullName = (fullName) => {
     if (!fullName) return { firstName: "", lastName: "" };
-    
     const trimmedName = fullName.trim();
     const firstSpaceIndex = trimmedName.indexOf(" ");
-    
     if (firstSpaceIndex > 0) {
       return {
         firstName: trimmedName.substring(0, firstSpaceIndex),
-        lastName: trimmedName.substring(firstSpaceIndex + 1)
+        lastName: trimmedName.substring(firstSpaceIndex + 1),
       };
     }
-    
-    return {
-      firstName: trimmedName,
-      lastName: ""
-    };
+    return { firstName: trimmedName, lastName: "" };
   };
-
-  // Fetch user profile on mount
-  useEffect(() => {
-    dispatch(fetchUserProfile());
-  }, [dispatch]);
 
   // Initialize form data from auth
   useEffect(() => {
     if (authUser) {
       let firstName = authUser.first_name || "";
       let lastName = authUser.last_name || "";
-      
+
       if (!firstName && !lastName && authUser.name) {
         const parsed = parseFullName(authUser.name);
         firstName = parsed.firstName;
         lastName = parsed.lastName;
       }
-      
+
       setFormData({
         firstName: firstName,
         lastName: lastName,
-        personalEmail: authUser.personal_email || "",
+        email: authUser.email || "",
         personalNumber: authUser.personal_number || authUser.phone || "",
         address: authUser.address || "",
       });
     }
   }, [authUser]);
 
-  // Show toast notification
   const showToast = (message, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Handle update success
-  useEffect(() => {
-    if (updateSuccess) {
-      showToast("Profile updated successfully!", "success");
-      dispatch(clearUpdateSuccess());
-      dispatch(fetchUserProfile());
-      setAvatarPreview(null);
-      setAvatarTempPath(null);
-      setAvatarError(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  }, [updateSuccess, dispatch]);
-
-  useEffect(() => {
-    if (error) {
-      showToast(error, "error");
-      dispatch(clearUpdateSuccess());
-    }
-  }, [error, dispatch]);
-
-  // Handle avatar upload to temp endpoint first
+  // Handle avatar upload
   const handleAvatarChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -178,9 +151,11 @@ const Profile = () => {
       const tempFormData = new FormData();
       tempFormData.append("file", file);
 
-      const tempResponse = await apiClient.post("/admin/employees/upload-temp", tempFormData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const tempResponse = await apiClient.post(
+        "/admin/employees/upload-temp",
+        tempFormData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
 
       const result = tempResponse.data;
       if (result.status && result.path) {
@@ -216,24 +191,77 @@ const Profile = () => {
 
     formDataToSend.append("first_name", formData.firstName.trim());
     formDataToSend.append("last_name", formData.lastName.trim());
-    
-    if (formData.personalEmail) {
-      formDataToSend.append("personal_email", formData.personalEmail);
+
+    if (formData.email) {
+      formDataToSend.append("personal_email", formData.email);
     }
     if (formData.personalNumber) {
-      formDataToSend.append("personal_number", formData.personalNumber);
+      formDataToSend.append("phone_number", formData.personalNumber);
     }
     if (formData.address) {
       formDataToSend.append("address", formData.address);
     }
-    
-    // Send the temp path for avatar if uploaded
+
     if (avatarTempPath) {
       formDataToSend.append("avatar", avatarTempPath);
     }
 
-    await dispatch(updateProfile(formDataToSend));
-    setUpdating(false);
+    console.log("📤 Sending profile update data:", Object.fromEntries(formDataToSend));
+
+    try {
+      const response = await apiClient.post("/employee/update-profile", formDataToSend, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      console.log("📥 Update response:", response.data);
+
+      if (response.data && response.data.status === "success") {
+        // Get the updated user data from response
+        const updatedUserData = response.data.data || response.data.user;
+        
+        console.log("🔄 Updated user data from API:", updatedUserData);
+        
+        // Create merged user object with all fields
+        const mergedUser = {
+          ...authUser,
+          ...updatedUserData,
+          first_name: updatedUserData.first_name || formData.firstName,
+          last_name: updatedUserData.last_name || formData.lastName,
+          personal_email: updatedUserData.personal_email || formData.email,
+          phone: updatedUserData.phone || updatedUserData.phone_number || formData.personalNumber,
+          address: updatedUserData.address || formData.address,
+        };
+        
+        // Update auth state with the merged user data
+        dispatch(updateUserProfile(mergedUser));
+        
+        showToast("Profile updated successfully!", "success");
+
+        // Clear avatar temp data
+        setAvatarPreview(null);
+        setAvatarTempPath(null);
+        setAvatarError(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      } else {
+        showToast(response.data?.message || "Failed to update profile", "error");
+      }
+    } catch (error) {
+      console.error("❌ Update error:", error);
+      
+      let errorMessage = "Failed to update profile";
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.errors) {
+        const errors = error.response.data.errors;
+        errorMessage = Object.values(errors).flat()[0];
+      }
+      
+      showToast(errorMessage, "error");
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const handleChangePassword = async (e) => {
@@ -275,7 +303,7 @@ const Profile = () => {
       }
     } catch (error) {
       console.error("Error changing password:", error);
-      
+
       let errorMessage = "Failed to change password";
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
@@ -283,7 +311,7 @@ const Profile = () => {
         const errors = error.response.data.errors;
         errorMessage = Object.values(errors).flat()[0];
       }
-      
+
       showToast(errorMessage, "error");
     } finally {
       setUpdating(false);
@@ -294,17 +322,17 @@ const Profile = () => {
     if (authUser) {
       let firstName = authUser.first_name || "";
       let lastName = authUser.last_name || "";
-      
+
       if (!firstName && !lastName && authUser.name) {
         const parsed = parseFullName(authUser.name);
         firstName = parsed.firstName;
         lastName = parsed.lastName;
       }
-      
+
       setFormData({
         firstName: firstName,
         lastName: lastName,
-        personalEmail: authUser.personal_email || "",
+        email: authUser.email || "",
         personalNumber: authUser.personal_number || authUser.phone || "",
         address: authUser.address || "",
       });
@@ -329,22 +357,12 @@ const Profile = () => {
   const avatarUrl = getAvatarUrl();
   const userInitials = getFullName().charAt(0).toUpperCase();
 
-  if (profileLoading && !authUser) {
-    return (
-      <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full max-w-6xl mx-auto pb-10 px-2 sm:px-4">
       {/* Top Header Card */}
       <div className="bg-[var(--surface)] rounded-3xl shadow-sm border border-[var(--border)] overflow-hidden mb-6">
-        {/* Green Banner */}
         <div className="h-32 md:h-48 bg-gradient-to-r from-[#22c55e] to-[#10b981] w-full"></div>
 
-        {/* White Area */}
         <div className="relative px-6 md:px-12 pb-8 bg-[var(--surface)] flex flex-col md:flex-row justify-between md:items-end">
           <div className="flex flex-col md:flex-row items-center md:items-end gap-5 md:gap-8">
             {/* Avatar */}
@@ -377,7 +395,6 @@ const Profile = () => {
               <input
                 ref={fileInputRef}
                 type="file"
-                id="profilePhoto"
                 accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                 className="hidden"
                 onChange={handleAvatarChange}
@@ -385,7 +402,6 @@ const Profile = () => {
               />
             </div>
 
-            {/* Name and Designation */}
             <div className="text-center md:text-left mb-2 md:mb-1">
               <h2 className="text-2xl md:text-3xl font-extrabold text-[var(--text)] tracking-tight">
                 {getFullName()}
@@ -401,7 +417,6 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* Stats on Right */}
           <div className="flex justify-center md:justify-end gap-10 mt-6 md:mt-0 mb-2">
             <div className="text-center">
               <div className="text-[var(--text)] font-extrabold text-xl">Active</div>
@@ -419,7 +434,7 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* Avatar remove button - only show if preview exists */}
+      {/* Avatar remove button */}
       {(avatarPreview || avatarTempPath) && (
         <div className="flex justify-end mb-4">
           <button
@@ -494,7 +509,7 @@ const Profile = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div className="form-field flex flex-col gap-2">
                   <label className="text-xs font-extrabold text-[var(--text-secondary)] ml-1">
-                    First Name <span className="text-red-500">*</span>
+                    First Name
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -503,10 +518,8 @@ const Profile = () => {
                     <input
                       type="text"
                       value={formData.firstName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, firstName: e.target.value })
-                      }
-                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
                       placeholder="Enter first name"
                     />
                   </div>
@@ -514,7 +527,7 @@ const Profile = () => {
 
                 <div className="form-field flex flex-col gap-2">
                   <label className="text-xs font-extrabold text-[var(--text-secondary)] ml-1">
-                    Last Name <span className="text-red-500">*</span>
+                    Last Name
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -523,10 +536,8 @@ const Profile = () => {
                     <input
                       type="text"
                       value={formData.lastName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, lastName: e.target.value })
-                      }
-                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
                       placeholder="Enter last name"
                     />
                   </div>
@@ -534,8 +545,7 @@ const Profile = () => {
 
                 <div className="form-field flex flex-col gap-2">
                   <label className="text-xs font-extrabold text-[var(--text-secondary)] ml-1">
-                    Company Email{" "}
-                    <span className="text-gray-400 font-medium">(Read-only)</span>
+                    Email
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -543,29 +553,10 @@ const Profile = () => {
                     </div>
                     <input
                       type="email"
-                      value={authUser?.email || ""}
-                      disabled
-                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)]/70 border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--muted)] cursor-not-allowed"
-                    />
-                  </div>
-                </div>
-
-                <div className="form-field flex flex-col gap-2">
-                  <label className="text-xs font-extrabold text-[var(--text-secondary)] ml-1">
-                    Personal Email
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <FiMail className="text-gray-400 text-lg" />
-                    </div>
-                    <input
-                      type="email"
-                      value={formData.personalEmail}
-                      onChange={(e) =>
-                        setFormData({ ...formData, personalEmail: e.target.value })
-                      }
-                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
-                      placeholder="Enter personal email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      placeholder="Enter email"
                     />
                   </div>
                 </div>
@@ -581,10 +572,8 @@ const Profile = () => {
                     <input
                       type="tel"
                       value={formData.personalNumber}
-                      onChange={(e) =>
-                        setFormData({ ...formData, personalNumber: e.target.value })
-                      }
-                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      onChange={(e) => setFormData({ ...formData, personalNumber: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
                       placeholder="Enter phone number"
                     />
                   </div>
@@ -600,11 +589,9 @@ const Profile = () => {
                     </div>
                     <textarea
                       value={formData.address}
-                      onChange={(e) =>
-                        setFormData({ ...formData, address: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       rows="3"
-                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all resize-none"
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all resize-none"
                       placeholder="Enter full address"
                     />
                   </div>
@@ -621,7 +608,7 @@ const Profile = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={updating || profileLoading}
+                  disabled={updating}
                   className="py-3 px-10 rounded-full font-bold bg-[#22c55e] text-white hover:bg-[#16a34a] shadow-md shadow-green-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {updating ? <FiLoader className="animate-spin" /> : <FiSave />}
@@ -652,10 +639,8 @@ const Profile = () => {
                     <input
                       type="password"
                       value={passwordData.currentPassword}
-                      onChange={(e) =>
-                        setPasswordData({ ...passwordData, currentPassword: e.target.value })
-                      }
-                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
                       placeholder="Enter current password"
                     />
                   </div>
@@ -672,10 +657,8 @@ const Profile = () => {
                     <input
                       type="password"
                       value={passwordData.newPassword}
-                      onChange={(e) =>
-                        setPasswordData({ ...passwordData, newPassword: e.target.value })
-                      }
-                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
                       placeholder="Min. 8 characters"
                     />
                   </div>
@@ -692,10 +675,8 @@ const Profile = () => {
                     <input
                       type="password"
                       value={passwordData.confirmPassword}
-                      onChange={(e) =>
-                        setPasswordData({ ...passwordData, confirmPassword: e.target.value })
-                      }
-                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:bg-[var(--surface)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
+                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface2)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all"
                       placeholder="Repeat new password"
                     />
                   </div>
