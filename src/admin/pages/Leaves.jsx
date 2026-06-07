@@ -302,14 +302,6 @@ const Leaves = () => {
             <span className="hidden sm:inline">Manage Leave Allocations</span>
             <span className="sm:hidden">Allocations</span>
           </Link>
-          <Link
-            to="/admin/leaves/leave-types"
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
-          >
-            <i className="fas fa-briefcase"></i>
-            <span className="hidden sm:inline">Manage leave types</span>
-            <span className="sm:hidden">Leave Types</span>
-          </Link>
         </div>
       </div>
 

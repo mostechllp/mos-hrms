@@ -215,23 +215,7 @@ const RequestLeave = () => {
                   required
                 />
               </div>
-              <div className="form-field flex flex-col gap-2">
-                <label className="text-xs font-semibold text-gray-700 flex items-center gap-1">
-                  <FiTag className="text-green-500" /> Leave Type <span className="text-red-500 ml-1">*</span>
-                </label>
-                <select
-                  value={formData.leaveType}
-                  onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
-                  className="py-3 px-3.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-                >
-                  <option value="Annual Leave">Annual Leave</option>
-                  <option value="Sick Leave">Sick Leave</option>
-                  <option value="Casual Leave">Casual Leave</option>
-                  <option value="Unpaid Leave">Unpaid Leave</option>
-                  <option value="Maternity Leave">Maternity Leave</option>
-                  <option value="Paternity Leave">Paternity Leave</option>
-                </select>
-              </div>
+              {/* Removed leave type dropdown, default is Annual Leave */}
               <div className="form-field flex flex-col gap-2">
                 <label className="text-xs font-semibold text-gray-700 flex items-center gap-1">
                   <FiCalendar className="text-green-500" /> Claim Salary

@@ -191,16 +191,6 @@ const LeaveAllocations = () => {
                   Company
                 </th>
 
-                {/* Sick Leave Column */}
-                <th className="px-3 md:px-4 py-2 md:py-3 text-center text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap bg-green-50 dark:bg-green-900/20">
-                  Sick Leave
-                </th>
-
-                {/* Casual Leave Column */}
-                <th className="px-3 md:px-4 py-2 md:py-3 text-center text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap bg-blue-50 dark:bg-blue-900/20">
-                  Casual Leave
-                </th>
-
                 {/* Annual Leave Column */}
                 <th className="px-3 md:px-4 py-2 md:py-3 text-center text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap bg-amber-50 dark:bg-amber-900/20">
                   Annual Leave
@@ -212,24 +202,6 @@ const LeaveAllocations = () => {
               </tr>
               <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                 <th colSpan="4" className="px-3 md:px-4 py-1"></th>
-                <th className="px-3 md:px-4 py-1 text-center text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                  <div className="flex justify-center gap-2">
-                    <span>Alloc</span>
-                    <span>|</span>
-                    <span>Used</span>
-                    <span>|</span>
-                    <span>Bal</span>
-                  </div>
-                </th>
-                <th className="px-3 md:px-4 py-1 text-center text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                  <div className="flex justify-center gap-2">
-                    <span>Alloc</span>
-                    <span>|</span>
-                    <span>Used</span>
-                    <span>|</span>
-                    <span>Bal</span>
-                  </div>
-                </th>
                 <th className="px-3 md:px-4 py-1 text-center text-[10px] font-semibold text-gray-500 dark:text-gray-400">
                   <div className="flex justify-center gap-2">
                     <span>Alloc</span>
@@ -287,29 +259,6 @@ const LeaveAllocations = () => {
                   };
 
                   const photoUrl = getEmployeePhoto();
-                  const sickAlloc = getAllocationValue(
-                    employee.id,
-                    "Sick Leave",
-                    "alloc",
-                  );
-                  const sickUsed = getAllocationValue(
-                    employee.id,
-                    "Sick Leave",
-                    "used",
-                  );
-                  const sickBal = sickAlloc - sickUsed;
-
-                  const casualAlloc = getAllocationValue(
-                    employee.id,
-                    "Casual Leave",
-                    "alloc",
-                  );
-                  const casualUsed = getAllocationValue(
-                    employee.id,
-                    "Casual Leave",
-                    "used",
-                  );
-                  const casualBal = casualAlloc - casualUsed;
 
                   const annualAlloc = getAllocationValue(
                     employee.id,
@@ -363,44 +312,6 @@ const LeaveAllocations = () => {
                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                         {employee.company?.company_name || "-"}
-                      </td>
-
-                      {/* Sick Leave Values */}
-                      <td className="px-3 md:px-4 py-2 md:py-3">
-                        <div className="flex justify-center items-center gap-2">
-                          <span className="text-xs md:text-sm font-semibold text-green-600 dark:text-green-400 min-w-[30px] text-center">
-                            {formatNumber(sickAlloc)}
-                          </span>
-                          <span className="text-gray-400">|</span>
-                          <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400 min-w-[30px] text-center">
-                            {formatNumber(sickUsed)}
-                          </span>
-                          <span className="text-gray-400">|</span>
-                          <span
-                            className={`text-xs md:text-sm font-semibold min-w-[30px] text-center ${sickBal < 0 ? "text-red-600" : "text-blue-600"}`}
-                          >
-                            {formatNumber(sickBal)}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Casual Leave Values */}
-                      <td className="px-4 py-3">
-                        <div className="flex justify-center items-center gap-2">
-                          <span className="text-xs md:text-sm font-semibold text-green-600 dark:text-green-400 min-w-[30px] text-center">
-                            {formatNumber(casualAlloc)}
-                          </span>
-                          <span className="text-gray-400">|</span>
-                          <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400 min-w-[30px] text-center">
-                            {formatNumber(casualUsed)}
-                          </span>
-                          <span className="text-gray-400">|</span>
-                          <span
-                            className={`text-xs md:text-sm font-semibold min-w-[30px] text-center ${casualBal < 0 ? "text-red-600" : "text-blue-600"}`}
-                          >
-                            {formatNumber(casualBal)}
-                          </span>
-                        </div>
                       </td>
 
                       {/* Annual Leave Values */}

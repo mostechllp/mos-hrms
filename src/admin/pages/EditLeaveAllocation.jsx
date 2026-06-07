@@ -107,10 +107,10 @@ const EditLeaveAllocation = () => {
             }
           });
           
-          // Set default 0 for leave types without allocations
+          // Set default 18 for Annual Leave, 0 for others without allocations
           leaveTypes.forEach(type => {
-            if (!initialAllocs[type.id]) {
-              initialAllocs[type.id] = 0;
+            if (initialAllocs[type.id] === undefined) {
+              initialAllocs[type.id] = type.name === 'Annual Leave' ? 18 : 0;
             }
           });
           
@@ -318,7 +318,7 @@ const EditLeaveAllocation = () => {
           </div>
 
           <div className="space-y-3">
-            {leaveTypes.map((type) => {
+            {leaveTypes.filter(type => type.name === 'Annual Leave').map((type) => {
               const getIcon = () => {
                 if (type.name === 'Sick Leave') return 'fas fa-thermometer-half';
                 if (type.name === 'Casual Leave') return 'fas fa-umbrella-beach';

@@ -1,7 +1,11 @@
 import React from "react";
 import { FiCheck } from "react-icons/fi";
+import { useDispatch } from "react-redux";
+import { setStep } from "../../store/slices/onboardingSlice";
 
 const Stepper = ({ currentStep }) => {
+  const dispatch = useDispatch();
+
   const steps = [
     { id: 1, title: "Resume Upload", subtitle: "AI Parsing" },
     { id: 2, title: "Employee Details", subtitle: "Verify Info" },
@@ -15,14 +19,17 @@ const Stepper = ({ currentStep }) => {
       {steps.map((step, index) => (
         <React.Fragment key={step.id}>
           {/* Step Item */}
-          <div className="flex flex-col items-center relative z-10">
+          <div 
+            className="flex flex-col items-center relative z-10 cursor-pointer group"
+            onClick={() => dispatch(setStep(step.id))}
+          >
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-2 ${
                 currentStep > step.id
-                  ? "bg-green-600 border-green-600 text-white shadow-sm shadow-green-500/20"
+                  ? "bg-green-600 border-green-600 text-white shadow-sm shadow-green-500/20 group-hover:bg-green-700"
                   : currentStep === step.id
                   ? "bg-white dark:bg-gray-800 border-green-600 text-green-600 ring-4 ring-green-50 dark:ring-green-950/30"
-                  : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400"
+                  : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 group-hover:border-gray-400"
               }`}
             >
               {currentStep > step.id ? (
