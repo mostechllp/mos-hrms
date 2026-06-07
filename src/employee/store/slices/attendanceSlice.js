@@ -24,6 +24,7 @@ export const fetchDashboardData = createAsyncThunk(
 );
 
 // ✅ Punch In
+// Update punchIn thunk to provide better error messages
 export const punchIn = createAsyncThunk(
   "attendance/punchIn",
   async (_, { rejectWithValue }) => {
@@ -33,7 +34,6 @@ export const punchIn = createAsyncThunk(
       if (response.data && response.data.status === "success") {
         const data = response.data.data;
         
-        // Save to localStorage for persistence
         localStorage.setItem("attendance-punched-in", "true");
         localStorage.setItem("attendance-punch-in-time", data.punch_in);
         
@@ -48,27 +48,28 @@ export const punchIn = createAsyncThunk(
       }
     } catch (error) {
       console.error("Punch in error:", error);
-      return rejectWithValue(
-        error.response?.data?.message || "Punch in failed"
-      );
+      // Preserve the exact error message from the API
+      const errorMsg = error.response?.data?.message || "Punch in failed";
+      return rejectWithValue(errorMsg);
     }
   }
 );
 
 // ✅ Punch Out
+// In your taskReportsSlice.js or attendanceSlice.js
 export const punchOut = createAsyncThunk(
   "attendance/punchOut",
-  async ({ tasks_completed, plan_tomorrow }, { rejectWithValue }) => {
+  async ({ tasks_completed, plan_tomorrow, pending_works }, { rejectWithValue }) => {
     try {
       const response = await apiClient.post("/employee/punch-out", {
         tasks_completed,
         plan_tomorrow,
+        pending_works, // Add this field
       });
       
       if (response.data && response.data.status === "success") {
         const data = response.data.data;
         
-        // Clear localStorage on punch out
         localStorage.removeItem("attendance-punched-in");
         localStorage.removeItem("attendance-punch-in-time");
         
@@ -76,7 +77,8 @@ export const punchOut = createAsyncThunk(
           punch_out: data.punch_out,
           log_date: data.log_date,
           log_status: data.log_status,
-          id: data.id
+          id: data.id,
+          task_report: data.task_report // If API returns the task report
         };
       } else {
         return rejectWithValue(response.data?.message || "Punch out failed");

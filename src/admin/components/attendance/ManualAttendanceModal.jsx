@@ -26,20 +26,55 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+  e.preventDefault();
+  setError('');
 
-    if (!formData.employee_id || !formData.date || !formData.punch_in) {
-      return setError('Employee ID, Date, and Punch In are required fields');
-    }
+  if (!formData.employee_id || !formData.date || !formData.punch_in) {
+    return setError('Employee ID, Date, and Punch In are required fields');
+  }
 
-    try {
-      await onSubmit(formData);
-      handleClose();
-    } catch (err) {
-      setError(typeof err === 'string' ? err : err?.message || 'Failed to submit attendance.');
+  // Validate that punch_out is after punch_in if both are provided
+  if (formData.punch_in && formData.punch_out) {
+    const punchInTime = formData.punch_in;
+    const punchOutTime = formData.punch_out;
+    
+    if (punchOutTime <= punchInTime) {
+      return setError('Punch Out time must be after Punch In time');
     }
-  };
+  }
+
+  // Validate date format
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(formData.date)) {
+    return setError('Date must be in YYYY-MM-DD format');
+  }
+
+  // Validate time format (HH:MM)
+  const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+  if (!timeRegex.test(formData.punch_in)) {
+    return setError('Punch In time must be in HH:MM format (24-hour)');
+  }
+  
+  if (formData.punch_out && !timeRegex.test(formData.punch_out)) {
+    return setError('Punch Out time must be in HH:MM format (24-hour)');
+  }
+
+  try {
+    // Format the data for API - transform to full datetime format
+    const formattedData = {
+      employee_id: formData.employee_id,
+      date: formData.date,
+      // Combine date and time into full datetime format (YYYY-MM-DD HH:MM:SS)
+      punch_in: `${formData.date} ${formData.punch_in}:00`,
+      punch_out: formData.punch_out ? `${formData.date} ${formData.punch_out}:00` : null,
+    };
+    
+    await onSubmit(formattedData);
+    handleClose();
+  } catch (err) {
+    setError(typeof err === 'string' ? err : err?.message || 'Failed to submit attendance.');
+  }
+};
 
   const handleClose = () => {
     setFormData({
@@ -125,6 +160,9 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
               required
             />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Format: HH:MM (24-hour)
+            </p>
           </div>
 
           <div className="mb-6">
@@ -138,6 +176,9 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
             />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Optional. Format: HH:MM (24-hour)
+            </p>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">

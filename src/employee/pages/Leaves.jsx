@@ -8,51 +8,51 @@ import StatusBadge from '../components/common/StatusBadge';
 const Leaves = () => {
   const dispatch = useAppDispatch();
   const leavesState = useAppSelector((state) => state.EmpLeaves);
-
+  
   // Add safety defaults
   const leaves = leavesState?.leaves || [];
   const filter = leavesState?.filter || { status: 'all', search: '' };
   const pagination = leavesState?.pagination || { currentPage: 1, perPage: 10 };
   const loading = leavesState?.loading || false;
-
+  
   // Use useMemo instead of useState + useEffect to prevent infinite loops
   const filteredLeaves = useMemo(() => {
     let filtered = [...leaves];
-
+    
     if (filter.status && filter.status !== 'all') {
       filtered = filtered.filter(l => {
         const leaveStatus = typeof l.status === 'object' ? l.status?.name?.toLowerCase() : l.status?.toLowerCase();
         return leaveStatus === filter.status.toLowerCase();
       });
     }
-
+    
     if (filter.search) {
       filtered = filtered.filter(l => {
         const leaveType = typeof l.leave_type === 'object' ? l.leave_type?.name : l.leave_type;
         const leaveStatus = typeof l.status === 'object' ? l.status?.name : l.status;
-
+        
         return (leaveType?.toLowerCase() || '').includes(filter.search.toLowerCase()) ||
           (leaveStatus?.toLowerCase() || '').includes(filter.search.toLowerCase()) ||
           (l.reason?.toLowerCase() || '').includes(filter.search.toLowerCase());
       });
     }
-
+    
     return filtered;
   }, [leaves, filter.status, filter.search]); // Only recompute when these change
-
+  
   // Fetch leaves on component mount - only once
   useEffect(() => {
     dispatch(fetchEmployeeLeaves());
   }, [dispatch]); // Empty dependency array - only runs once
-
+  
   // Safety check for pagination
   const perPage = pagination?.perPage || 10;
   const currentPage = pagination?.currentPage || 1;
-
+  
   const totalPages = Math.ceil(filteredLeaves.length / perPage);
   const start = (currentPage - 1) * perPage;
   const currentLeaves = filteredLeaves.slice(start, start + perPage);
-
+  
   // Helper functions
   const getLeaveTypeName = (leaveType) => {
     if (!leaveType) return '-';
@@ -61,7 +61,7 @@ const Leaves = () => {
     }
     return leaveType;
   };
-
+  
   const getStatus = (status) => {
     if (!status) return 'pending';
     if (typeof status === 'object') {
@@ -69,25 +69,25 @@ const Leaves = () => {
     }
     return status.toLowerCase();
   };
-
+  
   const getClaimSalary = (claimSalary) => {
     if (claimSalary === undefined || claimSalary === null) return 'Yes';
     if (typeof claimSalary === 'object') return 'Yes';
     if (claimSalary === 1 || claimSalary === '1' || claimSalary === 'Yes') return 'Yes';
     return 'No';
   };
-
+  
   const hasDocument = (document) => {
     return document !== null && document !== undefined && document !== '';
   };
-
+  
   const stats = useMemo(() => ({
     total: leaves.length,
     pending: leaves.filter(l => getStatus(l.status) === 'pending').length,
     approved: leaves.filter(l => getStatus(l.status) === 'approved').length,
     rejected: leaves.filter(l => getStatus(l.status) === 'rejected').length,
   }), [leaves]);
-
+  
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     try {
@@ -99,7 +99,7 @@ const Leaves = () => {
       return '-', error;
     }
   };
-
+  
   const calculateDays = (startDate, endDate) => {
     if (!startDate || !endDate) return 0;
     try {
@@ -111,31 +111,31 @@ const Leaves = () => {
       return 0, error;
     }
   };
-
+  
   const handleStatusFilter = (status) => {
-    dispatch(setLeaveFilter({
-      status: status === 'all' ? 'all' : status.toLowerCase(),
-      search: filter.search || ''
+    dispatch(setLeaveFilter({ 
+      status: status === 'all' ? 'all' : status.toLowerCase(), 
+      search: filter.search || '' 
     }));
   };
-
+  
   const handleSearch = (e) => {
-    dispatch(setLeaveFilter({
-      status: filter.status || 'all',
-      search: e.target.value
+    dispatch(setLeaveFilter({ 
+      status: filter.status || 'all', 
+      search: e.target.value 
     }));
   };
-
+  
   const handlePageChange = (page) => {
     if (page >= 1 && page <= totalPages) {
       dispatch(setLeavePagination({ currentPage: page, perPage: perPage }));
     }
   };
-
+  
   const handleEntriesChange = (e) => {
     dispatch(setLeavePagination({ currentPage: 1, perPage: parseInt(e.target.value) }));
   };
-
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -146,7 +146,7 @@ const Leaves = () => {
       </div>
     );
   }
-
+  
   return (
     <div>
       {/* Stats Grid */}
@@ -188,7 +188,7 @@ const Leaves = () => {
           <div className="stat-label text-xs text-[var(--muted)]">Rejected</div>
         </div>
       </div>
-
+      
       <div className="leaves-header flex flex-col md:flex-row justify-between items-start md:items-center gap-5 mb-7">
         <h2 className="text-xl md:text-2xl font-semibold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent">
           My Leave Requests
@@ -197,23 +197,24 @@ const Leaves = () => {
           <FiPlus /> Request Leave
         </Link>
       </div>
-
+      
       {/* Status Tabs */}
       <div className="status-tabs flex flex-wrap gap-2.5 mb-6 pb-3 border-b border-[var(--border)]">
-        {['all', 'Pending', 'Approved', 'Rejected'].map(status => (
-          <button
-            key={status}
-            onClick={() => handleStatusFilter(status)}
-            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${(filter.status === status.toLowerCase()) || (status === 'all' && filter.status === 'all')
-                ? 'bg-green-500 text-white'
-                : 'bg-[var(--surface2)] text-[var(--text-secondary)] hover:bg-green-100 hover:text-green-600'
-              }`}
-          >
-            {status === 'all' ? 'All Requests' : status}
-          </button>
-        ))}
-      </div>
-
+  {['all', 'Pending', 'Approved', 'Rejected'].map(status => (
+    <button
+      key={status}
+      onClick={() => handleStatusFilter(status)}
+      className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+        (filter.status === status.toLowerCase()) || (status === 'all' && filter.status === 'all')
+          ? 'bg-green-500 text-white'
+          : 'bg-[var(--surface2)] text-[var(--text-secondary)] hover:bg-green-100 hover:text-green-600'
+      }`}
+    >
+      {status === 'all' ? 'All Requests' : status}
+    </button>
+  ))}
+</div>
+      
       {/* Action Bar */}
       <div className="files-actions flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
         <div className="entries-select flex items-center gap-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-full px-3.5 py-1.5 text-xs text-[var(--muted)]">
@@ -242,7 +243,7 @@ const Leaves = () => {
           </div>
         </div>
       </div>
-
+      
       {/* Table */}
       <div className="leave-table-wrapper bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-x-auto shadow-sm">
         <table className="leave-table w-full border-collapse text-xs min-w-[900px]">
@@ -273,7 +274,7 @@ const Leaves = () => {
                 const claimSalary = getClaimSalary(leave.claim_salary);
                 const hasDoc = hasDocument(leave.document);
                 const days = leave.duration_days || calculateDays(leave.start_date, leave.end_date);
-
+                
                 return (
                   <tr key={leave.id || idx} className="hover:bg-[var(--surface2)] transition-colors">
                     <td className="py-3.5 px-4 border-b border-[var(--border)] text-center">{start + idx + 1}</td>
@@ -282,10 +283,11 @@ const Leaves = () => {
                     <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">{formatDate(leave.end_date)}</td>
                     <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">{days}</td>
                     <td className="py-3.5 px-4 border-b border-[var(--border)]">
-                      <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold ${claimSalary === 'Yes'
-                          ? 'bg-green-500/15 text-green-600'
+                      <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                        claimSalary === 'Yes' 
+                          ? 'bg-green-500/15 text-green-600' 
                           : 'bg-gray-100 text-[var(--muted)]'
-                        }`}>
+                      }`}>
                         {claimSalary}
                       </span>
                     </td>
@@ -307,7 +309,7 @@ const Leaves = () => {
           </tbody>
         </table>
       </div>
-
+      
       {/* Pagination */}
       {filteredLeaves.length > 0 && totalPages > 0 && (
         <div className="pagination-container flex flex-col sm:flex-row justify-between items-center gap-3 mt-5">
@@ -328,10 +330,11 @@ const Leaves = () => {
                 <button
                   key={i}
                   onClick={() => handlePageChange(pageNum)}
-                  className={`w-9 h-9 rounded-lg border text-xs transition-all ${currentPage === pageNum
+                  className={`w-9 h-9 rounded-lg border text-xs transition-all ${
+                    currentPage === pageNum
                       ? 'bg-green-500 border-green-500 text-white'
                       : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--surface2)]'
-                    }`}
+                  }`}
                 >
                   {pageNum}
                 </button>

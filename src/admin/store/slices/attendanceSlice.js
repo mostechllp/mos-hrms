@@ -137,9 +137,28 @@ export const createManualAttendance = createAsyncThunk(
   "attendance/createManual",
   async (data, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post(`/admin/attendance/manual`, data);
+      // The data coming in should already be formatted from the modal
+      // But let's ensure proper formatting
+      const transformedData = {
+        userid: parseInt(data.employee_id),
+        log_date: data.date,
+        punch_in: data.punch_in, // Should already be "YYYY-MM-DD HH:MM:SS"
+        punch_out: data.punch_out || null,
+      };
+      
+      // Additional validation to ensure datetime format
+      if (transformedData.punch_in && !transformedData.punch_in.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+        return rejectWithValue("Punch In time must be in format: YYYY-MM-DD HH:MM:SS");
+      }
+      
+      if (transformedData.punch_out && !transformedData.punch_out.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+        return rejectWithValue("Punch Out time must be in format: YYYY-MM-DD HH:MM:SS");
+      }
+      
+      const response = await apiClient.post(`/admin/attendance`, transformedData);
       return response.data;
     } catch (error) {
+      console.error("Manual attendance error:", error.response?.data);
       if (error.response?.data?.errors) {
         const msgs = Object.values(error.response.data.errors).flat();
         return rejectWithValue(msgs.join(", "));
