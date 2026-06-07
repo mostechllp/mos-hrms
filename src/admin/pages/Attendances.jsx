@@ -154,20 +154,29 @@ const Attendances = () => {
     }
   };
 
-  // ─── Manual submit ────────────────────────────────────────────────────────
   const handleManualSubmit = async (formData) => {
-    setManualSubmitting(true);
-    try {
-      await dispatch(createManualAttendance(formData)).unwrap();
-      showToast("Attendance created successfully!", "success");
-      setShowManualModal(false);
-      setCurrentPage(1); // ✅ reset to page 1, triggers fetchAll
-    } catch (error) {
-      showToast(typeof error === "string" ? error : error?.message || "Creation failed", "error");
-    } finally {
-      setManualSubmitting(false);
-    }
-  };
+  setManualSubmitting(true);
+  try {
+    // The formData from modal is already formatted correctly
+    // Don't reformat it again!
+    const submissionData = {
+      employee_id: formData.employee_id,
+      date: formData.date,
+      punch_in: formData.punch_in,  // Already "YYYY-MM-DD HH:MM:SS"
+      punch_out: formData.punch_out, // Already "YYYY-MM-DD HH:MM:SS" or null
+    };
+    
+    await dispatch(createManualAttendance(submissionData)).unwrap();
+    showToast("Attendance created successfully!", "success");
+    setShowManualModal(false);
+    setCurrentPage(1);
+  } catch (error) {
+    console.error("Manual submission error:", error);
+    showToast(typeof error === "string" ? error : error?.message || "Creation failed", "error");
+  } finally {
+    setManualSubmitting(false);
+  }
+};
 
   // ─── Filter / pagination handlers ────────────────────────────────────────
   const handlePageChange = (page) => {
