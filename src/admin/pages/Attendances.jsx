@@ -374,7 +374,7 @@ const handleManualSubmit = async (formData) => {
             onClick={() => setShowManualModal(true)}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
           >
-            <i className="fas fa-keyboard"></i> Manual Entry
+            <i className="fas fa-keyboard"></i> Add attendance
           </button>
           <button
             onClick={() => setShowUploadModal(true)}

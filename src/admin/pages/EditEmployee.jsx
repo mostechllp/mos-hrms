@@ -1565,9 +1565,6 @@ const EditEmployee = () => {
                             <Controller
                               name={`special_days.${index}.name`}
                               control={control}
-                              rules={{
-                                required: "Name is required",
-                              }}
                               render={({ field }) => (
                                 <div>
                                   <input
@@ -1593,9 +1590,6 @@ const EditEmployee = () => {
                             <Controller
                               name={`special_days.${index}.date`}
                               control={control}
-                              rules={{
-                                required: "Date is required",
-                              }}
                               render={({ field }) => (
                                 <div>
                                   <DateInput

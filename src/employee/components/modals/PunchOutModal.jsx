@@ -281,7 +281,6 @@ const TaskReportsList = () => {
       {/* Task Reports Table */}
       <div className="task-reports-table-wrapper bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-x-auto shadow-sm">
         <table className="task-reports-table w-full border-collapse text-xs min-w-[800px]">
-          // Update the table headers and body in TaskReportsList
           <thead>
             <tr className="bg-[var(--surface2)] border-b border-[var(--border)]">
               <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)]">

@@ -1,8 +1,8 @@
 import React from "react";
 import { Calendar, Save, CheckCircle2, MessageSquare, Star, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { showToast } from "../components/common/Toast";
-import OffboardingHeader from "../components/offboarding/OffboardingHeader";
+import { showToast } from "../common/Toast";
+import OffboardingHeader from "./OffboardingHeader";
 
 const ExitInterview = () => {
   const navigate = useNavigate();

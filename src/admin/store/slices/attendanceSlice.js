@@ -13,33 +13,69 @@ const isValidPunch = (value) => value && value !== "-" && value.trim() !== "";
 
 const extractAttendanceRecords = (response) => {
   try {
-    // ✅ Correct path: response.data.data.attendance
     const attendance = response.data?.data?.attendance;
+    const apiStats = response.data?.data?.stats;
 
     if (attendance?.data && Array.isArray(attendance.data)) {
       const records = attendance.data.map((record, idx) => {
         const hasPunchOut = isValidPunch(record.punch_out);
         const punchIn = isValidPunch(record.punch_in) ? record.punch_in : "-";
-
-        // Derive present/absent from punch_in
-        const isPresent = isValidPunch(record.punch_in);
-
+        
+        // Extract employee name from user.employee object
+        let employeeName = "-";
+        let department = "-";
+        
+        if (record.user) {
+          // Get employee name from user.employee
+          if (record.user.employee) {
+            const firstName = record.user.employee.first_name || "";
+            const lastName = record.user.employee.last_name || "";
+            employeeName = `${firstName} ${lastName}`.trim();
+            if (!employeeName) employeeName = record.user.username || "-";
+          } else {
+            employeeName = record.user.username || "-";
+          }
+          
+          // Get department from user.department
+          if (record.user.department && record.user.department.name) {
+            department = record.user.department.name;
+          }
+        }
+        
+        // Format punch times
+        const formatPunchTime = (datetime) => {
+          if (!datetime || datetime === "-") return "-";
+          if (datetime.includes(" ")) {
+            return datetime.split(" ")[1]; // Extract time part (HH:MM:SS)
+          }
+          return datetime;
+        };
+        
+        // Check if employee is late (you can customize this logic)
+        const isLate = () => {
+          if (!record.punch_in) return false;
+          const punchInTime = formatPunchTime(record.punch_in);
+          // Example: Consider late if punch in after 9:00 AM
+          if (punchInTime && punchInTime > "09:00:00") {
+            return true;
+          }
+          return false;
+        };
+        
         return {
           id: record.userid || idx,
           employee_id: record.userid,
-          employeeName: record.user
-            ? `${record.user.first_name || ""} ${record.user.last_name || ""}`.trim()
-            : `Employee ${record.userid}`,
+          employeeName: employeeName,
           company: record.company?.company_name || "N/A",
           company_id: record.company_id || null,
-          department: record.company?.company_name || "N/A",
+          department: department,
           date: record.log_date || "-",
-          punchIn,
-          punchOut: hasPunchOut ? record.punch_out : null,
+          punchIn: formatPunchTime(record.punch_in),
+          punchOut: hasPunchOut ? formatPunchTime(record.punch_out) : null,
           punch_in_raw: record.punch_in,
           punch_out_raw: record.punch_out,
-          status: isPresent ? "Present" : "Absent",
-          isLate: false,
+          status: isValidPunch(record.punch_in) ? "Present" : "Absent",
+          isLate: isLate(),
           hasPunchOut,
         };
       });
@@ -51,12 +87,20 @@ const extractAttendanceRecords = (response) => {
         per_page: attendance.per_page,
       };
 
-      const stats = {
+      // Use stats from API if available, otherwise calculate
+      const stats = apiStats ? {
+        totalActiveEmployees: apiStats.total_active_employees || 0,
+        presentToday: apiStats.present_today || 0,
+        absentToday: apiStats.absent_today || 0,
+        punchedInOnTime: apiStats.punched_in_on_time || 0,
+        punchedLate: apiStats.punched_late || 0,
+        punchedOutToday: apiStats.punched_out_today || 0,
+      } : {
         totalActiveEmployees: meta.total || records.length,
         presentToday: records.filter((r) => r.status === "Present").length,
         absentToday: records.filter((r) => r.status === "Absent").length,
-        punchedInOnTime: records.filter((r) => r.status === "Present" && !r.isLate).length,
-        punchedLate: records.filter((r) => r.isLate).length,
+        punchedInOnTime: 0,
+        punchedLate: 0,
         punchedOutToday: records.filter((r) => r.hasPunchOut).length,
       };
 
@@ -76,7 +120,6 @@ const extractAttendanceRecords = (response) => {
     return { records: [], total: 0 };
   }
 };
-
 const extractData = (response) => {
   if (response.data?.data?.data && Array.isArray(response.data.data.data)) return response.data.data.data;
   if (response.data?.data && Array.isArray(response.data.data)) return response.data.data;

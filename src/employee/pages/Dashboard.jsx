@@ -17,6 +17,7 @@ import {
 } from "../store/slices/attendanceSlice";
 import PunchOutModal from "../components/modals/PunchOutModal";
 import PendingPunchOutModal from "../components/attendance/PendingPunchoutModal";
+import { useAppTheme } from "../../context/ThemeContext";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
@@ -27,6 +28,30 @@ const Dashboard = () => {
   const { loading, dashboardData } = useSelector(
     (state) => state.EmpAttendance,
   );
+  const { primaryColor, primaryDark } = useAppTheme();
+
+  // Helper function to adjust color brightness
+  const adjustColor = (color, percent) => {
+    let r, g, b;
+    if (color && color.startsWith('#')) {
+      r = parseInt(color.slice(1, 3), 16);
+      g = parseInt(color.slice(3, 5), 16);
+      b = parseInt(color.slice(5, 7), 16);
+    } else {
+      return color || "#2ecc71";
+    }
+    
+    r = Math.max(0, Math.min(255, r + (r * percent) / 100));
+    g = Math.max(0, Math.min(255, g + (g * percent) / 100));
+    b = Math.max(0, Math.min(255, b + (b * percent) / 100));
+    
+    return `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`;
+  };
+
+  // Create gradient based on primary color
+  const gradientStyle = {
+    background: `linear-gradient(135deg, ${primaryColor || "#2ecc71"}, ${primaryDark || adjustColor(primaryColor || "#2ecc71", -20)})`
+  };
 
   // Use dashboard data as source of truth (not Redux isPunchedIn)
   const todayAttendance = dashboardData?.today_attendance || {};
@@ -358,7 +383,7 @@ const handlePunchOutSubmit = async (data) => {
           {
             label: "Hours Worked",
             data: [0, 0, 0, 0, 0, 0, 0],
-            backgroundColor: "#2ecc71",
+            backgroundColor: primaryColor || "#2ecc71",
             borderRadius: 8,
             barPercentage: 0.6,
           },
@@ -406,7 +431,7 @@ const handlePunchOutSubmit = async (data) => {
         {
           label: "Hours Worked",
           data: hoursWorked,
-          backgroundColor: "#2ecc71",
+          backgroundColor: primaryColor || "#2ecc71",
           borderRadius: 8,
           barPercentage: 0.6,
         },
@@ -420,7 +445,7 @@ const handlePunchOutSubmit = async (data) => {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: "#2ecc71",
+        backgroundColor: primaryColor || "#2ecc71",
         callbacks: {
           label: (context) => {
             const hours = context.raw;
@@ -549,11 +574,14 @@ const handlePunchOutSubmit = async (data) => {
 
   return (
     <div>
-      {/* Welcome Banner */}
-      <div className="welcome-banner bg-gradient-to-br from-green-600 to-green-500 rounded-xl p-5 md:p-7 mb-7 flex flex-col md:flex-row justify-between items-center gap-5">
+      {/* Welcome Banner with Theme Support */}
+      <div 
+        className="welcome-banner rounded-xl p-5 md:p-7 mb-7 flex flex-col md:flex-row justify-between items-center gap-5"
+        style={gradientStyle}
+      >
         <div className="welcome-left flex items-center gap-5 flex-wrap">
-          <div className="welcome-avatar w-16 h-16 rounded-xl overflow-hidden border-3 border-white shadow-lg bg-white flex items-center justify-center">
-            <i className="fas fa-user text-green-600 text-3xl"></i>
+          <div className="welcome-avatar w-16 h-16 rounded-xl overflow-hidden border-3 border-white shadow-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+            <i className="fas fa-user text-white text-3xl"></i>
           </div>
           <div className="welcome-text">
             <h2 className="text-xl md:text-2xl font-bold text-white">
@@ -826,25 +854,25 @@ const handlePunchOutSubmit = async (data) => {
                         >
                           <td className="py-3 px-4 text-[var(--text)]">
                             {attendance.log_date}
-                          </td>
+                           </td>
                           <td className="py-3 px-4 text-[var(--text)]">
                             {attendance.punch_in
                               ? formatPunchTime(attendance.punch_in)
                               : "-"}
-                          </td>
+                           </td>
                           <td className="py-3 px-4 text-[var(--text)]">
                             {attendance.punch_out
                               ? formatPunchTime(attendance.punch_out)
                               : "-"}
-                          </td>
+                           </td>
                           <td className="py-3 px-4 text-[var(--text)] font-semibold">
                             {hours !== "-" ? `${hours} hrs` : "-"}
-                          </td>
-                        </tr>
+                           </td>
+                         </tr>
                       );
                     })}
                 </tbody>
-              </table>
+               </table>
             </div>
           </div>
         )}
