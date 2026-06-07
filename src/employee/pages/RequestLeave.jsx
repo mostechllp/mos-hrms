@@ -18,8 +18,8 @@ const RequestLeave = () => {
   const error = leavesState?.error || null;
   
   const [formData, setFormData] = useState({
-    start_date: '',    // Changed from fromDate
-    end_date: '',      // Changed from toDate
+    start_date: '',
+    end_date: '',
     reason: '',
   });
   const [totalDays, setTotalDays] = useState(0);
@@ -74,7 +74,6 @@ const RequestLeave = () => {
 
   const handleStartDateChange = (dateValue) => {
     setFormData({ ...formData, start_date: dateValue });
-    // Reset end_date if it's before the new start_date
     if (formData.end_date && dateValue && new Date(formData.end_date) < new Date(dateValue)) {
       setFormData(prev => ({ ...prev, end_date: '' }));
     }
@@ -112,21 +111,18 @@ const RequestLeave = () => {
       return;
     }
     
-    // Check if exceeds balance
     if (totalDays > annualLeaveBalance.remaining && annualLeaveBalance.remaining >= 0) {
       setLocalError(`Requested days (${totalDays}) exceed available Annual Leave balance (${annualLeaveBalance.remaining} days)`);
       return;
     }
     
-    // Prepare data according to API expectations
     const formDataToSend = new FormData();
-    formDataToSend.append('leave_type_id', '2'); // Default Annual Leave type ID
+    formDataToSend.append('leave_type_id', '2');
     formDataToSend.append('start_date', formData.start_date);
     formDataToSend.append('end_date', formData.end_date);
     formDataToSend.append('reason', formData.reason);
-    formDataToSend.append('claim_salary', '0'); // Default to 0 (false)
+    formDataToSend.append('claim_salary', '0');
     
-    // Get current year
     const currentYear = new Date().getFullYear();
     formDataToSend.append('year', currentYear.toString());
     
@@ -134,7 +130,6 @@ const RequestLeave = () => {
       formDataToSend.append('document', selectedFile);
     }
     
-    // Log the payload for debugging
     console.log("Submitting leave request with payload:");
     for (let pair of formDataToSend.entries()) {
       console.log(pair[0] + ': ' + pair[1]);
@@ -153,22 +148,17 @@ const RequestLeave = () => {
   const usedLeaves = annualLeaveBalance?.taken ?? 0;
   const pendingLeaves = annualLeaveBalance?.pending ?? 0;
   const allocatedLeaves = annualLeaveBalance?.allocated ?? 0;
-  
-  // Check if requested days exceed balance
   const exceedsBalance = totalDays > remaining && remaining >= 0;
   
-  // Log for debugging
   useEffect(() => {
     console.log("Annual Leave Balance:", annualLeaveBalance);
     console.log("Leave Balances from store:", leaveBalances);
   }, [leaveBalances, annualLeaveBalance]);
   
-  // Get min date for end_date picker (must be >= start_date)
   const getMinEndDate = () => {
     if (formData.start_date) {
       return formData.start_date;
     }
-    // Get today's date in YYYY-MM-DD format
     const today = new Date();
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -177,21 +167,29 @@ const RequestLeave = () => {
   };
   
   return (
-    <div className="p-4 md:p-6">
+    // Changed from p-4 md:p-6 to w-full px-4 md:px-6 to match EditLeaveAllocation
+    <div className="w-full px-4 md:px-6">
       {/* Breadcrumbs */}
-      <div className="breadcrumbs flex items-center gap-2 text-sm mb-6 flex-wrap">
-        <Link to="/employee/dashboard" className="text-green-500 hover:underline">Dashboard</Link>
-        <FiChevronRight className="text-xs text-gray-400" />
-        <Link to="/employee/leaves" className="text-green-500 hover:underline">My Leaves</Link>
-        <FiChevronRight className="text-xs text-gray-400" />
-        <span className="text-gray-500">Request Annual Leave</span>
+      <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
+        <Link to="/employee/dashboard" className="text-green-500 hover:text-green-600 font-medium">
+          Dashboard
+        </Link>
+        <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
+        <Link to="/employee/leaves" className="text-green-500 hover:text-green-600 font-medium">
+          My Leaves
+        </Link>
+        <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
+        <span className="text-gray-500 dark:text-gray-400">Request Annual Leave</span>
       </div>
       
-      <div className="page-header mb-7">
-        <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent flex items-center gap-2">
-          <FiCalendar /> Annual Leave Application
+      {/* Page Header - Updated to match EditLeaveAllocation style */}
+      <div className="mb-4 md:mb-6">
+        <h2 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
+          <i className="fas fa-calendar-alt mr-2"></i> Annual Leave Application
         </h2>
-        <p className="text-sm text-gray-500 mt-2">Submit a request for annual leave</p>
+        <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Submit a request for annual leave
+        </p>
       </div>
       
       {/* Error Display */}
@@ -301,13 +299,16 @@ const RequestLeave = () => {
             )}
             
             <div className="form-actions flex flex-col sm:flex-row justify-end gap-4 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <Link to="/employee/leaves" className="cancel-btn py-3 px-7 rounded-full font-semibold text-center bg-transparent border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
+              <Link
+                to="/employee/leaves"
+                className="px-4 py-2 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center gap-2"
+              >
                 <FiX /> Cancel
               </Link>
               <button 
                 type="submit" 
                 disabled={submitting || exceedsBalance}
-                className="submit-btn py-3 px-8 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 hover:-translate-y-0.5 hover:shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-full text-xs font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <>
@@ -316,7 +317,7 @@ const RequestLeave = () => {
                   </>
                 ) : (
                   <>
-                    <FiSend /> Submit Annual Leave Request
+                    <FiSend /> Submit
                   </>
                 )}
               </button>

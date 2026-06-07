@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { AlertCircle, CheckCircle2, Circle, ShieldAlert, ArrowRight, Save, Info, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { showToast } from "../components/common/Toast";
-import OffboardingHeader from "../components/offboarding/OffboardingHeader";
+import { showToast } from "../common/Toast";
+import OffboardingHeader from "./OffboardingHeader";
 
 const VisaCancellationAndExit = () => {
   const navigate = useNavigate();

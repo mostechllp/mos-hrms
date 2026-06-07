@@ -4,8 +4,8 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Search, X, Calendar, ArrowRight, Save, Info, Check } from "lucide-react";
-import DateInput from "../components/common/DateInput";
-import { showToast } from "../components/common/Toast";
+import DateInput from "../common/DateInput";
+import { showToast } from "../common/Toast";
 
 // ----------------------------------------------------
 // DUMMY DATA FOR UAE EMPLOYEES (INCLUDING KHALID AL MANSOURI FROM PHOTO)
@@ -62,7 +62,7 @@ const offboardingSchema = z.object({
   reasonForLeaving: z.string().min(5, "Please enter a reason for leaving (min 5 chars)")
 });
 
-import OffboardingHeader from "../components/offboarding/OffboardingHeader";
+import OffboardingHeader from "./OffboardingHeader";
 
 const OffboardingInitiation = () => {
   const navigate = useNavigate();

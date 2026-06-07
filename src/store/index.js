@@ -14,8 +14,13 @@ import departmentReducer from "../admin/store/slices/departmentSlice";
 import documentsReducer from "../admin/store/slices/documentsSlice";
 import wfhReducer from "../admin/store/slices/wfhSlice";
 import onboardingReducer from "../admin/store/slices/onboardingSlice";
+import offboardingReducer from "../admin/store/slices/offboardingSlice";
+import assetReducer from "../admin/store/slices/assetSlice";
+import checklistReducer from "../admin/store/slices/checklistSlice";
 import roleReducer from "../admin/store/slices/roleSlice";
 import settingsReducer from "../admin/store/slices/settingsSlice";
+import checklistCategoryReducer from "../admin/store/slices/checklistCategorySlice";
+
 
 // Employee reducers
 import leavesReducer from "../employee/store/slices/leavesSlice";
@@ -44,6 +49,10 @@ export const store = configureStore({
     documents: documentsReducer,
     wfh: wfhReducer,
     onboarding: onboardingReducer,
+    offboarding: offboardingReducer,
+    assets: assetReducer,
+    checklist: checklistReducer,
+    checklistCategory: checklistCategoryReducer,
     roles: roleReducer,
     settings: settingsReducer,
 
