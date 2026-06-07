@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { FileText, CheckCircle, Clock, Check, Download } from "lucide-react";
-import { showToast } from "../components/common/Toast";
+import { showToast } from "../common/Toast";
 import { useNavigate } from "react-router-dom";
-import OffboardingHeader from "../components/offboarding/OffboardingHeader";
+import OffboardingHeader from "./OffboardingHeader";
 
 const documentsData = [
   {

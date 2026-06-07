@@ -90,7 +90,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
         <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
             <i className="fas fa-keyboard text-green-500"></i>
-            Manual Attendance Entry
+            Add attendance
           </h3>
           <button onClick={handleClose} className="text-gray-400 hover:text-red-500 transition-colors text-2xl">
             &times;
@@ -122,7 +122,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
               ) : (
                 employees?.map(emp => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.name} ({emp.id})
+                    {emp.name}
                   </option>
                 ))
               )}
@@ -137,6 +137,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
               value={formData.date}
               onChange={handleDateChange}
               type="general"
+              disableFuture={true}
               className="w-full"
               placeholder="Select date"
             />

@@ -32,7 +32,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       label: "Onboarding",
     },
     {
-      path: "/admin/employees/offboarding-initiation",
+      path: "/admin/employees/offboarding",
       icon: "fas fa-user-minus",
       label: "Offboarding",
     },
@@ -41,7 +41,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { path: "/admin/agreements", icon: "fas fa-file-signature", label: "Agreements" },
     { path: "/admin/leaves", icon: "fas fa-calendar-check", label: "Leaves" },
     { path: "/admin/task-reports", icon: "fas fa-tasks", label: "Task Reports" },
-    { path: "/admin/wfh", icon: "fas fa-home", label: "WFH Requests" },
+    // { path: "/admin/wfh", icon: "fas fa-home", label: "WFH Requests" },
     { path: "/admin/reports", icon: "fas fa-chart-line", label: "Reports" },
     { path: "/admin/payroll/add", icon: "fas fa-file-invoice-dollar", label: "Payroll" },
     { path: "/admin/role-management", icon: "fas fa-user-shield", label: "Roles" },

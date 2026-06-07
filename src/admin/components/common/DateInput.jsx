@@ -14,6 +14,7 @@ const DateInput = forwardRef(
       minDate,
       maxDate,
       type = "general",
+      disableFuture = false,
       ...props
     },
     // eslint-disable-next-line no-unused-vars
@@ -71,6 +72,9 @@ const DateInput = forwardRef(
 
     const getMaxDate = () => {
       if (maxDate) return maxDate;
+      if (disableFuture) {
+        return new Date(); // Disable all future dates
+      }
       if (type === "dob") {
         // Age must be at least 18
         const eighteenYearsAgo = new Date();
