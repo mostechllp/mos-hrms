@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { FiUploadCloud, FiFileText, FiCheckCircle, FiLoader, FiAlertCircle, FiKey, FiRefreshCw } from "react-icons/fi";
-import { parseResume, resetOnboarding } from "../../store/slices/onboardingSlice";
+import { parseResume, resetOnboarding, setStep } from "../../store/slices/onboardingSlice";
 import { isOpenRouterConfigured } from "../../utils/openRouterService";
 
 const ResumeUpload = () => {
@@ -87,7 +87,8 @@ const ResumeUpload = () => {
 
         {/* Upload Zone */}
         {!resumeData && !isLoading && (
-          <div
+          <>
+            <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -119,6 +120,16 @@ const ResumeUpload = () => {
               </p>
             </div>
           </div>
+          
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={() => dispatch(setStep(2))}
+              className="text-sm font-medium text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-colors underline decoration-transparent hover:decoration-gray-400 underline-offset-4"
+            >
+              Skip upload & enter details manually
+            </button>
+          </div>
+        </>
         )}
 
         {/* Loading / Parsing State */}

@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import SearchBar from "../components/common/SearchBar";
 import EntriesSelector from "../components/common/EntriesSelector";
 import UploadAttendanceModal from "../components/attendance/UploadAttendanceModal";
+import ManualAttendanceModal from "../components/attendance/ManualAttendanceModal";
 import { showToast } from "../../components/common/Toast";
 import Pagination from "../components/common/Paginations";
 import {
@@ -16,6 +17,7 @@ import {
   fetchLateComers,
   fetchAbsentees,
   clearUploadStatus,
+  createManualAttendance,
 } from "../store/slices/attendanceSlice";
 
 const Attendances = () => {
@@ -35,6 +37,8 @@ const Attendances = () => {
   } = useSelector((state) => state.attendance);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualSubmitting, setManualSubmitting] = useState(false);
   const [companyFilter, setCompanyFilter] = useState("all");
   const [nameFilter, setNameFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -149,6 +153,30 @@ const Attendances = () => {
       showToast(typeof error === "string" ? error : error?.message || "Upload failed", "error");
     }
   };
+
+  const handleManualSubmit = async (formData) => {
+  setManualSubmitting(true);
+  try {
+    // The formData from modal is already formatted correctly
+    // Don't reformat it again!
+    const submissionData = {
+      employee_id: formData.employee_id,
+      date: formData.date,
+      punch_in: formData.punch_in,  // Already "YYYY-MM-DD HH:MM:SS"
+      punch_out: formData.punch_out, // Already "YYYY-MM-DD HH:MM:SS" or null
+    };
+    
+    await dispatch(createManualAttendance(submissionData)).unwrap();
+    showToast("Attendance created successfully!", "success");
+    setShowManualModal(false);
+    setCurrentPage(1);
+  } catch (error) {
+    console.error("Manual submission error:", error);
+    showToast(typeof error === "string" ? error : error?.message || "Creation failed", "error");
+  } finally {
+    setManualSubmitting(false);
+  }
+};
 
   // ─── Filter / pagination handlers ────────────────────────────────────────
   const handlePageChange = (page) => {
@@ -312,6 +340,12 @@ const Attendances = () => {
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <SearchBar value={searchTerm} onChange={handleSearchChange} placeholder="Search records..." />
           <button
+            onClick={() => setShowManualModal(true)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+          >
+            <i className="fas fa-keyboard"></i> Manual Entry
+          </button>
+          <button
             onClick={() => setShowUploadModal(true)}
             disabled={isUploading}
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
@@ -414,6 +448,13 @@ const Attendances = () => {
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
         onUpload={handleUploadComplete}
+      />
+
+      <ManualAttendanceModal
+        isOpen={showManualModal}
+        onClose={() => setShowManualModal(false)}
+        onSubmit={handleManualSubmit}
+        submitting={manualSubmitting}
       />
     </div>
   );
