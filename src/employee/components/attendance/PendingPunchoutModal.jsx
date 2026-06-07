@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
+import { TimeInput } from '../common/TimeInput';
 
 const PendingPunchOutModal = ({ isOpen, onClose, onSubmit, loading, pendingDate }) => {
   const [tasksCompleted, setTasksCompleted] = useState('');
   const [planTomorrow, setPlanTomorrow] = useState('');
+  const [pendingWorks, setPendingWorks] = useState('');
+  const [punchOutTime, setPunchOutTime] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
@@ -15,8 +18,32 @@ const PendingPunchOutModal = ({ isOpen, onClose, onSubmit, loading, pendingDate 
     if (!planTomorrow.trim()) {
       return setError('Please describe your plan for tomorrow');
     }
+    if (!punchOutTime) {
+      return setError('Please select punch out time');
+    }
 
-    await onSubmit({ tasks_completed: tasksCompleted, plan_tomorrow: planTomorrow });
+    // Validate punch out time format
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(punchOutTime)) {
+      return setError('Please enter a valid time in HH:MM format (24-hour)');
+    }
+
+    await onSubmit({ 
+      tasks_completed: tasksCompleted, 
+      plan_tomorrow: planTomorrow,
+      pending_works: pendingWorks,
+      punch_out_time: punchOutTime
+    });
+  };
+
+  // Get default time (current time)
+  const getDefaultTime = () => {
+    const now = new Date();
+    return now.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
   };
 
   if (!isOpen) return null;
@@ -55,6 +82,21 @@ const PendingPunchOutModal = ({ isOpen, onClose, onSubmit, loading, pendingDate 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Punch Out Time <span className="text-red-500">*</span>
+            </label>
+            <TimeInput
+              value={punchOutTime}
+              onChange={(e) => setPunchOutTime(e.target.value)}
+              className="w-full"
+              required={true}
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Select the time you left work on {pendingDate}
+            </p>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Tasks Completed on {pendingDate} <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -65,6 +107,22 @@ const PendingPunchOutModal = ({ isOpen, onClose, onSubmit, loading, pendingDate 
               placeholder="What tasks did you complete on this day?"
               required
             />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Pending Works <span className="text-gray-400 text-xs font-normal">(Optional)</span>
+            </label>
+            <textarea
+              value={pendingWorks}
+              onChange={(e) => setPendingWorks(e.target.value)}
+              rows={2}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 dark:bg-gray-700 dark:text-white resize-none"
+              placeholder="Any tasks that are still pending from that day?"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              List any incomplete tasks that need to be carried forward
+            </p>
           </div>
 
           <div className="mb-6">

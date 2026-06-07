@@ -24,7 +24,6 @@ export const fetchDashboardData = createAsyncThunk(
 );
 
 // ✅ Punch In
-// Update punchIn thunk to provide better error messages
 export const punchIn = createAsyncThunk(
   "attendance/punchIn",
   async (_, { rejectWithValue }) => {
@@ -48,23 +47,21 @@ export const punchIn = createAsyncThunk(
       }
     } catch (error) {
       console.error("Punch in error:", error);
-      // Preserve the exact error message from the API
       const errorMsg = error.response?.data?.message || "Punch in failed";
       return rejectWithValue(errorMsg);
     }
   }
 );
 
-// ✅ Punch Out
-// In your taskReportsSlice.js or attendanceSlice.js
+// ✅ Punch Out (for current day)
 export const punchOut = createAsyncThunk(
   "attendance/punchOut",
-  async ({ tasks_completed, plan_tomorrow, pending_tasks }, { rejectWithValue }) => {
+  async ({ tasks_completed, plan_tomorrow, pending_works }, { rejectWithValue }) => {
     try {
       const response = await apiClient.post("/employee/punch-out", {
         tasks_completed,
         plan_tomorrow,
-        pending_tasks, // Add this field
+        pending_works, // Include pending works
       });
       
       if (response.data && response.data.status === "success") {
@@ -78,7 +75,7 @@ export const punchOut = createAsyncThunk(
           log_date: data.log_date,
           log_status: data.log_status,
           id: data.id,
-          task_report: data.task_report // If API returns the task report
+          task_report: data.task_report
         };
       } else {
         return rejectWithValue(response.data?.message || "Punch out failed");
@@ -92,13 +89,50 @@ export const punchOut = createAsyncThunk(
   }
 );
 
+// ✅ Pending Punch Out (for previous day with custom time)
+export const pendingPunchOut = createAsyncThunk(
+  "attendance/pendingPunchOut",
+  async ({ tasks_completed, plan_tomorrow, pending_works, punch_out_time, date }, { rejectWithValue }) => {
+    try {
+      // Combine the date with the provided punch out time
+      const punchOutDateTime = `${date} ${punch_out_time}:00`;
+      
+      const response = await apiClient.post("/employee/pending-punch-out", {
+        tasks_completed,
+        plan_tomorrow,
+        pending_works,
+        punch_out_time: punchOutDateTime,
+        log_date: date
+      });
+      
+      if (response.data && response.data.status === "success") {
+        const data = response.data.data;
+        return {
+          punch_out: data.punch_out,
+          log_date: data.log_date,
+          log_status: data.log_status,
+          id: data.id,
+          task_report: data.task_report
+        };
+      } else {
+        return rejectWithValue(response.data?.message || "Failed to complete pending punch out");
+      }
+    } catch (error) {
+      console.error("Pending punch out error:", error);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to complete pending punch out"
+      );
+    }
+  }
+);
+
 const initialState = {
   isPunchedIn: localStorage.getItem("attendance-punched-in") === "true",
   punchInTime: localStorage.getItem("attendance-punch-in-time") || null,
   punchOutTime: null,
   loading: false,
   error: null,
-  dashboardData: null, // Store dashboard data
+  dashboardData: null,
 };
 
 const attendanceSlice = createSlice({
@@ -124,7 +158,6 @@ const attendanceSlice = createSlice({
       .addCase(fetchDashboardData.fulfilled, (state, action) => {
         state.loading = false;
         state.dashboardData = action.payload;
-        // Update punch status from dashboard data if not already set
         if (action.payload.today_attendance) {
           state.isPunchedIn = action.payload.today_attendance.punched_in || false;
           state.punchInTime = action.payload.today_attendance.punch_in_time || null;
@@ -152,7 +185,7 @@ const attendanceSlice = createSlice({
         state.error = action.payload;
       })
 
-      // ✅ Punch Out
+      // ✅ Punch Out (current day)
       .addCase(punchOut.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -165,6 +198,22 @@ const attendanceSlice = createSlice({
         state.error = null;
       })
       .addCase(punchOut.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // ✅ Pending Punch Out (previous day)
+      .addCase(pendingPunchOut.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(pendingPunchOut.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isPunchedIn = false;
+        state.punchOutTime = action.payload.punch_out;
+        state.error = null;
+      })
+      .addCase(pendingPunchOut.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

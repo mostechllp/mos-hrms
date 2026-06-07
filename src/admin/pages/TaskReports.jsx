@@ -8,7 +8,7 @@ import ConfirmModal from "../components/common/ConfirmModal";
 import {
   fetchTaskReports,
   deleteTaskReport,
-  updateTaskReportRemarks
+  updateTaskReportRemarks,
 } from "../store/slices/taskReportSlice";
 import { fetchEmployees } from "../store/slices/employeeSlice";
 import TaskReportModal from "../components/taskReports/TaskReportModal";
@@ -20,7 +20,7 @@ const TaskReports = () => {
     loading,
     totalCount,
     currentPage: currentPageState,
-    perPage: perPageState
+    perPage: perPageState,
   } = useSelector((state) => state.taskReports || {});
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,7 +30,8 @@ const TaskReports = () => {
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [remarksModalOpen, setRemarksModalOpen] = useState(false);
   const [remarksText, setRemarksText] = useState("");
-  const [selectedReportForRemarks, setSelectedReportForRemarks] = useState(null);
+  const [selectedReportForRemarks, setSelectedReportForRemarks] =
+    useState(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState(null);
 
@@ -45,11 +46,13 @@ const TaskReports = () => {
 
   // Fetch reports when page, perPage, or search changes
   useEffect(() => {
-    dispatch(fetchTaskReports({
-      page: currentPage,
-      perPage: perPage,
-      search: searchTerm
-    }));
+    dispatch(
+      fetchTaskReports({
+        page: currentPage,
+        perPage: perPage,
+        search: searchTerm,
+      }),
+    );
   }, [dispatch, currentPage, perPage, searchTerm]);
 
   const handleView = (report) => {
@@ -74,19 +77,23 @@ const TaskReports = () => {
   };
 
   const handleSaveRemarks = async () => {
-    await dispatch(updateTaskReportRemarks({
-      id: selectedReportForRemarks.id,
-      remarks: remarksText
-    }));
+    await dispatch(
+      updateTaskReportRemarks({
+        id: selectedReportForRemarks.id,
+        remarks: remarksText,
+      }),
+    );
     setRemarksModalOpen(false);
     setSelectedReportForRemarks(null);
     setRemarksText("");
     // Refresh the list
-    dispatch(fetchTaskReports({
-      page: currentPage,
-      perPage: perPage,
-      search: searchTerm
-    }));
+    dispatch(
+      fetchTaskReports({
+        page: currentPage,
+        perPage: perPage,
+        search: searchTerm,
+      }),
+    );
   };
 
   const handleDeleteClick = (report) => {
@@ -99,11 +106,13 @@ const TaskReports = () => {
     setDeleteConfirmOpen(false);
     setReportToDelete(null);
     // Refresh the list
-    dispatch(fetchTaskReports({
-      page: currentPage,
-      perPage: perPage,
-      search: searchTerm
-    }));
+    dispatch(
+      fetchTaskReports({
+        page: currentPage,
+        perPage: perPage,
+        search: searchTerm,
+      }),
+    );
   };
 
   const handleRemarksModalClose = () => {
@@ -114,7 +123,8 @@ const TaskReports = () => {
 
   // Calculate stats from fetched data
   const totalReports = totalCount || taskReports.length;
-  const uniqueEmployees = [...new Set(taskReports.map((r) => r.employee))].length;
+  const uniqueEmployees = [...new Set(taskReports.map((r) => r.employee))]
+    .length;
   const today = new Date().toISOString().split("T")[0];
   const todayReports = taskReports.filter((r) => r.date === today).length;
 
@@ -124,7 +134,9 @@ const TaskReports = () => {
   const totalPages = Math.ceil(totalReports / perPage);
 
   // SVG Chart Calculations
-  const remarksCount = taskReports.filter(r => r.remarks && r.remarks.trim()).length;
+  const remarksCount = taskReports.filter(
+    (r) => r.remarks && r.remarks.trim(),
+  ).length;
   const safeTotal = totalReports || 1;
   const pctEmployees = (uniqueEmployees / safeTotal) * 100;
   const pctToday = (todayReports / safeTotal) * 100;
@@ -159,7 +171,6 @@ const TaskReports = () => {
 
   return (
     <div className="w-full overflow-x-hidden">
-
       {/* Header Section */}
       <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
         <div>
@@ -175,52 +186,144 @@ const TaskReports = () => {
         <div className="xl:w-7/12 grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-5 border border-gray-200 dark:border-gray-700 flex justify-between items-center transition-all hover:-translate-y-0.5 hover:shadow-soft">
             <div>
-              <div className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1">Total Reports</div>
-              <div className={`text-2xl md:text-3xl font-extrabold ${getStatColor(totalReports, "text-emerald-600 dark:text-emerald-400")}`}>{totalReports}</div>
+              <div className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1">
+                Total Reports
+              </div>
+              <div
+                className={`text-2xl md:text-3xl font-extrabold ${getStatColor(totalReports, "text-emerald-600 dark:text-emerald-400")}`}
+              >
+                {totalReports}
+              </div>
             </div>
             <div className="relative w-12 h-12">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <path className="text-gray-100 dark:text-gray-700" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path className={getStatSvgColor(totalReports, "text-emerald-500")} strokeDasharray="75, 100" strokeLinecap="round" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <svg
+                className="w-full h-full transform -rotate-90"
+                viewBox="0 0 36 36"
+              >
+                <path
+                  className="text-gray-100 dark:text-gray-700"
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className={getStatSvgColor(totalReports, "text-emerald-500")}
+                  strokeDasharray="75, 100"
+                  strokeLinecap="round"
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
               </svg>
             </div>
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-5 border border-gray-200 dark:border-gray-700 flex justify-between items-center transition-all hover:-translate-y-0.5 hover:shadow-soft">
             <div>
-              <div className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1">Employees Reported</div>
-              <div className={`text-2xl md:text-3xl font-extrabold ${getStatColor(uniqueEmployees, "text-green-600 dark:text-green-400")}`}>{uniqueEmployees}</div>
+              <div className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1">
+                Employees Reported
+              </div>
+              <div
+                className={`text-2xl md:text-3xl font-extrabold ${getStatColor(uniqueEmployees, "text-green-600 dark:text-green-400")}`}
+              >
+                {uniqueEmployees}
+              </div>
             </div>
             <div className="relative w-12 h-12">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <path className="text-gray-100 dark:text-gray-700" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path className={getStatSvgColor(uniqueEmployees, "text-green-500")} strokeDasharray="100, 100" strokeLinecap="round" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <svg
+                className="w-full h-full transform -rotate-90"
+                viewBox="0 0 36 36"
+              >
+                <path
+                  className="text-gray-100 dark:text-gray-700"
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className={getStatSvgColor(uniqueEmployees, "text-green-500")}
+                  strokeDasharray="100, 100"
+                  strokeLinecap="round"
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
               </svg>
             </div>
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-5 border border-gray-200 dark:border-gray-700 flex justify-between items-center transition-all hover:-translate-y-0.5 hover:shadow-soft">
             <div>
-              <div className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1">Today's Reports</div>
-              <div className={`text-2xl md:text-3xl font-extrabold ${getStatColor(todayReports, "text-emerald-500 dark:text-emerald-450")}`}>{todayReports}</div>
+              <div className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1">
+                Today's Reports
+              </div>
+              <div
+                className={`text-2xl md:text-3xl font-extrabold ${getStatColor(todayReports, "text-emerald-500 dark:text-emerald-450")}`}
+              >
+                {todayReports}
+              </div>
             </div>
             <div className="relative w-12 h-12">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <path className="text-gray-100 dark:text-gray-700" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path className={getStatSvgColor(todayReports, "text-emerald-400")} strokeDasharray="60, 100" strokeLinecap="round" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <svg
+                className="w-full h-full transform -rotate-90"
+                viewBox="0 0 36 36"
+              >
+                <path
+                  className="text-gray-100 dark:text-gray-700"
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className={getStatSvgColor(todayReports, "text-emerald-400")}
+                  strokeDasharray="60, 100"
+                  strokeLinecap="round"
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
               </svg>
             </div>
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-5 border border-gray-200 dark:border-gray-700 flex justify-between items-center transition-all hover:-translate-y-0.5 hover:shadow-soft">
             <div>
-              <div className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1">With Remarks</div>
-              <div className={`text-2xl md:text-3xl font-extrabold ${getStatColor(remarksCount, "text-teal-600 dark:text-teal-400")}`}>{remarksCount}</div>
+              <div className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1">
+                With Remarks
+              </div>
+              <div
+                className={`text-2xl md:text-3xl font-extrabold ${getStatColor(remarksCount, "text-teal-600 dark:text-teal-400")}`}
+              >
+                {remarksCount}
+              </div>
             </div>
             <div className="relative w-12 h-12">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <path className="text-gray-100 dark:text-gray-700" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path className={getStatSvgColor(remarksCount, "text-teal-500")} strokeDasharray="45, 100" strokeLinecap="round" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <svg
+                className="w-full h-full transform -rotate-90"
+                viewBox="0 0 36 36"
+              >
+                <path
+                  className="text-gray-100 dark:text-gray-700"
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className={getStatSvgColor(remarksCount, "text-teal-500")}
+                  strokeDasharray="45, 100"
+                  strokeLinecap="round"
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
               </svg>
             </div>
           </div>
@@ -230,27 +333,97 @@ const TaskReports = () => {
         <div className="xl:w-5/12 bg-white dark:bg-gray-800 rounded-xl p-4 md:p-5 border border-gray-200 dark:border-gray-700 shadow-soft flex flex-col justify-between transition-all hover:-translate-y-0.5 hover:shadow-soft">
           <div className="flex items-center gap-2 mb-4">
             <i className="fas fa-chart-pie text-[#10B981] text-sm"></i>
-            <h3 className="font-semibold text-gray-800 dark:text-white text-[15px]">Tasks Overview</h3>
+            <h3 className="font-semibold text-gray-800 dark:text-white text-[15px]">
+              Tasks Overview
+            </h3>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-around h-full py-2">
             {/* Dynamic SVG Donut Chart */}
             <div className="relative w-32 h-32 flex items-center justify-center mb-4 sm:mb-0">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <path className="text-gray-100 dark:text-gray-700" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path className={getStatSvgColor(uniqueEmployees, "text-green-500")} strokeDasharray={`${pctEmployees}, 100`} strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path className={getStatSvgColor(todayReports, "text-emerald-400")} strokeDasharray={`${pctToday}, 100`} strokeDashoffset={-pctEmployees} strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path className={getStatSvgColor(remarksCount, "text-teal-500")} strokeDasharray={`${pctRemarks}, 100`} strokeDashoffset={-(pctEmployees + pctToday)} strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <svg
+                className="w-full h-full transform -rotate-90"
+                viewBox="0 0 36 36"
+              >
+                <path
+                  className="text-gray-100 dark:text-gray-700"
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className={getStatSvgColor(uniqueEmployees, "text-green-500")}
+                  strokeDasharray={`${pctEmployees}, 100`}
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className={getStatSvgColor(todayReports, "text-emerald-400")}
+                  strokeDasharray={`${pctToday}, 100`}
+                  strokeDashoffset={-pctEmployees}
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className={getStatSvgColor(remarksCount, "text-teal-500")}
+                  strokeDasharray={`${pctRemarks}, 100`}
+                  strokeDashoffset={-(pctEmployees + pctToday)}
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
               </svg>
               <div className="absolute flex flex-col items-center justify-center z-10">
-                <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">Total</span>
-                <span className={`text-2xl font-extrabold ${getStatColor(totalReports, "text-[#10B981]")}`}>{totalReports}</span>
+                <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">
+                  Total
+                </span>
+                <span
+                  className={`text-2xl font-extrabold ${getStatColor(totalReports, "text-[#10B981]")}`}
+                >
+                  {totalReports}
+                </span>
               </div>
             </div>
             {/* Fake Legend mapping to existing colors from the small cards */}
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3 text-sm"><span className={`w-2.5 h-2.5 rounded-full ${getStatBgColor(uniqueEmployees, "bg-green-500")}`}></span><span className="text-gray-600 dark:text-gray-300 w-24">Employees</span><span className="font-semibold text-gray-800 dark:text-white">{uniqueEmployees}</span></div>
-              <div className="flex items-center gap-3 text-sm"><span className={`w-2.5 h-2.5 rounded-full ${getStatBgColor(todayReports, "bg-emerald-400")}`}></span><span className="text-gray-600 dark:text-gray-300 w-24">Today</span><span className="font-semibold text-gray-800 dark:text-white">{todayReports}</span></div>
-              <div className="flex items-center gap-3 text-sm"><span className={`w-2.5 h-2.5 rounded-full ${getStatBgColor(remarksCount, "bg-teal-500")}`}></span><span className="text-gray-600 dark:text-gray-300 w-24">Remarks</span><span className="font-semibold text-gray-800 dark:text-white">{remarksCount}</span></div>
+              <div className="flex items-center gap-3 text-sm">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${getStatBgColor(uniqueEmployees, "bg-green-500")}`}
+                ></span>
+                <span className="text-gray-600 dark:text-gray-300 w-24">
+                  Employees
+                </span>
+                <span className="font-semibold text-gray-800 dark:text-white">
+                  {uniqueEmployees}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${getStatBgColor(todayReports, "bg-emerald-400")}`}
+                ></span>
+                <span className="text-gray-600 dark:text-gray-300 w-24">
+                  Today
+                </span>
+                <span className="font-semibold text-gray-800 dark:text-white">
+                  {todayReports}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${getStatBgColor(remarksCount, "bg-teal-500")}`}
+                ></span>
+                <span className="text-gray-600 dark:text-gray-300 w-24">
+                  Remarks
+                </span>
+                <span className="font-semibold text-gray-800 dark:text-white">
+                  {remarksCount}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -260,7 +433,9 @@ const TaskReports = () => {
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-soft mb-6">
         {/* Section Header */}
         <div className="px-5 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-[16px] font-semibold text-gray-800 dark:text-white">Tasks List</h3>
+          <h3 className="text-[16px] font-semibold text-gray-800 dark:text-white">
+            Tasks List
+          </h3>
         </div>
 
         {/* Action Bar (Rows per page & Search) */}
@@ -296,19 +471,39 @@ const TaskReports = () => {
             <table className="w-full text-left whitespace-nowrap">
               <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                 <tr>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold w-12 text-center uppercase">Sl.No.</th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">Date</th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">Employee Name</th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">Tasks Completed</th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">Plan for Tomorrow</th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">Remarks</th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-right uppercase">Action</th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold w-12 text-center uppercase">
+                    Sl.No.
+                  </th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">
+                    Date
+                  </th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">
+                    Employee Name
+                  </th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">
+                    Tasks Completed
+                  </th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">
+                    Pending Tasks
+                  </th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">
+                    Plan for Tomorrow
+                  </th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">
+                    Remarks
+                  </th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-right uppercase">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedReports.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-12 text-gray-500 text-xs md:text-sm">
+                    <td
+                      colSpan="7"
+                      className="text-center py-12 text-gray-500 text-xs md:text-sm"
+                    >
                       No task reports found.
                     </td>
                   </tr>
@@ -327,13 +522,35 @@ const TaskReports = () => {
                       <td className="px-4 py-3 text-xs md:text-sm text-gray-800 dark:text-gray-200 font-semibold">
                         {report.employee}
                       </td>
-                      <td className="px-4 py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={report.tasksCompleted}>
+                      <td
+                        className="px-4 py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate"
+                        title={report.tasksCompleted}
+                      >
                         {report.tasksCompleted}
                       </td>
-                      <td className="px-4 py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={report.planForTomorrow}>
+                      <td
+                        className="px-4 py-3 text-xs md:text-sm text-amber-600 dark:text-amber-400 max-w-[200px] truncate"
+                        title={report.pendingTasks}
+                      >
+                        {report.pendingTasks && report.pendingTasks !== "-" ? (
+                          <div className="flex items-center gap-1">
+                            <i className="fas fa-clock text-xs"></i>
+                            {report.pendingTasks}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td
+                        className="px-4 py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate"
+                        title={report.planForTomorrow}
+                      >
                         {report.planForTomorrow}
                       </td>
-                      <td className="px-4 py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[150px] truncate" title={report.remarks}>
+                      <td
+                        className="px-4 py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[150px] truncate"
+                        title={report.remarks}
+                      >
                         {report.remarks && report.remarks.trim() ? (
                           <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
                             <i className="fas fa-comment text-gray-400 dark:text-gray-500 text-xs"></i>
@@ -468,7 +685,9 @@ const TaskReports = () => {
                     {selectedReport.remarks && selectedReport.remarks.trim() ? (
                       selectedReport.remarks
                     ) : (
-                      <span className="text-gray-400 italic">No remarks added yet</span>
+                      <span className="text-gray-400 italic">
+                        No remarks added yet
+                      </span>
                     )}
                   </p>
                 </div>
@@ -553,7 +772,8 @@ const TaskReports = () => {
                   className="w-full px-4 py-3 text-[14px] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-1 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white resize-none outline-none transition-all"
                 />
                 <p className="text-[12px] text-gray-400 dark:text-gray-500 mt-2.5 flex items-center gap-1.5 font-medium">
-                  <i className="fas fa-info-circle text-gray-400"></i> Remarks are visible to the employee
+                  <i className="fas fa-info-circle text-gray-400"></i> Remarks
+                  are visible to the employee
                 </p>
               </div>
             </div>
@@ -597,11 +817,13 @@ const TaskReports = () => {
         onClose={() => {
           setEditModalOpen(false);
           setEditingReport(null);
-          dispatch(fetchTaskReports({
-            page: currentPage,
-            perPage: perPage,
-            search: searchTerm
-          }));
+          dispatch(
+            fetchTaskReports({
+              page: currentPage,
+              perPage: perPage,
+              search: searchTerm,
+            }),
+          );
         }}
         editingReport={editingReport}
       />

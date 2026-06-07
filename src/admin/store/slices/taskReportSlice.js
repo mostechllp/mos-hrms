@@ -4,15 +4,26 @@ import apiClient from "../../../utils/apiClient";
 
 // Helper function to transform task report data from API
 const transformTaskReportData = (report) => {
+  let employeeName = "";
+  
+  // Safely extract employee name
+  if (report.user && report.user.employee) {
+    const firstName = report.user.employee.first_name || "";
+    const lastName = report.user.employee.last_name || "";
+    employeeName = `${firstName} ${lastName}`.trim();
+  }
+  
+  if (!employeeName && report.user) {
+    employeeName = report.user.username || report.user.email || "-";
+  }
+  
   return {
     id: report.id,
     date: report.date,
     employee_id: report.employee_id,
-    employee: report.employee?.name || 
-              report.employee?.full_name || 
-              `Employee #${report.employee_id}` || 
-              "-",
+    employee: employeeName || "-",
     tasksCompleted: report.tasks_completed || "-",
+    pendingTasks: report.pending_tasks || "-",  // Add pending tasks
     planForTomorrow: report.plan_tomorrow || "-",
     remarks: report.remarks || "",
     created_at: report.created_at,
@@ -39,7 +50,6 @@ export const fetchTaskReports = createAsyncThunk(
       let perPageValue = perPage;
       let lastPage = 1;
 
-      // Handle response structure
       if (response.data?.status === "success") {
         const paginatedData = response.data.data;
         reportsData = paginatedData?.data || [];
@@ -53,8 +63,6 @@ export const fetchTaskReports = createAsyncThunk(
       } else if (Array.isArray(response.data)) {
         reportsData = response.data;
         total = response.data.length;
-      } else {
-        reportsData = [];
       }
 
       const transformedReports = reportsData.map(transformTaskReportData);
@@ -115,7 +123,6 @@ export const addTaskReport = createAsyncThunk(
   "taskReports/add",
   async (formData, { getState, rejectWithValue }) => {
     try {
-      // Find employee ID from state.employees.employees
       const employees = getState().employees?.employees || [];
       const matchedEmployee = employees.find(
         (emp) => emp.name?.toLowerCase() === formData.employee?.toLowerCase()
@@ -125,6 +132,7 @@ export const addTaskReport = createAsyncThunk(
         date: formData.date,
         employee_id: matchedEmployee ? matchedEmployee.id : null,
         tasks_completed: formData.tasksCompleted,
+        pending_tasks: formData.pendingTasks || null,  // Add pending tasks
         plan_tomorrow: formData.planForTomorrow,
         remarks: formData.remarks || null,
       };
@@ -145,7 +153,6 @@ export const updateTaskReport = createAsyncThunk(
   "taskReports/update",
   async ({ id, data }, { getState, rejectWithValue }) => {
     try {
-      // Find employee ID from state.employees.employees
       const employees = getState().employees?.employees || [];
       const matchedEmployee = employees.find(
         (emp) => emp.name?.toLowerCase() === data.employee?.toLowerCase()
@@ -155,6 +162,7 @@ export const updateTaskReport = createAsyncThunk(
         date: data.date,
         employee_id: matchedEmployee ? matchedEmployee.id : null,
         tasks_completed: data.tasksCompleted,
+        pending_tasks: data.pendingTasks || null,  // Add pending tasks
         plan_tomorrow: data.planForTomorrow,
         remarks: data.remarks || null,
       };
