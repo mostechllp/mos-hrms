@@ -348,18 +348,6 @@ const Attendances = () => {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
-        <select
-          value={companyFilter}
-          onChange={handleCompanyFilterChange}
-          className="px-3 md:px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs md:text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
-        >
-          <option value="all">All Companies</option>
-          <option value="THESAY">THESAY</option>
-          <option value="SAYGEN">SAYGEN</option>
-          <option value="warehouse">Warehouse</option>
-          <option value="farmassay">Farmassay</option>
-        </select>
-
         <input
           type="text"
           value={nameFilter}
