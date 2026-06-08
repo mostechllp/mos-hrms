@@ -51,6 +51,9 @@ const AddEmployee = () => {
   const [selectedOrgDetails, setSelectedOrgDetails] = useState(null);
   const [selectedCompanyDetails, setSelectedCompanyDetails] = useState(null); // Add this state
 
+  const [empIdMode, setEmpIdMode] = useState("auto"); // "auto" or "manual"
+  const [manualEmpId, setManualEmpId] = useState("");
+
   // Fetch data from slices
   const { organizations = [] } = useSelector(
     (state) => state.organizations || {},
@@ -183,15 +186,14 @@ const AddEmployee = () => {
     return `EMP${joiningYear}${dobDayMonth}${timestamp}`;
   };
 
-  // Auto-generate employee ID when DOB or Joining Date changes
   useEffect(() => {
-    if (watchDob && watchJoiningDate) {
+    if (empIdMode === "auto" && watchDob && watchJoiningDate) {
       const generatedId = generateEmployeeId(watchDob, watchJoiningDate);
       if (generatedId) {
         setValue("employee_id", generatedId);
       }
     }
-  }, [watchDob, watchJoiningDate, setValue]);
+  }, [watchDob, watchJoiningDate, setValue, empIdMode]);
 
   // Fetch initial data
   useEffect(() => {
@@ -231,7 +233,7 @@ const AddEmployee = () => {
         (comp) => comp.id === parseInt(watchCompanyId),
       );
       setSelectedCompanyDetails(company || null);
-      
+
       // Clear labor fields if company has freezone trade license
       if (company && company.raw?.trade_license === "freezone") {
         setValue("labor_number", "");
@@ -293,22 +295,25 @@ const AddEmployee = () => {
         if (selectedOrgDetails?.multi_company === "Yes") {
           fields.push("company_id");
         }
+        if (empIdMode === "manual") {
+          fields.push("employee_id");
+        }
         return fields;
       }
       case 1:
         return ["passport_issued_date", "passport_expiry_date"];
-      case 2:
-        { const laborFields = [];
-        
+      case 2: {
+        const laborFields = [];
+
         // Only require labor fields if company trade license is "mainland"
         if (selectedCompanyDetails?.raw?.trade_license === "mainland") {
           laborFields.push(
             "labor_number",
             "labor_issued_date",
-            "labor_expiry_date"
+            "labor_expiry_date",
           );
         }
-        
+
         return [
           "visa_type",
           "visa_number",
@@ -318,7 +323,8 @@ const AddEmployee = () => {
           "eid_number",
           "eid_issued_date",
           "eid_expiry_date",
-        ]; }
+        ];
+      }
       case 3:
         return ["company_email", "personal_email", "type", "role"];
       default:
@@ -656,7 +662,7 @@ const AddEmployee = () => {
     // Only send labor data if company trade license is "mainland"
     if (selectedCompanyDetails?.raw?.trade_license === "mainland") {
       formData.append("labor_number", data.labor_number || "");
-      
+
       const laborIssuedConverted = convertDateToBackend(data.labor_issued_date);
       formData.append("labor_issued_date", laborIssuedConverted);
 
@@ -834,6 +840,16 @@ const AddEmployee = () => {
         value: 2,
         message: "First name must be at least 2 characters",
       },
+    },
+    employee_id: {
+      required: empIdMode === "manual" ? "Employee ID is required" : false,
+      minLength:
+        empIdMode === "manual"
+          ? {
+              value: 3,
+              message: "Employee ID must be at least 3 characters",
+            }
+          : undefined,
     },
     dob: {
       required: "Date of Birth is required",
@@ -1135,33 +1151,49 @@ const AddEmployee = () => {
                   </div>
 
                   {/* Show trade license info when company is selected */}
-                  {selectedCompanyDetails && selectedCompanyDetails.raw?.trade_license && (
-                    <div className="md:col-span-2">
-                      <div className={`p-3 rounded-lg ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "bg-blue-50 border border-blue-200" : "bg-yellow-50 border border-yellow-200"}`}>
-                        <div className="flex items-center gap-2">
-                          <i className={`fas ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "fa-building" : "fa-globe"} ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "text-blue-600" : "text-yellow-600"}`}></i>
-                          <span className="text-sm font-semibold text-gray-700">
-                            Company Trade License:{" "}
-                            <span className={selectedCompanyDetails.raw?.trade_license === "mainland" ? "text-blue-600" : "text-yellow-600"}>
-                              {selectedCompanyDetails.raw?.trade_license.toUpperCase()}
+                  {selectedCompanyDetails &&
+                    selectedCompanyDetails.raw?.trade_license && (
+                      <div className="md:col-span-2">
+                        <div
+                          className={`p-3 rounded-lg ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "bg-blue-50 border border-blue-200" : "bg-yellow-50 border border-yellow-200"}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <i
+                              className={`fas ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "fa-building" : "fa-globe"} ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "text-blue-600" : "text-yellow-600"}`}
+                            ></i>
+                            <span className="text-sm font-semibold text-gray-700">
+                              Company Trade License:{" "}
+                              <span
+                                className={
+                                  selectedCompanyDetails.raw?.trade_license ===
+                                  "mainland"
+                                    ? "text-blue-600"
+                                    : "text-yellow-600"
+                                }
+                              >
+                                {selectedCompanyDetails.raw?.trade_license.toUpperCase()}
+                              </span>
                             </span>
-                          </span>
-                          {selectedCompanyDetails.raw?.trade_license === "mainland" && (
-                            <span className="text-xs text-gray-600 ml-2">
-                              <i className="fas fa-info-circle mr-1"></i>
-                              Labor details are required for Mainland companies
-                            </span>
-                          )}
-                          {selectedCompanyDetails.raw?.trade_license === "freezone" && (
-                            <span className="text-xs text-gray-600 ml-2">
-                              <i className="fas fa-info-circle mr-1"></i>
-                              Labor details are not required for Freezone companies
-                            </span>
-                          )}
+                            {selectedCompanyDetails.raw?.trade_license ===
+                              "mainland" && (
+                              <span className="text-xs text-gray-600 ml-2">
+                                <i className="fas fa-info-circle mr-1"></i>
+                                Labor details are required for Mainland
+                                companies
+                              </span>
+                            )}
+                            {selectedCompanyDetails.raw?.trade_license ===
+                              "freezone" && (
+                              <span className="text-xs text-gray-600 ml-2">
+                                <i className="fas fa-info-circle mr-1"></i>
+                                Labor details are not required for Freezone
+                                companies
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
@@ -1351,8 +1383,8 @@ const AddEmployee = () => {
                                     type="text"
                                     placeholder="e.g., Birthday / Anniversary"
                                     className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:outline-none ${
-                                      errors?.special_days?.[index]?.name 
-                                        ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" 
+                                      errors?.special_days?.[index]?.name
+                                        ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
                                         : "border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                                     }`}
                                   />
@@ -1375,7 +1407,9 @@ const AddEmployee = () => {
                                     type="special_day"
                                     {...field}
                                     placeholder="dd/mm/yyyy"
-                                    error={!!errors?.special_days?.[index]?.date}
+                                    error={
+                                      !!errors?.special_days?.[index]?.date
+                                    }
                                   />
                                   {errors?.special_days?.[index]?.date && (
                                     <p className="mt-1 text-xs text-red-500">
@@ -1412,34 +1446,101 @@ const AddEmployee = () => {
                     </p>
                   </div>
 
-                  {/* Auto-generated Employee ID - Display Only */}
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                  {/* Employee ID Section with Radio Buttons */}
+                  <div className="md:col-span-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
                       <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
-                      Employee ID (Auto-generated)
+                      Employee ID <span className="text-red-500">*</span>
                     </label>
-                    <Controller
-                      name="employee_id"
-                      control={control}
-                      render={({ field }) => (
+
+                    {/* Radio Buttons */}
+                    <div className="flex gap-6 mb-4">
+                      <label className="flex items-center cursor-pointer">
                         <input
-                          {...field}
-                          type="text"
-                          readOnly
-                          disabled
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 border border-gray-200 rounded-lg text-sm md:text-base text-gray-600 cursor-not-allowed"
-                          placeholder="Will be auto-generated after entering DOB & Joining Date"
+                          type="radio"
+                          name="empIdMode"
+                          value="auto"
+                          checked={empIdMode === "auto"}
+                          onChange={() => {
+                            setEmpIdMode("auto");
+                            setManualEmpId("");
+                            if (watchDob && watchJoiningDate) {
+                              setValue(
+                                "employee_id",
+                                generateEmployeeId(watchDob, watchJoiningDate),
+                              );
+                            }
+                          }}
+                          className="mr-2 text-green-500 focus:ring-green-500"
                         />
-                      )}
-                    />
-                    {watchDob && watchJoiningDate && (
-                      <p className="mt-1 text-xs text-green-600">
-                        <i className="fas fa-check-circle mr-1"></i>
-                        Employee ID generated based on DOB and Joining Date
-                      </p>
+                        <span className="text-sm text-gray-700">
+                          Auto Generate
+                        </span>
+                      </label>
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="radio"
+                          name="empIdMode"
+                          value="manual"
+                          checked={empIdMode === "manual"}
+                          onChange={() => {
+                            setEmpIdMode("manual");
+                            setValue("employee_id", manualEmpId);
+                          }}
+                          className="mr-2 text-green-500 focus:ring-green-500"
+                        />
+                        <span className="text-sm text-gray-700">
+                          Manual Entry
+                        </span>
+                      </label>
+                    </div>
+
+                    {/* Auto-generated Employee ID Display */}
+                    {empIdMode === "auto" && (
+                      <>
+                        <Controller
+                          name="employee_id"
+                          control={control}
+                          render={({ field }) => (
+                            <input
+                              {...field}
+                              type="text"
+                              readOnly
+                              disabled
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 border border-gray-200 rounded-lg text-sm md:text-base text-gray-600 cursor-not-allowed"
+                              placeholder="Will be auto-generated after entering DOB & Joining Date"
+                            />
+                          )}
+                        />
+                        {watchDob && watchJoiningDate && (
+                          <p className="mt-1 text-xs text-green-600">
+                            <i className="fas fa-check-circle mr-1"></i>
+                            Employee ID generated based on DOB and Joining Date
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    {/* Manual Employee ID Input */}
+                    {empIdMode === "manual" && (
+                      <>
+                        <input
+                          type="text"
+                          value={manualEmpId}
+                          onChange={(e) => {
+                            setManualEmpId(e.target.value);
+                            setValue("employee_id", e.target.value);
+                          }}
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          placeholder="Enter custom Employee ID (e.g., EMP001)"
+                        />
+                        <p className="mt-1 text-xs text-gray-400">
+                          <i className="fas fa-info-circle mr-1"></i>
+                          Enter a unique employee ID (min 3 characters)
+                        </p>
+                      </>
                     )}
                   </div>
-
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-calendar text-green-500 mr-1"></i>{" "}
@@ -1995,12 +2096,15 @@ const AddEmployee = () => {
                 </div>
                 <div className="space-y-6">
                   {/* Labor Section - Only show for Mainland companies */}
-                  {selectedCompanyDetails?.raw?.trade_license === "mainland" && (
+                  {selectedCompanyDetails?.raw?.trade_license ===
+                    "mainland" && (
                     <div className="border border-gray-200 rounded-lg p-4 md:p-5">
                       <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
                         <i className="fas fa-briefcase text-green-500 mr-2"></i>
                         Labor Details
-                        <span className="text-xs text-red-500 ml-2">* Required for Mainland companies</span>
+                        <span className="text-xs text-red-500 ml-2">
+                          * Required for Mainland companies
+                        </span>
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                         <div>
@@ -2011,8 +2115,12 @@ const AddEmployee = () => {
                           <Controller
                             name="labor_number"
                             control={control}
-                            rules={{ 
-                              required: selectedCompanyDetails?.raw?.trade_license === "mainland" ? "Labor number is required for Mainland companies" : false 
+                            rules={{
+                              required:
+                                selectedCompanyDetails?.raw?.trade_license ===
+                                "mainland"
+                                  ? "Labor number is required for Mainland companies"
+                                  : false,
                             }}
                             render={({ field }) => (
                               <>
@@ -2035,13 +2143,18 @@ const AddEmployee = () => {
                         <div>
                           <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                             <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
-                            Labor Issued Date <span className="text-red-500">*</span>
+                            Labor Issued Date{" "}
+                            <span className="text-red-500">*</span>
                           </label>
                           <Controller
                             name="labor_issued_date"
                             control={control}
                             rules={{
-                              required: selectedCompanyDetails?.raw?.trade_license === "mainland" ? "Labor issued date is required for Mainland companies" : false,
+                              required:
+                                selectedCompanyDetails?.raw?.trade_license ===
+                                "mainland"
+                                  ? "Labor issued date is required for Mainland companies"
+                                  : false,
                               validate: (value) =>
                                 validateIssueDate(
                                   value,
@@ -2069,13 +2182,18 @@ const AddEmployee = () => {
                         <div>
                           <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                             <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
-                            Labor Expiry Date <span className="text-red-500">*</span>
+                            Labor Expiry Date{" "}
+                            <span className="text-red-500">*</span>
                           </label>
                           <Controller
                             name="labor_expiry_date"
                             control={control}
                             rules={{
-                              required: selectedCompanyDetails?.raw?.trade_license === "mainland" ? "Labor expiry date is required for Mainland companies" : false,
+                              required:
+                                selectedCompanyDetails?.raw?.trade_license ===
+                                "mainland"
+                                  ? "Labor expiry date is required for Mainland companies"
+                                  : false,
                               validate: (value) =>
                                 validateExpiryDate(
                                   value,
@@ -2329,7 +2447,8 @@ const AddEmployee = () => {
                           icon="fas fa-file-contract"
                         />
                         {/* Only show labor documents for Mainland companies */}
-                        {selectedCompanyDetails?.raw?.trade_license === "mainland" && (
+                        {selectedCompanyDetails?.raw?.trade_license ===
+                          "mainland" && (
                           <>
                             <DocumentUpload
                               fieldKey="labor_card"
