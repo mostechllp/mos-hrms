@@ -187,25 +187,32 @@ const Attendances = () => {
   };
 
   const handleEditClick = (record) => {
-    setSelectedAttendance(record);
-    setShowEditModal(true);
-  };
+  console.log("Record being edited:", record); // Add this to debug
+  setSelectedAttendance(record);
+  setShowEditModal(true);
+};
 
   const handleEditSubmit = async (id, data) => {
-    setEditSubmitting(true);
-    try {
-      await dispatch(updateAttendance({ id, data })).unwrap();
-      showToast("Attendance updated successfully!", "success");
-      setShowEditModal(false);
-      setSelectedAttendance(null);
-      await fetchAll();
-    } catch (error) {
-      console.error("Edit submission error:", error);
-      showToast(typeof error === "string" ? error : error?.message || "Update failed", "error");
-    } finally {
-      setEditSubmitting(false);
-    }
-  };
+  setEditSubmitting(true);
+  try {
+    console.log("=== UPDATE DEBUG ===");
+    console.log("Attendance ID:", id);
+    console.log("Data being sent:", data);
+    console.log("Employee ID from data:", data.userid);
+    console.log("Selected attendance employee_id:", selectedAttendance?.employee_id);
+    
+    await dispatch(updateAttendance({ id, data })).unwrap();
+    showToast("Attendance updated successfully!", "success");
+    setShowEditModal(false);
+    setSelectedAttendance(null);
+    await fetchAll();
+  } catch (error) {
+    console.error("Edit submission error:", error);
+    showToast(typeof error === "string" ? error : error?.message || "Update failed", "error");
+  } finally {
+    setEditSubmitting(false);
+  }
+};
 
   const handleDeleteClick = (record) => {
     setSelectedAttendance(record);
