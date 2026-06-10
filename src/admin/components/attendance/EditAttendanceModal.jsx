@@ -11,42 +11,104 @@ const EditAttendanceModal = ({ isOpen, onClose, onSubmit, submitting, attendance
   });
   const [error, setError] = useState("");
 
+  // Helper function to convert DD/MM/YYYY to YYYY-MM-DD
+  const convertToYMD = (dateStr) => {
+    if (!dateStr) return "";
+    // Check if it's in DD/MM/YYYY format
+    if (dateStr.includes("/")) {
+      const parts = dateStr.split("/");
+      if (parts.length === 3) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    return dateStr;
+  };
+
+  // Helper function to convert YYYY-MM-DD to DD/MM/YYYY
+  const convertToDMY = (dateStr) => {
+    if (!dateStr) return "";
+    if (dateStr.includes("-")) {
+      const parts = dateStr.split("-");
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+    }
+    return dateStr;
+  };
+
   useEffect(() => {
     if (attendance && isOpen) {
-      // Extract date and time from punch_in
-      const punchInDateTime = attendance.punch_in_raw || attendance.punchIn;
-      const punchOutDateTime = attendance.punch_out_raw || attendance.punchOut;
+      console.log("Editing attendance:", attendance);
       
-      let date = "";
+      // Get the date - use the 'date' field from the attendance object
+      let dateForDisplay = attendance.date || "";
+      
+      // Get punch in time from 'punchIn' field (format: "02:05 PM")
       let punchIn = "";
+      if (attendance.punchIn && attendance.punchIn !== "--") {
+        // Convert from "02:05 PM" to "14:05" format for time input
+        punchIn = convertTo24HourFormat(attendance.punchIn);
+      }
+      
+      // Get punch out time from 'punchOut' field
       let punchOut = "";
-      
-      if (punchInDateTime && punchInDateTime.includes(" ")) {
-        const [datePart, timePart] = punchInDateTime.split(" ");
-        date = datePart;
-        punchIn = timePart.substring(0, 5); // Get HH:MM
+      if (attendance.punchOut && attendance.punchOut !== null && attendance.punchOut !== "--") {
+        punchOut = convertTo24HourFormat(attendance.punchOut);
       }
       
-      if (punchOutDateTime && punchOutDateTime.includes(" ")) {
-        const [_, timePart] = punchOutDateTime.split(" ");
-        punchOut = timePart.substring(0, 5);
-      }
+      // Determine attendance status from 'status' field
+      const status = attendance.status === "Present" ? "present" : "absent";
       
-      setFormData({
-        log_date: date || attendance.date || "",
+      console.log("Setting form data:", {
+        log_date: dateForDisplay,
         punch_in: punchIn,
         punch_out: punchOut,
-        attendance_status: attendance.status === "Present" ? "present" : "absent",
+        attendance_status: status
+      });
+      
+      setFormData({
+        log_date: dateForDisplay,
+        punch_in: punchIn,
+        punch_out: punchOut,
+        attendance_status: status,
       });
     }
   }, [attendance, isOpen]);
 
+  // Helper function to convert 12-hour format to 24-hour format
+  const convertTo24HourFormat = (time12h) => {
+    if (!time12h) return "";
+    
+    // Check if it's already in 24-hour format
+    if (time12h.match(/^\d{2}:\d{2}$/) && !time12h.includes("AM") && !time12h.includes("PM")) {
+      return time12h;
+    }
+    
+    // Parse the time
+    const match = time12h.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!match) return time12h;
+    
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const ampm = match[3].toUpperCase();
+    
+    if (ampm === "PM" && hours !== 12) {
+      hours += 12;
+    } else if (ampm === "AM" && hours === 12) {
+      hours = 0;
+    }
+    
+    return `${hours.toString().padStart(2, "0")}:${minutes}`;
+  };
+
   const handleDateChange = (dateValue) => {
+    console.log("Date changed to:", dateValue);
     setFormData(prev => ({ ...prev, log_date: dateValue }));
   };
 
   const handleTimeChange = (e, fieldName) => {
     const { value } = e.target;
+    console.log(`Time changed for ${fieldName}:`, value);
     setFormData(prev => ({ ...prev, [fieldName]: value }));
   };
 
@@ -66,12 +128,22 @@ const EditAttendanceModal = ({ isOpen, onClose, onSubmit, submitting, attendance
     }
 
     try {
+      // Convert date from DD/MM/YYYY to YYYY-MM-DD for the API
+      const dateForApi = convertToYMD(formData.log_date);
+      
+      // Validate date conversion
+      if (!dateForApi || dateForApi.length !== 10) {
+        return setError("Invalid date format. Please select a valid date.");
+      }
+      
       const formattedData = {
-        log_date: formData.log_date,
-        punch_in: `${formData.log_date} ${formData.punch_in}:00`,
-        punch_out: formData.punch_out ? `${formData.log_date} ${formData.punch_out}:00` : null,
+        log_date: dateForApi, // Send YYYY-MM-DD format
+        punch_in: `${dateForApi} ${formData.punch_in}:00`,
+        punch_out: formData.punch_out ? `${dateForApi} ${formData.punch_out}:00` : null,
         attendance_status: formData.attendance_status,
       };
+      
+      console.log("Submitting edit:", formattedData);
       
       await onSubmit(attendance.id, formattedData);
       handleClose();

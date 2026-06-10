@@ -17,33 +17,30 @@ const isValidPunch = (value) => value && value !== "-" && value.trim() !== "";
 
 const extractAttendanceRecords = (response) => {
   try {
+
+    console.log("===== FULL API RESPONSE =====");
+    console.log(JSON.stringify(response.data, null, 2));
     const attendance = response.data?.data?.attendance;
+    console.log("First record from API:", attendance?.data?.[0]);
     const apiStats = response.data?.data?.stats;
 
     if (attendance?.data && Array.isArray(attendance.data)) {
       const records = attendance.data.map((record, idx) => {
         const hasPunchOut = record.punch_out && record.punch_out !== "--";
         
-        // Format punch times - handle both 12-hour (02:05 PM) and 24-hour formats
+        // Format punch times
         const formatPunchTime = (punchValue) => {
           if (!punchValue || punchValue === "--") return "-";
-          
-          // If it's already in 24-hour format (HH:MM:SS)
           if (punchValue.match(/^\d{2}:\d{2}:\d{2}$/)) {
             return punchValue;
           }
-          
-          // If it's in 12-hour format (HH:MM AM/PM)
           if (punchValue.match(/^\d{2}:\d{2} (AM|PM)$/i)) {
-            return punchValue; // Keep as is for display
+            return punchValue;
           }
-          
-          // If it includes date and time (YYYY-MM-DD HH:MM:SS)
           if (punchValue.includes(" ")) {
             const timePart = punchValue.split(" ")[1];
             return timePart;
           }
-          
           return punchValue;
         };
         
@@ -52,12 +49,14 @@ const extractAttendanceRecords = (response) => {
           ? formatPunchTime(record.punch_out) 
           : null;
 
-        // Extract employee name from user.employee object
+        // ✅ Use record.id (not record.userid) as the unique identifier
+        const recordId = record.id;
+        const employeeId = record.userid;
+        
         let employeeName = "-";
         let department = "-";
 
         if (record.user) {
-          // Get employee name from user.employee
           if (record.user.employee) {
             const firstName = record.user.employee.first_name || "";
             const lastName = record.user.employee.last_name || "";
@@ -67,24 +66,23 @@ const extractAttendanceRecords = (response) => {
             employeeName = record.user.username || "-";
           }
 
-          // Get department from user.department
           if (record.user.department && record.user.department.name) {
             department = record.user.department.name;
           }
         }
 
-        // Determine status - prioritize attendance_status from API if available
         let status = "Present";
         if (record.attendance_status) {
           status = record.attendance_status === "present" ? "Present" : "Absent";
         } else {
-          // If no attendance_status, check if they have valid punch_in
           status = (record.punch_in && record.punch_in !== "--") ? "Present" : "Absent";
         }
 
+        console.log(`Record ID ${recordId}: userid=${employeeId}, employeeName=${employeeName}`);
+
         return {
-          id: record.id || record.userid || idx,
-          employee_id: record.userid,
+          id: recordId, // ✅ Use the actual record ID
+          employee_id: employeeId,
           employeeName: employeeName,
           company: record.company?.company_name || "N/A",
           company_id: record.company_id || null,
@@ -95,9 +93,16 @@ const extractAttendanceRecords = (response) => {
           punch_in_raw: record.punch_in,
           punch_out_raw: record.punch_out,
           status: status,
-          isLate: false, // You can implement late logic based on business rules
+          isLate: false,
           hasPunchOut: hasPunchOut,
           attendance_status: record.attendance_status,
+          working_hours: record.working_hours || "--", 
+          punch_in_latitude: record.punch_in_latitude,
+          punch_in_longitude: record.punch_in_longitude,
+          punch_in_address: record.punch_in_address,
+          punch_out_latitude: record.punch_out_latitude,
+          punch_out_longitude: record.punch_out_longitude,
+          punch_out_address: record.punch_out_address,
         };
       });
 
@@ -108,7 +113,6 @@ const extractAttendanceRecords = (response) => {
         per_page: attendance.per_page,
       };
 
-      // Use stats from API if available
       const stats = apiStats
         ? {
             totalActiveEmployees: apiStats.total_active_employees || 0,
@@ -137,10 +141,10 @@ const extractAttendanceRecords = (response) => {
       };
     }
 
-    return { records: [], total: 0 };
+    return { records: [], total: 0, currentPage: 1, lastPage: 1, perPage: 15, stats: {} };
   } catch (error) {
     console.error("Error extracting attendance records:", error);
-    return { records: [], total: 0 };
+    return { records: [], total: 0, currentPage: 1, lastPage: 1, perPage: 15, stats: {} };
   }
 };
 
@@ -305,9 +309,28 @@ export const fetchUploadStatus = createAsyncThunk(
 
 export const updateAttendance = createAsyncThunk(
   "attendance/update",
-  async ({ id, data }, { rejectWithValue }) => {
+  async ({ id, data }, { rejectWithValue, getState }) => {
     try {
-      const response = await apiClient.put(`/admin/attendance/${id}`, data);
+      // Get the current state to find the employee_id
+      const state = getState();
+      const existingRecord = state.attendance.records.find(
+        (record) => record.id === parseInt(id),
+      );
+
+      // Prepare the payload with proper userid
+      const payload = {
+        log_date: data.log_date,
+        punch_in: data.punch_in,
+        punch_out: data.punch_out || null,
+        attendance_status: data.attendance_status,
+        userid: data.userid || data.employee_id || existingRecord?.employee_id, // Include the userid/employee_id
+      };
+
+      console.log("Update attendance payload:", payload);
+      console.log("Record ID being updated:", id);
+      console.log("User ID being sent:", payload.userid);
+
+      const response = await apiClient.put(`/admin/attendance/${id}`, payload);
       console.log("Update attendance response:", response.data);
 
       // Return the updated record with proper formatting
@@ -572,7 +595,7 @@ const attendanceSlice = createSlice({
         state.loading = false;
         // Update the record in the state
         const updatedRecord = action.payload?.data;
-        if (updatedRecord) {
+        if (updatedRecord && state.records && Array.isArray(state.records)) {
           const index = state.records.findIndex(
             (r) => r.id === updatedRecord.id,
           );
