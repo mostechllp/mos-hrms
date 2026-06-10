@@ -96,6 +96,13 @@ const extractAttendanceRecords = (response) => {
           isLate: false,
           hasPunchOut: hasPunchOut,
           attendance_status: record.attendance_status,
+          working_hours: record.working_hours || "--", 
+          punch_in_latitude: record.punch_in_latitude,
+          punch_in_longitude: record.punch_in_longitude,
+          punch_in_address: record.punch_in_address,
+          punch_out_latitude: record.punch_out_latitude,
+          punch_out_longitude: record.punch_out_longitude,
+          punch_out_address: record.punch_out_address,
         };
       });
 

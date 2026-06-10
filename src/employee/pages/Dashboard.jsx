@@ -23,6 +23,8 @@ import {
   fetchMyTasks,
   updateTaskStatus as updateEmployeeTaskStatus,
 } from "../store/slices/taskSlice";
+import LocationModal from "../components/modals/LocationModal";
+import MapView from "../components/common/MapView";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
@@ -44,6 +46,13 @@ const Dashboard = () => {
     completed: 0,
     overdue: 0,
   });
+
+  // Location related states
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [punchType, setPunchType] = useState("punch-in");
+  const [punchOutData, setPunchOutData] = useState(null);
+  const [showLocationHistory, setShowLocationHistory] = useState(false);
+  const [selectedMapLocation, setSelectedMapLocation] = useState(null);
 
   // Helper function to adjust color brightness
   const adjustColor = (color, percent) => {
@@ -191,20 +200,18 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Handle Punch In/Out
-  const handlePunch = async () => {
-    if (!isActuallyPunchedIn) {
-      if (!canPunch) {
-        showToastMessage("You cannot punch in at this time", "error");
-        return;
-      }
+  // Handle location confirmation
+  const handleLocationConfirm = async (locationData) => {
+    setShowLocationModal(false);
+    setIsSubmitting(true);
 
-      setIsSubmitting(true);
-      const result = await dispatch(punchIn());
+    if (punchType === "punch-in") {
+      console.log("Sending location for punch in:", locationData);
+      const result = await dispatch(punchIn({ location: locationData }));
       setIsSubmitting(false);
 
       if (punchIn.fulfilled.match(result)) {
-        showToastMessage("Punched in successfully!", "success");
+        showToastMessage("Punched in successfully with location verification!", "success");
         await dispatch(fetchDashboardData());
       } else {
         const errorMsg = result.payload || "Punch in failed";
@@ -223,7 +230,53 @@ const Dashboard = () => {
           showToastMessage(errorMsg, "error");
         }
       }
+    } else if (punchOutData) {
+      const result = await dispatch(
+        punchOut({
+          ...punchOutData,
+          location: locationData,
+        })
+      );
+      setIsSubmitting(false);
+
+      if (punchOut.fulfilled.match(result)) {
+        showToastMessage("Punched out successfully!", "success");
+        setShowPunchOutModal(false);
+        setPunchOutData(null);
+        
+        setIsOnBreak(false);
+        setTotalBreakMs(0);
+        setNumberOfBreaks(0);
+        setBreakHistory([]);
+        localStorage.removeItem("attendance-on-break");
+        localStorage.removeItem("attendance-break-start-time");
+        localStorage.removeItem("attendance-total-break-ms");
+        localStorage.removeItem("attendance-breaks-count");
+        localStorage.removeItem("attendance-break-history");
+        
+        await dispatch(fetchDashboardData());
+        
+        showToastMessage(
+          "Task report has been saved! You can view it in Task Reports section.",
+          "success",
+        );
+      } else {
+        showToastMessage(result.payload || "Punch out failed", "error");
+      }
+    }
+  };
+
+  // Handle Punch In/Out
+  const handlePunch = async () => {
+    if (!isActuallyPunchedIn) {
+      if (!canPunch) {
+        showToastMessage("You cannot punch in at this time", "error");
+        return;
+      }
+      setPunchType("punch-in");
+      setShowLocationModal(true);
     } else {
+      setPunchType("punch-out");
       setShowPunchOutModal(true);
     }
   };
@@ -319,52 +372,9 @@ const Dashboard = () => {
   };
 
   const handlePunchOutSubmit = async (data) => {
-    console.group("🔍 PUNCH OUT SUBMIT DEBUG");
-    console.log("📤 Submitting punch out with data:", {
-      tasks_completed: data.tasks_completed,
-      plan_tomorrow: data.plan_tomorrow,
-      pending_tasks: data.pending_tasks || "",
-    });
-
-    setIsSubmitting(true);
-    const result = await dispatch(
-      punchOut({
-        tasks_completed: data.tasks_completed,
-        plan_tomorrow: data.plan_tomorrow,
-        pending_tasks: data.pending_tasks || "",
-      }),
-    );
-
-    console.log("📥 Punch out result:", result);
-    console.groupEnd();
-
-    setIsSubmitting(false);
-
-    if (punchOut.fulfilled.match(result)) {
-      console.log("✅ Punch out successful! Response:", result.payload);
-      showToastMessage("Punched out successfully!", "success");
-      setShowPunchOutModal(false);
-
-      setIsOnBreak(false);
-      setTotalBreakMs(0);
-      setNumberOfBreaks(0);
-      setBreakHistory([]);
-      localStorage.removeItem("attendance-on-break");
-      localStorage.removeItem("attendance-break-start-time");
-      localStorage.removeItem("attendance-total-break-ms");
-      localStorage.removeItem("attendance-breaks-count");
-      localStorage.removeItem("attendance-break-history");
-
-      await dispatch(fetchDashboardData());
-
-      showToastMessage(
-        "Task report has been saved! You can view it in Task Reports section.",
-        "success",
-      );
-    } else {
-      console.error("❌ Punch out failed:", result.payload);
-      showToastMessage(result.payload || "❌ Punch out failed", "error");
-    }
+    setPunchOutData(data);
+    setShowPunchOutModal(false);
+    setShowLocationModal(true);
   };
 
   // Format punch time with proper timezone handling
@@ -451,6 +461,157 @@ const Dashboard = () => {
       minute: "2-digit",
       hour12: true,
     });
+  };
+
+  // Helper function to normalize location data from different formats
+  const normalizeLocation = (locationData) => {
+    if (!locationData) return null;
+
+    if (locationData.latitude && locationData.longitude) {
+      return {
+        latitude: parseFloat(locationData.latitude),
+        longitude: parseFloat(locationData.longitude),
+        address:
+          locationData.address ||
+          `${locationData.latitude}, ${locationData.longitude}`,
+      };
+    }
+
+    if (locationData.punch_in_latitude || locationData.latitude) {
+      return {
+        latitude: parseFloat(
+          locationData.punch_in_latitude || locationData.latitude,
+        ),
+        longitude: parseFloat(
+          locationData.punch_in_longitude || locationData.longitude,
+        ),
+        address:
+          locationData.punch_in_address ||
+          locationData.address ||
+          "Location recorded",
+      };
+    }
+
+    return null;
+  };
+
+  // Render location info
+  const renderLocationInfo = () => {
+    const punchInLocation = normalizeLocation(
+      todayAttendance.punch_in_location,
+    );
+    const punchOutLocation = normalizeLocation(
+      todayAttendance.punch_out_location,
+    );
+
+    if (!punchInLocation && !punchOutLocation) return null;
+
+    const handleShowMap = (location) => {
+      setSelectedMapLocation(location);
+      setShowLocationHistory(true);
+    };
+
+    return (
+      <div className="location-info bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 mb-7">
+        <h3 className="text-base font-semibold text-[var(--text)] mb-3 flex items-center gap-2">
+          <i className="fas fa-map-marker-alt text-green-500"></i>
+          Today's Punch Locations
+        </h3>
+
+        {punchInLocation && (
+          <div className="mb-3 pb-3 border-b border-[var(--border)]">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-green-500">
+                  <i className="fas fa-sign-in-alt mr-1"></i> Punch In Location:
+                </p>
+                <p className="text-sm text-[var(--text)] mt-1">
+                  {punchInLocation.address ||
+                    `${punchInLocation.latitude}, ${punchInLocation.longitude}`}
+                </p>
+              </div>
+              <button
+                onClick={() => handleShowMap(punchInLocation)}
+                className="text-xs bg-green-500/10 text-green-500 px-3 py-1 rounded-lg hover:bg-green-500/20 transition-colors"
+              >
+                <i className="fas fa-map mr-1"></i> View Map
+              </button>
+            </div>
+          </div>
+        )}
+
+        {punchOutLocation && punchOutLocation.latitude && (
+          <div>
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-500">
+                  <i className="fas fa-sign-out-alt mr-1"></i> Punch Out Location:
+                </p>
+                <p className="text-sm text-[var(--text)] mt-1">
+                  {punchOutLocation.address ||
+                    `${punchOutLocation.latitude}, ${punchOutLocation.longitude}`}
+                </p>
+              </div>
+              <button
+                onClick={() => handleShowMap(punchOutLocation)}
+                className="text-xs bg-red-500/10 text-red-500 px-3 py-1 rounded-lg hover:bg-red-500/20 transition-colors"
+              >
+                <i className="fas fa-map mr-1"></i> View Map
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render map modal
+  const renderMapModal = () => {
+    if (!showLocationHistory || !selectedMapLocation) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div className="bg-[var(--surface)] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+          <div className="flex justify-between items-center p-4 border-b border-[var(--border)]">
+            <h3 className="text-lg font-semibold">
+              <i className="fas fa-map-marker-alt text-green-500 mr-2"></i>
+              Location Map
+            </h3>
+            <button
+              onClick={() => {
+                setShowLocationHistory(false);
+                setSelectedMapLocation(null);
+              }}
+              className="text-[var(--muted)] hover:text-[var(--text)] transition-colors"
+            >
+              <i className="fas fa-times text-xl"></i>
+            </button>
+          </div>
+          <div className="p-4">
+            <p className="text-sm text-[var(--text)] mb-3">
+              {selectedMapLocation.address ||
+                `${selectedMapLocation.latitude}, ${selectedMapLocation.longitude}`}
+            </p>
+            <MapView
+              latitude={parseFloat(selectedMapLocation.latitude)}
+              longitude={parseFloat(selectedMapLocation.longitude)}
+              address={selectedMapLocation.address}
+            />
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowLocationHistory(false);
+                  setSelectedMapLocation(null);
+                }}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // Update the fetchEmployeeTasks function to limit to 2 tasks
@@ -705,6 +866,7 @@ const Dashboard = () => {
 
     return `${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
   };
+  
   const formatBreakDuration = (ms) => {
     let currentTotalMs = ms;
     if (isOnBreak && breakStartTime) {
@@ -755,6 +917,9 @@ const Dashboard = () => {
           <div className="date text-xs opacity-90">{currentDate}</div>
         </div>
       </div>
+
+      {/* Location Info */}
+      {renderLocationInfo()}
 
       {/* Punch Card */}
       <div className="punch-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 md:p-6 mb-7 flex flex-col md:flex-row justify-between items-center gap-5">
@@ -961,167 +1126,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* My Tasks Overview Section */}
-      {/* <div className="my-tasks-section mt-7 mb-5">
-        <div className="flex justify-between items-center mb-5">
-          <h3 className="text-lg font-semibold text-[var(--text)] flex items-center gap-2">
-            <i className="fas fa-tasks text-green-500"></i> My Tasks
-            <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full">
-              {taskStats.total} Total
-            </span>
-          </h3>
-          <button
-            onClick={() => navigate("/employee/tasks")}
-            className="text-sm text-green-500 hover:text-green-600 font-medium flex items-center gap-1"
-          >
-            View All <i className="fas fa-arrow-right text-xs"></i>
-          </button>
-        </div>
-
-        {tasksLoading ? (
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-8 text-center">
-            <i className="fas fa-spinner fa-spin text-2xl text-green-500"></i>
-            <p className="text-sm text-[var(--muted)] mt-2">Loading tasks...</p>
-          </div>
-        ) : tasks.length === 0 ? (
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-8 text-center">
-            <i className="fas fa-check-circle text-4xl text-green-500 mb-2"></i>
-            <p className="text-[var(--text)] font-medium">
-              No tasks assigned yet
-            </p>
-            <p className="text-sm text-[var(--muted)] mt-1">
-              When tasks are assigned, they'll appear here
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {tasks.map((task) => {
-              const isOverdue =
-                task.due_date &&
-                new Date(task.due_date) < new Date() &&
-                task.status !== "completed";
-              const priorityColors = {
-                high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-                medium:
-                  "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-                low: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-              };
-
-              return (
-                <div
-                  key={task.id}
-                  className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 hover:shadow-md transition-all group"
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-[var(--text)]">
-                        {task.name}
-                      </h4>
-                      {task.client_name && (
-                        <p className="text-xs text-[var(--muted)] mt-1">
-                          <i className="fas fa-building mr-1"></i>{" "}
-                          {task.client_name}
-                        </p>
-                      )}
-                      {task.website_url && (
-                        <a
-                          href={task.website_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-500 hover:underline block mt-0.5"
-                        >
-                          <i className="fas fa-globe mr-1"></i>{" "}
-                          {task.website_url}
-                        </a>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${priorityColors[task.priority] || priorityColors.medium}`}
-                      >
-                        {task.priority?.charAt(0).toUpperCase() +
-                          task.priority?.slice(1) || "Medium"}
-                      </span>
-                      {isOverdue && (
-                        <span className="text-xs text-red-500 font-medium flex items-center gap-1">
-                          <i className="fas fa-exclamation-circle"></i> Overdue
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {task.remarks && (
-                    <p className="text-sm text-[var(--muted)] mb-3 line-clamp-2">
-                      {task.remarks}
-                    </p>
-                  )}
-
-                  <div className="flex justify-between items-center pt-3 border-t border-[var(--border)]">
-                    <div className="flex gap-3 text-xs text-[var(--muted)]">
-                      <span title="Assigned Date">
-                        <i className="fas fa-calendar-alt mr-1"></i>{" "}
-                        {new Date(task.assigned_date).toLocaleDateString()}
-                      </span>
-                      {task.due_date && (
-                        <span
-                          className={isOverdue ? "text-red-500" : ""}
-                          title="Due Date"
-                        >
-                          <i className="fas fa-hourglass-half mr-1"></i> Due:{" "}
-                          {new Date(task.due_date).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-
-                    <select
-                      value={task.status}
-                      onChange={(e) =>
-                        handleTaskStatusUpdate(task.id, e.target.value)
-                      }
-                      className="text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="completed">Completed</option>
-                    </select>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Quick Stats Row */}
-      {/* {taskStats.total > 0 && (
-          <div className="grid grid-cols-4 gap-3 mt-4">
-            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
-              <div className="text-lg font-bold text-amber-600">
-                {taskStats.pending || 0}
-              </div>
-              <div className="text-xs text-amber-600">Pending</div>
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center">
-              <div className="text-lg font-bold text-blue-600">
-                {taskStats.in_progress || 0}
-              </div>
-              <div className="text-xs text-blue-600">In Progress</div>
-            </div>
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
-              <div className="text-lg font-bold text-green-600">
-                {taskStats.completed || 0}
-              </div>
-              <div className="text-xs text-green-600">Completed</div>
-            </div>
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center">
-              <div className="text-lg font-bold text-red-600">
-                {taskStats.overdue || 0}
-              </div>
-              <div className="text-xs text-red-600">Overdue</div>
-            </div>
-          </div>
-        )}
-      </div>  */}
-
       {/* Chart and Recent Activity Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-7 mb-7">
         {/* Chart Card */}
@@ -1144,250 +1148,86 @@ const Dashboard = () => {
                   <i className="fas fa-history text-blue-500"></i>
                   Recent Activity
                 </h3>
-                {dashboardData.attendance_history.length > 5 && (
-                  <span className="text-xs text-[var(--muted)]">
-                    Showing last 5 entries
-                  </span>
-                )}
               </div>
 
               <div className="overflow-x-auto -mx-1 px-1 flex-1">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[var(--surface2)] rounded-lg">
-                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider rounded-l-lg">
-                        <i className="fas fa-calendar-day mr-2"></i>Date
-                      </th>
-                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                        <i className="fas fa-sign-in-alt mr-2"></i>Punch In
-                      </th>
-                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                        <i className="fas fa-sign-out-alt mr-2"></i>Punch Out
-                      </th>
-                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider rounded-r-lg">
-                        <i className="fas fa-clock mr-2"></i>Hours
-                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">Date</th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">Punch In</th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">Location</th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">Punch Out</th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">Hours</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {dashboardData.attendance_history
-                      .slice(0, 5)
-                      .map((attendance, index) => {
-                        const pIn = parsePunchTime(attendance.punch_in);
-                        const pOut = parsePunchTime(attendance.punch_out);
-                        const hours =
-                          pIn &&
-                          pOut &&
-                          !isNaN(pIn.getTime()) &&
-                          !isNaN(pOut.getTime())
-                            ? ((pOut - pIn) / (1000 * 60 * 60)).toFixed(1)
-                            : null;
-
-                        // Get status badge
-                        const getStatusBadge = () => {
-                          if (
-                            attendance.punch_in &&
-                            attendance.punch_out &&
-                            attendance.punch_out !== "--"
-                          ) {
-                            return {
-                              text: "Completed",
-                              color:
-                                "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                              icon: "fa-check-circle",
-                            };
-                          } else if (
-                            attendance.punch_in &&
-                            (!attendance.punch_out ||
-                              attendance.punch_out === "--")
-                          ) {
-                            return {
-                              text: "Incomplete",
-                              color:
-                                "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-                              icon: "fa-hourglass-half",
-                            };
-                          }
-                          return {
-                            text: "Absent",
-                            color:
-                              "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-                            icon: "fa-times-circle",
-                          };
-                        };
-
-                        const status = getStatusBadge();
-                        const isToday =
-                          attendance.log_date ===
-                          new Date().toISOString().split("T")[0];
-
-                        return (
-                          <tr
-                            key={index}
-                            className={`border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-all duration-200 group ${
-                              isToday ? "bg-blue-50/30 dark:bg-blue-900/10" : ""
-                            }`}
-                          >
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[var(--text)] font-medium">
-                                  {new Date(
-                                    attendance.log_date,
-                                  ).toLocaleDateString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                    year: attendance.log_date.includes(
-                                      new Date().getFullYear(),
-                                    )
-                                      ? undefined
-                                      : "numeric",
-                                  })}
-                                </span>
-                                {isToday && (
-                                  <span className="text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded-full font-medium">
-                                    Today
-                                  </span>
-                                )}
+                    {dashboardData.attendance_history.map((attendance, index) => {
+                      // Parse date from DD/MM/YYYY format
+                      const dateParts = attendance.log_date.split('/');
+                      const dateObj = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+                      
+                      // Format date as "MMM DD" (e.g., "Jun 9")
+                      const formattedDate = dateObj.toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric' 
+                      });
+                      
+                      const locationAddress = attendance.punch_in_address;
+                      
+                      return (
+                        <tr key={index} className="border-b border-[var(--border)]">
+                          <td className="py-3 px-4">
+                            <div>
+                              <div className="text-[var(--text)] font-medium">
+                                {formattedDate}
                               </div>
-                              <div className="text-xs text-[var(--muted)] mt-0.5">
-                                {new Date(
-                                  attendance.log_date,
-                                ).toLocaleDateString("en-US", {
-                                  weekday: "short",
-                                })}
+                              <div className="text-xs text-[var(--muted)]">
+                                {dateObj.toLocaleDateString('en-US', { weekday: 'short' })}
                               </div>
-                            </td>
-
-                            <td className="py-3 px-4">
-                              {attendance.punch_in &&
-                              attendance.punch_in !== "--" ? (
-                                <div className="flex items-center gap-2">
-                                  <div className="w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                                    <i className="fas fa-arrow-right text-green-600 dark:text-green-400 text-xs"></i>
-                                  </div>
-                                  <div>
-                                    <div className="text-[var(--text)] font-medium">
-                                      {formatPunchTime(attendance.punch_in)}
-                                    </div>
-                                    <div className="text-xs text-[var(--muted)]">
-                                      AM/PM
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                                    <i className="fas fa-minus text-gray-400 text-xs"></i>
-                                  </div>
-                                  <span className="text-[var(--muted)]">—</span>
-                                </div>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-4">
-                              {attendance.punch_out &&
-                              attendance.punch_out !== "--" ? (
-                                <div className="flex items-center gap-2">
-                                  <div className="w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                                    <i className="fas fa-arrow-left text-red-600 dark:text-red-400 text-xs"></i>
-                                  </div>
-                                  <div>
-                                    <div className="text-[var(--text)] font-medium">
-                                      {formatPunchTime(attendance.punch_out)}
-                                    </div>
-                                    <div className="text-xs text-[var(--muted)]">
-                                      AM/PM
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                                    <i className="fas fa-minus text-gray-400 text-xs"></i>
-                                  </div>
-                                  <span className="text-[var(--muted)]">—</span>
-                                </div>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-4">
-                              {hours ? (
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                                      parseFloat(hours) >= 8
-                                        ? "bg-green-100 dark:bg-green-900/30"
-                                        : parseFloat(hours) >= 4
-                                          ? "bg-blue-100 dark:bg-blue-900/30"
-                                          : "bg-yellow-100 dark:bg-yellow-900/30"
-                                    }`}
-                                  >
-                                    <i
-                                      className={`fas fa-hourglass-half text-sm ${
-                                        parseFloat(hours) >= 8
-                                          ? "text-green-600 dark:text-green-400"
-                                          : parseFloat(hours) >= 4
-                                            ? "text-blue-600 dark:text-blue-400"
-                                            : "text-yellow-600 dark:text-yellow-400"
-                                      }`}
-                                    ></i>
-                                  </div>
-                                  <div>
-                                    <div className="text-[var(--text)] font-bold">
-                                      {hours}
-                                      <span className="text-xs font-normal text-[var(--muted)] ml-0.5">
-                                        hrs
-                                      </span>
-                                    </div>
-                                    <div className="text-xs text-[var(--muted)]">
-                                      {parseFloat(hours) >= 8
-                                        ? "Full Day"
-                                        : parseFloat(hours) >= 4
-                                          ? "Half Day"
-                                          : "Short Day"}
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                                    <i
-                                      className={`fas ${status.icon} text-gray-400 text-xs`}
-                                    ></i>
-                                  </div>
-                                  <div>
-                                    <span
-                                      className={`text-xs font-medium px-2 py-0.5 rounded-full ${status.color}`}
-                                    >
-                                      {status.text}
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            {attendance.punch_in && attendance.punch_in !== "--" ? (
+                              <div className="text-[var(--text)] font-medium">
+                                {attendance.punch_in}
+                              </div>
+                            ) : (
+                              <span className="text-[var(--muted)]">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            {locationAddress && (
+                              <div className="text-xs text-[var(--muted)]">
+                                <i className="fas fa-map-marker-alt text-green-500 text-xs mr-1"></i>
+                                {locationAddress.substring(0, 40)}
+                                {locationAddress.length > 40 ? "..." : ""}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            {attendance.punch_out && attendance.punch_out !== "--" ? (
+                              <div className="text-[var(--text)] font-medium">
+                                {attendance.punch_out}
+                              </div>
+                            ) : (
+                              <span className="text-[var(--muted)]">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            {attendance.working_hours !== "--" ? (
+                              <div className="text-[var(--text)] font-bold">
+                                {attendance.working_hours}
+                              </div>
+                            ) : (
+                              <span className="text-[var(--muted)]">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
-              </div>
-
-              {/* Footer with summary stats */}
-              <div className="mt-4 pt-3 border-t border-[var(--border)] flex justify-between items-center">
-                <div className="flex gap-4 text-xs text-[var(--muted)]">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    <span>Completed</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                    <span>Incomplete</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    <span>Absent</span>
-                  </div>
-                </div>
               </div>
             </div>
           )}
@@ -1401,6 +1241,17 @@ const Dashboard = () => {
         loading={isSubmitting}
       />
 
+      {/* Location Modal */}
+      <LocationModal
+        isOpen={showLocationModal}
+        onClose={() => {
+          setShowLocationModal(false);
+          setPunchOutData(null);
+        }}
+        onConfirm={handleLocationConfirm}
+        type={punchType}
+      />
+
       <PendingPunchOutModal
         isOpen={showPendingModal}
         onClose={() => setShowPendingModal(false)}
@@ -1408,6 +1259,9 @@ const Dashboard = () => {
         loading={pendingPunchSubmitting}
         pendingDate={pendingPunchDate}
       />
+
+      {/* Map Modal */}
+      {renderMapModal()}
 
       {/* Toast Notification */}
       {toast && (

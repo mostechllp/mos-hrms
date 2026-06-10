@@ -23,12 +23,32 @@ export const fetchDashboardData = createAsyncThunk(
   }
 );
 
-// ✅ Punch In
+// ✅ Punch In with Location - Fixed field names
 export const punchIn = createAsyncThunk(
   "attendance/punchIn",
-  async (_, { rejectWithValue }) => {
+  async (locationData, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post("/employee/punch-in");
+      console.log("🔍 PUNCH IN DEBUG - Raw locationData received:", locationData);
+      console.log("🔍 PUNCH IN DEBUG - locationData.location:", locationData?.location);
+      
+      // Prepare request body with location if available
+      const requestBody = {};
+      
+      if (locationData && locationData.location) {
+        // ✅ Use the exact field names the backend expects
+        requestBody.punch_in_latitude = locationData.location.latitude;
+        requestBody.punch_in_longitude = locationData.location.longitude;
+        requestBody.punch_in_address = locationData.location.address;
+        console.log("✅ Location added to request body:", requestBody);
+      } else {
+        console.warn("⚠️ No location data provided for punch in");
+      }
+      
+      console.log("📤 Sending punch in request with body:", requestBody);
+      
+      const response = await apiClient.post("/employee/punch-in", requestBody);
+      
+      console.log("📥 Punch in response:", response.data);
       
       if (response.data && response.data.status === "success") {
         const data = response.data.data;
@@ -40,29 +60,43 @@ export const punchIn = createAsyncThunk(
           punch_in: data.punch_in,
           log_date: data.log_date,
           log_status: data.log_status,
-          id: data.id
+          id: data.id,
+          punch_in_latitude: data.punch_in_latitude,
+          punch_in_longitude: data.punch_in_longitude,
+          punch_in_address: data.punch_in_address
         };
       } else {
         return rejectWithValue(response.data?.message || "Punch in failed");
       }
     } catch (error) {
       console.error("Punch in error:", error);
+      console.error("Error response:", error.response?.data);
       const errorMsg = error.response?.data?.message || "Punch in failed";
       return rejectWithValue(errorMsg);
     }
   }
 );
 
-// ✅ Punch Out (for current day)
+// ✅ Punch Out with Location (for current day)
 export const punchOut = createAsyncThunk(
   "attendance/punchOut",
-  async ({ tasks_completed, plan_tomorrow, pending_works }, { rejectWithValue }) => {
+  async ({ tasks_completed, plan_tomorrow, pending_works, location }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post("/employee/punch-out", {
+      // Prepare request body with tasks and location
+      const requestBody = {
         tasks_completed,
         plan_tomorrow,
         pending_works, // Include pending works
-      });
+      };
+      
+      // Add location if available
+      if (location) {
+        requestBody.latitude = location.latitude;
+        requestBody.longitude = location.longitude;
+        requestBody.address = location.address;
+      }
+      
+      const response = await apiClient.post("/employee/punch-out", requestBody);
       
       if (response.data && response.data.status === "success") {
         const data = response.data.data;
@@ -75,7 +109,10 @@ export const punchOut = createAsyncThunk(
           log_date: data.log_date,
           log_status: data.log_status,
           id: data.id,
-          task_report: data.task_report
+          task_report: data.task_report,
+          punch_out_latitude: data.punch_out_latitude,
+          punch_out_longitude: data.punch_out_longitude,
+          punch_out_address: data.punch_out_address
         };
       } else {
         return rejectWithValue(response.data?.message || "Punch out failed");
@@ -89,21 +126,31 @@ export const punchOut = createAsyncThunk(
   }
 );
 
-// ✅ Pending Punch Out (for previous day with custom time)
+// ✅ Pending Punch Out with Location (for previous day with custom time)
 export const pendingPunchOut = createAsyncThunk(
   "attendance/pendingPunchOut",
-  async ({ tasks_completed, plan_tomorrow, pending_works, punch_out_time, date }, { rejectWithValue }) => {
+  async ({ tasks_completed, plan_tomorrow, pending_works, punch_out_time, date, location }, { rejectWithValue }) => {
     try {
       // Combine the date with the provided punch out time
       const punchOutDateTime = `${date} ${punch_out_time}:00`;
       
-      const response = await apiClient.post("/employee/pending-punch-out", {
+      // Prepare request body with tasks and location
+      const requestBody = {
         tasks_completed,
         plan_tomorrow,
         pending_works,
         punch_out_time: punchOutDateTime,
         log_date: date
-      });
+      };
+      
+      // Add location if available
+      if (location) {
+        requestBody.latitude = location.latitude;
+        requestBody.longitude = location.longitude;
+        requestBody.address = location.address;
+      }
+      
+      const response = await apiClient.post("/employee/pending-punch-out", requestBody);
       
       if (response.data && response.data.status === "success") {
         const data = response.data.data;
@@ -112,7 +159,10 @@ export const pendingPunchOut = createAsyncThunk(
           log_date: data.log_date,
           log_status: data.log_status,
           id: data.id,
-          task_report: data.task_report
+          task_report: data.task_report,
+          punch_out_latitude: data.punch_out_latitude,
+          punch_out_longitude: data.punch_out_longitude,
+          punch_out_address: data.punch_out_address
         };
       } else {
         return rejectWithValue(response.data?.message || "Failed to complete pending punch out");
@@ -125,7 +175,6 @@ export const pendingPunchOut = createAsyncThunk(
     }
   }
 );
-
 const initialState = {
   isPunchedIn: localStorage.getItem("attendance-punched-in") === "true",
   punchInTime: localStorage.getItem("attendance-punch-in-time") || null,
