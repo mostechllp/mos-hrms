@@ -22,8 +22,35 @@ const extractAttendanceRecords = (response) => {
 
     if (attendance?.data && Array.isArray(attendance.data)) {
       const records = attendance.data.map((record, idx) => {
-        const hasPunchOut = isValidPunch(record.punch_out);
-        const punchIn = isValidPunch(record.punch_in) ? record.punch_in : "-";
+        const hasPunchOut = record.punch_out && record.punch_out !== "--";
+        
+        // Format punch times - handle both 12-hour (02:05 PM) and 24-hour formats
+        const formatPunchTime = (punchValue) => {
+          if (!punchValue || punchValue === "--") return "-";
+          
+          // If it's already in 24-hour format (HH:MM:SS)
+          if (punchValue.match(/^\d{2}:\d{2}:\d{2}$/)) {
+            return punchValue;
+          }
+          
+          // If it's in 12-hour format (HH:MM AM/PM)
+          if (punchValue.match(/^\d{2}:\d{2} (AM|PM)$/i)) {
+            return punchValue; // Keep as is for display
+          }
+          
+          // If it includes date and time (YYYY-MM-DD HH:MM:SS)
+          if (punchValue.includes(" ")) {
+            const timePart = punchValue.split(" ")[1];
+            return timePart;
+          }
+          
+          return punchValue;
+        };
+        
+        const punchIn = formatPunchTime(record.punch_in);
+        const punchOut = record.punch_out && record.punch_out !== "--" 
+          ? formatPunchTime(record.punch_out) 
+          : null;
 
         // Extract employee name from user.employee object
         let employeeName = "-";
@@ -46,53 +73,31 @@ const extractAttendanceRecords = (response) => {
           }
         }
 
-        // Format punch times
-        const formatPunchTime = (datetime) => {
-          if (!datetime || datetime === "-") return "-";
-          if (datetime.includes(" ")) {
-            return datetime.split(" ")[1]; // Extract time part (HH:MM:SS)
-          }
-          return datetime;
-        };
-
         // Determine status - prioritize attendance_status from API if available
         let status = "Present";
         if (record.attendance_status) {
-          // If attendance_status is provided, use it
-          status =
-            record.attendance_status === "present" ? "Present" : "Absent";
+          status = record.attendance_status === "present" ? "Present" : "Absent";
         } else {
-          // Fallback: determine by punch_in existence
-          status = isValidPunch(record.punch_in) ? "Present" : "Absent";
+          // If no attendance_status, check if they have valid punch_in
+          status = (record.punch_in && record.punch_in !== "--") ? "Present" : "Absent";
         }
 
-        // Check if employee is late (you can customize this logic)
-        const isLate = () => {
-          if (!record.punch_in) return false;
-          const punchInTime = formatPunchTime(record.punch_in);
-          // Example: Consider late if punch in after 9:00 AM
-          if (punchInTime && punchInTime > "09:00:00") {
-            return true;
-          }
-          return false;
-        };
-
         return {
-          id: record.id || record.userid || idx, // Use the actual attendance record ID
+          id: record.id || record.userid || idx,
           employee_id: record.userid,
           employeeName: employeeName,
           company: record.company?.company_name || "N/A",
           company_id: record.company_id || null,
           department: department,
           date: record.log_date || "-",
-          punchIn: formatPunchTime(record.punch_in),
-          punchOut: hasPunchOut ? formatPunchTime(record.punch_out) : null,
+          punchIn: punchIn,
+          punchOut: punchOut,
           punch_in_raw: record.punch_in,
           punch_out_raw: record.punch_out,
           status: status,
-          isLate: isLate(),
-          hasPunchOut,
-          attendance_status: record.attendance_status, // Store for edit modal
+          isLate: false, // You can implement late logic based on business rules
+          hasPunchOut: hasPunchOut,
+          attendance_status: record.attendance_status,
         };
       });
 
@@ -103,7 +108,7 @@ const extractAttendanceRecords = (response) => {
         per_page: attendance.per_page,
       };
 
-      // Use stats from API if available, otherwise calculate
+      // Use stats from API if available
       const stats = apiStats
         ? {
             totalActiveEmployees: apiStats.total_active_employees || 0,

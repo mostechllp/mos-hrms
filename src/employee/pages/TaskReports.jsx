@@ -1,4 +1,4 @@
-import { TaskReportsList } from "../components/modals/PunchOutModal";
+import { TaskReportsList } from "../components/taskReport/TaskReportList";
 
 const TaskReportsPage = () => {
   return (

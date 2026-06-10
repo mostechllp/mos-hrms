@@ -88,6 +88,9 @@ const ExitInterview = lazy(() => import("./admin/components/offboarding/ExitInte
 const FinalSettlement = lazy(() => import("./admin/components/offboarding/FinalSettlement"));
 const LettersAndClearance = lazy(() => import("./admin/components/offboarding/LettersAndClearance"));
 const ChecklistCategories = lazy(() => import("./admin/pages/ChecklistCategoriesManagement"));
+const Tasks = lazy(() => import("./admin/pages/Tasks"));
+const Projects = lazy(() => import("./admin/pages/Projects"));
+const ProjectTasks = lazy(() => import("./admin/components/projects/ProjectTasks"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -96,6 +99,7 @@ const RequestLeave = lazy(() => import("./employee/pages/RequestLeave"));
 const EmployeeProfile = lazy(() => import("./employee/pages/Profile"));
 const EmployeeWFH = lazy(() => import("./employee/pages/WFH"));
 const EmployeeTaskReports = lazy(() => import("./employee/pages/TaskReports"));
+const EmployeeTasks = lazy(() => import("./employee/pages/Tasks"));
 const AttendanceRequests = lazy(
   () => import("./employee/pages/AttendanceRequests"),
 );
@@ -210,6 +214,9 @@ function App() {
           <Route path="departments" element={<Departments />} />
           <Route path="task-reports" element={<TaskReports />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="tasks" element={<Tasks />} />
+          <Route path="projects" element={<Projects />} />
+          <Route path="projects/:id/tasks" element={<ProjectTasks />} />
           <Route
             path="reports/employee-details"
             element={<EmployeeDetailsReport />}
@@ -276,6 +283,7 @@ function App() {
           <Route path="request-leave" element={<RequestLeave />} />
           <Route path="wfh" element={<EmployeeWFH />} />
           <Route path="task-reports" element={<EmployeeTaskReports />} />
+          <Route path="tasks" element={<EmployeeTasks />} />
           <Route path="profile" element={<EmployeeProfile />} />
           <Route path="attendance-requests" element={<AttendanceRequests />} />
         </Route>

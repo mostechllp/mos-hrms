@@ -116,33 +116,53 @@ export const fetchLeaveBalances = createAsyncThunk(
   }
 );
 
+
 export const updateLeaveAllocation = createAsyncThunk(
   "leaves/updateAllocation",
   async ({ employee_id, allocations }, { rejectWithValue }) => {
     try {
+      // Convert allocations object to an array of integers (just the values)
       const response = await apiClient.post(`/admin/leave-allocations/${employee_id}`, {
-        allocations
-      });
-      return response.data.data;
+      allocations: allocations  // ONLY send allocations object
+    });
+    return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to update allocation");
+      console.error("Update allocation error:", error);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update allocation"
+      );
     }
   }
 );
 
 // Leave Types
+
 export const fetchLeaveTypes = createAsyncThunk(
-  "leaves/fetchTypes",
+  "leaves/fetchLeaveTypes",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await apiClient.get("/admin/leave-types");
-      return res.data.data || res.data;
-    } catch (err) {
+      const response = await apiClient.get("/admin/leave-types");
+      console.log("Leave types API response:", response.data);
+      
+      // Handle different response structures
+      let leaveTypesData = [];
+      if (response.data?.data && Array.isArray(response.data.data)) {
+        leaveTypesData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        leaveTypesData = response.data;
+      } else if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
+        leaveTypesData = response.data.data.data;
+      }
+      
+      console.log("Extracted leave types:", leaveTypesData);
+      return leaveTypesData;
+    } catch (error) {
+      console.error("Fetch leave types error:", error);
       return rejectWithValue(
-        err.response?.data?.message || "Failed to fetch leave types",
+        error.response?.data?.message || "Failed to fetch leave types"
       );
     }
-  },
+  }
 );
 
 export const addLeaveType = createAsyncThunk(

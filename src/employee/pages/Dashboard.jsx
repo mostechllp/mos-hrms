@@ -16,9 +16,13 @@ import {
   fetchDashboardData,
   pendingPunchOut,
 } from "../store/slices/attendanceSlice";
-import PunchOutModal from "../components/modals/PunchOutModal";
+import { PunchOutModal } from "../components/modals/PunchOutModal";
 import PendingPunchOutModal from "../components/attendance/PendingPunchoutModal";
 import { useAppTheme } from "../../context/ThemeContext";
+import {
+  fetchMyTasks,
+  updateTaskStatus as updateEmployeeTaskStatus,
+} from "../store/slices/taskSlice";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
@@ -31,33 +35,46 @@ const Dashboard = () => {
   );
   const { primaryColor, primaryDark } = useAppTheme();
 
+  const [tasks, setTasks] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [taskStats, setTaskStats] = useState({
+    total: 0,
+    pending: 0,
+    in_progress: 0,
+    completed: 0,
+    overdue: 0,
+  });
+
   // Helper function to adjust color brightness
   const adjustColor = (color, percent) => {
     let r, g, b;
-    if (color && color.startsWith('#')) {
+    if (color && color.startsWith("#")) {
       r = parseInt(color.slice(1, 3), 16);
       g = parseInt(color.slice(3, 5), 16);
       b = parseInt(color.slice(5, 7), 16);
     } else {
       return color || "#2ecc71";
     }
-    
+
     r = Math.max(0, Math.min(255, r + (r * percent) / 100));
     g = Math.max(0, Math.min(255, g + (g * percent) / 100));
     b = Math.max(0, Math.min(255, b + (b * percent) / 100));
-    
-    return `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`;
+
+    return `#${Math.round(r).toString(16).padStart(2, "0")}${Math.round(g).toString(16).padStart(2, "0")}${Math.round(b).toString(16).padStart(2, "0")}`;
   };
 
   // Create gradient based on primary color
   const gradientStyle = {
-    background: `linear-gradient(135deg, ${primaryColor || "#2ecc71"}, ${primaryDark || adjustColor(primaryColor || "#2ecc71", -20)})`
+    background: `linear-gradient(135deg, ${primaryColor || "#2ecc71"}, ${primaryDark || adjustColor(primaryColor || "#2ecc71", -20)})`,
   };
 
   // Use dashboard data as source of truth (not Redux isPunchedIn)
   const todayAttendance = dashboardData?.today_attendance || {};
+  // Fix: Only consider punched out if there's actually a punch_out_time value
   const isActuallyPunchedIn =
-    todayAttendance.punched_in === true && todayAttendance.punched_out !== true;
+    todayAttendance.punched_in === true &&
+    (todayAttendance.punched_out !== true ||
+      todayAttendance.punch_out_time === "--");
   const punchInTimeFromApi = todayAttendance.punch_in_time;
   const canPunch = dashboardData?.can_punch ?? true;
 
@@ -67,6 +84,7 @@ const Dashboard = () => {
   const [toast, setToast] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tick, setTick] = useState(0);
+  const [currentDuration, setCurrentDuration] = useState("00h 00m 00s");
   const [isOnBreak, setIsOnBreak] = useState(
     localStorage.getItem("attendance-on-break") === "true",
   );
@@ -104,8 +122,8 @@ const Dashboard = () => {
       } else {
         return timeString;
       }
-      
-      const ampm = hours >= 12 ? 'PM' : 'AM';
+
+      const ampm = hours >= 12 ? "PM" : "AM";
       const hours12 = hours % 12 || 12;
       return `${hours12}:${minutes} ${ampm}`;
     } catch (e) {
@@ -130,7 +148,11 @@ const Dashboard = () => {
       if (dashboardData?.pending_punch_out) {
         setPendingPunchDate(dashboardData.pending_punch_out.date);
         setShowPendingModal(true);
-      } else if (!canPunch && !isActuallyPunchedIn && dashboardData?.error_message) {
+      } else if (
+        !canPunch &&
+        !isActuallyPunchedIn &&
+        dashboardData?.error_message
+      ) {
         const errorMsg = dashboardData.error_message;
         if (errorMsg.includes("pending punch-out")) {
           const dateMatch = errorMsg.match(/(\d{4}-\d{2}-\d{2})/);
@@ -141,11 +163,13 @@ const Dashboard = () => {
         }
       }
     };
-    
+
     if (dashboardData) {
       checkPendingPunchOut();
     }
   }, [dashboardData]);
+
+  
 
   // Update date and time
   useEffect(() => {
@@ -206,55 +230,53 @@ const Dashboard = () => {
     }
   };
 
-  // In Dashboard.jsx, update the handlePendingPunchOut function
+  const handlePendingPunchOut = async (data) => {
+    setPendingPunchSubmitting(true);
 
-const handlePendingPunchOut = async (data) => {
-  setPendingPunchSubmitting(true);
-
-  const result = await dispatch(
-    pendingPunchOut({
-      tasks_completed: data.tasks_completed,
-      plan_tomorrow: data.plan_tomorrow,
-      pending_works: data.pending_works || '',
-      punch_out_time: data.punch_out_time,
-      date: pendingPunchDate
-    })
-  );
-
-  setPendingPunchSubmitting(false);
-
-  if (pendingPunchOut.fulfilled.match(result)) {
-    showToastMessage(
-      `Successfully punched out for ${pendingPunchDate}! You can now punch in today.`,
-      "success",
+    const result = await dispatch(
+      pendingPunchOut({
+        tasks_completed: data.tasks_completed,
+        plan_tomorrow: data.plan_tomorrow,
+        pending_works: data.pending_works || "",
+        punch_out_time: data.punch_out_time,
+        date: pendingPunchDate,
+      }),
     );
-    setShowPendingModal(false);
 
-    // Clear any break state
-    setIsOnBreak(false);
-    setTotalBreakMs(0);
-    setNumberOfBreaks(0);
-    setBreakHistory([]);
-    localStorage.removeItem("attendance-on-break");
-    localStorage.removeItem("attendance-break-start-time");
-    localStorage.removeItem("attendance-total-break-ms");
-    localStorage.removeItem("attendance-breaks-count");
-    localStorage.removeItem("attendance-break-history");
+    setPendingPunchSubmitting(false);
 
-    // Refresh dashboard data
-    await dispatch(fetchDashboardData());
+    if (pendingPunchOut.fulfilled.match(result)) {
+      showToastMessage(
+        `Successfully punched out for ${pendingPunchDate}! You can now punch in today.`,
+        "success",
+      );
+      setShowPendingModal(false);
 
-    // Now the user can punch in for today
-    setTimeout(() => {
-      showToastMessage("You can now punch in for today", "success");
-    }, 1000);
-  } else {
-    showToastMessage(
-      result.payload || "Failed to complete pending punch out",
-      "error",
-    );
-  }
-};
+      // Clear any break state
+      setIsOnBreak(false);
+      setTotalBreakMs(0);
+      setNumberOfBreaks(0);
+      setBreakHistory([]);
+      localStorage.removeItem("attendance-on-break");
+      localStorage.removeItem("attendance-break-start-time");
+      localStorage.removeItem("attendance-total-break-ms");
+      localStorage.removeItem("attendance-breaks-count");
+      localStorage.removeItem("attendance-break-history");
+
+      // Refresh dashboard data
+      await dispatch(fetchDashboardData());
+
+      // Now the user can punch in for today
+      setTimeout(() => {
+        showToastMessage("You can now punch in for today", "success");
+      }, 1000);
+    } else {
+      showToastMessage(
+        result.payload || "Failed to complete pending punch out",
+        "error",
+      );
+    }
+  };
 
   const handleBreakToggle = () => {
     if (!isOnBreak) {
@@ -303,19 +325,21 @@ const handlePendingPunchOut = async (data) => {
     console.log("📤 Submitting punch out with data:", {
       tasks_completed: data.tasks_completed,
       plan_tomorrow: data.plan_tomorrow,
-      pending_tasks: data.pending_tasks || ''
+      pending_tasks: data.pending_tasks || "",
     });
-    
+
     setIsSubmitting(true);
-    const result = await dispatch(punchOut({
-      tasks_completed: data.tasks_completed,
-      plan_tomorrow: data.plan_tomorrow,
-      pending_tasks: data.pending_tasks || ''
-    }));
-    
+    const result = await dispatch(
+      punchOut({
+        tasks_completed: data.tasks_completed,
+        plan_tomorrow: data.plan_tomorrow,
+        pending_tasks: data.pending_tasks || "",
+      }),
+    );
+
     console.log("📥 Punch out result:", result);
     console.groupEnd();
-    
+
     setIsSubmitting(false);
 
     if (punchOut.fulfilled.match(result)) {
@@ -334,8 +358,11 @@ const handlePendingPunchOut = async (data) => {
       localStorage.removeItem("attendance-break-history");
 
       await dispatch(fetchDashboardData());
-      
-      showToastMessage("Task report has been saved! You can view it in Task Reports section.", "success");
+
+      showToastMessage(
+        "Task report has been saved! You can view it in Task Reports section.",
+        "success",
+      );
     } else {
       console.error("❌ Punch out failed:", result.payload);
       showToastMessage(result.payload || "❌ Punch out failed", "error");
@@ -344,53 +371,135 @@ const handlePendingPunchOut = async (data) => {
 
   // Format punch time with proper timezone handling
   const parsePunchTime = (time) => {
-    if (!time) return null;
-    try {
-      if (typeof time === "string" && time.match(/^\d{2}:\d{2}:\d{2}$/)) {
+  if (!time) return null;
+  try {
+    // Handle "HH:MM AM/PM" format (e.g., "08:59 AM")
+    if (typeof time === "string" && time.match(/(\d{1,2}:\d{2})\s*(AM|PM)/i)) {
+      const match = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (match) {
+        let hours = parseInt(match[1], 10);
+        const minutes = parseInt(match[2], 10);
+        const ampm = match[3].toUpperCase();
+        
+        if (ampm === "PM" && hours !== 12) hours += 12;
+        if (ampm === "AM" && hours === 12) hours = 0;
+        
         const now = new Date();
-        const [hours, minutes, seconds] = time.split(":");
         return new Date(
-          Date.UTC(
-            now.getUTCFullYear(),
-            now.getUTCMonth(),
-            now.getUTCDate(),
-            parseInt(hours, 10),
-            parseInt(minutes, 10),
-            parseInt(seconds, 10),
-          ),
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          hours,
+          minutes,
+          0
         );
       }
-      if (typeof time === "string" && time.includes("T")) {
-        if (!time.match(/(Z|[+-]\d{2}:\d{2})$/)) {
-          return new Date(`${time}Z`);
-        }
-        return new Date(time);
-      }
-      if (typeof time === "string" && time.includes(" ")) {
-        const isoTime = time.replace(" ", "T");
-        if (!isoTime.match(/(Z|[+-]\d{2}:\d{2})$/)) {
-          return new Date(`${isoTime}Z`);
-        }
-        return new Date(isoTime);
-      }
-      if (time instanceof Date) {
-        return time;
+    }
+    
+    // Handle "HH:MM:SS" format (24-hour)
+    if (typeof time === "string" && time.match(/^\d{2}:\d{2}:\d{2}$/)) {
+      const now = new Date();
+      const [hours, minutes, seconds] = time.split(":");
+      return new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        parseInt(hours, 10),
+        parseInt(minutes, 10),
+        parseInt(seconds, 10)
+      );
+    }
+    
+    // Handle ISO string with T
+    if (typeof time === "string" && time.includes("T")) {
+      if (!time.match(/(Z|[+-]\d{2}:\d{2})$/)) {
+        return new Date(`${time}Z`);
       }
       return new Date(time);
-    } catch (e) {
-      return null;
+    }
+    
+    // Handle date with space
+    if (typeof time === "string" && time.includes(" ")) {
+      const isoTime = time.replace(" ", "T");
+      if (!isoTime.match(/(Z|[+-]\d{2}:\d{2})$/)) {
+        return new Date(`${isoTime}Z`);
+      }
+      return new Date(isoTime);
+    }
+    
+    if (time instanceof Date) {
+      return time;
+    }
+    return new Date(time);
+  } catch (e) {
+    console.error("Error parsing time:", time, e);
+    return null;
+  }
+};
+
+  const formatPunchTime = (time) => {
+  // If time is already in "HH:MM AM" format, return as is
+  if (typeof time === "string" && time.match(/\d{1,2}:\d{2}\s*(AM|PM)/i)) {
+    return time;
+  }
+  
+  const date = parsePunchTime(time);
+  if (!date || isNaN(date.getTime())) return time || "—";
+  return date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};  
+
+  // Update the fetchEmployeeTasks function to limit to 2 tasks
+  const fetchEmployeeTasks = async () => {
+    setTasksLoading(true);
+    try {
+      // Fetch only 2 tasks for dashboard overview
+      const result = await dispatch(fetchMyTasks({ per_page: 2, page: 1 }));
+      if (fetchMyTasks.fulfilled.match(result)) {
+        const data = result.payload?.data || result.payload;
+        // Handle the new task structure with project object
+        const taskList = data?.data || data || [];
+
+        // Transform tasks to have client_name and website_url from project if not directly available
+        const transformedTasks = taskList.map((task) => ({
+          ...task,
+          client_name: task.client_name || task.project?.client_name || "",
+          website_url: task.website_url || task.project?.website_url || "",
+        }));
+
+        setTasks(transformedTasks);
+        setTaskStats(data?.stats || {});
+      }
+    } catch (error) {
+      console.error("Failed to fetch tasks:", error);
+    } finally {
+      setTasksLoading(false);
     }
   };
 
-  const formatPunchTime = (time) => {
-    const date = parsePunchTime(time);
-    if (!date || isNaN(date.getTime())) return time || "—";
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
+  // Add this function for status update
+  const handleTaskStatusUpdate = async (taskId, newStatus) => {
+    const result = await dispatch(
+      updateEmployeeTaskStatus({ id: taskId, status: newStatus }),
+    );
+    if (updateEmployeeTaskStatus.fulfilled.match(result)) {
+      showToastMessage(
+        `Task marked as ${newStatus.replace("_", " ")}`,
+        "success",
+      );
+      fetchEmployeeTasks(); // Refresh tasks
+    } else {
+      showToastMessage(result.payload || "Failed to update status", "error");
+    }
   };
+
+  // Add useEffect to fetch tasks on mount
+  useEffect(() => {
+    fetchEmployeeTasks();
+  }, []);
 
   // Prepare chart data from attendance history
   const getChartData = () => {
@@ -527,6 +636,26 @@ const handlePendingPunchOut = async (data) => {
   const statusDisplay = getStatusDisplay();
   const displayPunchTime = punchInTimeFromApi || todayAttendance.punch_in_time;
 
+  // Update duration every second when punched in
+  // Initialize duration when component loads or punch-in state changes
+useEffect(() => {
+  if (isActuallyPunchedIn && displayPunchTime) {
+    // Force an immediate duration calculation
+    const updateDuration = () => {
+      const newDuration = getDuration();
+      setCurrentDuration(newDuration);
+    };
+    updateDuration();
+    
+    // Set up interval for real-time updates
+    const interval = setInterval(updateDuration, 1000);
+    return () => clearInterval(interval);
+  } else {
+    // If not punched in, show zero duration
+    setCurrentDuration("00h 00m 00s");
+  }
+}, [isActuallyPunchedIn, displayPunchTime, totalBreakMs, isOnBreak, breakStartTime]);
+
   const getDuration = () => {
     if (!displayPunchTime) return "00h 00m 00s";
 
@@ -540,13 +669,18 @@ const handlePendingPunchOut = async (data) => {
       } else {
         endTime = new Date();
       }
-    } else if (todayAttendance.punched_out === true) {
+    } else if (
+      todayAttendance.punched_out === true &&
+      todayAttendance.punch_out_time !== "--"
+    ) {
+      // Only consider punched out if there's an actual punch out time
       const outTime =
         todayAttendance.punch_out_time || todayAttendance.punch_out;
-      if (outTime) {
+      if (outTime && outTime !== "--") {
         endTime = parsePunchTime(outTime);
       } else {
-        return "00h 00m 00s";
+        // If no valid punch out time, treat as still punched in
+        endTime = new Date();
       }
     } else {
       return "00h 00m 00s";
@@ -564,7 +698,6 @@ const handlePendingPunchOut = async (data) => {
 
     return `${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
   };
-
   const formatBreakDuration = (ms) => {
     let currentTotalMs = ms;
     if (isOnBreak && breakStartTime) {
@@ -591,7 +724,7 @@ const handlePendingPunchOut = async (data) => {
   return (
     <div>
       {/* Welcome Banner with Theme Support */}
-      <div 
+      <div
         className="welcome-banner rounded-xl p-5 md:p-7 mb-7 flex flex-col md:flex-row justify-between items-center gap-5"
         style={gradientStyle}
       >
@@ -642,7 +775,7 @@ const handlePendingPunchOut = async (data) => {
               Duration
             </div>
             <div className={`punch-value text-2xl font-bold text-blue-500`}>
-              {getDuration()}
+              {currentDuration}
             </div>
           </div>
           <div className="punch-item text-center">
@@ -710,7 +843,7 @@ const handlePendingPunchOut = async (data) => {
                         hour: "2-digit",
                         minute: "2-digit",
                         hour12: false,
-                      })
+                      }),
                     )}
                   </div>
                 </div>
@@ -751,7 +884,7 @@ const handlePendingPunchOut = async (data) => {
                       hour: "2-digit",
                       minute: "2-digit",
                       hour12: false,
-                    })
+                    }),
                   )}{" "}
                   -{" "}
                   {formatTo12Hour(
@@ -759,7 +892,7 @@ const handlePendingPunchOut = async (data) => {
                       hour: "2-digit",
                       minute: "2-digit",
                       hour12: false,
-                    })
+                    }),
                   )}{" "}
                   ({Math.round(b.durationMs / 60000)} min)
                 </div>
@@ -773,7 +906,7 @@ const handlePendingPunchOut = async (data) => {
                       hour: "2-digit",
                       minute: "2-digit",
                       hour12: false,
-                    })
+                    }),
                   )}{" "}
                   - Ongoing (
                   {Math.floor((new Date() - new Date(breakStartTime)) / 60000)}{" "}
@@ -823,6 +956,167 @@ const handlePendingPunchOut = async (data) => {
           </div>
         </div>
       </div>
+
+      {/* My Tasks Overview Section */}
+      {/* <div className="my-tasks-section mt-7 mb-5">
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-lg font-semibold text-[var(--text)] flex items-center gap-2">
+            <i className="fas fa-tasks text-green-500"></i> My Tasks
+            <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full">
+              {taskStats.total} Total
+            </span>
+          </h3>
+          <button
+            onClick={() => navigate("/employee/tasks")}
+            className="text-sm text-green-500 hover:text-green-600 font-medium flex items-center gap-1"
+          >
+            View All <i className="fas fa-arrow-right text-xs"></i>
+          </button>
+        </div>
+
+        {tasksLoading ? (
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-8 text-center">
+            <i className="fas fa-spinner fa-spin text-2xl text-green-500"></i>
+            <p className="text-sm text-[var(--muted)] mt-2">Loading tasks...</p>
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-8 text-center">
+            <i className="fas fa-check-circle text-4xl text-green-500 mb-2"></i>
+            <p className="text-[var(--text)] font-medium">
+              No tasks assigned yet
+            </p>
+            <p className="text-sm text-[var(--muted)] mt-1">
+              When tasks are assigned, they'll appear here
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {tasks.map((task) => {
+              const isOverdue =
+                task.due_date &&
+                new Date(task.due_date) < new Date() &&
+                task.status !== "completed";
+              const priorityColors = {
+                high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                medium:
+                  "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+                low: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+              };
+
+              return (
+                <div
+                  key={task.id}
+                  className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 hover:shadow-md transition-all group"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-[var(--text)]">
+                        {task.name}
+                      </h4>
+                      {task.client_name && (
+                        <p className="text-xs text-[var(--muted)] mt-1">
+                          <i className="fas fa-building mr-1"></i>{" "}
+                          {task.client_name}
+                        </p>
+                      )}
+                      {task.website_url && (
+                        <a
+                          href={task.website_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-500 hover:underline block mt-0.5"
+                        >
+                          <i className="fas fa-globe mr-1"></i>{" "}
+                          {task.website_url}
+                        </a>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${priorityColors[task.priority] || priorityColors.medium}`}
+                      >
+                        {task.priority?.charAt(0).toUpperCase() +
+                          task.priority?.slice(1) || "Medium"}
+                      </span>
+                      {isOverdue && (
+                        <span className="text-xs text-red-500 font-medium flex items-center gap-1">
+                          <i className="fas fa-exclamation-circle"></i> Overdue
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {task.remarks && (
+                    <p className="text-sm text-[var(--muted)] mb-3 line-clamp-2">
+                      {task.remarks}
+                    </p>
+                  )}
+
+                  <div className="flex justify-between items-center pt-3 border-t border-[var(--border)]">
+                    <div className="flex gap-3 text-xs text-[var(--muted)]">
+                      <span title="Assigned Date">
+                        <i className="fas fa-calendar-alt mr-1"></i>{" "}
+                        {new Date(task.assigned_date).toLocaleDateString()}
+                      </span>
+                      {task.due_date && (
+                        <span
+                          className={isOverdue ? "text-red-500" : ""}
+                          title="Due Date"
+                        >
+                          <i className="fas fa-hourglass-half mr-1"></i> Due:{" "}
+                          {new Date(task.due_date).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+
+                    <select
+                      value={task.status}
+                      onChange={(e) =>
+                        handleTaskStatusUpdate(task.id, e.target.value)
+                      }
+                      className="text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Quick Stats Row */}
+      {/* {taskStats.total > 0 && (
+          <div className="grid grid-cols-4 gap-3 mt-4">
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
+              <div className="text-lg font-bold text-amber-600">
+                {taskStats.pending || 0}
+              </div>
+              <div className="text-xs text-amber-600">Pending</div>
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center">
+              <div className="text-lg font-bold text-blue-600">
+                {taskStats.in_progress || 0}
+              </div>
+              <div className="text-xs text-blue-600">In Progress</div>
+            </div>
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
+              <div className="text-lg font-bold text-green-600">
+                {taskStats.completed || 0}
+              </div>
+              <div className="text-xs text-green-600">Completed</div>
+            </div>
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center">
+              <div className="text-lg font-bold text-red-600">
+                {taskStats.overdue || 0}
+              </div>
+              <div className="text-xs text-red-600">Overdue</div>
+            </div>
+          </div>
+        )}
+      </div>  */}
 
       {/* Chart Card */}
       <div className="chart-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 mb-7">
@@ -879,25 +1173,25 @@ const handlePendingPunchOut = async (data) => {
                         >
                           <td className="py-3 px-4 text-[var(--text)]">
                             {attendance.log_date}
-                           </td>
+                          </td>
                           <td className="py-3 px-4 text-[var(--text)]">
                             {attendance.punch_in
                               ? formatPunchTime(attendance.punch_in)
                               : "-"}
-                           </td>
+                          </td>
                           <td className="py-3 px-4 text-[var(--text)]">
                             {attendance.punch_out
                               ? formatPunchTime(attendance.punch_out)
                               : "-"}
-                           </td>
+                          </td>
                           <td className="py-3 px-4 text-[var(--text)] font-semibold">
                             {hours !== "-" ? `${hours} hrs` : "-"}
-                           </td>
-                         </tr>
+                          </td>
+                        </tr>
                       );
                     })}
                 </tbody>
-               </table>
+              </table>
             </div>
           </div>
         )}
