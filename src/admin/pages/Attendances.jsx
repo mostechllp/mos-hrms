@@ -260,13 +260,25 @@ const Attendances = () => {
   const renderEmployeeList = (employees, title) => {
     const arr = getSafeArray(employees);
     if (!arr.length) return null;
+    
+    const getEmployeeName = (emp) => {
+      if (typeof emp === "string") return emp;
+      if (emp.user?.employee?.first_name) {
+        return `${emp.user.employee.first_name} ${emp.user.employee.last_name || ''}`.trim();
+      }
+      if (emp.first_name) {
+        return `${emp.first_name} ${emp.last_name || ''}`.trim();
+      }
+      return "Unknown";
+    };
+    
     return (
       <div className="absolute hidden group-hover:block z-20 mt-2 p-3 bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg shadow-xl min-w-[200px] top-full left-0">
         <p className="font-semibold mb-2 text-gray-300 border-b border-gray-700 pb-1">{title}:</p>
         <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
           {arr.slice(0, 10).map((emp, idx) => (
             <span key={idx} className="text-xs bg-gray-700 px-2 py-1 rounded-full">
-              {typeof emp === "string" ? emp : emp.name || emp.employeeName || emp.employee_name || "Unknown"}
+              {getEmployeeName(emp)}
             </span>
           ))}
           {arr.length > 10 && (
@@ -313,7 +325,7 @@ const Attendances = () => {
           </div>
           <div className="text-xl md:text-2xl font-bold text-red-600 dark:text-red-400">{absentTodayCount}</div>
           <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">Absent Today</div>
-          {renderEmployeeList(absentees, "Absentees")}
+          {/* {renderEmployeeList(absentees, "Absentees")} */}
         </div>
 
         <div className="col-span-2 sm:col-span-3 lg:col-span-1 bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
@@ -404,7 +416,7 @@ const Attendances = () => {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                    {["Sl.No.", "Department", "Employee Name", "Date", "Punch In", "Punch Out", "Status", "Actions"].map((h) => (
+                    {["Sl.No.", "Date", "Employee Name", "Department", "Punch In", "Punch Out", "Working Hours", "Status", "Actions"].map((h) => (
                       <th key={h} className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
                         {h}
                       </th>
@@ -420,30 +432,38 @@ const Attendances = () => {
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
                         {start + idx + 1}
                       </td>
+                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        {record.date || "-"}
+                      </td>
+                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        {record.employeeName || "-"}
+                      </td>
                       <td className="px-3 md:px-4 py-2 md:py-3">
                         <span className="inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-700 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs whitespace-nowrap">
                           <i className="fas fa-building text-gray-500 text-[8px] md:text-xs"></i>
                           {record.department || "-"}
                         </span>
                       </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
-                        {record.employeeName || "-"}
-                      </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                        {record.date || "-"}
-                      </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      
+                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-green-600 dark:text-green-400 whitespace-nowrap">
+                        
                         {record.punchIn}
-                      </td>
+                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
                         {record.hasPunchOut ? (
-                          <span className="font-semibold text-gray-800 dark:text-gray-200">{record.punchOut}</span>
+                          <span className="font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">
+                            
+                            {record.punchOut}
+                          </span>
                         ) : (
                           <span className="inline-block bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[9px] md:text-xs px-1.5 md:px-2 py-0.5 rounded-full whitespace-nowrap">
                             Not Punched Out
                           </span>
                         )}
-                      </td>
+                       </td>
+                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        {record.working_hours}
+                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] md:text-xs font-medium ${record.status === "Present"
                           ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
@@ -451,7 +471,7 @@ const Attendances = () => {
                           }`}>
                           {record.status}
                         </span>
-                      </td>
+                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
                         <div className="flex items-center gap-2">
                           <button
@@ -469,12 +489,12 @@ const Attendances = () => {
                             <i className="fas fa-trash"></i>
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                       </td>
+                     </tr>
                   ))}
                   {records.length === 0 && (
                     <tr>
-                      <td colSpan="8" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan="9" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                         No attendance records found
                       </td>
                     </tr>

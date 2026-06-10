@@ -30,7 +30,7 @@ const LeaveModal = ({ isOpen, leave, onClose, onViewDocument }) => {
       toDate: formatDate(leave.to_date || leave.toDate),
       days: leave.number_of_days || leave.days || '-',
       claimSalary: leave.claim_salary === 1 || leave.claimSalary === 'Yes' ? 'Yes' : 'No',
-      doc: leave.document_path || leave.doc,
+      doc: leave.document_path || leave.doc || null,  // Return null instead of '-'
       reason: leave.reason || '-',
       status: leave.status || 'pending',
       processedBy: leave.processed_by || leave.processedBy || '-',
@@ -38,6 +38,9 @@ const LeaveModal = ({ isOpen, leave, onClose, onViewDocument }) => {
     };
     return mappings[fieldName] || '-';
   };
+
+  const documentPath = getField('doc');
+  const hasDocument = documentPath && documentPath !== '-';
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]">
@@ -101,12 +104,12 @@ const LeaveModal = ({ isOpen, leave, onClose, onViewDocument }) => {
               Document:
             </span>
             <span className="text-gray-600 dark:text-gray-400">
-              {getField('doc') ? (
+              {hasDocument ? (
                 <button
-                  onClick={() => onViewDocument(getField('doc'))}
-                  className="text-blue-500 hover:text-blue-600"
+                  onClick={() => onViewDocument(documentPath)}
+                  className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
                 >
-                  <i className="fas fa-file-pdf mr-1"></i> View Document
+                  <i className="fas fa-file-pdf"></i> View Document
                 </button>
               ) : (
                 "-"

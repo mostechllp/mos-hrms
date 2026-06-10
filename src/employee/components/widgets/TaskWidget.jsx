@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { addTask, toggleTask, deleteTask, clearCompletedTasks } from '../../store/slices/tasksSlice';
+import { addTask, toggleTask, deleteTask, clearCompletedTasks } from '../../store/slices/myTasksSlice';
 
 const TaskWidget = () => {
   const dispatch = useAppDispatch();
-  const { tasks } = useAppSelector((state) => state.tasks);
+  const { tasks } = useAppSelector((state) => state.myTasks);
   const [isOpen, setIsOpen] = useState(false);
   const [newTask, setNewTask] = useState('');
   const [position, setPosition] = useState({ x: null, y: null });

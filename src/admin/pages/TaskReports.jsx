@@ -65,10 +65,7 @@ const TaskReports = () => {
     setSelectedReport(null);
   };
 
-  const handleEdit = (report) => {
-    setEditingReport(report);
-    setEditModalOpen(true);
-  };
+  // Removed handleEdit function - no longer needed
 
   const handleAddRemarks = (report) => {
     setSelectedReportForRemarks(report);
@@ -96,24 +93,7 @@ const TaskReports = () => {
     );
   };
 
-  const handleDeleteClick = (report) => {
-    setReportToDelete(report);
-    setDeleteConfirmOpen(true);
-  };
-
-  const handleDelete = async () => {
-    await dispatch(deleteTaskReport(reportToDelete.id));
-    setDeleteConfirmOpen(false);
-    setReportToDelete(null);
-    // Refresh the list
-    dispatch(
-      fetchTaskReports({
-        page: currentPage,
-        perPage: perPage,
-        search: searchTerm,
-      }),
-    );
-  };
+  // Removed handleDeleteClick and handleDelete functions - no longer needed
 
   const handleRemarksModalClose = () => {
     setRemarksModalOpen(false);
@@ -501,7 +481,7 @@ const TaskReports = () => {
                 {paginatedReports.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="8"
                       className="text-center py-12 text-gray-500 text-xs md:text-sm"
                     >
                       No task reports found.
@@ -570,21 +550,13 @@ const TaskReports = () => {
                           >
                             <i className="fas fa-eye text-xs md:text-sm"></i>
                           </button>
-                          {/* Edit Button */}
+                          {/* Add/Edit Remarks Button - Only this action remains */}
                           <button
-                            onClick={() => handleEdit(report)}
-                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-emerald-500 transition-colors"
-                            title="Edit Report"
+                            onClick={() => handleAddRemarks(report)}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-green-500 transition-colors"
+                            title={report.remarks ? "Edit Remarks" : "Add Remarks"}
                           >
-                            <i className="fas fa-edit text-xs md:text-sm"></i>
-                          </button>
-                          {/* Delete Button */}
-                          <button
-                            onClick={() => handleDeleteClick(report)}
-                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
-                            title="Delete"
-                          >
-                            <i className="fas fa-trash text-xs md:text-sm"></i>
+                            <i className="fas fa-comment text-xs md:text-sm"></i>
                           </button>
                         </div>
                       </td>
@@ -705,12 +677,12 @@ const TaskReports = () => {
               <button
                 onClick={() => {
                   handleViewModalClose();
-                  handleEdit(selectedReport);
+                  handleAddRemarks(selectedReport);
                 }}
                 className="px-5 py-2 rounded-full font-semibold bg-green-500 hover:bg-green-600 text-white flex items-center gap-2 transition-all shadow-md hover:shadow-lg text-sm"
               >
-                <i className="fas fa-edit text-white"></i>
-                Edit
+                <i className="fas fa-comment text-white"></i>
+                {selectedReport.remarks ? "Edit Remarks" : "Add Remarks"}
               </button>
             </div>
           </div>
@@ -798,35 +770,8 @@ const TaskReports = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        isOpen={deleteConfirmOpen}
-        onClose={() => {
-          setDeleteConfirmOpen(false);
-          setReportToDelete(null);
-        }}
-        onConfirm={handleDelete}
-        title="Delete Task Report"
-        message={`Are you sure you want to delete the task report for "${reportToDelete?.employee}" on ${reportToDelete?.date}? This action cannot be undone.`}
-        confirmText="Delete"
-      />
-
-      {/* Edit Task Report Modal */}
-      <TaskReportModal
-        isOpen={editModalOpen}
-        onClose={() => {
-          setEditModalOpen(false);
-          setEditingReport(null);
-          dispatch(
-            fetchTaskReports({
-              page: currentPage,
-              perPage: perPage,
-              search: searchTerm,
-            }),
-          );
-        }}
-        editingReport={editingReport}
-      />
+      {/* Delete Confirmation Modal - Removed since delete is not allowed */}
+      {/* Edit Task Report Modal - Removed since editing is not allowed */}
     </div>
   );
 };

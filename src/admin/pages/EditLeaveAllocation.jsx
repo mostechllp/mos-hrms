@@ -3,14 +3,19 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { showToast } from '../../components/common/Toast';
 import { fetchEmployeeById } from '@admin/store/slices/employeeSlice';
-import { fetchLeaveTypes, fetchLeaveBalances, updateLeaveAllocation } from '@admin/store/slices/LeaveSlice';
+import { fetchLeaveBalances, updateLeaveAllocation } from '@admin/store/slices/LeaveSlice';
+
+// Static leave type - Annual Leave
+const STATIC_LEAVE_TYPE = {
+  id: 1,
+  name: "Annual Leave"
+};
 
 const EditLeaveAllocation = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { currentEmployee } = useSelector((state) => state.employees || {});
-  const { leaveTypes = [], loading } = useSelector((state) => state.leaves || {});
   const [allocations, setAllocations] = useState({});
   const [updating, setUpdating] = useState(false);
   const [leaveBalances, setLeaveBalances] = useState({});
@@ -54,18 +59,18 @@ const EditLeaveAllocation = () => {
     return null;
   };
 
-  // Fetch employee and leave types
+  // Fetch employee only (no leave types needed)
   useEffect(() => {
     if (id) {
+      console.log("Fetching employee with ID:", id);
       dispatch(fetchEmployeeById(id));
-      dispatch(fetchLeaveTypes());
     }
   }, [dispatch, id]);
 
   // Fetch leave balances for this specific employee
   useEffect(() => {
     const fetchBalances = async () => {
-      if (id && leaveTypes.length > 0) {
+      if (id) {
         setFetchingBalances(true);
         try {
           const result = await dispatch(fetchLeaveBalances({ employee_id: parseInt(id) })).unwrap();
@@ -79,7 +84,6 @@ const EditLeaveAllocation = () => {
           let allocationsData = [];
           
           if (result && result.allocations) {
-            // If result has allocations object
             allocationsData = Object.values(result.allocations);
           } else if (result && Array.isArray(result)) {
             allocationsData = result;
@@ -89,30 +93,30 @@ const EditLeaveAllocation = () => {
           
           console.log("Processed allocations data:", allocationsData);
           
-          // Populate allocations and balances
-          allocationsData.forEach(alloc => {
-            const leaveTypeId = alloc.leave_type_id || alloc.leave_type?.id;
-            if (leaveTypeId) {
-              // Get allocated days (handle different field names)
-              const allocatedDays = parseFloat(alloc.allocated_days || alloc.allocated || 0);
-              const usedDays = parseFloat(alloc.used || 0);
-              
-              initialAllocs[leaveTypeId] = allocatedDays;
-              
-              balances[leaveTypeId] = {
-                allocated: allocatedDays,
-                used: usedDays,
-                remaining: allocatedDays - usedDays
-              };
-            }
-          });
+          // Find Annual Leave allocation (ID: 1)
+          const annualLeaveAlloc = allocationsData.find(alloc => 
+            (alloc.leave_type_id === 1 || alloc.leave_type?.id === 1)
+          );
           
-          // Set default 18 for Annual Leave, 0 for others without allocations
-          leaveTypes.forEach(type => {
-            if (initialAllocs[type.id] === undefined) {
-              initialAllocs[type.id] = type.name === 'Annual Leave' ? 18 : 0;
-            }
-          });
+          if (annualLeaveAlloc) {
+            const allocatedDays = parseFloat(annualLeaveAlloc.allocated_days || annualLeaveAlloc.allocated || 0);
+            const usedDays = parseFloat(annualLeaveAlloc.used || 0);
+            
+            initialAllocs[1] = allocatedDays;
+            balances[1] = {
+              allocated: allocatedDays,
+              used: usedDays,
+              remaining: allocatedDays - usedDays
+            };
+          } else {
+            // Default allocation for Annual Leave
+            initialAllocs[1] = 18;
+            balances[1] = {
+              allocated: 18,
+              used: 0,
+              remaining: 18
+            };
+          }
           
           console.log("Final allocations to display:", initialAllocs);
           console.log("Final balances:", balances);
@@ -121,12 +125,9 @@ const EditLeaveAllocation = () => {
           setLeaveBalances(balances);
         } catch (error) {
           console.error("Failed to fetch leave balances:", error);
-          // Initialize with zeros if fetch fails
-          const defaultAllocs = {};
-          leaveTypes.forEach(type => {
-            defaultAllocs[type.id] = 0;
-          });
-          setAllocations(defaultAllocs);
+          // Set default values if fetch fails
+          setAllocations({ 1: 18 });
+          setLeaveBalances({ 1: { allocated: 18, used: 0, remaining: 18 } });
         } finally {
           setFetchingBalances(false);
         }
@@ -134,7 +135,7 @@ const EditLeaveAllocation = () => {
     };
     
     fetchBalances();
-  }, [dispatch, id, leaveTypes]);
+  }, [dispatch, id]);
 
   const handleAllocationChange = (leaveTypeId, value) => {
     const numValue = parseInt(value) || 0;
@@ -146,33 +147,35 @@ const EditLeaveAllocation = () => {
   };
 
   const handleSave = async () => {
-    setUpdating(true);
-    try {
-      // Prepare allocations object with leave_type_id as key
-      const allocationsData = {};
-      Object.entries(allocations).forEach(([leaveTypeId, allocated]) => {
-        allocationsData[leaveTypeId] = allocated;
-      });
-      
-      console.log("Saving allocations:", allocationsData);
-      
-      // Send single request with all allocations
-      const result = await dispatch(updateLeaveAllocation({
-        employee_id: parseInt(id),
-        allocations: allocationsData
-      })).unwrap();
-      
-      if (result) {
-        showToast('Leave allocations updated successfully', 'success');
-        navigate('/admin/leaves/allocations');
-      }
-    } catch (error) {
-      console.error("Update error:", error);
-      showToast(error?.message || 'Failed to update allocations', 'error');
-    } finally {
-      setUpdating(false);
+  setUpdating(true);
+  try {
+    // Prepare allocations object with string keys (as shown in working example)
+    const allocationsData = {};
+    Object.entries(allocations).forEach(([leaveTypeId, allocated]) => {
+      // Keep the key as string to match the working example
+      allocationsData[leaveTypeId] = parseInt(allocated) || 0;
+    });
+    
+    console.log("Saving allocations:", allocationsData);
+    console.log("Employee ID:", id);
+    
+    // Send BOTH employee_id and allocations
+    const result = await dispatch(updateLeaveAllocation({
+      employee_id: parseInt(id),  // Include employee_id
+      allocations: allocationsData  // Include allocations object
+    })).unwrap();
+    
+    if (result) {
+      showToast('Leave allocations updated successfully', 'success');
+      navigate('/admin/leaves/allocations');
     }
-  };
+  } catch (error) {
+    console.error("Update error:", error);
+    showToast(error?.message || 'Failed to update allocations', 'error');
+  } finally {
+    setUpdating(false);
+  }
+};
 
   const getCurrentBalance = (leaveTypeId) => {
     const balance = leaveBalances[leaveTypeId];
@@ -188,7 +191,7 @@ const EditLeaveAllocation = () => {
   };
 
   // Show loading state while fetching data
-  if (loading || fetchingBalances || !currentEmployee || leaveTypes.length === 0) {
+  if (fetchingBalances) {
     return (
       <div className="w-full px-4 md:px-6">
         <div className="flex justify-center items-center h-64">
@@ -198,8 +201,28 @@ const EditLeaveAllocation = () => {
     );
   }
 
+  // If currentEmployee is not loaded yet
+  if (!currentEmployee && !fetchingBalances) {
+    return (
+      <div className="w-full px-4 md:px-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-center">
+            <i className="fas fa-user-slash text-gray-400 text-4xl mb-2"></i>
+            <p className="text-gray-500">Employee not found</p>
+            <Link to="/admin/leaves/allocations" className="mt-3 inline-block text-green-500">
+              Go Back
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const photoUrl = getEmployeePhoto();
-  const employeeInitials = `${currentEmployee.first_name?.charAt(0) || ''}${currentEmployee.last_name?.charAt(0) || ''}`;
+  const employeeInitials = `${currentEmployee?.first_name?.charAt(0) || ''}${currentEmployee?.last_name?.charAt(0) || ''}`;
+  const currentAllocation = allocations[1] || 0;
+  const usedDays = getUsedDays(1);
+  const balance = getCurrentBalance(1);
 
   return (
     <div className="w-full px-4 md:px-6">
@@ -318,57 +341,37 @@ const EditLeaveAllocation = () => {
           </div>
 
           <div className="space-y-3">
-            {leaveTypes.filter(type => type.name === 'Annual Leave').map((type) => {
-              const getIcon = () => {
-                if (type.name === 'Sick Leave') return 'fas fa-thermometer-half';
-                if (type.name === 'Casual Leave') return 'fas fa-umbrella-beach';
-                if (type.name === 'Annual Leave') return 'fas fa-suitcase';
-                return 'fas fa-calendar-alt';
-              };
-              
-              const currentAllocation = allocations[type.id] || 0;
-              const usedDays = getUsedDays(type.id);
-              const balance = getCurrentBalance(type.id);
-              
-              console.log(`Leave type ${type.name} (ID: ${type.id}):`, {
-                currentAllocation,
-                usedDays,
-                balance
-              });
-              
-              return (
-                <div key={type.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center gap-2 w-1/3">
-                    <i className={`${getIcon()} text-green-500 text-xs w-4`}></i>
-                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      {type.name}
-                    </span>
-                  </div>
-                  <div className="w-20">
-                    <input
-                      type="number"
-                      value={currentAllocation}
-                      onChange={(e) => handleAllocationChange(type.id, e.target.value)}
-                      min="0"
-                      className="w-full px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20"
-                      placeholder="Days"
-                    />
-                  </div>
-                  <div className="w-24 text-right">
-                    <span className="text-xs text-gray-500">
-                      Balance: <span className="font-medium text-green-600">{balance}</span>
-                    </span>
-                  </div>
-                  {usedDays > 0 && (
-                    <div className="w-16 text-right">
-                      <span className="text-xs text-gray-400">
-                        Used: {usedDays}
-                      </span>
-                    </div>
-                  )}
+            {/* Static Annual Leave Row */}
+            <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-2 w-1/3">
+                <i className="fas fa-suitcase text-green-500 text-xs w-4"></i>
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                  Annual Leave
+                </span>
+              </div>
+              <div className="w-20">
+                <input
+                  type="number"
+                  value={currentAllocation}
+                  onChange={(e) => handleAllocationChange(1, e.target.value)}
+                  min="0"
+                  className="w-full px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20"
+                  placeholder="Days"
+                />
+              </div>
+              <div className="w-24 text-right">
+                <span className="text-xs text-gray-500">
+                  Balance: <span className="font-medium text-green-600">{balance}</span>
+                </span>
+              </div>
+              {usedDays > 0 && (
+                <div className="w-16 text-right">
+                  <span className="text-xs text-gray-400">
+                    Used: {usedDays}
+                  </span>
                 </div>
-              );
-            })}
+              )}
+            </div>
           </div>
 
           {/* Action Buttons */}
