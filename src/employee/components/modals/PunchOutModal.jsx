@@ -43,9 +43,9 @@ export const PunchOutModal = ({ isOpen, onClose, onSubmit, loading }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[var(--surface)] rounded-xl w-full max-w-md mx-4 shadow-2xl animate-slide-up">
-        <div className="flex justify-between items-center p-5 border-b border-[var(--border)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in p-4">
+      <div className="bg-[var(--surface)] rounded-xl w-full max-w-md shadow-2xl animate-slide-up flex flex-col max-h-[90vh]">
+        <div className="flex justify-between items-center p-5 border-b border-[var(--border)] flex-shrink-0">
           <h3 className="text-xl font-bold text-[var(--text)]">Punch Out</h3>
           <button
             onClick={onClose}
@@ -55,51 +55,53 @@ export const PunchOutModal = ({ isOpen, onClose, onSubmit, loading }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5">
-          <div className="mb-5">
-            <label className="block text-sm font-semibold text-[var(--text)] mb-2">
-              Tasks Completed Today <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={tasksCompleted}
-              onChange={(e) => setTasksCompleted(e.target.value)}
-              placeholder="What tasks did you complete today?"
-              rows="4"
-              className="w-full p-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all resize-none"
-              required
-            />
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-5">
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-[var(--text)] mb-2">
+                Tasks Completed Today <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={tasksCompleted}
+                onChange={(e) => setTasksCompleted(e.target.value)}
+                placeholder="What tasks did you complete today?"
+                rows="4"
+                className="w-full p-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
+                required
+              />
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-[var(--text)] mb-2">
+                Pending Works <span className="text-gray-400 text-xs font-normal">(Optional)</span>
+              </label>
+              <textarea
+                value={pendingWorks}
+                onChange={(e) => setPendingWorks(e.target.value)}
+                placeholder="What tasks are still pending? (Optional)"
+                rows="3"
+                className="w-full p-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
+              />
+              <p className="text-xs text-[var(--muted)] mt-1">
+                List any incomplete tasks that need to be carried forward
+              </p>
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-[var(--text)] mb-2">
+                Plan for Tomorrow <span className="text-gray-400 text-xs font-normal">(Optional)</span>
+              </label>
+              <textarea
+                value={planTomorrow}
+                onChange={(e) => setPlanTomorrow(e.target.value)}
+                placeholder="What are your plans for tomorrow? (Optional)"
+                rows="4"
+                className="w-full p-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all resize-y"
+              />
+            </div>
           </div>
 
-          <div className="mb-5">
-            <label className="block text-sm font-semibold text-[var(--text)] mb-2">
-              Pending Works <span className="text-gray-400 text-xs font-normal">(Optional)</span>
-            </label>
-            <textarea
-              value={pendingWorks}
-              onChange={(e) => setPendingWorks(e.target.value)}
-              placeholder="What tasks are still pending? (Optional)"
-              rows="3"
-              className="w-full p-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all resize-none"
-            />
-            <p className="text-xs text-[var(--muted)] mt-1">
-              List any incomplete tasks that need to be carried forward
-            </p>
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-[var(--text)] mb-2">
-              Plan for Tomorrow <span className="text-gray-400 text-xs font-normal">(Optional)</span>
-            </label>
-            <textarea
-              value={planTomorrow}
-              onChange={(e) => setPlanTomorrow(e.target.value)}
-              placeholder="What are your plans for tomorrow? (Optional)"
-              rows="4"
-              className="w-full p-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all resize-none"
-            />
-          </div>
-
-          <div className="flex gap-3">
+          <div className="flex gap-3 p-5 border-t border-[var(--border)] flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
