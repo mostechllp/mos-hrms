@@ -6,7 +6,6 @@ import {
   Users, Briefcase, Calendar, ShieldCheck, ArrowRight,
   PlusCircle, UserCheck, Upload, Award, Building2
 } from "lucide-react";
-import { showToast } from "../../components/common/Toast";
 import { fetchEmployees } from "../store/slices/employeeSlice";
 
 const OnboardingDashboard = () => {
@@ -23,6 +22,7 @@ const OnboardingDashboard = () => {
 
   const [recentOnboarding, setRecentOnboarding] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pendingDocumentsCount, setPendingDocumentsCount] = useState(0);
 
   // Redux state
   const { employees, loading: employeesLoading } = useSelector((state) => state.employees);
@@ -34,29 +34,82 @@ const OnboardingDashboard = () => {
   useEffect(() => {
     if (!employeesLoading && employees) {
       // Calculate real stats based on employee data
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth();
+      const currentYear = currentDate.getFullYear();
+      
+      // Active onboarding count (employees with status "Onboarding" or "onboarding")
       const onboardingCount = employees.filter(emp => 
         emp.status === "Onboarding" || emp.status === "onboarding"
       ).length;
       
-      const completedCount = employees.filter(emp => 
-        emp.status === "Active" || emp.status === "active"
-      ).length;
+      // Completed this month (employees marked as "Active" or "active" in current month)
+      const completedCount = employees.filter(emp => {
+        if (emp.status === "Active" || emp.status === "active") {
+          // If there's a completion date field, use it; otherwise use updatedAt
+          const completionDate = emp.completionDate || emp.updatedAt;
+          if (completionDate) {
+            const date = new Date(completionDate);
+            return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+          }
+          return false;
+        }
+        return false;
+      }).length;
+
+      // Calculate pending tasks - count employees in onboarding with incomplete steps
+      const onboardingEmployees = employees.filter(emp => 
+        emp.status === "Onboarding" || emp.status === "onboarding"
+      );
+      
+      let pendingTasksCount = 0;
+      let pendingDocsCount = 0;
+      
+      onboardingEmployees.forEach(emp => {
+        // Count pending tasks based on onboarding steps
+        if (emp.onboardingSteps) {
+          const incompleteSteps = emp.onboardingSteps.filter(step => !step.completed);
+          pendingTasksCount += incompleteSteps.length;
+        } else {
+          // If no steps data, assume at least 5 pending tasks per onboarding employee
+          pendingTasksCount += 5;
+        }
+        
+        // Count pending documents
+        if (emp.documents) {
+          const pendingDocs = emp.documents.filter(doc => doc.status !== "approved" && doc.status !== "verified");
+          pendingDocsCount += pendingDocs.length;
+        } else {
+          // If no document data, assume at least 2 pending documents per onboarding employee
+          pendingDocsCount += 2;
+        }
+      });
       
       setStats({
-        activeOnboarding: onboardingCount || 2,
-        pendingTasks: 8,
-        completedThisMonth: completedCount || 5,
-        pendingDocuments: 3
+        activeOnboarding: onboardingCount,
+        pendingTasks: pendingTasksCount,
+        completedThisMonth: completedCount,
+        pendingDocuments: pendingDocsCount
       });
-
-      // Mock recent onboarding data - replace with real API data
-      setRecentOnboarding([
-        { id: 1, name: "Ahmed Al Qasimi", employeeId: "EMP-0105", department: "Sales", joiningDate: "2026-07-01", status: "in-progress", step: "Document Upload" },
-        { id: 2, name: "Fatima Al Zaabi", employeeId: "EMP-0106", department: "Marketing", joiningDate: "2026-07-05", status: "initiated", step: "Initiation" },
-        { id: 3, name: "David Chen", employeeId: "EMP-0107", department: "Product", joiningDate: "2026-06-28", status: "in-progress", step: "Visa Processing" },
-        { id: 4, name: "Sarah Johnson", employeeId: "EMP-0108", department: "Finance", joiningDate: "2026-07-10", status: "initiated", step: "Initiation" }
-      ]);
       
+      setPendingDocumentsCount(pendingDocsCount);
+
+      // Get recent onboarding employees (last 5)
+      const recentOnboardingData = employees
+        .filter(emp => emp.status === "Onboarding" || emp.status === "onboarding" || emp.status === "active")
+        .sort((a, b) => new Date(b.createdAt || b.joiningDate || 0) - new Date(a.createdAt || a.joiningDate || 0))
+        .slice(0, 5)
+        .map(emp => ({
+          id: emp.id,
+          name: emp.name || `${emp.firstName} ${emp.lastName}`,
+          employeeId: emp.employeeId,
+          department: emp.department || "Not Assigned",
+          joiningDate: emp.joiningDate || emp.createdAt,
+          status: emp.onboardingProgress || (emp.status === "active" ? "completed" : "in-progress"),
+          step: emp.currentStep || "Initiation"
+        }));
+      
+      setRecentOnboarding(recentOnboardingData.length ? recentOnboardingData : []);
       setLoading(false);
     }
   }, [employees, employeesLoading]);
@@ -71,7 +124,7 @@ const OnboardingDashboard = () => {
       color: "blue",
       bgClass: "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400",
       buttonClass: "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50",
-      stats: "Start new process",
+      stats: `${stats.activeOnboarding} in progress`,
       buttonText: "Initiate Now"
     },
     {
@@ -83,7 +136,7 @@ const OnboardingDashboard = () => {
       color: "purple",
       bgClass: "bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400",
       buttonClass: "bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50",
-      stats: "Manual entry",
+      stats: `${employees?.length || 0} total employees`,
       buttonText: "Add Employee"
     }
   ];
@@ -239,6 +292,73 @@ const OnboardingDashboard = () => {
         ))}
       </div>
 
+      {/* Recent Onboarding Section - Only show if there's data */}
+      {recentOnboarding.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden mb-8">
+          <div className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Users size={20} className="text-gray-600 dark:text-gray-400" />
+                <h3 className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
+                  Recent Onboarding
+                </h3>
+              </div>
+              <button 
+                onClick={() => navigate("/admin/employees")}
+                className="text-xs md:text-sm text-green-600 dark:text-green-400 hover:text-green-700 font-semibold flex items-center gap-1"
+              >
+                View All <ArrowRight size={14} />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {recentOnboarding.map((employee) => (
+                <div 
+                  key={employee.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/admin/employees/${employee.id}`)}
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/30 dark:to-blue-900/30 rounded-full flex items-center justify-center">
+                      <UserCheck size={18} className="text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-sm text-gray-900 dark:text-white">
+                          {employee.name}
+                        </p>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {employee.employeeId}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="flex items-center gap-1">
+                          <Briefcase size={12} />
+                          {employee.department}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar size={12} />
+                          {formatDate(employee.joiningDate)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(employee.status)}`}>
+                      {employee.status === "completed" ? "Completed" : 
+                       employee.status === "in-progress" ? "In Progress" : "Initiated"}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                      {getStepIcon(employee.step)}
+                      <span>{employee.step}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Tips Section */}
       <div className="mt-6 p-3 md:p-4 bg-green-50 dark:bg-green-950/30 rounded-xl border border-green-100 dark:border-green-900/50">

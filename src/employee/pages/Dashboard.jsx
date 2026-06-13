@@ -3,13 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Chart as ChartJS,
-  BarElement,
   CategoryScale,
   LinearScale,
+  PointElement,
+  LineElement,
+  Title,
   Tooltip,
   Legend,
+  Filler,
 } from "chart.js";
-import { Bar } from "react-chartjs-2";
+import { Line } from "react-chartjs-2";
 import {
   punchIn,
   punchOut,
@@ -26,7 +29,17 @@ import {
 import LocationModal from "../components/modals/LocationModal";
 import MapView from "../components/common/MapView";
 
-ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+// Register ChartJS components for line chart
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+);
 
 const Dashboard = () => {
   const dispatch = useDispatch();
@@ -207,11 +220,15 @@ const Dashboard = () => {
 
     if (punchType === "punch-in") {
       console.log("Sending location for punch in:", locationData);
+      console.log("Timezone included:", locationData.timezone);
       const result = await dispatch(punchIn({ location: locationData }));
       setIsSubmitting(false);
 
       if (punchIn.fulfilled.match(result)) {
-        showToastMessage("Punched in successfully with location verification!", "success");
+        showToastMessage(
+          "Punched in successfully with location verification!",
+          "success",
+        );
         await dispatch(fetchDashboardData());
       } else {
         const errorMsg = result.payload || "Punch in failed";
@@ -235,7 +252,7 @@ const Dashboard = () => {
         punchOut({
           ...punchOutData,
           location: locationData,
-        })
+        }),
       );
       setIsSubmitting(false);
 
@@ -243,7 +260,7 @@ const Dashboard = () => {
         showToastMessage("Punched out successfully!", "success");
         setShowPunchOutModal(false);
         setPunchOutData(null);
-        
+
         setIsOnBreak(false);
         setTotalBreakMs(0);
         setNumberOfBreaks(0);
@@ -253,9 +270,9 @@ const Dashboard = () => {
         localStorage.removeItem("attendance-total-break-ms");
         localStorage.removeItem("attendance-breaks-count");
         localStorage.removeItem("attendance-break-history");
-        
+
         await dispatch(fetchDashboardData());
-        
+
         showToastMessage(
           "Task report has been saved! You can view it in Task Reports section.",
           "success",
@@ -545,7 +562,8 @@ const Dashboard = () => {
             <div className="flex justify-between items-start">
               <div className="flex-1">
                 <p className="text-sm font-semibold text-red-500">
-                  <i className="fas fa-sign-out-alt mr-1"></i> Punch Out Location:
+                  <i className="fas fa-sign-out-alt mr-1"></i> Punch Out
+                  Location:
                 </p>
                 <p className="text-sm text-[var(--text)] mt-1">
                   {punchOutLocation.address ||
@@ -663,21 +681,29 @@ const Dashboard = () => {
     fetchEmployeeTasks();
   }, []);
 
-  // Prepare chart data from attendance history
+  // Prepare chart data from attendance history - Line chart version
+  // Prepare chart data from attendance history - Line chart version
   const getChartData = () => {
     if (
       !dashboardData?.attendance_history ||
       dashboardData.attendance_history.length === 0
     ) {
       return {
-        labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        labels: ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"],
         datasets: [
           {
             label: "Hours Worked",
             data: [0, 0, 0, 0, 0, 0, 0],
-            backgroundColor: primaryColor || "#2ecc71",
-            borderRadius: 8,
-            barPercentage: 0.6,
+            borderColor: primaryColor || "#2ecc71",
+            backgroundColor: primaryColor ? `${primaryColor}20` : "#2ecc7120",
+            borderWidth: 2.5,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: primaryColor || "#2ecc71",
+            pointBorderColor: "#fff",
+            pointBorderWidth: 2,
+            tension: 0.3,
+            fill: true,
           },
         ],
       };
@@ -686,34 +712,105 @@ const Dashboard = () => {
     const last7Days = [];
     const hoursWorked = [];
 
+    // Get last 7 days in DD/MM/YYYY format to match API
+    const today = new Date();
+
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split("T")[0];
+      date.setDate(today.getDate() - i);
+
+      // Format date as DD/MM/YYYY to match API format
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      const dateStr = `${day}/${month}/${year}`;
+
       const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
       last7Days.push(dayName);
 
       const attendance = dashboardData.attendance_history.find(
         (a) => a.log_date === dateStr,
       );
-      if (attendance && attendance.punch_in && attendance.punch_out) {
-        const punchInTimeDate = parsePunchTime(attendance.punch_in);
-        const punchOutTimeDate = parsePunchTime(attendance.punch_out);
-        if (
-          punchInTimeDate &&
-          punchOutTimeDate &&
-          !isNaN(punchInTimeDate.getTime()) &&
-          !isNaN(punchOutTimeDate.getTime())
-        ) {
-          const hours = (punchOutTimeDate - punchInTimeDate) / (1000 * 60 * 60);
-          hoursWorked.push(Math.round(hours * 10) / 10);
+
+      if (
+        attendance &&
+        attendance.punch_in &&
+        attendance.punch_out &&
+        attendance.punch_out !== "--"
+      ) {
+        let hours = 0;
+        if (attendance.working_hours && attendance.working_hours !== "--") {
+          const hoursMatch = attendance.working_hours.match(/(\d+)\s*hrs?/);
+          const minsMatch = attendance.working_hours.match(/(\d+)\s*mins?/);
+
+          if (hoursMatch) {
+            hours = parseInt(hoursMatch[1], 10);
+          }
+          if (minsMatch) {
+            hours += parseInt(minsMatch[1], 10) / 60;
+          }
         } else {
-          hoursWorked.push(0);
+          const parseTime = (timeStr) => {
+            if (!timeStr || timeStr === "--") return null;
+            const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+            if (match) {
+              let hours = parseInt(match[1], 10);
+              const minutes = parseInt(match[2], 10);
+              const ampm = match[3].toUpperCase();
+
+              if (ampm === "PM" && hours !== 12) hours += 12;
+              if (ampm === "AM" && hours === 12) hours = 0;
+
+              return { hours, minutes };
+            }
+            return null;
+          };
+
+          const punchIn = parseTime(attendance.punch_in);
+          const punchOut = parseTime(attendance.punch_out);
+
+          if (punchIn && punchOut) {
+            let diffHours = punchOut.hours - punchIn.hours;
+            let diffMins = punchOut.minutes - punchIn.minutes;
+
+            if (diffMins < 0) {
+              diffHours -= 1;
+              diffMins += 60;
+            }
+
+            hours = diffHours + diffMins / 60;
+          }
         }
+
+        hoursWorked.push(Math.round(hours * 10) / 10);
       } else {
         hoursWorked.push(0);
       }
     }
+
+    // Get the canvas context for gradient (this will work when chart renders)
+    const getGradient = (context) => {
+      const chart = context.chart;
+      const { ctx, chartArea } = chart;
+      if (!chartArea) {
+        return primaryColor ? `${primaryColor}80` : "#2ecc7180";
+      }
+      const gradient = ctx.createLinearGradient(
+        0,
+        chartArea.bottom,
+        0,
+        chartArea.top,
+      );
+      gradient.addColorStop(
+        0,
+        primaryColor ? `${primaryColor}20` : "#2ecc7120",
+      );
+      gradient.addColorStop(
+        1,
+        primaryColor ? `${primaryColor}80` : "#2ecc7180",
+      );
+      return gradient;
+    };
 
     return {
       labels: last7Days,
@@ -721,9 +818,16 @@ const Dashboard = () => {
         {
           label: "Hours Worked",
           data: hoursWorked,
-          backgroundColor: primaryColor || "#2ecc71",
-          borderRadius: 8,
-          barPercentage: 0.6,
+          borderColor: primaryColor || "#2ecc71",
+          backgroundColor: getGradient,
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: primaryColor || "#2ecc71",
+          pointBorderColor: "#fff",
+          pointBorderWidth: 2,
+          tension: 0.3,
+          fill: true,
         },
       ],
     };
@@ -733,9 +837,26 @@ const Dashboard = () => {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false },
+      legend: {
+        display: true,
+        position: "top",
+        align: "center",
+        labels: {
+          usePointStyle: true,
+          pointStyle: "circle",
+          boxWidth: 8,
+          font: {
+            size: 11,
+            weight: "bold",
+          },
+        },
+      },
       tooltip: {
-        backgroundColor: primaryColor || "#2ecc71",
+        backgroundColor: "rgba(0,0,0,0.8)",
+        titleColor: "#fff",
+        bodyColor: "#ddd",
+        borderColor: primaryColor || "#2ecc71",
+        borderWidth: 1,
         callbacks: {
           label: (context) => {
             const hours = context.raw;
@@ -747,11 +868,48 @@ const Dashboard = () => {
     scales: {
       y: {
         beginAtZero: true,
-        max: 9,
-        title: { display: true, text: "Hours", font: { size: 11 } },
-        ticks: { stepSize: 2 },
+        max: 10,
+        grid: {
+          color: "rgba(0,0,0,0.05)",
+          drawBorder: false,
+        },
+        title: {
+          display: true,
+          text: "Hours",
+          font: { size: 11, weight: "bold" },
+          color: "#888",
+        },
+        ticks: {
+          stepSize: 2,
+          callback: (value) => `${value}h`,
+          padding: 8,
+        },
       },
-      x: { ticks: { font: { size: 11 } } },
+      x: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          font: { size: 11, weight: "bold" },
+          padding: 8,
+        },
+      },
+    },
+    elements: {
+      line: {
+        borderJoin: "round",
+      },
+      point: {
+        hoverRadius: 8,
+      },
+    },
+    layout: {
+      padding: {
+        top: 10,
+        bottom: 10,
+        left: 5,
+        right: 5,
+      },
     },
   };
 
@@ -866,7 +1024,7 @@ const Dashboard = () => {
 
     return `${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
   };
-  
+
   const formatBreakDuration = (ms) => {
     let currentTotalMs = ms;
     if (isOnBreak && breakStartTime) {
@@ -957,7 +1115,7 @@ const Dashboard = () => {
             <div
               className={`punch-value text-lg font-bold ${isOnBreak ? "text-amber-500" : statusDisplay.color}`}
             >
-              {isOnBreak ? "On Break ☕" : statusDisplay.text}
+              {isOnBreak ? "On Break" : statusDisplay.text}
             </div>
           </div>
         </div>
@@ -1134,8 +1292,11 @@ const Dashboard = () => {
             <i className="fas fa-chart-line text-blue-500"></i> My Attendance
             (Last 7 Days)
           </h3>
-          <div className="chart-container h-64 relative">
-            <Bar ref={chartRef} data={getChartData()} options={chartOptions} />
+          <div
+            className="chart-container"
+            style={{ height: "320px", width: "100%", position: "relative" }}
+          >
+            <Line ref={chartRef} data={getChartData()} options={chartOptions} />
           </div>
         </div>
 
@@ -1154,78 +1315,104 @@ const Dashboard = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[var(--surface2)] rounded-lg">
-                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">Date</th>
-                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">Punch In</th>
-                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">Location</th>
-                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">Punch Out</th>
-                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">Hours</th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Punch In
+                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Location
+                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Punch Out
+                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Hours
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {dashboardData.attendance_history.map((attendance, index) => {
-                      // Parse date from DD/MM/YYYY format
-                      const dateParts = attendance.log_date.split('/');
-                      const dateObj = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
-                      
-                      // Format date as "MMM DD" (e.g., "Jun 9")
-                      const formattedDate = dateObj.toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric' 
-                      });
-                      
-                      const locationAddress = attendance.punch_in_address;
-                      
-                      return (
-                        <tr key={index} className="border-b border-[var(--border)]">
-                          <td className="py-3 px-4">
-                            <div>
-                              <div className="text-[var(--text)] font-medium">
-                                {formattedDate}
+                    {dashboardData.attendance_history.map(
+                      (attendance, index) => {
+                        // Parse date from DD/MM/YYYY format
+                        const dateParts = attendance.log_date.split("/");
+                        const dateObj = new Date(
+                          dateParts[2],
+                          dateParts[1] - 1,
+                          dateParts[0],
+                        );
+
+                        // Format date as "MMM DD" (e.g., "Jun 9")
+                        const formattedDate = dateObj.toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                          },
+                        );
+
+                        const locationAddress = attendance.punch_in_address;
+
+                        return (
+                          <tr
+                            key={index}
+                            className="border-b border-[var(--border)]"
+                          >
+                            <td className="py-3 px-4">
+                              <div>
+                                <div className="text-[var(--text)] font-medium">
+                                  {formattedDate}
+                                </div>
+                                <div className="text-xs text-[var(--muted)]">
+                                  {dateObj.toLocaleDateString("en-US", {
+                                    weekday: "short",
+                                  })}
+                                </div>
                               </div>
-                              <div className="text-xs text-[var(--muted)]">
-                                {dateObj.toLocaleDateString('en-US', { weekday: 'short' })}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            {attendance.punch_in && attendance.punch_in !== "--" ? (
-                              <div className="text-[var(--text)] font-medium">
-                                {attendance.punch_in}
-                              </div>
-                            ) : (
-                              <span className="text-[var(--muted)]">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4">
-                            {locationAddress && (
-                              <div className="text-xs text-[var(--muted)]">
-                                <i className="fas fa-map-marker-alt text-green-500 text-xs mr-1"></i>
-                                {locationAddress.substring(0, 40)}
-                                {locationAddress.length > 40 ? "..." : ""}
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-3 px-4">
-                            {attendance.punch_out && attendance.punch_out !== "--" ? (
-                              <div className="text-[var(--text)] font-medium">
-                                {attendance.punch_out}
-                              </div>
-                            ) : (
-                              <span className="text-[var(--muted)]">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4">
-                            {attendance.working_hours !== "--" ? (
-                              <div className="text-[var(--text)] font-bold">
-                                {attendance.working_hours}
-                              </div>
-                            ) : (
-                              <span className="text-[var(--muted)]">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            </td>
+                            <td className="py-3 px-4">
+                              {attendance.punch_in &&
+                              attendance.punch_in !== "--" ? (
+                                <div className="text-[var(--text)] font-medium">
+                                  {attendance.punch_in}
+                                </div>
+                              ) : (
+                                <span className="text-[var(--muted)]">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              {locationAddress && (
+                                <div className="text-xs text-[var(--muted)]">
+                                  <i className="fas fa-map-marker-alt text-green-500 text-xs mr-1"></i>
+                                  {locationAddress.substring(0, 40)}
+                                  {locationAddress.length > 40 ? "..." : ""}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              {attendance.punch_out &&
+                              attendance.punch_out !== "--" ? (
+                                <div className="text-[var(--text)] font-medium">
+                                  {attendance.punch_out}
+                                </div>
+                              ) : (
+                                <span className="text-[var(--muted)]">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              {attendance.working_hours !== "--" ? (
+                                <div className="text-[var(--text)] font-bold">
+                                  {attendance.working_hours}
+                                </div>
+                              ) : (
+                                <span className="text-[var(--muted)]">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      },
+                    )}
                   </tbody>
                 </table>
               </div>

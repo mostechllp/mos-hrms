@@ -23,7 +23,10 @@ export const fetchDashboardData = createAsyncThunk(
   }
 );
 
-// ✅ Punch In with Location - Fixed field names
+// attendanceSlice.js - Update punchIn and punchOut to include timezone
+// ... (keep your existing imports and code)
+
+// ✅ Punch In with Location and Timezone
 export const punchIn = createAsyncThunk(
   "attendance/punchIn",
   async (locationData, { rejectWithValue }) => {
@@ -39,7 +42,18 @@ export const punchIn = createAsyncThunk(
         requestBody.punch_in_latitude = locationData.location.latitude;
         requestBody.punch_in_longitude = locationData.location.longitude;
         requestBody.punch_in_address = locationData.location.address;
-        console.log("✅ Location added to request body:", requestBody);
+        
+        // ✅ Add timezone information
+        if (locationData.location.timezone) {
+          requestBody.timezone = locationData.location.timezone;
+          requestBody.timezone_offset = locationData.location.timezoneOffset;
+        } else {
+          // Fallback to browser timezone
+          requestBody.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          requestBody.timezone_offset = new Date().getTimezoneOffset();
+        }
+        
+        console.log("✅ Location and timezone added to request body:", requestBody);
       } else {
         console.warn("⚠️ No location data provided for punch in");
       }
@@ -55,6 +69,9 @@ export const punchIn = createAsyncThunk(
         
         localStorage.setItem("attendance-punched-in", "true");
         localStorage.setItem("attendance-punch-in-time", data.punch_in);
+        if (requestBody.timezone) {
+          localStorage.setItem("attendance-timezone", requestBody.timezone);
+        }
         
         return {
           punch_in: data.punch_in,
@@ -63,7 +80,8 @@ export const punchIn = createAsyncThunk(
           id: data.id,
           punch_in_latitude: data.punch_in_latitude,
           punch_in_longitude: data.punch_in_longitude,
-          punch_in_address: data.punch_in_address
+          punch_in_address: data.punch_in_address,
+          timezone: requestBody.timezone
         };
       } else {
         return rejectWithValue(response.data?.message || "Punch in failed");
@@ -77,7 +95,7 @@ export const punchIn = createAsyncThunk(
   }
 );
 
-// ✅ Punch Out with Location (for current day)
+// ✅ Punch Out with Location and Timezone (for current day)
 export const punchOut = createAsyncThunk(
   "attendance/punchOut",
   async ({ tasks_completed, plan_tomorrow, pending_works, location }, { rejectWithValue }) => {
@@ -94,6 +112,16 @@ export const punchOut = createAsyncThunk(
         requestBody.latitude = location.latitude;
         requestBody.longitude = location.longitude;
         requestBody.address = location.address;
+        
+        // ✅ Add timezone information
+        if (location.timezone) {
+          requestBody.timezone = location.timezone;
+          requestBody.timezone_offset = location.timezoneOffset;
+        } else {
+          // Fallback to browser timezone
+          requestBody.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          requestBody.timezone_offset = new Date().getTimezoneOffset();
+        }
       }
       
       const response = await apiClient.post("/employee/punch-out", requestBody);
@@ -103,6 +131,7 @@ export const punchOut = createAsyncThunk(
         
         localStorage.removeItem("attendance-punched-in");
         localStorage.removeItem("attendance-punch-in-time");
+        localStorage.removeItem("attendance-timezone");
         
         return {
           punch_out: data.punch_out,
@@ -112,7 +141,8 @@ export const punchOut = createAsyncThunk(
           task_report: data.task_report,
           punch_out_latitude: data.punch_out_latitude,
           punch_out_longitude: data.punch_out_longitude,
-          punch_out_address: data.punch_out_address
+          punch_out_address: data.punch_out_address,
+          timezone: requestBody.timezone
         };
       } else {
         return rejectWithValue(response.data?.message || "Punch out failed");
@@ -126,7 +156,7 @@ export const punchOut = createAsyncThunk(
   }
 );
 
-// ✅ Pending Punch Out with Location (for previous day with custom time)
+// ✅ Pending Punch Out with Location and Timezone (for previous day)
 export const pendingPunchOut = createAsyncThunk(
   "attendance/pendingPunchOut",
   async ({ tasks_completed, plan_tomorrow, pending_works, punch_out_time, date, location }, { rejectWithValue }) => {
@@ -148,9 +178,19 @@ export const pendingPunchOut = createAsyncThunk(
         requestBody.latitude = location.latitude;
         requestBody.longitude = location.longitude;
         requestBody.address = location.address;
+        
+        // ✅ Add timezone information
+        if (location.timezone) {
+          requestBody.timezone = location.timezone;
+          requestBody.timezone_offset = location.timezoneOffset;
+        } else {
+          // Fallback to browser timezone
+          requestBody.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          requestBody.timezone_offset = new Date().getTimezoneOffset();
+        }
       }
       
-      const response = await apiClient.post("/employee/pending-punch-out", requestBody);
+      const response = await apiClient.post("/employee/punch-out", requestBody);
       
       if (response.data && response.data.status === "success") {
         const data = response.data.data;
@@ -162,7 +202,8 @@ export const pendingPunchOut = createAsyncThunk(
           task_report: data.task_report,
           punch_out_latitude: data.punch_out_latitude,
           punch_out_longitude: data.punch_out_longitude,
-          punch_out_address: data.punch_out_address
+          punch_out_address: data.punch_out_address,
+          timezone: requestBody.timezone
         };
       } else {
         return rejectWithValue(response.data?.message || "Failed to complete pending punch out");
@@ -175,6 +216,7 @@ export const pendingPunchOut = createAsyncThunk(
     }
   }
 );
+
 const initialState = {
   isPunchedIn: localStorage.getItem("attendance-punched-in") === "true",
   punchInTime: localStorage.getItem("attendance-punch-in-time") || null,
