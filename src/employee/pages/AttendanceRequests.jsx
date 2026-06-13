@@ -171,7 +171,6 @@ const AttendanceRequests = () => {
   };
 
   const openRequestModal = (type) => {
-    setShowDropdown(false);
     switch(type) {
       case "early_check_in":
       case "early_checkin":
@@ -188,6 +187,7 @@ const AttendanceRequests = () => {
         setShowMissedPunchOut(true);
         break;
       default:
+        showToast("Modal for " + type.replace(/_/g, " ") + " is coming soon!", "info");
         break;
     }
   };
@@ -291,75 +291,74 @@ const AttendanceRequests = () => {
           My Attendance Requests
         </h2>
         
-        {/* Dropdown Container */}
-        <div className="dropdown-container relative">
-          <button
-            onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all text-sm"
-          >
-            <FiPlus className="text-sm" />
-            <span>New Request</span>
-            <FiChevronDown className={`text-sm transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+      </div>
+
+      {/* New Request Cards */}
+      <div className="mb-8">
+        <h3 className="text-lg font-semibold text-[var(--text)] mb-4">Create New Request</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <button onClick={() => openRequestModal("early_check_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-orange-500 hover:shadow-md transition-all text-center gap-2 group">
+            <div className="w-10 h-10 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <FiSun className="text-lg" />
+            </div>
+            <span className="text-sm font-medium text-[var(--text)]">Early Check-in</span>
           </button>
           
-          {/* Dropdown Menu */}
-          {showDropdown && (
-            <div className="absolute right-0 mt-2 w-64 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg overflow-hidden z-50">
-              <div className="py-1">
-                <button
-                  onClick={() => openRequestModal("early_check_in")}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--surface2)] transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-500 flex items-center justify-center">
-                    <FiSun className="text-sm" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-[var(--text)]">Early Check-in</div>
-                    <div className="text-xs text-[var(--muted)]">Request early check-in approval</div>
-                  </div>
-                </button>
-                
-                <button
-                  onClick={() => openRequestModal("late_check_in")}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--surface2)] transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center">
-                    <FiMoon className="text-sm" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-[var(--text)]">Late Check-in</div>
-                    <div className="text-xs text-[var(--muted)]">Request late check-in approval</div>
-                  </div>
-                </button>
-                
-                <button
-                  onClick={() => openRequestModal("missed_punch_in")}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--surface2)] transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center">
-                    <MdFingerprint className="text-sm" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-[var(--text)]">Missed Punch In</div>
-                    <div className="text-xs text-[var(--muted)]">Request missed punch in approval</div>
-                  </div>
-                </button>
-                
-                <button
-                  onClick={() => openRequestModal("missed_punch_out")}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--surface2)] transition-colors border-t border-[var(--border)]"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-green-500/10 text-green-500 flex items-center justify-center">
-                    <FiLogIn className="text-sm" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-[var(--text)]">Missed Punch Out</div>
-                    <div className="text-xs text-[var(--muted)]">Request missed punch out approval</div>
-                  </div>
-                </button>
-              </div>
+          <button onClick={() => openRequestModal("late_check_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-purple-500 hover:shadow-md transition-all text-center gap-2 group">
+            <div className="w-10 h-10 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <FiMoon className="text-lg" />
             </div>
-          )}
+            <span className="text-sm font-medium text-[var(--text)]">Late Check-in</span>
+          </button>
+          
+          <button onClick={() => openRequestModal("missed_punch_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-center gap-2 group">
+            <div className="w-10 h-10 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <MdFingerprint className="text-lg" />
+            </div>
+            <span className="text-sm font-medium text-[var(--text)]">Missed Punch In</span>
+          </button>
+          
+          <button onClick={() => openRequestModal("missed_punch_out")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-green-500 hover:shadow-md transition-all text-center gap-2 group">
+            <div className="w-10 h-10 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <FiLogIn className="text-lg" />
+            </div>
+            <span className="text-sm font-medium text-[var(--text)]">Missed Punch Out</span>
+          </button>
+
+          <button onClick={() => openRequestModal("missed_punch_full_day")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-red-500 hover:shadow-md transition-all text-center gap-2 group">
+            <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <i className="fas fa-calendar-times text-lg"></i>
+            </div>
+            <span className="text-sm font-medium text-[var(--text)]">Missed Punch (Full Day)</span>
+          </button>
+
+          <button onClick={() => openRequestModal("wfh")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-teal-500 hover:shadow-md transition-all text-center gap-2 group">
+            <div className="w-10 h-10 rounded-full bg-teal-500/10 text-teal-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <i className="fas fa-home text-lg"></i>
+            </div>
+            <span className="text-sm font-medium text-[var(--text)]">Work From Home (WFH)</span>
+          </button>
+
+          <button onClick={() => openRequestModal("attendance_correction")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-indigo-500 hover:shadow-md transition-all text-center gap-2 group">
+            <div className="w-10 h-10 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <i className="fas fa-user-edit text-lg"></i>
+            </div>
+            <span className="text-sm font-medium text-[var(--text)]">Attendance Correction</span>
+          </button>
+
+          <button onClick={() => openRequestModal("half_day_regularization")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-pink-500 hover:shadow-md transition-all text-center gap-2 group">
+            <div className="w-10 h-10 rounded-full bg-pink-500/10 text-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <i className="fas fa-adjust text-lg"></i>
+            </div>
+            <span className="text-sm font-medium text-[var(--text)]">Half Day Regularization</span>
+          </button>
+
+          <button onClick={() => openRequestModal("shift_change")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-amber-600 hover:shadow-md transition-all text-center gap-2 group">
+            <div className="w-10 h-10 rounded-full bg-amber-600/10 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <i className="fas fa-exchange-alt text-lg"></i>
+            </div>
+            <span className="text-sm font-medium text-[var(--text)]">Shift Change Request</span>
+          </button>
         </div>
       </div>
 
