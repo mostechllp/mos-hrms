@@ -73,6 +73,7 @@ const OrgUpcomingRenewalReport = lazy(
 const AdminWFH = lazy(() => import("./admin/pages/WFH"));
 const Settings = lazy(() => import("./admin/pages/Settings"));
 const RoleManagement = lazy(() => import("./admin/pages/RoleManagement"));
+const ModuleManagement = lazy(() => import("./admin/pages/ModuleManagement"));
 const AddPayroll = lazy(() => import("./admin/pages/AddPayroll"));
 const OnboardingInitalize = lazy(() => import("./admin/components/onboarding/Onboarding"));
 const Onboarding = lazy(() => import("./admin/pages/Onboarding"));
@@ -260,6 +261,7 @@ function App() {
           <Route path="wfh" element={<AdminWFH />} />
           <Route path="settings" element={<Settings />} />
           <Route path="role-management" element={<RoleManagement />} />
+          <Route path="modules" element={<ModuleManagement />} />
         </Route>
 
         {/* Employee Routes - Layout wrapper */}
