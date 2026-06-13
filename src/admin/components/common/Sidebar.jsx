@@ -38,7 +38,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     },
     { path: "/admin/employees", icon: "fas fa-users", label: "Employees" },
     { path: "/admin/attendances", icon: "fas fa-fingerprint", label: "Attendance" },
-    { path: "/admin/agreements", icon: "fas fa-file-signature", label: "Agreements" },
+    { path: "/admin/documents", icon: "fas fa-file-signature", label: "Documents" },
     { path: "/admin/leaves", icon: "fas fa-calendar-check", label: "Leaves" },
     { path: "/admin/task-reports", icon: "fas fa-tasks", label: "Task Reports" },
     // { path: "/admin/wfh", icon: "fas fa-home", label: "WFH Requests" },

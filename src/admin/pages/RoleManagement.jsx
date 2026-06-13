@@ -20,7 +20,7 @@ const FALLBACK_MODULES = [
     { id: 6, name: "Leaves" },
     { id: 7, name: "Reports" },
     { id: 8, name: "Settings" },
-    { id: 9, name: "Role management" }
+    { id: 9, name: "Roles" }
 ];
 
 function RoleManagement() {
@@ -157,7 +157,7 @@ function RoleManagement() {
             {/* Page Header */}
             <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
                 <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
-                    Role Management
+                    Roles
                 </h2>
             </div>
 

@@ -75,7 +75,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { path: "/admin/employees/offboarding", icon: "fas fa-user-minus", label: "Offboarding", moduleSlug: "offboarding" },
     { path: "/admin/employees", icon: "fas fa-users", label: "Employees", moduleSlug: "employees" },
     { path: "/admin/attendances", icon: "fas fa-fingerprint", label: "Attendance", moduleSlug: "attendance" },
-    { path: "/admin/agreements", icon: "fas fa-file-signature", label: "Agreements", moduleSlug: "agreements" },
+    { path: "/admin/documents", icon: "fas fa-file-signature", label: "Documents", moduleSlug: "documents" },
     { path: "/admin/leaves", icon: "fas fa-calendar-check", label: "Leaves", moduleSlug: "leave" },
     { path: "/admin/task-reports", icon: "fas fa-tasks", label: "Task Reports", moduleSlug: "reports" },
     { path: "/admin/reports", icon: "fas fa-chart-line", label: "Reports", moduleSlug: "reports" },

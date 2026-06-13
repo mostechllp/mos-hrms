@@ -32,7 +32,6 @@ const EditCompany = lazy(() => import("./admin/pages/EditCompany"));
 const Agreements = lazy(() => import("./admin/pages/Agreements"));
 const AddAgreement = lazy(() => import("./admin/pages/AddAgreement"));
 const EditAgreement = lazy(() => import("./admin/pages/EditAgreement"));
-const AddDocument = lazy(() => import("./admin/pages/AddDocument"));
 const Attendances = lazy(() => import("./admin/pages/Attendances"));
 const Leaves = lazy(() => import("./admin/pages/Leaves"));
 const LeaveTypeManagement = lazy(
@@ -202,11 +201,11 @@ function App() {
             path="organizations/:organizationId/edit-company/:id"
             element={<EditCompany />}
           />
-          <Route path="agreements" element={<Agreements />} />
-          <Route path="agreements/add-agreement" element={<AddAgreement />} />
-          <Route path="agreements/add-document" element={<AddDocument />} />
+          <Route path="documents" element={<Agreements />} />
+          <Route path="documents/add-agreement" element={<AddAgreement />} />
+          {/* <Route path="documents/add-document" element={<AddDocument />} /> */}
           <Route
-            path="agreements/edit-agreement/:id"
+            path="documents/edit-agreement/:id"
             element={<EditAgreement />}
           />
           <Route path="attendances" element={<Attendances />} />

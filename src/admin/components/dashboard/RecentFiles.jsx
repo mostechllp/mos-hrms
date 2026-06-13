@@ -41,9 +41,9 @@ const RecentFiles = () => {
 
   const folders = [
     { name: "All Files", value: "all", icon: "fas fa-folder-open", route: null },
-    { name: "Organization Files", value: "organizations", icon: "fas fa-building", route: "/agreements/add-agreement" },
-    { name: "Agreements", value: "agreements", icon: "fas fa-file-signature", route: "/agreements/add-agreement" },
-    { name: "HR", value: "hr", icon: "fas fa-user-tie", route: "/agreements/add-agreement" },
+    { name: "Organization Files", value: "organizations", icon: "fas fa-building", route: "/documents/add-agreement" },
+    { name: "Agreements", value: "agreements", icon: "fas fa-file-signature", route: "/documents/add-agreement" },
+    { name: "HR", value: "hr", icon: "fas fa-user-tie", route: "/documents/add-agreement" },
     { name: "Employees", value: "employees", icon: "fas fa-users", route: "/employees/add-employee" },
     { name: "Folders", value: "folders", icon: "fas fa-folder", route: "create-folder" },
     { name: "Others", value: "others", icon: "fas fa-ellipsis-h", route: "create-file" },
@@ -145,19 +145,19 @@ const RecentFiles = () => {
         setIsFileModalOpen(true);
         break;
       case "all":
-        navigate("/admin/agreements/add-document");
+        navigate("/admin/documents/add-document");
         break;
-      case "agreements":
-        navigate("/admin/agreements/add-agreement");
+      case "documents":
+        navigate("/admin/documents/add-agreement");
         break;
       case "hr":
-        navigate("/admin/agreements/add-document");
+        navigate("/admin/documents/add-document");
         break;
       case "employees":
         navigate("/admin/employees/add-employee");
         break;
       default:
-        navigate("/admin/agreements/add-agreement");
+        navigate("/admin/documents/add-agreement");
     }
   };
 
@@ -199,9 +199,9 @@ const RecentFiles = () => {
     }
     // For agreements and HR - navigate to edit page
     else if (doc.type === 'agreements') {
-      navigate(`/admin/agreements/edit-agreement/${doc.id}`);
+      navigate(`/admin/documents/edit-agreement/${doc.id}`);
     } else if (doc.type === 'hr') {
-      navigate(`/admin/agreements/edit-agreement/${doc.id}`);
+      navigate(`/admin/documents/edit-agreement/${doc.id}`);
     } 
     // For employees - navigate to edit employee page
     else if (activeFolder === "employees" || doc.type === 'employee') {
