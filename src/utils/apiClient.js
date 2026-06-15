@@ -63,12 +63,98 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise(function(resolve, reject) {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(token => {
+            originalRequest.headers.Authorization = 'Bearer ' + token;
+            return apiClient(originalRequest);
+          })
+          .catch(err => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const token = localStorage.getItem('auth-token') || 
+                      localStorage.getItem('hr-token') || 
+                      localStorage.getItem('employee-token');
+                      
+        // Call refresh endpoint directly using axios to avoid circular dependency / interceptor loops
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {}, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        // The API returns the token in response.data.access_token or response.data.token
+        const newToken = response.data?.access_token || response.data?.token || response.data?.data?.access_token;
+        
+        if (newToken) {
+          // Update tokens in local storage depending on what was there
+          if (localStorage.getItem('auth-token')) localStorage.setItem('auth-token', newToken);
+          if (localStorage.getItem('hr-token')) localStorage.setItem('hr-token', newToken);
+          if (localStorage.getItem('employee-token')) localStorage.setItem('employee-token', newToken);
+
+          apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
+          originalRequest.headers.Authorization = 'Bearer ' + newToken;
+          
+          processQueue(null, newToken);
+          return apiClient(originalRequest);
+        } else {
+          throw new Error('No new token received');
+        }
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        
+        // Clear all auth data from localStorage
+        localStorage.removeItem('auth-token');
+        localStorage.removeItem('user-type');
+        localStorage.removeItem('user-data');
+        localStorage.removeItem('hr-token');
+        localStorage.removeItem('hr-user');
+        localStorage.removeItem('employee-token');
+        localStorage.removeItem('employee-user');
+        localStorage.removeItem('remember-me');
+        localStorage.removeItem('remembered-email');
+        
+        // Redirect to login
+        window.location.href = '/';
+        
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+    
+    // For other errors or if already retried and still 401
     if (error.response?.status === 401) {
-      // Clear all auth data from localStorage
       localStorage.removeItem('auth-token');
       localStorage.removeItem('user-type');
       localStorage.removeItem('user-data');
@@ -78,8 +164,9 @@ apiClient.interceptors.response.use(
       localStorage.removeItem('employee-user');
       localStorage.removeItem('remember-me');
       localStorage.removeItem('remembered-email');
-      
+      window.location.href = '/';
     }
+    
     return Promise.reject(error);
   }
 );

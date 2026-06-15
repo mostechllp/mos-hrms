@@ -37,6 +37,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const hasPermission = (moduleSlug, permissionType = "read") => {
     if (!moduleSlug) return true;
     
+    // Super admins or roles with 'all' permissions can access everything
+    if (userPermissions && userPermissions.all === true) return true;
+    
     const modulePerm = userPermissions[moduleSlug];
     if (!modulePerm) return false;
     
