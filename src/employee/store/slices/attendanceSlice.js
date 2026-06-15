@@ -217,6 +217,44 @@ export const pendingPunchOut = createAsyncThunk(
   }
 );
 
+// ✅ Start Break
+export const startBreak = createAsyncThunk(
+  "attendance/startBreak",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post("/employee/break/start");
+      if (response.data && response.data.status === "success") {
+        return response.data;
+      } else {
+        return rejectWithValue(response.data?.message || "Failed to start break");
+      }
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to start break"
+      );
+    }
+  }
+);
+
+// ✅ End Break
+export const endBreak = createAsyncThunk(
+  "attendance/endBreak",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post("/employee/break/end");
+      if (response.data && response.data.status === "success") {
+        return response.data;
+      } else {
+        return rejectWithValue(response.data?.message || "Failed to end break");
+      }
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to end break"
+      );
+    }
+  }
+);
+
 const initialState = {
   isPunchedIn: localStorage.getItem("attendance-punched-in") === "true",
   punchInTime: localStorage.getItem("attendance-punch-in-time") || null,
@@ -305,6 +343,30 @@ const attendanceSlice = createSlice({
         state.error = null;
       })
       .addCase(pendingPunchOut.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // ✅ Start Break
+      .addCase(startBreak.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(startBreak.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(startBreak.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // ✅ End Break
+      .addCase(endBreak.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(endBreak.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(endBreak.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

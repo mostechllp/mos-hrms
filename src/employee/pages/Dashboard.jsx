@@ -18,6 +18,8 @@ import {
   punchOut,
   fetchDashboardData,
   pendingPunchOut,
+  startBreak,
+  endBreak,
 } from "../store/slices/attendanceSlice";
 import { PunchOutModal } from "../components/modals/PunchOutModal";
 import PendingPunchOutModal from "../components/attendance/PendingPunchoutModal";
@@ -346,45 +348,63 @@ const Dashboard = () => {
     }
   };
 
-  const handleBreakToggle = () => {
+  const handleBreakToggle = async () => {
     if (!isOnBreak) {
-      const nowStr = new Date().toISOString();
-      setIsOnBreak(true);
-      setBreakStartTime(nowStr);
-      setNumberOfBreaks((prev) => {
-        const newCount = prev + 1;
-        localStorage.setItem("attendance-breaks-count", newCount.toString());
-        return newCount;
-      });
-      localStorage.setItem("attendance-on-break", "true");
-      localStorage.setItem("attendance-break-start-time", nowStr);
-      showToastMessage("⏸️ Break Started", "success");
+      try {
+        const resultAction = await dispatch(startBreak());
+        if (startBreak.fulfilled.match(resultAction)) {
+          const nowStr = new Date().toISOString();
+          setIsOnBreak(true);
+          setBreakStartTime(nowStr);
+          setNumberOfBreaks((prev) => {
+            const newCount = prev + 1;
+            localStorage.setItem("attendance-breaks-count", newCount.toString());
+            return newCount;
+          });
+          localStorage.setItem("attendance-on-break", "true");
+          localStorage.setItem("attendance-break-start-time", nowStr);
+          showToastMessage("⏸️ Break Started", "success");
+        } else {
+          showToastMessage(resultAction.payload || "Failed to start break", "error");
+        }
+      } catch (err) {
+        showToastMessage("Error starting break", "error");
+      }
     } else {
-      const breakStart = new Date(breakStartTime);
-      const breakEnd = new Date();
-      const diff = breakEnd - breakStart;
-      const newTotal = totalBreakMs + diff;
+      try {
+        const resultAction = await dispatch(endBreak());
+        if (endBreak.fulfilled.match(resultAction)) {
+          const breakStart = new Date(breakStartTime);
+          const breakEnd = new Date();
+          const diff = breakEnd - breakStart;
+          const newTotal = totalBreakMs + diff;
 
-      const newHistory = [
-        ...breakHistory,
-        {
-          start: breakStartTime,
-          end: breakEnd.toISOString(),
-          durationMs: diff,
-        },
-      ];
-      setBreakHistory(newHistory);
-      localStorage.setItem(
-        "attendance-break-history",
-        JSON.stringify(newHistory),
-      );
+          const newHistory = [
+            ...breakHistory,
+            {
+              start: breakStartTime,
+              end: breakEnd.toISOString(),
+              durationMs: diff,
+            },
+          ];
+          setBreakHistory(newHistory);
+          localStorage.setItem(
+            "attendance-break-history",
+            JSON.stringify(newHistory),
+          );
 
-      setIsOnBreak(false);
-      setTotalBreakMs(newTotal);
-      localStorage.setItem("attendance-on-break", "false");
-      localStorage.setItem("attendance-total-break-ms", newTotal.toString());
-      localStorage.removeItem("attendance-break-start-time");
-      showToastMessage("▶️ Work Resumed", "success");
+          setIsOnBreak(false);
+          setTotalBreakMs(newTotal);
+          localStorage.setItem("attendance-on-break", "false");
+          localStorage.setItem("attendance-total-break-ms", newTotal.toString());
+          localStorage.removeItem("attendance-break-start-time");
+          showToastMessage("▶️ Work Resumed", "success");
+        } else {
+          showToastMessage(resultAction.payload || "Failed to end break", "error");
+        }
+      } catch (err) {
+        showToastMessage("Error ending break", "error");
+      }
     }
   };
 
