@@ -9,6 +9,7 @@ import { useDispatch, useSelector } from "react-redux";
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const [isMobile, setIsMobile] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState({});
   const location = useLocation();
   const { user } = useSelector((state) => state.auth);
   
@@ -50,6 +51,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     return false;
   };
 
+  // Toggle submenu expansion
+  const toggleSubmenu = (menuKey) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [menuKey]: !prev[menuKey]
+    }));
+  };
+
   // Mobile detection
   useEffect(() => {
     const checkMobile = () => {
@@ -80,12 +89,23 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { path: "/admin/attendances", icon: "fas fa-fingerprint", label: "Attendance", moduleSlug: "attendance" },
     { path: "/admin/documents", icon: "fas fa-file-signature", label: "Documents", moduleSlug: "documents" },
     { path: "/admin/leaves", icon: "fas fa-calendar-check", label: "Leaves", moduleSlug: "leave" },
-    { path: "/admin/task-reports", icon: "fas fa-tasks", label: "Task Reports", moduleSlug: "reports" },
+    { 
+      path: "/admin/task-reports", 
+      icon: "fas fa-tasks", 
+      label: "Task Reports", 
+      moduleSlug: "reports",
+      hasSubmenu: true,
+      submenuItems: [
+        { path: "/admin/task-reports", label: "All Task Reports", icon: "fas fa-list" },
+        { path: "/admin/my-tasks", label: "My Tasks", icon: "fas fa-user-tasks" }
+      ]
+    },
     { path: "/admin/reports", icon: "fas fa-chart-line", label: "Reports", moduleSlug: "reports" },
     { path: "/admin/projects", icon: "fas fa-file", label: "Projects", moduleSlug: "projects" },
     { path: "/admin/tasks", icon: "fas fa-tasks", label: "Tasks", moduleSlug: "tasks" },
     { path: "/admin/payroll/add", icon: "fas fa-file-invoice-dollar", label: "Payroll", moduleSlug: "payroll" },
     { path: "/admin/role-management", icon: "fas fa-user-shield", label: "Roles", moduleSlug: "roles" },
+    // Settings - Last item
     { path: "/admin/settings", icon: "fas fa-gear", label: "Settings", moduleSlug: "settings" },
   ];
 
@@ -108,8 +128,23 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
     // Additional employee menus not in sidebar_modules
     const additionalEmployeeMenus = [
-      { path: "/employee/tasks", icon: "fas fa-tasks", label: "My Tasks", moduleSlug: "tasks" },
-      { path: "/employee/task-reports", icon: "fas fa-clipboard-list", label: "Task Reports", moduleSlug: "reports" },
+      { 
+        path: "/employee/tasks", 
+        icon: "fas fa-tasks", 
+        label: "My Tasks", 
+        moduleSlug: "tasks" 
+      },
+      { 
+        path: "/employee/task-reports", 
+        icon: "fas fa-clipboard-list", 
+        label: "Task Reports", 
+        moduleSlug: "reports",
+        hasSubmenu: true,
+        submenuItems: [
+          { path: "/employee/task-reports", label: "My Task Reports", icon: "fas fa-list" },
+          { path: "/employee/my-tasks", label: "My Tasks", icon: "fas fa-user-tasks" }
+        ]
+      },
       { path: "/employee/profile", icon: "fas fa-user-circle", label: "My Profile", moduleSlug: "profile" },
     ];
 
@@ -163,16 +198,33 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       return hasPermission(menu.moduleSlug, "read");
     });
 
-    return [...menusFromModules, ...allowedAdditionalMenus];
+    // Sort menus: put Settings at the end
+    const allMenus = [...menusFromModules, ...allowedAdditionalMenus];
+    const settingsIndex = allMenus.findIndex(m => m.label === "Settings" || m.moduleSlug === "settings");
+    if (settingsIndex > -1) {
+      const settings = allMenus.splice(settingsIndex, 1)[0];
+      allMenus.push(settings);
+    }
+    
+    return allMenus;
   };
 
   // Build navigation items based on user type
   const getNavItems = () => {
     if (userType === "admin") {
       // Filter admin menus based on permissions
-      return adminMenuItems.filter(item => {
+      const filteredItems = adminMenuItems.filter(item => {
         return hasPermission(item.moduleSlug, "read");
       });
+      
+      // Ensure Settings is last
+      const settingsIndex = filteredItems.findIndex(item => item.moduleSlug === "settings");
+      if (settingsIndex > -1) {
+        const settings = filteredItems.splice(settingsIndex, 1)[0];
+        filteredItems.push(settings);
+      }
+      
+      return filteredItems;
     } else if (userType === "employee") {
       return getEmployeeNavItems();
     }
@@ -264,32 +316,96 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
           {/* Navigation Section */}
           <nav className="flex-1 overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent hover:scrollbar-thumb-gray-600">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === "/admin/employees" || item.path === "/admin/dashboard"}
-                onClick={() => isMobile && setIsOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-5 py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden ${
-                    isActive
-                      ? "bg-green-500/20 text-white"
-                      : "text-gray-400 hover:text-white hover:bg-white/10"
-                  }`
-                }
-              >
-                <i className={item.icon + " w-6 text-lg flex-shrink-0"}></i>
-                <span
-                  className={`transition-opacity duration-200 ${
-                    !isMobile && !isOpen
-                      ? "opacity-0 group-hover:opacity-100"
-                      : "opacity-100"
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </NavLink>
-            ))}
+            {navItems.map((item) => {
+              // Check if this item has submenu
+              const hasSubmenu = item.hasSubmenu && item.submenuItems && item.submenuItems.length > 0;
+              const isSubmenuOpen = expandedMenus[item.path] || false;
+              const isActive = location.pathname === item.path || 
+                (hasSubmenu && item.submenuItems.some(sub => location.pathname === sub.path));
+
+              return (
+                <div key={item.path}>
+                  {hasSubmenu ? (
+                    // Submenu parent item
+                    <>
+                      <div
+                        onClick={() => toggleSubmenu(item.path)}
+                        className={`flex items-center justify-between gap-3 px-5 py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden ${
+                          isActive
+                            ? "bg-green-500/20 text-white"
+                            : "text-gray-400 hover:text-white hover:bg-white/10"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <i className={item.icon + " w-6 text-lg flex-shrink-0"}></i>
+                          <span
+                            className={`transition-opacity duration-200 ${
+                              !isMobile && !isOpen
+                                ? "opacity-0 group-hover:opacity-100"
+                                : "opacity-100"
+                            }`}
+                          >
+                            {item.label}
+                          </span>
+                        </div>
+                        <i className={`fas fa-chevron-${isSubmenuOpen ? 'up' : 'down'} text-xs transition-transform duration-200`}></i>
+                      </div>
+                      
+                      {/* Submenu items */}
+                      {(isSubmenuOpen || isMobile) && (
+                        <div className="ml-8 space-y-1 mt-1">
+                          {item.submenuItems.map((subItem) => {
+                            const isSubActive = location.pathname === subItem.path;
+                            return (
+                              <NavLink
+                                key={subItem.path}
+                                to={subItem.path}
+                                onClick={() => isMobile && setIsOpen(false)}
+                                className={({ isActive }) =>
+                                  `flex items-center gap-3 px-5 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden text-sm ${
+                                    isActive
+                                      ? "bg-green-500/20 text-white"
+                                      : "text-gray-400 hover:text-white hover:bg-white/10"
+                                  }`
+                                }
+                              >
+                                <i className={subItem.icon + " w-5 text-sm flex-shrink-0"}></i>
+                                <span>{subItem.label}</span>
+                              </NavLink>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    // Regular menu item
+                    <NavLink
+                      to={item.path}
+                      end={item.path === "/admin/employees" || item.path === "/admin/dashboard"}
+                      onClick={() => isMobile && setIsOpen(false)}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-5 py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden ${
+                          isActive
+                            ? "bg-green-500/20 text-white"
+                            : "text-gray-400 hover:text-white hover:bg-white/10"
+                        }`
+                      }
+                    >
+                      <i className={item.icon + " w-6 text-lg flex-shrink-0"}></i>
+                      <span
+                        className={`transition-opacity duration-200 ${
+                          !isMobile && !isOpen
+                            ? "opacity-0 group-hover:opacity-100"
+                            : "opacity-100"
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    </NavLink>
+                  )}
+                </div>
+              );
+            })}
           </nav>
         </aside>
       </>
@@ -320,16 +436,54 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         <nav>
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
+            const hasSubmenu = item.hasSubmenu && item.submenuItems && item.submenuItems.length > 0;
+            const isSubmenuOpen = expandedMenus[item.path] || false;
+
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setIsOpen(false)}
-                className={`nav-item ${isActive ? "active" : ""}`}
-              >
-                <i className={item.icon}></i>
-                <span>{item.label}</span>
-              </Link>
+              <div key={item.path}>
+                {hasSubmenu ? (
+                  <>
+                    <div
+                      onClick={() => toggleSubmenu(item.path)}
+                      className={`nav-item ${isActive ? "active" : ""}`}
+                      style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <i className={item.icon}></i>
+                        <span>{item.label}</span>
+                      </span>
+                      <i className={`fas fa-chevron-${isSubmenuOpen ? 'up' : 'down'} text-xs`}></i>
+                    </div>
+                    {isSubmenuOpen && (
+                      <div className="nav-submenu" style={{ paddingLeft: '20px' }}>
+                        {item.submenuItems.map((subItem) => {
+                          const isSubActive = location.pathname === subItem.path;
+                          return (
+                            <Link
+                              key={subItem.path}
+                              to={subItem.path}
+                              onClick={() => setIsOpen(false)}
+                              className={`nav-submenu-item ${isSubActive ? "active" : ""}`}
+                            >
+                              <i className={subItem.icon}></i>
+                              <span>{subItem.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Link
+                    to={item.path}
+                    onClick={() => setIsOpen(false)}
+                    className={`nav-item ${isActive ? "active" : ""}`}
+                  >
+                    <i className={item.icon}></i>
+                    <span>{item.label}</span>
+                  </Link>
+                )}
+              </div>
             );
           })}
 
@@ -341,7 +495,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 onClick={() => setIsOpen(false)}
                 className={`nav-item ${isMyRequestsActive ? "active" : ""}`}
               >
-                <i className="fas fa-clock"></i>
+                <i className="fas fa-calendar-check"></i>
                 <span>My Requests</span>
               </Link>
 
