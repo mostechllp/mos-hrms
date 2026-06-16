@@ -145,7 +145,7 @@ apiClient.interceptors.response.use(
         localStorage.removeItem('remembered-email');
         
         // Redirect to login
-        window.location.href = '/';
+        // window.location.href = '/';
         
         return Promise.reject(refreshError);
       } finally {
