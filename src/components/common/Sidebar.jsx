@@ -91,14 +91,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   // Map for employee menu items (based on sidebar_modules)
   const getEmployeeNavItems = () => {
+    // Complete mapping for all possible modules
     const employeeMenuMap = {
       dashboard: { path: "/employee/dashboard", icon: "fas fa-chart-line", label: "Dashboard" },
+      onboarding: { path: "/employee/onboarding", icon: "fas fa-user-plus", label: "Onboarding" },
       employees: { path: "/employee/employees", icon: "fas fa-users", label: "Employees" },
       projects: { path: "/employee/projects", icon: "fas fa-file", label: "Projects" },
       attendance: { path: "/employee/attendance", icon: "fas fa-fingerprint", label: "Attendance" },
       leave: { path: "/employee/leaves", icon: "fas fa-calendar-check", label: "My Leaves" },
       documents: { path: "/employee/documents", icon: "fas fa-file", label: "Documents" },
       reports: { path: "/employee/reports", icon: "fas fa-chart-line", label: "Reports" },
+      settings: { path: "/employee/settings", icon: "fas fa-gear", label: "Settings" },
+      payroll: { path: "/employee/payroll", icon: "fas fa-file-invoice-dollar", label: "Payroll" },
+      roles: { path: "/employee/roles", icon: "fas fa-user-shield", label: "Roles" },
     };
 
     // Additional employee menus not in sidebar_modules
@@ -112,7 +117,36 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     const menusFromModules = sidebarModules
       .filter(module => module.status === "active")
       .map(module => {
-        const menuItem = employeeMenuMap[module.slug];
+        // First check if we have a mapping for this module
+        let menuItem = employeeMenuMap[module.slug];
+        
+        // If no mapping exists, create a dynamic menu item from module data
+        if (!menuItem) {
+          // Convert bx-icon to font awesome if needed, or use default
+          let iconClass = "fas fa-folder";
+          if (module.icon) {
+            // Map boxicons to font awesome (optional)
+            const iconMap = {
+              "bx-grid-alt": "fas fa-chart-line",
+              "bx-user-plus": "fas fa-user-plus",
+              "bx-group": "fas fa-users",
+              "bx-briefcase": "fas fa-file",
+              "bx-calendar-check": "fas fa-fingerprint",
+              "bx-calendar-x": "fas fa-calendar-check",
+              "bx-file": "fas fa-file",
+              "bx-bar-chart": "fas fa-chart-line",
+              "bx-cog": "fas fa-gear",
+            };
+            iconClass = iconMap[module.icon] || "fas fa-folder";
+          }
+          
+          menuItem = {
+            path: `/employee/${module.slug}`,
+            icon: iconClass,
+            label: module.name,
+          };
+        }
+        
         if (menuItem && hasPermission(module.slug, "read")) {
           return {
             ...menuItem,

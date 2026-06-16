@@ -1,33 +1,23 @@
-// locationService.js - Simplified version without retry logic
-
-// Get current location with high accuracy options
-export const getCurrentLocation = (options = {}) => {
+// locationService.js - Updated with PHP-compatible timezone mapping
+export const getCurrentLocation = () => {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Geolocation is not supported by your browser"));
       return;
     }
 
-    // Default options for getting location
-    const defaultOptions = {
+    const options = {
       enableHighAccuracy: true,
       timeout: 10000,
-      maximumAge: 0,
-      ...options
+      maximumAge: 0
     };
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        console.log("Location accuracy:", position.coords.accuracy, "meters");
-        
         resolve({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
-          altitude: position.coords.altitude,
-          altitudeAccuracy: position.coords.altitudeAccuracy,
-          heading: position.coords.heading,
-          speed: position.coords.speed,
           timestamp: position.timestamp
         });
       },
@@ -35,94 +25,113 @@ export const getCurrentLocation = (options = {}) => {
         let errorMessage = "Location access denied";
         switch(error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = "Please allow location access to punch in. You can enable it in browser settings.";
+            errorMessage = "Please allow location access to punch in";
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information unavailable. Please check your GPS or Wi-Fi.";
+            errorMessage = "Location information unavailable";
             break;
           case error.TIMEOUT:
-            errorMessage = "Location request timed out. Please check your internet connection.";
+            errorMessage = "Location request timed out";
             break;
         }
         reject(new Error(errorMessage));
       },
-      defaultOptions
+      options
     );
   });
 };
 
-// Get location - simple version (no retries, just get location once)
-export const getLocation = async () => {
-  try {
-    const location = await getCurrentLocation();
-    return location;
-  } catch (error) {
-    console.error("Error getting location:", error);
-    throw error;
-  }
-};
-
-// Watch position for continuous updates
-export const watchCurrentLocation = (onUpdate, onError, options = {}) => {
-  if (!navigator.geolocation) {
-    onError(new Error("Geolocation is not supported"));
-    return null;
-  }
-
-  const watchOptions = {
-    enableHighAccuracy: true,
-    timeout: 10000,
-    maximumAge: 0,
-    ...options
+// Map browser timezone names to PHP-compatible timezone identifiers
+const getPHPCompatibleTimezone = (browserTimezone) => {
+  // Mapping of common browser timezone names to PHP-compatible ones
+  const timezoneMap = {
+    // India
+    'Asia/Calcutta': 'Asia/Kolkata',
+    'Asia/Kolkata': 'Asia/Kolkata',
+    
+    // United States
+    'America/New_York': 'America/New_York',
+    'America/Los_Angeles': 'America/Los_Angeles',
+    'America/Chicago': 'America/Chicago',
+    'America/Denver': 'America/Denver',
+    'America/Phoenix': 'America/Phoenix',
+    
+    // Europe
+    'Europe/London': 'Europe/London',
+    'Europe/Paris': 'Europe/Paris',
+    'Europe/Berlin': 'Europe/Berlin',
+    'Europe/Moscow': 'Europe/Moscow',
+    
+    // Asia
+    'Asia/Tokyo': 'Asia/Tokyo',
+    'Asia/Shanghai': 'Asia/Shanghai',
+    'Asia/Hong_Kong': 'Asia/Hong_Kong',
+    'Asia/Singapore': 'Asia/Singapore',
+    'Asia/Dubai': 'Asia/Dubai',
+    
+    // Australia
+    'Australia/Sydney': 'Australia/Sydney',
+    'Australia/Melbourne': 'Australia/Melbourne',
+    'Australia/Perth': 'Australia/Perth',
+    
+    // Add more mappings as needed
   };
-
-  return navigator.geolocation.watchPosition(
-    (position) => {
-      onUpdate({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
-        timestamp: position.timestamp
-      });
-    },
-    onError,
-    watchOptions
-  );
+  
+  return timezoneMap[browserTimezone] || browserTimezone;
 };
 
-// Get accurate location - simplified (just get location once, no retries)
-export const getAccurateLocation = async () => {
+// Get current timezone from browser with PHP compatibility
+export const getCurrentTimezone = () => {
+  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const phpTimezone = getPHPCompatibleTimezone(browserTimezone);
+  
+  console.log(`Browser timezone: ${browserTimezone} -> PHP timezone: ${phpTimezone}`);
+  return phpTimezone;
+};
+
+// Get timezone offset in minutes (for PHP compatibility)
+export const getTimezoneOffsetMinutes = () => {
+  return -new Date().getTimezoneOffset(); // Returns 330 for IST
+};
+
+// Get timezone offset in ±HH:MM format (for display)
+export const getTimezoneOffsetFormatted = () => {
+  const offset = new Date().getTimezoneOffset();
+  const sign = offset <= 0 ? '+' : '-';
+  const absOffset = Math.abs(offset);
+  const hours = Math.floor(absOffset / 60);
+  const minutes = absOffset % 60;
+  return `${sign}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+};
+
+// Get complete timezone info (PHP-compatible)
+export const getTimezoneInfo = () => {
+  return {
+    timezone: getCurrentTimezone(), // Now returns PHP-compatible name (e.g., 'Asia/Kolkata')
+    timezone_offset: getTimezoneOffsetFormatted(), // For display
+    timezone_offset_minutes: getTimezoneOffsetMinutes(), // For backend calculations
+    timestamp: new Date().toISOString()
+  };
+};
+
+// Get location with timezone (combines both)
+export const getLocationWithTimezone = async () => {
   try {
     const location = await getCurrentLocation();
-    console.log(`Location accuracy: ${location.accuracy}m`);
-    return location;
-  } catch (error) {
-    console.error("Failed to get location:", error);
-    throw error;
-  }
-};
-
-// Get IP-based location as fallback (approximate)
-export const getIPLocation = async () => {
-  try {
-    const response = await fetch('https://ipapi.co/json/');
-    const data = await response.json();
+    const timezoneInfo = getTimezoneInfo();
+    
     return {
-      latitude: data.latitude,
-      longitude: data.longitude,
-      accuracy: 5000, // IP location is less accurate (~5km)
-      city: data.city,
-      region: data.region,
-      country: data.country_name,
-      timestamp: Date.now()
+      ...location,
+      ...timezoneInfo
     };
   } catch (error) {
-    console.error("IP location error:", error);
-    return null;
+    console.error("Error getting location:", error);
+    // Return at least timezone info if location fails
+    return getTimezoneInfo();
   }
 };
 
-// Reverse geocoding using OpenStreetMap (free, no API key needed)
+// Reverse geocoding using OpenStreetMap
 export const getAddressFromCoordinates = async (latitude, longitude) => {
   try {
     const response = await fetch(
@@ -145,68 +154,5 @@ export const getAddressFromCoordinates = async (latitude, longitude) => {
   } catch (error) {
     console.error("Reverse geocoding error:", error);
     return null;
-  }
-};
-
-// Get current timezone from browser
-export const getCurrentTimezone = () => {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
-};
-
-// Get timezone offset
-export const getTimezoneOffset = () => {
-  const offset = new Date().getTimezoneOffset();
-  const sign = offset <= 0 ? '+' : '-';
-  const hours = Math.abs(Math.floor(offset / 60));
-  const minutes = Math.abs(offset % 60);
-  return `${sign}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-};
-
-// Get complete timezone info
-export const getTimezoneInfo = () => {
-  const timezone = getCurrentTimezone();
-  const offset = getTimezoneOffset();
-  const timestamp = new Date().toISOString();
-  
-  return {
-    name: timezone,
-    offset: offset,
-    timestamp: timestamp,
-    isDST: isDaylightSavingTime()
-  };
-};
-
-// Check if DST is active
-export const isDaylightSavingTime = () => {
-  const jan = new Date(new Date().getFullYear(), 0, 1);
-  const jul = new Date(new Date().getFullYear(), 6, 1);
-  const stdTimezoneOffset = Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
-  const currentOffset = new Date().getTimezoneOffset();
-  return currentOffset < stdTimezoneOffset;
-};
-
-// Get current location with timezone (simplified)
-export const getCurrentLocationWithTimezone = async () => {
-  try {
-    const location = await getAccurateLocation();
-    const address = await getAddressFromCoordinates(location.latitude, location.longitude);
-    const timezone = getCurrentTimezone(); // Use browser timezone directly
-    
-    return {
-      ...location,
-      address: address?.display_name || `${location.latitude}, ${location.longitude}`,
-      timezone: timezone,
-      timezoneOffset: getTimezoneOffset(),
-      isDST: isDaylightSavingTime()
-    };
-  } catch (error) {
-    console.error("Error getting location with timezone:", error);
-    // Fallback with browser timezone only
-    return {
-      timezone: getCurrentTimezone(),
-      timezoneOffset: getTimezoneOffset(),
-      isDST: isDaylightSavingTime(),
-      error: true
-    };
   }
 };
