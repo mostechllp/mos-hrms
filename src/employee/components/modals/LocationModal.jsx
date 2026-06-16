@@ -1,11 +1,10 @@
-// LocationModal.jsx - Simplified version
+// LocationModal.jsx
 import { useState, useEffect } from 'react';
-import { getLocation, getAddressFromCoordinates, getCurrentTimezone, getTimezoneOffset } from '../../services/locationServise';
+import { getLocationWithTimezone, getAddressFromCoordinates } from '../../services/locationServise';
 
 const LocationModal = ({ isOpen, onClose, onConfirm, type = 'punch-in' }) => {
   const [location, setLocation] = useState(null);
   const [address, setAddress] = useState(null);
-  const [timezone, setTimezone] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -20,26 +19,20 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = 'punch-in' }) => {
     setError(null);
     
     try {
-      // Get browser timezone first
-      const browserTimezone = getCurrentTimezone();
-      const timezoneOffset = getTimezoneOffset();
-      setTimezone(browserTimezone);
+      // Get location with timezone
+      const locationData = await getLocationWithTimezone();
+      setLocation(locationData);
       
-      // Get location (just once, no retries)
-      const coords = await getLocation();
-      setLocation(coords);
+      // Get address from coordinates (if coordinates are available)
+      if (locationData.latitude && locationData.longitude) {
+        const addressData = await getAddressFromCoordinates(
+          locationData.latitude, 
+          locationData.longitude
+        );
+        setAddress(addressData);
+      }
       
-      // Get address from coordinates
-      const addressData = await getAddressFromCoordinates(coords.latitude, coords.longitude);
-      setAddress(addressData);
-      
-      console.log("Location obtained:", {
-        coords,
-        address: addressData,
-        timezone: browserTimezone,
-        offset: timezoneOffset
-      });
-      
+      console.log("Location with timezone:", locationData);
     } catch (err) {
       console.error("Location fetch error:", err);
       setError(err.message);
@@ -48,32 +41,26 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = 'punch-in' }) => {
     }
   };
 
-  const handleConfirm = () => {
-    if (location) {
-      onConfirm({
-        latitude: location.latitude,
-        longitude: location.longitude,
-        address: address?.display_name || `${location.latitude}, ${location.longitude}`,
-        accuracy: location.accuracy,
-        timestamp: location.timestamp,
-        timezone: timezone || getCurrentTimezone(),
-        timezoneOffset: getTimezoneOffset()
-      });
-    }
-  };
-
-  const getAccuracyMessage = () => {
-    if (!location?.accuracy) return "";
-    if (location.accuracy <= 50) return "Excellent accuracy ✅";
-    if (location.accuracy <= 100) return "Good accuracy ✅";
-    if (location.accuracy <= 500) return "Fair accuracy ⚠️";
-    return "Poor accuracy ❌";
-  };
+  // LocationModal.jsx - Update handleConfirm
+const handleConfirm = () => {
+  if (location) {
+    onConfirm({
+      latitude: location.latitude,
+      longitude: location.longitude,
+      address: address?.display_name || `${location.latitude}, ${location.longitude}`,
+      accuracy: location.accuracy,
+      timestamp: location.timestamp,
+      timezone: location.timezone, // Now returns PHP-compatible (e.g., 'Asia/Kolkata')
+      timezone_offset: location.timezone_offset,
+      timezone_offset_minutes: location.timezone_offset_minutes // Add this
+    });
+  }
+};
 
   const getAccuracyColor = () => {
     if (!location?.accuracy) return "text-gray-500";
-    if (location.accuracy <= 100) return "text-green-500";
-    if (location.accuracy <= 500) return "text-yellow-500";
+    if (location.accuracy <= 50) return "text-green-500";
+    if (location.accuracy <= 200) return "text-yellow-500";
     return "text-red-500";
   };
 
@@ -88,7 +75,7 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = 'punch-in' }) => {
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
             <p className="mt-4 text-[var(--muted)]">
-              Getting your location...
+              Getting your location and timezone...
             </p>
           </div>
         )}
@@ -121,17 +108,28 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = 'punch-in' }) => {
                 <div className="flex-1">
                   <p className="text-sm font-semibold mb-1">📍 Location Detected</p>
                   <p className="text-xs text-[var(--muted)] mb-2">
-                    {address?.display_name || `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`}
+                    {address?.display_name || 
+                     (location.latitude && location.longitude ? 
+                      `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}` : 
+                      'Location not available')}
                   </p>
                   <div className="text-xs text-[var(--muted)] space-y-1">
-                    <p>Coordinates: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</p>
-                    <p className={`${getAccuracyColor()} flex items-center gap-1`}>
-                      <i className="fas fa-chart-line text-xs"></i>
-                      Accuracy: {Math.round(location.accuracy)}m - {getAccuracyMessage()}
-                    </p>
+                    {location.latitude && location.longitude && (
+                      <p>Coordinates: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</p>
+                    )}
+                    {location.accuracy && (
+                      <p className={`${getAccuracyColor()} flex items-center gap-1`}>
+                        <i className="fas fa-chart-line text-xs"></i>
+                        Accuracy: {Math.round(location.accuracy)}m
+                      </p>
+                    )}
                     <p className="text-blue-500 flex items-center gap-1">
                       <i className="fas fa-clock text-xs"></i>
-                      Timezone: {timezone || getCurrentTimezone()}
+                      Timezone: {location.timezone || 'Unknown'}
+                    </p>
+                    <p className="text-purple-500 flex items-center gap-1">
+                      <i className="fas fa-globe text-xs"></i>
+                      UTC Offset: {location.timezone_offset || 'Unknown'}
                     </p>
                   </div>
                 </div>

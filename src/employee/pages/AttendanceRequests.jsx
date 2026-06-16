@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { FiEye, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiLogIn, FiClock, FiChevronDown } from "react-icons/fi";
+import { FiEye, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiLogIn, FiClock } from "react-icons/fi";
 import { MdFingerprint } from "react-icons/md";
 import { showToast } from "../components/common/Toast";
 import StatusBadge from "../components/common/StatusBadge";
@@ -13,16 +13,16 @@ import { clearAttendanceError, fetchAttendanceRequests } from "../store/slices/a
 const AttendanceRequests = () => {
   const dispatch = useDispatch();
   
-  // Get state from Redux
+  // Get state from Redux with safe defaults
+  const attendanceState = useSelector((state) => state.EmpAttendanceType || {});
   const {
-    requests = [],
-    // eslint-disable-next-line no-unused-vars
-    filter = { type: 'all', status: 'all', search: '' },
-    // eslint-disable-next-line no-unused-vars
-    pagination = { currentPage: 1, perPage: 10 },
+    requests: rawRequests,
     loading = false,
     error = null,
-  } = useSelector((state) => state.EmpAttendanceType || {});
+  } = attendanceState;
+  
+  // Ensure requests is always an array
+  const requests = Array.isArray(rawRequests) ? rawRequests : [];
   
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -30,13 +30,11 @@ const AttendanceRequests = () => {
   const [showLateCheckin, setShowLateCheckin] = useState(false);
   const [showMissedPunchIn, setShowMissedPunchIn] = useState(false);
   const [showMissedPunchOut, setShowMissedPunchOut] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
   const [localFilter, setLocalFilter] = useState({ status: "all", search: "" });
   const [localPagination, setLocalPagination] = useState({ currentPage: 1, perPage: 10 });
 
   // Fetch attendance requests on component mount
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/immutability
     loadAttendanceRequests();
   }, []);
 
@@ -56,25 +54,14 @@ const AttendanceRequests = () => {
     }
   };
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showDropdown && !event.target.closest('.dropdown-container')) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showDropdown]);
-
   const getRequestTypeLabel = (type) => {
     const types = {
       early_check_in: "Early Check-in",
       late_check_in: "Late Check-in",
       missed_punch_in: "Missed Punch In",
       missed_punch_out: "Missed Punch Out",
-      early_checkin: "Early Check-in", // Fallback for old format
-      late_checkin: "Late Check-in", // Fallback for old format
+      early_checkin: "Early Check-in",
+      late_checkin: "Late Check-in",
     };
     return types[type] || type?.replace(/_/g, ' ') || type;
   };
@@ -92,6 +79,11 @@ const AttendanceRequests = () => {
   };
 
   const getFilteredRequests = () => {
+    // Defensive check - ensure requests is an array
+    if (!requests || !Array.isArray(requests) || requests.length === 0) {
+      return [];
+    }
+    
     let filtered = [...requests];
     
     if (localFilter.status !== "all") {
@@ -128,13 +120,12 @@ const AttendanceRequests = () => {
         year: "numeric",
       });
     } catch (error) {
-      return "-", error;
+      return "-";
     }
   };
 
   const formatTime = (timeString) => {
     if (!timeString) return "-";
-    // If time is in HH:MM:SS format, extract HH:MM
     if (timeString.includes(':')) {
       const parts = timeString.split(':');
       return `${parts[0]}:${parts[1]}`;
@@ -154,7 +145,7 @@ const AttendanceRequests = () => {
         minute: "2-digit",
       });
     } catch (error) {
-      return "-", error;
+      return "-";
     }
   };
 
@@ -216,7 +207,6 @@ const AttendanceRequests = () => {
     setShowLateCheckin(false);
     setShowMissedPunchIn(false);
     setShowMissedPunchOut(false);
-    // Refresh the list after modal closes
     loadAttendanceRequests();
   };
 
@@ -285,12 +275,11 @@ const AttendanceRequests = () => {
         </div>
       </div>
 
-      {/* Header with Dropdown */}
+      {/* Header */}
       <div className="attendance-requests-header flex flex-col md:flex-row justify-between items-start md:items-center gap-5 mb-7">
         <h2 className="text-xl md:text-2xl font-semibold bg-gradient-to-r from-[var(--text)] to-green-600 bg-clip-text text-transparent">
           My Attendance Requests
         </h2>
-        
       </div>
 
       {/* New Request Cards */}
@@ -446,7 +435,7 @@ const AttendanceRequests = () => {
                     <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
                     Loading...
                   </div>
-                 </td>
+                </td>
               </tr>
             ) : currentRequests.length === 0 ? (
               <tr>
@@ -455,7 +444,7 @@ const AttendanceRequests = () => {
                     <FiClock className="text-4xl text-[var(--muted)]" />
                     <p>No attendance requests found.</p>
                   </div>
-                 </td>
+                </td>
               </tr>
             ) : (
               currentRequests.map((request, idx) => (
@@ -465,7 +454,7 @@ const AttendanceRequests = () => {
                 >
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
                     {start + idx + 1}
-                   </td>
+                  </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)]">
                     <div className="flex items-center gap-2">
                       {getRequestTypeIcon(request.type)}
@@ -473,19 +462,19 @@ const AttendanceRequests = () => {
                         {getRequestTypeLabel(request.type)}
                       </span>
                     </div>
-                   </td>
+                  </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] whitespace-nowrap">
                     {formatDate(request.request_date || request.date)}
-                   </td>
+                  </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
                     {formatTime(request.request_time || request.time)}
-                   </td>
+                  </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] max-w-[200px] truncate" title={request.reason}>
                     {request.reason || "-"}
-                   </td>
+                  </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)]">
                     <StatusBadge status={request.status} />
-                   </td>
+                  </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)]">
                     <button
                       onClick={() => handleViewDetails(request)}
@@ -494,12 +483,12 @@ const AttendanceRequests = () => {
                     >
                       <FiEye className="text-sm" />
                     </button>
-                   </td>
-                 </tr>
+                  </td>
+                </tr>
               ))
             )}
           </tbody>
-         </table>
+        </table>
       </div>
 
       {/* Pagination */}

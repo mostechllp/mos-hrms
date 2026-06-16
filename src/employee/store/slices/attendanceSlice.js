@@ -8,71 +8,63 @@ export const fetchDashboardData = createAsyncThunk(
     try {
       const response = await apiClient.get("/employee/dashboard");
       console.log("Dashboard data:", response.data);
-      
+
       if (response.data && response.data.status === "success") {
         return response.data.data;
       } else {
-        return rejectWithValue(response.data?.message || "Failed to fetch dashboard data");
+        return rejectWithValue(
+          response.data?.message || "Failed to fetch dashboard data",
+        );
       }
     } catch (error) {
       console.error("Dashboard fetch error:", error);
       return rejectWithValue(
-        error.response?.data?.message || "Failed to fetch dashboard data"
+        error.response?.data?.message || "Failed to fetch dashboard data",
       );
     }
-  }
+  },
 );
 
-// attendanceSlice.js - Update punchIn and punchOut to include timezone
-// ... (keep your existing imports and code)
+// attendanceSlice.js - Fix to handle 201 status code
 
-// ✅ Punch In with Location and Timezone
 export const punchIn = createAsyncThunk(
   "attendance/punchIn",
   async (locationData, { rejectWithValue }) => {
     try {
-      console.log("🔍 PUNCH IN DEBUG - Raw locationData received:", locationData);
-      console.log("🔍 PUNCH IN DEBUG - locationData.location:", locationData?.location);
-      
-      // Prepare request body with location if available
+      console.log("🔍 Punch in request:", locationData);
+
       const requestBody = {};
-      
+
       if (locationData && locationData.location) {
-        // ✅ Use the exact field names the backend expects
         requestBody.punch_in_latitude = locationData.location.latitude;
         requestBody.punch_in_longitude = locationData.location.longitude;
         requestBody.punch_in_address = locationData.location.address;
-        
-        // ✅ Add timezone information
+
+        // Only send timezone if backend expects it
         if (locationData.location.timezone) {
           requestBody.timezone = locationData.location.timezone;
-          requestBody.timezone_offset = locationData.location.timezoneOffset;
-        } else {
-          // Fallback to browser timezone
-          requestBody.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-          requestBody.timezone_offset = new Date().getTimezoneOffset();
         }
-        
-        console.log("✅ Location and timezone added to request body:", requestBody);
-      } else {
-        console.warn("⚠️ No location data provided for punch in");
       }
-      
-      console.log("📤 Sending punch in request with body:", requestBody);
-      
+
+      console.log("📤 Sending request:", requestBody);
+
       const response = await apiClient.post("/employee/punch-in", requestBody);
-      
-      console.log("📥 Punch in response:", response.data);
-      
-      if (response.data && response.data.status === "success") {
-        const data = response.data.data;
-        
+
+      console.log("📥 Response status:", response.status);
+      console.log("📥 Response data:", response.data);
+
+      // Handle both 200 and 201 status codes
+      if (response.status === 200 || response.status === 201) {
+        const data = response.data.data || response.data;
+
+        // Store in localStorage
         localStorage.setItem("attendance-punched-in", "true");
-        localStorage.setItem("attendance-punch-in-time", data.punch_in);
-        if (requestBody.timezone) {
-          localStorage.setItem("attendance-timezone", requestBody.timezone);
-        }
-        
+        localStorage.setItem(
+          "attendance-punch-in-time",
+          data.punch_in || new Date().toISOString(),
+        );
+
+        // Dispatch success
         return {
           punch_in: data.punch_in,
           log_date: data.log_date,
@@ -81,58 +73,76 @@ export const punchIn = createAsyncThunk(
           punch_in_latitude: data.punch_in_latitude,
           punch_in_longitude: data.punch_in_longitude,
           punch_in_address: data.punch_in_address,
-          timezone: requestBody.timezone
         };
       } else {
         return rejectWithValue(response.data?.message || "Punch in failed");
       }
     } catch (error) {
       console.error("Punch in error:", error);
-      console.error("Error response:", error.response?.data);
-      const errorMsg = error.response?.data?.message || "Punch in failed";
-      return rejectWithValue(errorMsg);
+      console.error(
+        "Error response:",
+        error.response?.status,
+        error.response?.data,
+      );
+
+      // Handle different error status codes
+      if (error.response?.status === 422) {
+        const errors = error.response?.data?.errors;
+        if (errors && errors.timezone) {
+          return rejectWithValue(
+            `Timezone error: ${errors.timezone.join(", ")}`,
+          );
+        }
+        return rejectWithValue(
+          error.response?.data?.message || "Validation error",
+        );
+      }
+
+      return rejectWithValue(
+        error.response?.data?.message || "Punch in failed",
+      );
     }
-  }
+  },
 );
 
-// ✅ Punch Out with Location and Timezone (for current day)
+// Similarly update punchOut
 export const punchOut = createAsyncThunk(
   "attendance/punchOut",
-  async ({ tasks_completed, plan_tomorrow, pending_works, location }, { rejectWithValue }) => {
+  async (
+    { tasks_completed, plan_tomorrow, pending_works, location },
+    { rejectWithValue },
+  ) => {
     try {
-      // Prepare request body with tasks and location
       const requestBody = {
         tasks_completed,
         plan_tomorrow,
-        pending_works, // Include pending works
+        pending_works,
       };
-      
-      // Add location if available
+
       if (location) {
         requestBody.latitude = location.latitude;
         requestBody.longitude = location.longitude;
         requestBody.address = location.address;
-        
-        // ✅ Add timezone information
+
         if (location.timezone) {
           requestBody.timezone = location.timezone;
-          requestBody.timezone_offset = location.timezoneOffset;
-        } else {
-          // Fallback to browser timezone
-          requestBody.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-          requestBody.timezone_offset = new Date().getTimezoneOffset();
         }
       }
-      
+
+      console.log("📤 Sending punch out request:", requestBody);
+
       const response = await apiClient.post("/employee/punch-out", requestBody);
-      
-      if (response.data && response.data.status === "success") {
-        const data = response.data.data;
-        
+
+      console.log("📥 Punch out response status:", response.status);
+      console.log("📥 Punch out response data:", response.data);
+
+      // Handle both 200 and 201 status codes
+      if (response.status === 200 || response.status === 201) {
+        const data = response.data.data || response.data;
+
         localStorage.removeItem("attendance-punched-in");
         localStorage.removeItem("attendance-punch-in-time");
-        localStorage.removeItem("attendance-timezone");
-        
+
         return {
           punch_out: data.punch_out,
           log_date: data.log_date,
@@ -142,7 +152,6 @@ export const punchOut = createAsyncThunk(
           punch_out_latitude: data.punch_out_latitude,
           punch_out_longitude: data.punch_out_longitude,
           punch_out_address: data.punch_out_address,
-          timezone: requestBody.timezone
         };
       } else {
         return rejectWithValue(response.data?.message || "Punch out failed");
@@ -150,71 +159,71 @@ export const punchOut = createAsyncThunk(
     } catch (error) {
       console.error("Punch out error:", error);
       return rejectWithValue(
-        error.response?.data?.message || "Punch out failed"
+        error.response?.data?.message || "Punch out failed",
       );
     }
-  }
+  },
 );
 
-// ✅ Pending Punch Out with Location and Timezone (for previous day)
+// Update pendingPunchOut similarly
 export const pendingPunchOut = createAsyncThunk(
   "attendance/pendingPunchOut",
-  async ({ tasks_completed, plan_tomorrow, pending_works, punch_out_time, date, location }, { rejectWithValue }) => {
+  async (
+    {
+      tasks_completed,
+      plan_tomorrow,
+      pending_works,
+      punch_out_time,
+      date,
+      location,
+    },
+    { rejectWithValue },
+  ) => {
     try {
-      // Combine the date with the provided punch out time
       const punchOutDateTime = `${date} ${punch_out_time}:00`;
-      
-      // Prepare request body with tasks and location
+
       const requestBody = {
         tasks_completed,
         plan_tomorrow,
         pending_works,
         punch_out_time: punchOutDateTime,
-        log_date: date
+        log_date: date,
       };
-      
-      // Add location if available
+
       if (location) {
         requestBody.latitude = location.latitude;
         requestBody.longitude = location.longitude;
         requestBody.address = location.address;
-        
-        // ✅ Add timezone information
+
         if (location.timezone) {
           requestBody.timezone = location.timezone;
-          requestBody.timezone_offset = location.timezoneOffset;
-        } else {
-          // Fallback to browser timezone
-          requestBody.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-          requestBody.timezone_offset = new Date().getTimezoneOffset();
         }
       }
-      
+
       const response = await apiClient.post("/employee/punch-out", requestBody);
-      
-      if (response.data && response.data.status === "success") {
-        const data = response.data.data;
+
+      // Handle both 200 and 201 status codes
+      if (response.status === 200 || response.status === 201) {
+        const data = response.data.data || response.data;
         return {
           punch_out: data.punch_out,
           log_date: data.log_date,
           log_status: data.log_status,
           id: data.id,
           task_report: data.task_report,
-          punch_out_latitude: data.punch_out_latitude,
-          punch_out_longitude: data.punch_out_longitude,
-          punch_out_address: data.punch_out_address,
-          timezone: requestBody.timezone
         };
       } else {
-        return rejectWithValue(response.data?.message || "Failed to complete pending punch out");
+        return rejectWithValue(
+          response.data?.message || "Failed to complete pending punch out",
+        );
       }
     } catch (error) {
       console.error("Pending punch out error:", error);
       return rejectWithValue(
-        error.response?.data?.message || "Failed to complete pending punch out"
+        error.response?.data?.message || "Failed to complete pending punch out",
       );
     }
-  }
+  },
 );
 
 // ✅ Start Break
@@ -226,14 +235,16 @@ export const startBreak = createAsyncThunk(
       if (response.data && response.data.status === "success") {
         return response.data;
       } else {
-        return rejectWithValue(response.data?.message || "Failed to start break");
+        return rejectWithValue(
+          response.data?.message || "Failed to start break",
+        );
       }
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to start break"
+        error.response?.data?.message || "Failed to start break",
       );
     }
-  }
+  },
 );
 
 // ✅ End Break
@@ -249,10 +260,10 @@ export const endBreak = createAsyncThunk(
       }
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to end break"
+        error.response?.data?.message || "Failed to end break",
       );
     }
-  }
+  },
 );
 
 const initialState = {
@@ -278,6 +289,10 @@ const attendanceSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    builder;
+    // ✅ Fetch Dashboard Data
+    // In the extraReducers section of attendanceSlice.js
+
     builder
       // ✅ Fetch Dashboard Data
       .addCase(fetchDashboardData.pending, (state) => {
@@ -287,9 +302,11 @@ const attendanceSlice = createSlice({
       .addCase(fetchDashboardData.fulfilled, (state, action) => {
         state.loading = false;
         state.dashboardData = action.payload;
-        if (action.payload.today_attendance) {
-          state.isPunchedIn = action.payload.today_attendance.punched_in || false;
-          state.punchInTime = action.payload.today_attendance.punch_in_time || null;
+        if (action.payload?.today_attendance) {
+          state.isPunchedIn =
+            action.payload.today_attendance.punched_in || false;
+          state.punchInTime =
+            action.payload.today_attendance.punch_in_time || null;
         }
         state.error = null;
       })
@@ -297,7 +314,7 @@ const attendanceSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // ✅ Punch In
       .addCase(punchIn.pending, (state) => {
         state.loading = true;
@@ -308,13 +325,15 @@ const attendanceSlice = createSlice({
         state.isPunchedIn = true;
         state.punchInTime = action.payload.punch_in;
         state.error = null;
+        // Refresh dashboard data after successful punch in
+        // This will be handled in the component
       })
       .addCase(punchIn.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
 
-      // ✅ Punch Out (current day)
+      // ✅ Punch Out
       .addCase(punchOut.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -346,7 +365,7 @@ const attendanceSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // ✅ Start Break
       .addCase(startBreak.pending, (state) => {
         state.loading = true;
