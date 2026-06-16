@@ -109,97 +109,52 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { path: "/admin/settings", icon: "fas fa-gear", label: "Settings", moduleSlug: "settings" },
   ];
 
-  // Map for employee menu items (based on sidebar_modules)
+  // Map for employee menu items
   const getEmployeeNavItems = () => {
-    // Complete mapping for all possible modules
-    const employeeMenuMap = {
-      dashboard: { path: "/employee/dashboard", icon: "fas fa-chart-line", label: "Dashboard" },
+    // Define the core employee functionalities
+    const coreEmployeeMenus = [
+      { path: "/employee/dashboard", icon: "fas fa-chart-line", label: "Dashboard", moduleSlug: "dashboard" },
+      { path: "/employee/leaves", icon: "fas fa-calendar-check", label: "My Leaves", moduleSlug: "leave" },
+      { path: "/employee/wfh", icon: "fas fa-home", label: "WFH Requests", moduleSlug: "wfh" },
+      { path: "/employee/tasks", icon: "fas fa-clipboard-list", label: "Task Reports", moduleSlug: "tasks" },
+      { path: "/employee/profile", icon: "fas fa-user-circle", label: "My Profile", moduleSlug: "profile" },
+    ];
+
+    // These are admin-style menus that some elevated employees might have
+    const adminStyleMenus = {
       onboarding: { path: "/employee/onboarding", icon: "fas fa-user-plus", label: "Onboarding" },
-      employees: { path: "/employee/employees", icon: "fas fa-users", label: "Employees" },
       projects: { path: "/employee/projects", icon: "fas fa-file", label: "Projects" },
-      attendance: { path: "/employee/attendance", icon: "fas fa-fingerprint", label: "Attendance" },
-      leave: { path: "/employee/leaves", icon: "fas fa-calendar-check", label: "My Leaves" },
       documents: { path: "/employee/documents", icon: "fas fa-file", label: "Documents" },
-      reports: { path: "/employee/reports", icon: "fas fa-chart-line", label: "Reports" },
       settings: { path: "/employee/settings", icon: "fas fa-gear", label: "Settings" },
       payroll: { path: "/employee/payroll", icon: "fas fa-file-invoice-dollar", label: "Payroll" },
       roles: { path: "/employee/roles", icon: "fas fa-user-shield", label: "Roles" },
     };
 
-    // Additional employee menus not in sidebar_modules
-    const additionalEmployeeMenus = [
-      { 
-        path: "/employee/tasks", 
-        icon: "fas fa-tasks", 
-        label: "My Tasks", 
-        moduleSlug: "tasks" 
-      },
-      { 
-        path: "/employee/task-reports", 
-        icon: "fas fa-clipboard-list", 
-        label: "Task Reports", 
-        moduleSlug: "reports",
-        hasSubmenu: true,
-        submenuItems: [
-          { path: "/employee/task-reports", label: "My Task Reports", icon: "fas fa-list" },
-          { path: "/employee/my-tasks", label: "My Tasks", icon: "fas fa-user-tasks" }
-        ]
-      },
-      { path: "/employee/profile", icon: "fas fa-user-circle", label: "My Profile", moduleSlug: "profile" },
-    ];
+    let allMenus = [];
 
-    // Build menus from sidebar_modules
-    const menusFromModules = sidebarModules
-      .filter(module => module.status === "active")
-      .map(module => {
-        // First check if we have a mapping for this module
-        let menuItem = employeeMenuMap[module.slug];
-        
-        // If no mapping exists, create a dynamic menu item from module data
-        if (!menuItem) {
-          // Convert bx-icon to font awesome if needed, or use default
-          let iconClass = "fas fa-folder";
-          if (module.icon) {
-            // Map boxicons to font awesome (optional)
-            const iconMap = {
-              "bx-grid-alt": "fas fa-chart-line",
-              "bx-user-plus": "fas fa-user-plus",
-              "bx-group": "fas fa-users",
-              "bx-briefcase": "fas fa-file",
-              "bx-calendar-check": "fas fa-fingerprint",
-              "bx-calendar-x": "fas fa-calendar-check",
-              "bx-file": "fas fa-file",
-              "bx-bar-chart": "fas fa-chart-line",
-              "bx-cog": "fas fa-gear",
-            };
-            iconClass = iconMap[module.icon] || "fas fa-folder";
-          }
-          
-          menuItem = {
-            path: `/employee/${module.slug}`,
-            icon: iconClass,
-            label: module.name,
-          };
-        }
-        
-        if (menuItem && hasPermission(module.slug, "read")) {
-          return {
-            ...menuItem,
-            moduleSlug: module.slug
-          };
-        }
-        return null;
-      })
-      .filter(item => item !== null);
-
-    // Add additional menus that have read permission
-    const allowedAdditionalMenus = additionalEmployeeMenus.filter(menu => {
-      if (menu.moduleSlug === "profile") return true; // Profile always shows
-      return hasPermission(menu.moduleSlug, "read");
+    // Always add the core employee menus unconditionally for regular employee portal functionalities
+    coreEmployeeMenus.forEach(menu => {
+      allMenus.push(menu);
     });
 
+    // Add admin-style menus ONLY if they are explicitly in sidebarModules and the user has permission
+    // This prevents standard employees from seeing admin pages in their sidebar.
+    sidebarModules
+      .filter(module => module.status === "active")
+      .forEach(module => {
+        // Skip modules that are already handled in coreEmployeeMenus
+        if (coreEmployeeMenus.some(m => m.moduleSlug === module.slug)) return;
+
+        const adminMenu = adminStyleMenus[module.slug];
+        if (adminMenu && hasPermission(module.slug, "read")) {
+          allMenus.push({
+            ...adminMenu,
+            moduleSlug: module.slug
+          });
+        }
+      });
+
     // Sort menus: put Settings at the end
-    const allMenus = [...menusFromModules, ...allowedAdditionalMenus];
     const settingsIndex = allMenus.findIndex(m => m.label === "Settings" || m.moduleSlug === "settings");
     if (settingsIndex > -1) {
       const settings = allMenus.splice(settingsIndex, 1)[0];
@@ -488,7 +443,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           })}
 
           {/* Attendance Requests Section for Employees */}
-          {userType === "employee" && hasPermission("attendance", "edit") && (
+          {userType === "employee" && hasPermission("attendance", "read") && (
             <div className="nav-section">
               <Link
                 to="/employee/attendance-requests"
