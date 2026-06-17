@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 
-const ROUTE_MAP = {
+const ADMIN_ROUTE_MAP = {
   dashboard: "/admin/dashboard",
   onboarding: "/admin/employees/onboarding",
   offboarding: "/admin/employees/offboarding",
@@ -18,6 +18,23 @@ const ROUTE_MAP = {
   payroll: "/admin/payroll/add",
   roles: "/admin/role-management",
   settings: "/admin/settings",
+};
+
+const EMPLOYEE_ROUTE_MAP = {
+  dashboard: "/employee/dashboard",
+  onboarding: "/employee/onboarding",
+  employees: "/employee/employees",
+  attendance: "/employee/attendance",
+  "attendance-requests": "/employee/attendance-requests",
+  documents: "/employee/documents",
+  "task-reports": "/employee/task-reports",
+  reports: "/employee/reports",
+  projects: "/employee/projects",
+  settings: "/employee/settings",
+  leaves: "/employee/leaves",
+  "wfh-requests": "/employee/wfh",
+  payroll: "/employee/payroll/add", // Just in case
+  roles: "/employee/role-management", // Just in case
 };
 
 const ICON_MAP = {
@@ -63,10 +80,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   }, [location, isMobile, setIsOpen]);
 
   // Driven entirely by sidebar_modules from API — works for all roles
+  const activeRouteMap = user?.type === 'admin' ? ADMIN_ROUTE_MAP : EMPLOYEE_ROUTE_MAP;
+  
   const navItems = (user?.sidebar_modules || [])
-    .filter((mod) => mod.status === "active" && ROUTE_MAP[mod.slug])
+    .filter((mod) => mod.status === "active" && activeRouteMap[mod.slug])
     .map((mod) => ({
-      path: ROUTE_MAP[mod.slug],
+      path: activeRouteMap[mod.slug],
       icon: ICON_MAP[mod.slug] || "fas fa-circle",
       label: mod.name,
       module: mod.slug,
