@@ -126,8 +126,15 @@ apiClient.interceptors.response.use(
       console.log('Token refreshed successfully!');
 
       // Save new token
-      localStorage.setItem('employee-token', newToken);
-      localStorage.setItem('auth-token', newToken);
+      if (localStorage.getItem('employee-token')) {
+        localStorage.setItem('employee-token', newToken);
+      }
+      if (localStorage.getItem('auth-token')) {
+        localStorage.setItem('auth-token', newToken);
+      }
+      if (localStorage.getItem('hr-token')) {
+        localStorage.setItem('hr-token', newToken);
+      }
 
       // Update default headers
       apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
