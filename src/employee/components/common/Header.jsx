@@ -47,7 +47,7 @@ const Header = ({ onMenuClick }) => {
   };
 
   return (
-    <header className="header bg-[var(--surface)] border-b border-[var(--border)] py-3 px-4 md:px-6 sticky top-0 z-50 flex items-center justify-between flex-wrap gap-3">
+    <header className="header bg-[var(--surface)] border-b border-[var(--border)] py-3 px-4 md:px-6 sticky top-0 z-40 flex items-center justify-between flex-wrap gap-3">
       <div className="header-left flex items-center gap-4">
         <button 
           onClick={onMenuClick}
