@@ -116,7 +116,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       { path: "/employee/dashboard", icon: "fas fa-chart-line", label: "Dashboard", moduleSlug: "dashboard" },
       { path: "/employee/leaves", icon: "fas fa-calendar-check", label: "My Leaves", moduleSlug: "leave" },
       { path: "/employee/wfh", icon: "fas fa-home", label: "WFH Requests", moduleSlug: "wfh" },
-      { path: "/employee/tasks", icon: "fas fa-clipboard-list", label: "Task Reports", moduleSlug: "tasks" },
+      { path: "/employee/task-reports", icon: "fas fa-clipboard-list", label: "Task Reports", moduleSlug: "reports" },
       { path: "/employee/profile", icon: "fas fa-user-circle", label: "My Profile", moduleSlug: "profile" },
     ];
 
