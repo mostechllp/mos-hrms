@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
+  const { user } = useSelector((state) => state.auth);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -24,31 +26,33 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     }
   }, [location, isMobile, setIsOpen]);
 
-  const navItems = [
-    { path: "/admin/dashboard", icon: "fas fa-chart-line", label: "Dashboard" },
-    {
-      path: "/admin/employees/onboarding",
-      icon: "fas fa-user-plus",
-      label: "Onboarding",
-    },
-    {
-      path: "/admin/employees/offboarding",
-      icon: "fas fa-user-minus",
-      label: "Offboarding",
-    },
-    { path: "/admin/employees", icon: "fas fa-users", label: "Employees" },
-    { path: "/admin/attendances", icon: "fas fa-fingerprint", label: "Attendance" },
-    { path: "/admin/documents", icon: "fas fa-file-signature", label: "Documents" },
-    { path: "/admin/leaves", icon: "fas fa-calendar-check", label: "Leaves" },
-    { path: "/admin/task-reports", icon: "fas fa-tasks", label: "Task Reports" },
-    // { path: "/admin/wfh", icon: "fas fa-home", label: "WFH Requests" },
-    { path: "/admin/reports", icon: "fas fa-chart-line", label: "Reports" },
-    { path: "/admin/projects", icon: "fas fa-file", label: "Projects" },
-    { path: "/admin/tasks", icon: "fas fa-tasks", label: "Tasks" },
-    { path: "/admin/payroll/add", icon: "fas fa-file-invoice-dollar", label: "Payroll" },
-    { path: "/admin/role-management", icon: "fas fa-user-shield", label: "Roles" },
-    { path: "/admin/settings", icon: "fas fa-gear", label: "Settings" },
+  const ALL_NAV_ITEMS = [
+    { path: "/admin/dashboard", icon: "fas fa-chart-line", label: "Dashboard", module: "dashboard" },
+    { path: "/admin/employees/onboarding", icon: "fas fa-user-plus", label: "Onboarding", module: "onboarding" },
+    { path: "/admin/employees/offboarding", icon: "fas fa-user-minus", label: "Offboarding", module: "offboarding" },
+    { path: "/admin/employees", icon: "fas fa-users", label: "Employees", module: "employees" },
+    { path: "/admin/attendances", icon: "fas fa-fingerprint", label: "Attendance", module: "attendance" },
+    { path: "/admin/documents", icon: "fas fa-file-signature", label: "Documents", module: "documents" },
+    { path: "/admin/leaves", icon: "fas fa-calendar-check", label: "Leaves", module: "leaves" },
+    { path: "/admin/task-reports", icon: "fas fa-tasks", label: "Task Reports", module: "reports" },
+    { path: "/admin/reports", icon: "fas fa-chart-line", label: "Reports", module: "reports" },
+    { path: "/admin/projects", icon: "fas fa-file", label: "Projects", module: "projects" },
+    { path: "/admin/tasks", icon: "fas fa-tasks", label: "Tasks", module: "projects" }, // Grouped under projects
+    { path: "/admin/payroll/add", icon: "fas fa-file-invoice-dollar", label: "Payroll", module: "payroll" },
+    { path: "/admin/role-management", icon: "fas fa-user-shield", label: "Roles", module: "roles" },
+    { path: "/admin/settings", icon: "fas fa-gear", label: "Settings", module: "settings" },
   ];
+
+  // Map user allowed modules
+  const userModules = user?.sidebar_modules?.map((mod) => mod.slug) || [];
+  
+  // Filter nav items based on allowed modules
+  const navItems = ALL_NAV_ITEMS.filter((item) => {
+    // Show all if Super Admin, otherwise check sidebar_modules array
+    if (user?.role?.name === "Super Admin") return true;
+    if (!item.module) return true;
+    return userModules.includes(item.module);
+  });
   
   return (
     <>
