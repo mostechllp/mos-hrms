@@ -2,6 +2,42 @@ import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 
+const ROUTE_MAP = {
+  dashboard: "/admin/dashboard",
+  onboarding: "/admin/employees/onboarding",
+  offboarding: "/admin/employees/offboarding",
+  employees: "/admin/employees",
+  attendance: "/admin/attendances",
+  "attendance-requests": "/admin/attendance-requests",
+  "wfh-requests": "/admin/wfh-requests",
+  documents: "/admin/documents",
+  leaves: "/admin/leaves",
+  "task-reports": "/admin/task-reports",
+  reports: "/admin/reports",
+  projects: "/admin/projects",
+  payroll: "/admin/payroll/add",
+  roles: "/admin/role-management",
+  settings: "/admin/settings",
+};
+
+const ICON_MAP = {
+  dashboard: "fas fa-chart-line",
+  onboarding: "fas fa-user-plus",
+  offboarding: "fas fa-user-minus",
+  employees: "fas fa-users",
+  attendance: "fas fa-fingerprint",
+  "attendance-requests": "fas fa-clock",
+  "wfh-requests": "fas fa-house-user",
+  documents: "fas fa-file-signature",
+  leaves: "fas fa-calendar-check",
+  "task-reports": "fas fa-tasks",
+  reports: "fas fa-chart-bar",
+  projects: "fas fa-folder",
+  payroll: "fas fa-file-invoice-dollar",
+  roles: "fas fa-user-shield",
+  settings: "fas fa-gear",
+};
+
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
@@ -26,34 +62,16 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     }
   }, [location, isMobile, setIsOpen]);
 
-  const ALL_NAV_ITEMS = [
-    { path: "/admin/dashboard", icon: "fas fa-chart-line", label: "Dashboard", module: "dashboard" },
-    { path: "/admin/employees/onboarding", icon: "fas fa-user-plus", label: "Onboarding", module: "onboarding" },
-    { path: "/admin/employees/offboarding", icon: "fas fa-user-minus", label: "Offboarding", module: "offboarding" },
-    { path: "/admin/employees", icon: "fas fa-users", label: "Employees", module: "employees" },
-    { path: "/admin/attendances", icon: "fas fa-fingerprint", label: "Attendance", module: "attendance" },
-    { path: "/admin/documents", icon: "fas fa-file-signature", label: "Documents", module: "documents" },
-    { path: "/admin/leaves", icon: "fas fa-calendar-check", label: "Leaves", module: "leaves" },
-    { path: "/admin/task-reports", icon: "fas fa-tasks", label: "Task Reports", module: "reports" },
-    { path: "/admin/reports", icon: "fas fa-chart-line", label: "Reports", module: "reports" },
-    { path: "/admin/projects", icon: "fas fa-file", label: "Projects", module: "projects" },
-    { path: "/admin/tasks", icon: "fas fa-tasks", label: "Tasks", module: "projects" }, // Grouped under projects
-    { path: "/admin/payroll/add", icon: "fas fa-file-invoice-dollar", label: "Payroll", module: "payroll" },
-    { path: "/admin/role-management", icon: "fas fa-user-shield", label: "Roles", module: "roles" },
-    { path: "/admin/settings", icon: "fas fa-gear", label: "Settings", module: "settings" },
-  ];
+  // Driven entirely by sidebar_modules from API — works for all roles
+  const navItems = (user?.sidebar_modules || [])
+    .filter((mod) => mod.status === "active" && ROUTE_MAP[mod.slug])
+    .map((mod) => ({
+      path: ROUTE_MAP[mod.slug],
+      icon: ICON_MAP[mod.slug] || "fas fa-circle",
+      label: mod.name,
+      module: mod.slug,
+    }));
 
-  // Map user allowed modules
-  const userModules = user?.sidebar_modules?.map((mod) => mod.slug) || [];
-  
-  // Filter nav items based on allowed modules
-  const navItems = ALL_NAV_ITEMS.filter((item) => {
-    // Show all if Super Admin, otherwise check sidebar_modules array
-    if (user?.role?.name === "Super Admin") return true;
-    if (!item.module) return true;
-    return userModules.includes(item.module);
-  });
-  
   return (
     <>
       {/* Mobile overlay */}
@@ -82,8 +100,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           <img
             src="https://violet-leopard-500489.hostingersite.com/hr/public/assets/images/hr-logo2.jpg"
             alt="HMR Logo"
-            className={`object-contain rounded-lg bg-white p-1 transition-all duration-300 ${!isMobile && !isOpen ? "w-10 h-10" : "w-12 h-12"
-              }`}
+            className={`object-contain rounded-lg bg-white p-1 transition-all duration-300 ${
+              !isMobile && !isOpen ? "w-10 h-10" : "w-12 h-12"
+            }`}
           />
         </div>
 
@@ -96,19 +115,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               end={item.path === "/admin/employees" || item.path === "/admin/dashboard"}
               onClick={() => isMobile && setIsOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-5 py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden ${isActive
-                  ? "bg-green-500/20 text-white"
-                  : "text-gray-400 hover:text-white hover:bg-white/10"
+                `flex items-center gap-3 px-5 py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden ${
+                  isActive
+                    ? "bg-green-500/20 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-white/10"
                 }`
               }
             >
               <i className={item.icon + " w-6 text-lg flex-shrink-0"}></i>
-
               <span
-                className={`transition-opacity duration-200 ${!isMobile && !isOpen
+                className={`transition-opacity duration-200 ${
+                  !isMobile && !isOpen
                     ? "opacity-0 group-hover:opacity-100"
                     : "opacity-100"
-                  }`}
+                }`}
               >
                 {item.label}
               </span>
