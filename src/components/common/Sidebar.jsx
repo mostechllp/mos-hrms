@@ -38,10 +38,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const hasPermission = (moduleSlug, permissionType = "read") => {
     if (!moduleSlug) return true;
     
-    // Super admins or roles with 'all' permissions can access everything
+    // Super admins have access to everything
+    if (user?.role?.name === "Super Admin") return true;
     if (userPermissions && userPermissions.all === true) return true;
     
+    // Check if the module is explicitly assigned in sidebar_modules
+    const hasSidebarModule = sidebarModules.some(mod => mod.slug === moduleSlug && mod.status === "active");
+    
     const modulePerm = userPermissions[moduleSlug];
+    
+    // If it's a read permission check for rendering menus, checking sidebarModules is also a good fallback
+    if (permissionType === "read" && !modulePerm && hasSidebarModule) {
+      return true;
+    }
+    
     if (!modulePerm) return false;
     
     if (permissionType === "read") return modulePerm.read || false;
@@ -88,7 +98,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { path: "/admin/employees", icon: "fas fa-users", label: "Employees", moduleSlug: "employees" },
     { path: "/admin/attendances", icon: "fas fa-fingerprint", label: "Attendance", moduleSlug: "attendance" },
     { path: "/admin/documents", icon: "fas fa-file-signature", label: "Documents", moduleSlug: "documents" },
-    { path: "/admin/leaves", icon: "fas fa-calendar-check", label: "Leaves", moduleSlug: "leave" },
+    { path: "/admin/leaves", icon: "fas fa-calendar-check", label: "Leaves", moduleSlug: "leaves" }, // fixed slug
     { 
       path: "/admin/task-reports", 
       icon: "fas fa-tasks", 
@@ -102,7 +112,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     },
     { path: "/admin/reports", icon: "fas fa-chart-line", label: "Reports", moduleSlug: "reports" },
     { path: "/admin/projects", icon: "fas fa-file", label: "Projects", moduleSlug: "projects" },
-    { path: "/admin/tasks", icon: "fas fa-tasks", label: "Tasks", moduleSlug: "tasks" },
+    { path: "/admin/tasks", icon: "fas fa-tasks", label: "Tasks", moduleSlug: "projects" }, // grouped under projects
     { path: "/admin/payroll/add", icon: "fas fa-file-invoice-dollar", label: "Payroll", moduleSlug: "payroll" },
     { path: "/admin/role-management", icon: "fas fa-user-shield", label: "Roles", moduleSlug: "roles" },
     // Settings - Last item
