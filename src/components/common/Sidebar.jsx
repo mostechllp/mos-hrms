@@ -107,7 +107,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       hasSubmenu: true,
       submenuItems: [
         { path: "/admin/task-reports", label: "All Task Reports", icon: "fas fa-list" },
-        { path: "/admin/my-tasks", label: "My Tasks", icon: "fas fa-user-tasks" }
+        { path: "/employee/task-reports", label: "My Tasks", icon: "fas fa-user-tasks" }
       ]
     },
     { path: "/admin/reports", icon: "fas fa-chart-line", label: "Reports", moduleSlug: "reports" },
