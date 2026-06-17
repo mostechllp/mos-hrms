@@ -344,6 +344,10 @@ function App() {
 
           {/* Add admin-style routes for HR managers */}
           <Route path="employees" element={<Employees />} />
+          <Route path="employees/add-employee" element={<AddEmployee />} />
+          <Route path="employees/edit/:id" element={<EditEmployee />} />
+          <Route path="employees/:id" element={<EmployeeDetails />} />
+          
           <Route path="onboarding" element={<Onboarding />} />
           <Route path="attendance" element={<Attendances />} />
           <Route path="documents" element={<Agreements />} />
