@@ -310,6 +310,8 @@ function App() {
           />
           <Route path="payroll/add" element={<AddPayroll />} />
           <Route path="wfh" element={<AdminWFH />} />
+          <Route path="attendance-requests" element={<AttendanceRequests />} /> 
+          <Route path="wfh-requests" element={<AdminWFH />} />  
           <Route path="settings" element={<Settings />} />
           <Route path="role-management" element={<RoleManagement />} />
           <Route path="modules" element={<ModuleManagement />} />
