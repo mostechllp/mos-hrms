@@ -20,17 +20,22 @@ import checklistReducer from "../admin/store/slices/checklistSlice";
 import roleReducer from "../admin/store/slices/roleSlice";
 import settingsReducer from "../admin/store/slices/settingsSlice";
 import checklistCategoryReducer from "../admin/store/slices/checklistCategorySlice";
+import taskReducer from "../admin/store/slices/tasksSlice";
+import projectReducer from "../admin/store/slices/projectsSlice";
+import moduleReducer from "../admin/store/slices/moduleSlice";
 
 
 // Employee reducers
 import leavesReducer from "../employee/store/slices/leavesSlice";
-import tasksReducer from "../employee/store/slices/tasksSlice";
+import tasksReducer from "../employee/store/slices/myTasksSlice";
 import notesReducer from "../employee/store/slices/notesSlice";
 import themeReducer from "../employee/store/slices/themeSlice";
 import EmpWfhReducer from "../employee/store/slices/wfhSlice";
 import taskReportsReducer from "../employee/store/slices/taskReportsSlice";
 import EmpAttendanceReducer from "../employee/store/slices/attendanceSlice";
 import EmpAttendanceTypeReducer from "../employee/store/slices/attendanceTypeSlice";
+import employeeTasksReducer from "../employee/store/slices/taskSlice";
+
 
 export const store = configureStore({
   reducer: {
@@ -54,17 +59,21 @@ export const store = configureStore({
     checklist: checklistReducer,
     checklistCategory: checklistCategoryReducer,
     roles: roleReducer,
+    modules: moduleReducer,
+    tasks: taskReducer,
+    projects: projectReducer,
     settings: settingsReducer,
 
     // Employee
     EmpLeaves: leavesReducer,
-    tasks: tasksReducer,
+    myTasks: tasksReducer,
     notes: notesReducer,
     theme: themeReducer,
     EmpWfh: EmpWfhReducer,
     EmpTaskReports: taskReportsReducer,
     EmpAttendance: EmpAttendanceReducer,
     EmpAttendanceType: EmpAttendanceTypeReducer,
+    employeeTasks: employeeTasksReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

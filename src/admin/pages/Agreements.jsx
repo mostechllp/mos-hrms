@@ -207,7 +207,7 @@ const Agreements = () => {
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
         <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
-          Agreements Management
+          Documents
         </h2>
       </div>
 
@@ -240,7 +240,7 @@ const Agreements = () => {
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Search documents..." />
           <Link
-            to="/admin/agreements/add-agreement"
+            to="/admin/documents/add-agreement"
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
           >
             <i className="fas fa-plus-circle"></i> Upload Agreement
@@ -309,7 +309,7 @@ const Agreements = () => {
                           <i className="fas fa-eye text-xs md:text-sm"></i>
                         </button>
                         <Link
-                          to={`/admin/agreements/edit-agreement/${document.id}`}
+                          to={`/admin/documents/edit-agreement/${document.id}`}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
                           title="Edit"
                         >

@@ -32,7 +32,6 @@ const EditCompany = lazy(() => import("./admin/pages/EditCompany"));
 const Agreements = lazy(() => import("./admin/pages/Agreements"));
 const AddAgreement = lazy(() => import("./admin/pages/AddAgreement"));
 const EditAgreement = lazy(() => import("./admin/pages/EditAgreement"));
-const AddDocument = lazy(() => import("./admin/pages/AddDocument"));
 const Attendances = lazy(() => import("./admin/pages/Attendances"));
 const Leaves = lazy(() => import("./admin/pages/Leaves"));
 const LeaveTypeManagement = lazy(
@@ -73,21 +72,49 @@ const OrgUpcomingRenewalReport = lazy(
 const AdminWFH = lazy(() => import("./admin/pages/WFH"));
 const Settings = lazy(() => import("./admin/pages/Settings"));
 const RoleManagement = lazy(() => import("./admin/pages/RoleManagement"));
+const ModuleManagement = lazy(() => import("./admin/pages/ModuleManagement"));
 const AddPayroll = lazy(() => import("./admin/pages/AddPayroll"));
-const OnboardingInitalize = lazy(() => import("./admin/components/onboarding/Onboarding"));
+const OnboardingInitalize = lazy(
+  () => import("./admin/components/onboarding/Onboarding"),
+);
 const Onboarding = lazy(() => import("./admin/pages/Onboarding"));
 const Offboarding = lazy(() => import("./admin/pages/Offboarding"));
-const OffboardingInitiation = lazy(() => import("./admin/components/offboarding/OffboardingInitiation"));
-const OffboardingChecklistManager = lazy(() => import("./admin/components/offboarding/OffboardingChecklistManager"));
+const OffboardingInitiation = lazy(
+  () => import("./admin/components/offboarding/OffboardingInitiation"),
+);
+const OffboardingChecklistManager = lazy(
+  () => import("./admin/components/offboarding/OffboardingChecklistManager"),
+);
 const AssetManagement = lazy(() => import("./admin/pages/AssetManagement"));
-const AssetTypeManagement = lazy(() => import("./admin/pages/AssetTypeManagement"));
-const VisaCancellationAndExit = lazy(() => import("./admin/components/offboarding/VisaCancellationAndExit"));
-const OffboardingChecklist = lazy(() => import("./admin/components/offboarding/OffboardingChecklist"));
-const AssetReturn = lazy(() => import("./admin/components/offboarding/AssetReturn"));
-const ExitInterview = lazy(() => import("./admin/components/offboarding/ExitInterview"));
-const FinalSettlement = lazy(() => import("./admin/components/offboarding/FinalSettlement"));
-const LettersAndClearance = lazy(() => import("./admin/components/offboarding/LettersAndClearance"));
-const ChecklistCategories = lazy(() => import("./admin/pages/ChecklistCategoriesManagement"));
+const AssetTypeManagement = lazy(
+  () => import("./admin/pages/AssetTypeManagement"),
+);
+const VisaCancellationAndExit = lazy(
+  () => import("./admin/components/offboarding/VisaCancellationAndExit"),
+);
+const OffboardingChecklist = lazy(
+  () => import("./admin/components/offboarding/OffboardingChecklist"),
+);
+const AssetReturn = lazy(
+  () => import("./admin/components/offboarding/AssetReturn"),
+);
+const ExitInterview = lazy(
+  () => import("./admin/components/offboarding/ExitInterview"),
+);
+const FinalSettlement = lazy(
+  () => import("./admin/components/offboarding/FinalSettlement"),
+);
+const LettersAndClearance = lazy(
+  () => import("./admin/components/offboarding/LettersAndClearance"),
+);
+const ChecklistCategories = lazy(
+  () => import("./admin/pages/ChecklistCategoriesManagement"),
+);
+const Tasks = lazy(() => import("./admin/pages/Tasks"));
+const Projects = lazy(() => import("./admin/pages/Projects"));
+const ProjectTasks = lazy(
+  () => import("./admin/components/projects/ProjectTasks"),
+);
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -96,6 +123,7 @@ const RequestLeave = lazy(() => import("./employee/pages/RequestLeave"));
 const EmployeeProfile = lazy(() => import("./employee/pages/Profile"));
 const EmployeeWFH = lazy(() => import("./employee/pages/WFH"));
 const EmployeeTaskReports = lazy(() => import("./employee/pages/TaskReports"));
+const EmployeeTasks = lazy(() => import("./employee/pages/Tasks"));
 const AttendanceRequests = lazy(
   () => import("./employee/pages/AttendanceRequests"),
 );
@@ -108,9 +136,7 @@ const LazyWrapper = ({ children }) => {
 function App() {
   const { theme } = useTheme();
   const dispatch = useDispatch();
-  const { loading: authLoading } = useSelector(
-    (state) => state.auth,
-  );
+  const { loading: authLoading } = useSelector((state) => state.auth);
   const [initialLoad, setInitialLoad] = useState(true);
 
   useEffect(() => {
@@ -161,20 +187,50 @@ function App() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="employees" element={<Employees />} />
           <Route path="employees/add-employee" element={<AddEmployee />} />
-          <Route path="employees/onboarding-initiation" element={<OnboardingInitalize />} />
+          <Route
+            path="employees/onboarding-initiation"
+            element={<OnboardingInitalize />}
+          />
           <Route path="employees/onboarding" element={<Onboarding />} />
           <Route path="employees/offboarding" element={<Offboarding />} />
-          <Route path="employees/offboarding-initiation" element={<OffboardingInitiation />} />
-          <Route path="employees/offboarding-checklist-manager" element={<OffboardingChecklistManager />} />
-          <Route path="employees/checklist-categories" element={<ChecklistCategories />} />
-          <Route path="employees/asset-management" element={<AssetManagement />} />
-          <Route path="employees/assets/types" element={<AssetTypeManagement />} />
-          <Route path="employees/visa-cancellation" element={<VisaCancellationAndExit />} />
-          <Route path="employees/offboarding-checklist" element={<OffboardingChecklist />} />
+          <Route
+            path="employees/offboarding-initiation"
+            element={<OffboardingInitiation />}
+          />
+          <Route
+            path="employees/offboarding-checklist-manager"
+            element={<OffboardingChecklistManager />}
+          />
+          <Route
+            path="employees/checklist-categories"
+            element={<ChecklistCategories />}
+          />
+          <Route
+            path="employees/asset-management"
+            element={<AssetManagement />}
+          />
+          <Route
+            path="employees/assets/types"
+            element={<AssetTypeManagement />}
+          />
+          <Route
+            path="employees/visa-cancellation"
+            element={<VisaCancellationAndExit />}
+          />
+          <Route
+            path="employees/offboarding-checklist"
+            element={<OffboardingChecklist />}
+          />
           <Route path="employees/asset-return" element={<AssetReturn />} />
           <Route path="employees/exit-interview" element={<ExitInterview />} />
-          <Route path="employees/final-settlement" element={<FinalSettlement />} />
-          <Route path="employees/letters-and-clearance" element={<LettersAndClearance />} />
+          <Route
+            path="employees/final-settlement"
+            element={<FinalSettlement />}
+          />
+          <Route
+            path="employees/letters-and-clearance"
+            element={<LettersAndClearance />}
+          />
           <Route path="employees/edit/:id" element={<EditEmployee />} />
           <Route path="employees/:id" element={<EmployeeDetails />} />
           <Route path="organizations" element={<Organizations />} />
@@ -198,11 +254,11 @@ function App() {
             path="organizations/:organizationId/edit-company/:id"
             element={<EditCompany />}
           />
-          <Route path="agreements" element={<Agreements />} />
-          <Route path="agreements/add-agreement" element={<AddAgreement />} />
-          <Route path="agreements/add-document" element={<AddDocument />} />
+          <Route path="documents" element={<Agreements />} />
+          <Route path="documents/add-agreement" element={<AddAgreement />} />
+          {/* <Route path="documents/add-document" element={<AddDocument />} /> */}
           <Route
-            path="agreements/edit-agreement/:id"
+            path="documents/edit-agreement/:id"
             element={<EditAgreement />}
           />
           <Route path="attendances" element={<Attendances />} />
@@ -210,6 +266,9 @@ function App() {
           <Route path="departments" element={<Departments />} />
           <Route path="task-reports" element={<TaskReports />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="tasks" element={<Tasks />} />
+          <Route path="projects" element={<Projects />} />
+          <Route path="projects/:id/tasks" element={<ProjectTasks />} />
           <Route
             path="reports/employee-details"
             element={<EmployeeDetailsReport />}
@@ -253,6 +312,7 @@ function App() {
           <Route path="wfh" element={<AdminWFH />} />
           <Route path="settings" element={<Settings />} />
           <Route path="role-management" element={<RoleManagement />} />
+          <Route path="modules" element={<ModuleManagement />} />
         </Route>
 
         {/* Employee Routes - Layout wrapper */}
@@ -276,8 +336,19 @@ function App() {
           <Route path="request-leave" element={<RequestLeave />} />
           <Route path="wfh" element={<EmployeeWFH />} />
           <Route path="task-reports" element={<EmployeeTaskReports />} />
+          <Route path="tasks" element={<EmployeeTasks />} />
           <Route path="profile" element={<EmployeeProfile />} />
           <Route path="attendance-requests" element={<AttendanceRequests />} />
+
+          {/* Add admin-style routes for HR managers */}
+          <Route path="employees" element={<Employees />} />
+          <Route path="onboarding" element={<Onboarding />} />
+          <Route path="attendance" element={<Attendances />} />
+          <Route path="documents" element={<Agreements />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="projects" element={<Projects />} />
+          <Route path="projects/:id/tasks" element={<ProjectTasks />} />
         </Route>
 
         {/* Global 404 - No layout, full page */}

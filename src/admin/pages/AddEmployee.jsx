@@ -252,8 +252,7 @@ const AddEmployee = () => {
     { number: 4, title: "Contact", icon: "fas fa-address-card" },
   ];
 
-  // Only employee and admin user types
-  const userTypeOptions = ["employee", "admin"];
+  const userTypeOptions = ["admin", "hr", "manager", "team_lead", "employee"];
 
   const genderOptions = [
     { value: "male", label: "Male" },

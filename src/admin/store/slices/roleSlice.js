@@ -6,6 +6,7 @@ export const fetchRoles = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await apiClient.get("/admin/roles");
+      console.log("Roles: ", response.data.data || response.data)
       return response.data.data || response.data;
     } catch (error) {
       return rejectWithValue(

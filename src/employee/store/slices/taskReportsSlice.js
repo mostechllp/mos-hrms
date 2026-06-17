@@ -16,23 +16,17 @@ export const fetchTaskReports = createAsyncThunk(
       console.log("Response Data:", response.data);
       console.groupEnd();
       
-      // Fix: Extract the data array from the correct path
-      // The response structure is: { status: 'success', message: 'Success', data: [] }
       let reportsData = [];
       if (response.data && response.data.status === "success") {
-        // Check if data is an array directly
         if (Array.isArray(response.data.data)) {
           reportsData = response.data.data;
         } 
-        // Check if data is nested further
         else if (response.data.data && Array.isArray(response.data.data.data)) {
           reportsData = response.data.data.data;
         }
-        // Check if there's a reports property
         else if (response.data.data && Array.isArray(response.data.data.reports)) {
           reportsData = response.data.data.reports;
         }
-        // Check if the response itself is the array
         else if (Array.isArray(response.data)) {
           reportsData = response.data;
         }
@@ -61,6 +55,7 @@ export const fetchTaskReports = createAsyncThunk(
     }
   }
 );
+
 // Save task report
 export const saveTaskReport = createAsyncThunk(
   'taskReports/save',
@@ -73,7 +68,6 @@ export const saveTaskReport = createAsyncThunk(
       console.log("Save task report response:", response.data);
       
       if (response.data?.status === "success") {
-        // Refresh the list after saving
         await dispatch(fetchTaskReports());
         return response.data.data;
       }
@@ -82,6 +76,52 @@ export const saveTaskReport = createAsyncThunk(
       console.error("Save task report error:", error);
       return rejectWithValue(
         error.response?.data?.message || "Failed to save task report"
+      );
+    }
+  }
+);
+
+// Update task report
+export const updateTaskReport = createAsyncThunk(
+  'taskReports/update',
+  async ({ id, data }, { rejectWithValue, dispatch }) => {
+    try {
+      console.log("Updating task report:", id, data);
+      const response = await apiClient.put(`/employee/task-reports/${id}`, data);
+      console.log("Update response:", response.data);
+      
+      if (response.data?.status === "success") {
+        await dispatch(fetchTaskReports());
+        return response.data.data;
+      }
+      return rejectWithValue(response.data?.message || "Failed to update task report");
+    } catch (error) {
+      console.error("Update task report error:", error);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update task report"
+      );
+    }
+  }
+);
+
+// Delete task report
+export const deleteTaskReport = createAsyncThunk(
+  'taskReports/delete',
+  async (id, { rejectWithValue, dispatch }) => {
+    try {
+      console.log("Deleting task report:", id);
+      const response = await apiClient.delete(`/employee/task-reports/${id}`);
+      console.log("Delete response:", response.data);
+      
+      if (response.data?.status === "success") {
+        await dispatch(fetchTaskReports());
+        return id;
+      }
+      return rejectWithValue(response.data?.message || "Failed to delete task report");
+    } catch (error) {
+      console.error("Delete task report error:", error);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to delete task report"
       );
     }
   }
@@ -128,7 +168,6 @@ const taskReportsSlice = createSlice({
       .addCase(fetchTaskReports.fulfilled, (state, action) => {
         console.log("Fetch fulfilled, payload:", action.payload);
         state.loading = false;
-        // Fix: Extract the data from the payload correctly
         state.taskReports = action.payload.data || [];
         if (action.payload.pagination) {
           state.pagination = { ...state.pagination, ...action.payload.pagination };
@@ -151,6 +190,30 @@ const taskReportsSlice = createSlice({
         state.error = null;
       })
       .addCase(saveTaskReport.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      
+      // Update Task Report
+      .addCase(updateTaskReport.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(updateTaskReport.fulfilled, (state) => {
+        console.log("Update fulfilled");
+        state.error = null;
+      })
+      .addCase(updateTaskReport.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      
+      // Delete Task Report
+      .addCase(deleteTaskReport.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(deleteTaskReport.fulfilled, (state) => {
+        console.log("Delete fulfilled");
+        state.error = null;
+      })
+      .addCase(deleteTaskReport.rejected, (state, action) => {
         state.error = action.payload;
       });
   },

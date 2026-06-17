@@ -3,24 +3,45 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Chart as ChartJS,
-  BarElement,
   CategoryScale,
   LinearScale,
+  PointElement,
+  LineElement,
+  Title,
   Tooltip,
   Legend,
+  Filler,
 } from "chart.js";
-import { Bar } from "react-chartjs-2";
+import { Line } from "react-chartjs-2";
 import {
   punchIn,
   punchOut,
   fetchDashboardData,
   pendingPunchOut,
+  startBreak,
+  endBreak,
 } from "../store/slices/attendanceSlice";
-import PunchOutModal from "../components/modals/PunchOutModal";
+import { PunchOutModal } from "../components/modals/PunchOutModal";
 import PendingPunchOutModal from "../components/attendance/PendingPunchoutModal";
 import { useAppTheme } from "../../context/ThemeContext";
+import {
+  fetchMyTasks,
+  updateTaskStatus as updateEmployeeTaskStatus,
+} from "../store/slices/taskSlice";
+import LocationModal from "../components/modals/LocationModal";
+import MapView from "../components/common/MapView";
 
-ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+// Register ChartJS components for line chart
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+);
 
 const Dashboard = () => {
   const dispatch = useDispatch();
@@ -31,33 +52,53 @@ const Dashboard = () => {
   );
   const { primaryColor, primaryDark } = useAppTheme();
 
+  const [tasks, setTasks] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [taskStats, setTaskStats] = useState({
+    total: 0,
+    pending: 0,
+    in_progress: 0,
+    completed: 0,
+    overdue: 0,
+  });
+
+  // Location related states
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [punchType, setPunchType] = useState("punch-in");
+  const [punchOutData, setPunchOutData] = useState(null);
+  const [showLocationHistory, setShowLocationHistory] = useState(false);
+  const [selectedMapLocation, setSelectedMapLocation] = useState(null);
+
   // Helper function to adjust color brightness
   const adjustColor = (color, percent) => {
     let r, g, b;
-    if (color && color.startsWith('#')) {
+    if (color && color.startsWith("#")) {
       r = parseInt(color.slice(1, 3), 16);
       g = parseInt(color.slice(3, 5), 16);
       b = parseInt(color.slice(5, 7), 16);
     } else {
       return color || "#2ecc71";
     }
-    
+
     r = Math.max(0, Math.min(255, r + (r * percent) / 100));
     g = Math.max(0, Math.min(255, g + (g * percent) / 100));
     b = Math.max(0, Math.min(255, b + (b * percent) / 100));
-    
-    return `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`;
+
+    return `#${Math.round(r).toString(16).padStart(2, "0")}${Math.round(g).toString(16).padStart(2, "0")}${Math.round(b).toString(16).padStart(2, "0")}`;
   };
 
   // Create gradient based on primary color
   const gradientStyle = {
-    background: `linear-gradient(135deg, ${primaryColor || "#2ecc71"}, ${primaryDark || adjustColor(primaryColor || "#2ecc71", -20)})`
+    background: `linear-gradient(135deg, ${primaryColor || "#2ecc71"}, ${primaryDark || adjustColor(primaryColor || "#2ecc71", -20)})`,
   };
 
   // Use dashboard data as source of truth (not Redux isPunchedIn)
   const todayAttendance = dashboardData?.today_attendance || {};
+  // Fix: Only consider punched out if there's actually a punch_out_time value
   const isActuallyPunchedIn =
-    todayAttendance.punched_in === true && todayAttendance.punched_out !== true;
+    todayAttendance.punched_in === true &&
+    (todayAttendance.punched_out !== true ||
+      todayAttendance.punch_out_time === "--");
   const punchInTimeFromApi = todayAttendance.punch_in_time;
   const canPunch = dashboardData?.can_punch ?? true;
 
@@ -67,6 +108,7 @@ const Dashboard = () => {
   const [toast, setToast] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tick, setTick] = useState(0);
+  const [currentDuration, setCurrentDuration] = useState("00h 00m 00s");
   const [isOnBreak, setIsOnBreak] = useState(
     localStorage.getItem("attendance-on-break") === "true",
   );
@@ -104,8 +146,8 @@ const Dashboard = () => {
       } else {
         return timeString;
       }
-      
-      const ampm = hours >= 12 ? 'PM' : 'AM';
+
+      const ampm = hours >= 12 ? "PM" : "AM";
       const hours12 = hours % 12 || 12;
       return `${hours12}:${minutes} ${ampm}`;
     } catch (e) {
@@ -130,7 +172,11 @@ const Dashboard = () => {
       if (dashboardData?.pending_punch_out) {
         setPendingPunchDate(dashboardData.pending_punch_out.date);
         setShowPendingModal(true);
-      } else if (!canPunch && !isActuallyPunchedIn && dashboardData?.error_message) {
+      } else if (
+        !canPunch &&
+        !isActuallyPunchedIn &&
+        dashboardData?.error_message
+      ) {
         const errorMsg = dashboardData.error_message;
         if (errorMsg.includes("pending punch-out")) {
           const dateMatch = errorMsg.match(/(\d{4}-\d{2}-\d{2})/);
@@ -141,7 +187,7 @@ const Dashboard = () => {
         }
       }
     };
-    
+
     if (dashboardData) {
       checkPendingPunchOut();
     }
@@ -169,20 +215,22 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Handle Punch In/Out
-  const handlePunch = async () => {
-    if (!isActuallyPunchedIn) {
-      if (!canPunch) {
-        showToastMessage("You cannot punch in at this time", "error");
-        return;
-      }
+  // Handle location confirmation
+  const handleLocationConfirm = async (locationData) => {
+    setShowLocationModal(false);
+    setIsSubmitting(true);
 
-      setIsSubmitting(true);
-      const result = await dispatch(punchIn());
+    if (punchType === "punch-in") {
+      console.log("Sending location for punch in:", locationData);
+      console.log("Timezone included:", locationData.timezone);
+      const result = await dispatch(punchIn({ location: locationData }));
       setIsSubmitting(false);
 
       if (punchIn.fulfilled.match(result)) {
-        showToastMessage("Punched in successfully!", "success");
+        showToastMessage(
+          "Punched in successfully with location verification!",
+          "success",
+        );
         await dispatch(fetchDashboardData());
       } else {
         const errorMsg = result.payload || "Punch in failed";
@@ -201,128 +249,80 @@ const Dashboard = () => {
           showToastMessage(errorMsg, "error");
         }
       }
+    } else if (punchOutData) {
+      const result = await dispatch(
+        punchOut({
+          ...punchOutData,
+          location: locationData,
+        }),
+      );
+      setIsSubmitting(false);
+
+      if (punchOut.fulfilled.match(result)) {
+        showToastMessage("Punched out successfully!", "success");
+        setShowPunchOutModal(false);
+        setPunchOutData(null);
+
+        setIsOnBreak(false);
+        setTotalBreakMs(0);
+        setNumberOfBreaks(0);
+        setBreakHistory([]);
+        localStorage.removeItem("attendance-on-break");
+        localStorage.removeItem("attendance-break-start-time");
+        localStorage.removeItem("attendance-total-break-ms");
+        localStorage.removeItem("attendance-breaks-count");
+        localStorage.removeItem("attendance-break-history");
+
+        await dispatch(fetchDashboardData());
+
+        showToastMessage(
+          "Task report has been saved! You can view it in Task Reports section.",
+          "success",
+        );
+      } else {
+        showToastMessage(result.payload || "Punch out failed", "error");
+      }
+    }
+  };
+
+  // Handle Punch In/Out
+  const handlePunch = async () => {
+    if (!isActuallyPunchedIn) {
+      if (!canPunch) {
+        showToastMessage("You cannot punch in at this time", "error");
+        return;
+      }
+      setPunchType("punch-in");
+      setShowLocationModal(true);
     } else {
+      setPunchType("punch-out");
       setShowPunchOutModal(true);
     }
   };
 
-  // In Dashboard.jsx, update the handlePendingPunchOut function
+  const handlePendingPunchOut = async (data) => {
+    setPendingPunchSubmitting(true);
 
-const handlePendingPunchOut = async (data) => {
-  setPendingPunchSubmitting(true);
-
-  const result = await dispatch(
-    pendingPunchOut({
-      tasks_completed: data.tasks_completed,
-      plan_tomorrow: data.plan_tomorrow,
-      pending_works: data.pending_works || '',
-      punch_out_time: data.punch_out_time,
-      date: pendingPunchDate
-    })
-  );
-
-  setPendingPunchSubmitting(false);
-
-  if (pendingPunchOut.fulfilled.match(result)) {
-    showToastMessage(
-      `Successfully punched out for ${pendingPunchDate}! You can now punch in today.`,
-      "success",
+    const result = await dispatch(
+      pendingPunchOut({
+        tasks_completed: data.tasks_completed,
+        plan_tomorrow: data.plan_tomorrow,
+        pending_works: data.pending_works || "",
+        punch_out_time: data.punch_out_time,
+        date: pendingPunchDate,
+      }),
     );
-    setShowPendingModal(false);
 
-    // Clear any break state
-    setIsOnBreak(false);
-    setTotalBreakMs(0);
-    setNumberOfBreaks(0);
-    setBreakHistory([]);
-    localStorage.removeItem("attendance-on-break");
-    localStorage.removeItem("attendance-break-start-time");
-    localStorage.removeItem("attendance-total-break-ms");
-    localStorage.removeItem("attendance-breaks-count");
-    localStorage.removeItem("attendance-break-history");
+    setPendingPunchSubmitting(false);
 
-    // Refresh dashboard data
-    await dispatch(fetchDashboardData());
-
-    // Now the user can punch in for today
-    setTimeout(() => {
-      showToastMessage("You can now punch in for today", "success");
-    }, 1000);
-  } else {
-    showToastMessage(
-      result.payload || "Failed to complete pending punch out",
-      "error",
-    );
-  }
-};
-
-  const handleBreakToggle = () => {
-    if (!isOnBreak) {
-      const nowStr = new Date().toISOString();
-      setIsOnBreak(true);
-      setBreakStartTime(nowStr);
-      setNumberOfBreaks((prev) => {
-        const newCount = prev + 1;
-        localStorage.setItem("attendance-breaks-count", newCount.toString());
-        return newCount;
-      });
-      localStorage.setItem("attendance-on-break", "true");
-      localStorage.setItem("attendance-break-start-time", nowStr);
-      showToastMessage("⏸️ Break Started", "success");
-    } else {
-      const breakStart = new Date(breakStartTime);
-      const breakEnd = new Date();
-      const diff = breakEnd - breakStart;
-      const newTotal = totalBreakMs + diff;
-
-      const newHistory = [
-        ...breakHistory,
-        {
-          start: breakStartTime,
-          end: breakEnd.toISOString(),
-          durationMs: diff,
-        },
-      ];
-      setBreakHistory(newHistory);
-      localStorage.setItem(
-        "attendance-break-history",
-        JSON.stringify(newHistory),
+    if (pendingPunchOut.fulfilled.match(result)) {
+      showToastMessage(
+        `Successfully punched out for ${pendingPunchDate}! You can now punch in today.`,
+        "success",
       );
+      setShowPendingModal(false);
 
-      setIsOnBreak(false);
-      setTotalBreakMs(newTotal);
-      localStorage.setItem("attendance-on-break", "false");
-      localStorage.setItem("attendance-total-break-ms", newTotal.toString());
-      localStorage.removeItem("attendance-break-start-time");
-      showToastMessage("▶️ Work Resumed", "success");
-    }
-  };
-
-  const handlePunchOutSubmit = async (data) => {
-    console.group("🔍 PUNCH OUT SUBMIT DEBUG");
-    console.log("📤 Submitting punch out with data:", {
-      tasks_completed: data.tasks_completed,
-      plan_tomorrow: data.plan_tomorrow,
-      pending_tasks: data.pending_tasks || ''
-    });
-    
-    setIsSubmitting(true);
-    const result = await dispatch(punchOut({
-      tasks_completed: data.tasks_completed,
-      plan_tomorrow: data.plan_tomorrow,
-      pending_tasks: data.pending_tasks || ''
-    }));
-    
-    console.log("📥 Punch out result:", result);
-    console.groupEnd();
-    
-    setIsSubmitting(false);
-
-    if (punchOut.fulfilled.match(result)) {
-      console.log("✅ Punch out successful! Response:", result.payload);
-      showToastMessage("Punched out successfully!", "success");
-      setShowPunchOutModal(false);
-
+      // Clear any break state
       setIsOnBreak(false);
       setTotalBreakMs(0);
       setNumberOfBreaks(0);
@@ -333,39 +333,140 @@ const handlePendingPunchOut = async (data) => {
       localStorage.removeItem("attendance-breaks-count");
       localStorage.removeItem("attendance-break-history");
 
+      // Refresh dashboard data
       await dispatch(fetchDashboardData());
-      
-      showToastMessage("Task report has been saved! You can view it in Task Reports section.", "success");
+
+      // Now the user can punch in for today
+      setTimeout(() => {
+        showToastMessage("You can now punch in for today", "success");
+      }, 1000);
     } else {
-      console.error("❌ Punch out failed:", result.payload);
-      showToastMessage(result.payload || "❌ Punch out failed", "error");
+      showToastMessage(
+        result.payload || "Failed to complete pending punch out",
+        "error",
+      );
     }
+  };
+
+  const handleBreakToggle = async () => {
+    if (!isOnBreak) {
+      try {
+        const resultAction = await dispatch(startBreak());
+        if (startBreak.fulfilled.match(resultAction)) {
+          const nowStr = new Date().toISOString();
+          setIsOnBreak(true);
+          setBreakStartTime(nowStr);
+          setNumberOfBreaks((prev) => {
+            const newCount = prev + 1;
+            localStorage.setItem("attendance-breaks-count", newCount.toString());
+            return newCount;
+          });
+          localStorage.setItem("attendance-on-break", "true");
+          localStorage.setItem("attendance-break-start-time", nowStr);
+          showToastMessage("⏸️ Break Started", "success");
+        } else {
+          showToastMessage(resultAction.payload || "Failed to start break", "error");
+        }
+      } catch (err) {
+        showToastMessage("Error starting break", "error");
+      }
+    } else {
+      try {
+        const resultAction = await dispatch(endBreak());
+        if (endBreak.fulfilled.match(resultAction)) {
+          const breakStart = new Date(breakStartTime);
+          const breakEnd = new Date();
+          const diff = breakEnd - breakStart;
+          const newTotal = totalBreakMs + diff;
+
+          const newHistory = [
+            ...breakHistory,
+            {
+              start: breakStartTime,
+              end: breakEnd.toISOString(),
+              durationMs: diff,
+            },
+          ];
+          setBreakHistory(newHistory);
+          localStorage.setItem(
+            "attendance-break-history",
+            JSON.stringify(newHistory),
+          );
+
+          setIsOnBreak(false);
+          setTotalBreakMs(newTotal);
+          localStorage.setItem("attendance-on-break", "false");
+          localStorage.setItem("attendance-total-break-ms", newTotal.toString());
+          localStorage.removeItem("attendance-break-start-time");
+          showToastMessage("▶️ Work Resumed", "success");
+        } else {
+          showToastMessage(resultAction.payload || "Failed to end break", "error");
+        }
+      } catch (err) {
+        showToastMessage("Error ending break", "error");
+      }
+    }
+  };
+
+  const handlePunchOutSubmit = async (data) => {
+    setPunchOutData(data);
+    setShowPunchOutModal(false);
+    setShowLocationModal(true);
   };
 
   // Format punch time with proper timezone handling
   const parsePunchTime = (time) => {
     if (!time) return null;
     try {
+      // Handle "HH:MM AM/PM" format (e.g., "08:59 AM")
+      if (
+        typeof time === "string" &&
+        time.match(/(\d{1,2}:\d{2})\s*(AM|PM)/i)
+      ) {
+        const match = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+        if (match) {
+          let hours = parseInt(match[1], 10);
+          const minutes = parseInt(match[2], 10);
+          const ampm = match[3].toUpperCase();
+
+          if (ampm === "PM" && hours !== 12) hours += 12;
+          if (ampm === "AM" && hours === 12) hours = 0;
+
+          const now = new Date();
+          return new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            hours,
+            minutes,
+            0,
+          );
+        }
+      }
+
+      // Handle "HH:MM:SS" format (24-hour)
       if (typeof time === "string" && time.match(/^\d{2}:\d{2}:\d{2}$/)) {
         const now = new Date();
         const [hours, minutes, seconds] = time.split(":");
         return new Date(
-          Date.UTC(
-            now.getUTCFullYear(),
-            now.getUTCMonth(),
-            now.getUTCDate(),
-            parseInt(hours, 10),
-            parseInt(minutes, 10),
-            parseInt(seconds, 10),
-          ),
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          parseInt(hours, 10),
+          parseInt(minutes, 10),
+          parseInt(seconds, 10),
         );
       }
+
+      // Handle ISO string with T
       if (typeof time === "string" && time.includes("T")) {
         if (!time.match(/(Z|[+-]\d{2}:\d{2})$/)) {
           return new Date(`${time}Z`);
         }
         return new Date(time);
       }
+
+      // Handle date with space
       if (typeof time === "string" && time.includes(" ")) {
         const isoTime = time.replace(" ", "T");
         if (!isoTime.match(/(Z|[+-]\d{2}:\d{2})$/)) {
@@ -373,16 +474,23 @@ const handlePendingPunchOut = async (data) => {
         }
         return new Date(isoTime);
       }
+
       if (time instanceof Date) {
         return time;
       }
       return new Date(time);
     } catch (e) {
+      console.error("Error parsing time:", time, e);
       return null;
     }
   };
 
   const formatPunchTime = (time) => {
+    // If time is already in "HH:MM AM" format, return as is
+    if (typeof time === "string" && time.match(/\d{1,2}:\d{2}\s*(AM|PM)/i)) {
+      return time;
+    }
+
     const date = parsePunchTime(time);
     if (!date || isNaN(date.getTime())) return time || "—";
     return date.toLocaleTimeString("en-US", {
@@ -392,21 +500,230 @@ const handlePendingPunchOut = async (data) => {
     });
   };
 
-  // Prepare chart data from attendance history
+  // Helper function to normalize location data from different formats
+  const normalizeLocation = (locationData) => {
+    if (!locationData) return null;
+
+    if (locationData.latitude && locationData.longitude) {
+      return {
+        latitude: parseFloat(locationData.latitude),
+        longitude: parseFloat(locationData.longitude),
+        address:
+          locationData.address ||
+          `${locationData.latitude}, ${locationData.longitude}`,
+      };
+    }
+
+    if (locationData.punch_in_latitude || locationData.latitude) {
+      return {
+        latitude: parseFloat(
+          locationData.punch_in_latitude || locationData.latitude,
+        ),
+        longitude: parseFloat(
+          locationData.punch_in_longitude || locationData.longitude,
+        ),
+        address:
+          locationData.punch_in_address ||
+          locationData.address ||
+          "Location recorded",
+      };
+    }
+
+    return null;
+  };
+
+  // Render location info
+  const renderLocationInfo = () => {
+    const punchInLocation = normalizeLocation(
+      todayAttendance.punch_in_location,
+    );
+    const punchOutLocation = normalizeLocation(
+      todayAttendance.punch_out_location,
+    );
+
+    if (!punchInLocation && !punchOutLocation) return null;
+
+    const handleShowMap = (location) => {
+      setSelectedMapLocation(location);
+      setShowLocationHistory(true);
+    };
+
+    return (
+      <div className="location-info bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 mb-7">
+        <h3 className="text-base font-semibold text-[var(--text)] mb-3 flex items-center gap-2">
+          <i className="fas fa-map-marker-alt text-green-500"></i>
+          Today's Punch Locations
+        </h3>
+
+        {punchInLocation && (
+          <div className="mb-3 pb-3 border-b border-[var(--border)]">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-green-500">
+                  <i className="fas fa-sign-in-alt mr-1"></i> Punch In Location:
+                </p>
+                <p className="text-sm text-[var(--text)] mt-1">
+                  {punchInLocation.address ||
+                    `${punchInLocation.latitude}, ${punchInLocation.longitude}`}
+                </p>
+              </div>
+              <button
+                onClick={() => handleShowMap(punchInLocation)}
+                className="text-xs bg-green-500/10 text-green-500 px-3 py-1 rounded-lg hover:bg-green-500/20 transition-colors"
+              >
+                <i className="fas fa-map mr-1"></i> View Map
+              </button>
+            </div>
+          </div>
+        )}
+
+        {punchOutLocation && punchOutLocation.latitude && (
+          <div>
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-500">
+                  <i className="fas fa-sign-out-alt mr-1"></i> Punch Out
+                  Location:
+                </p>
+                <p className="text-sm text-[var(--text)] mt-1">
+                  {punchOutLocation.address ||
+                    `${punchOutLocation.latitude}, ${punchOutLocation.longitude}`}
+                </p>
+              </div>
+              <button
+                onClick={() => handleShowMap(punchOutLocation)}
+                className="text-xs bg-red-500/10 text-red-500 px-3 py-1 rounded-lg hover:bg-red-500/20 transition-colors"
+              >
+                <i className="fas fa-map mr-1"></i> View Map
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render map modal
+  const renderMapModal = () => {
+    if (!showLocationHistory || !selectedMapLocation) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div className="bg-[var(--surface)] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+          <div className="flex justify-between items-center p-4 border-b border-[var(--border)]">
+            <h3 className="text-lg font-semibold">
+              <i className="fas fa-map-marker-alt text-green-500 mr-2"></i>
+              Location Map
+            </h3>
+            <button
+              onClick={() => {
+                setShowLocationHistory(false);
+                setSelectedMapLocation(null);
+              }}
+              className="text-[var(--muted)] hover:text-[var(--text)] transition-colors"
+            >
+              <i className="fas fa-times text-xl"></i>
+            </button>
+          </div>
+          <div className="p-4">
+            <p className="text-sm text-[var(--text)] mb-3">
+              {selectedMapLocation.address ||
+                `${selectedMapLocation.latitude}, ${selectedMapLocation.longitude}`}
+            </p>
+            <MapView
+              latitude={parseFloat(selectedMapLocation.latitude)}
+              longitude={parseFloat(selectedMapLocation.longitude)}
+              address={selectedMapLocation.address}
+            />
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowLocationHistory(false);
+                  setSelectedMapLocation(null);
+                }}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Update the fetchEmployeeTasks function to limit to 2 tasks
+  const fetchEmployeeTasks = async () => {
+    setTasksLoading(true);
+    try {
+      // Fetch only 2 tasks for dashboard overview
+      const result = await dispatch(fetchMyTasks({ per_page: 2, page: 1 }));
+      if (fetchMyTasks.fulfilled.match(result)) {
+        const data = result.payload?.data || result.payload;
+        // Handle the new task structure with project object
+        const taskList = data?.data || data || [];
+
+        // Transform tasks to have client_name and website_url from project if not directly available
+        const transformedTasks = taskList.map((task) => ({
+          ...task,
+          client_name: task.client_name || task.project?.client_name || "",
+          website_url: task.website_url || task.project?.website_url || "",
+        }));
+
+        setTasks(transformedTasks);
+        setTaskStats(data?.stats || {});
+      }
+    } catch (error) {
+      console.error("Failed to fetch tasks:", error);
+    } finally {
+      setTasksLoading(false);
+    }
+  };
+
+  // Add this function for status update
+  const handleTaskStatusUpdate = async (taskId, newStatus) => {
+    const result = await dispatch(
+      updateEmployeeTaskStatus({ id: taskId, status: newStatus }),
+    );
+    if (updateEmployeeTaskStatus.fulfilled.match(result)) {
+      showToastMessage(
+        `Task marked as ${newStatus.replace("_", " ")}`,
+        "success",
+      );
+      fetchEmployeeTasks(); // Refresh tasks
+    } else {
+      showToastMessage(result.payload || "Failed to update status", "error");
+    }
+  };
+
+  // Add useEffect to fetch tasks on mount
+  useEffect(() => {
+    fetchEmployeeTasks();
+  }, []);
+
+  // Prepare chart data from attendance history - Line chart version
+  // Prepare chart data from attendance history - Line chart version
   const getChartData = () => {
     if (
       !dashboardData?.attendance_history ||
       dashboardData.attendance_history.length === 0
     ) {
       return {
-        labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        labels: ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"],
         datasets: [
           {
             label: "Hours Worked",
             data: [0, 0, 0, 0, 0, 0, 0],
-            backgroundColor: primaryColor || "#2ecc71",
-            borderRadius: 8,
-            barPercentage: 0.6,
+            borderColor: primaryColor || "#2ecc71",
+            backgroundColor: primaryColor ? `${primaryColor}20` : "#2ecc7120",
+            borderWidth: 2.5,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: primaryColor || "#2ecc71",
+            pointBorderColor: "#fff",
+            pointBorderWidth: 2,
+            tension: 0.3,
+            fill: true,
           },
         ],
       };
@@ -415,34 +732,105 @@ const handlePendingPunchOut = async (data) => {
     const last7Days = [];
     const hoursWorked = [];
 
+    // Get last 7 days in DD/MM/YYYY format to match API
+    const today = new Date();
+
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split("T")[0];
+      date.setDate(today.getDate() - i);
+
+      // Format date as DD/MM/YYYY to match API format
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      const dateStr = `${day}/${month}/${year}`;
+
       const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
       last7Days.push(dayName);
 
       const attendance = dashboardData.attendance_history.find(
         (a) => a.log_date === dateStr,
       );
-      if (attendance && attendance.punch_in && attendance.punch_out) {
-        const punchInTimeDate = parsePunchTime(attendance.punch_in);
-        const punchOutTimeDate = parsePunchTime(attendance.punch_out);
-        if (
-          punchInTimeDate &&
-          punchOutTimeDate &&
-          !isNaN(punchInTimeDate.getTime()) &&
-          !isNaN(punchOutTimeDate.getTime())
-        ) {
-          const hours = (punchOutTimeDate - punchInTimeDate) / (1000 * 60 * 60);
-          hoursWorked.push(Math.round(hours * 10) / 10);
+
+      if (
+        attendance &&
+        attendance.punch_in &&
+        attendance.punch_out &&
+        attendance.punch_out !== "--"
+      ) {
+        let hours = 0;
+        if (attendance.working_hours && attendance.working_hours !== "--") {
+          const hoursMatch = attendance.working_hours.match(/(\d+)\s*hrs?/);
+          const minsMatch = attendance.working_hours.match(/(\d+)\s*mins?/);
+
+          if (hoursMatch) {
+            hours = parseInt(hoursMatch[1], 10);
+          }
+          if (minsMatch) {
+            hours += parseInt(minsMatch[1], 10) / 60;
+          }
         } else {
-          hoursWorked.push(0);
+          const parseTime = (timeStr) => {
+            if (!timeStr || timeStr === "--") return null;
+            const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+            if (match) {
+              let hours = parseInt(match[1], 10);
+              const minutes = parseInt(match[2], 10);
+              const ampm = match[3].toUpperCase();
+
+              if (ampm === "PM" && hours !== 12) hours += 12;
+              if (ampm === "AM" && hours === 12) hours = 0;
+
+              return { hours, minutes };
+            }
+            return null;
+          };
+
+          const punchIn = parseTime(attendance.punch_in);
+          const punchOut = parseTime(attendance.punch_out);
+
+          if (punchIn && punchOut) {
+            let diffHours = punchOut.hours - punchIn.hours;
+            let diffMins = punchOut.minutes - punchIn.minutes;
+
+            if (diffMins < 0) {
+              diffHours -= 1;
+              diffMins += 60;
+            }
+
+            hours = diffHours + diffMins / 60;
+          }
         }
+
+        hoursWorked.push(Math.round(hours * 10) / 10);
       } else {
         hoursWorked.push(0);
       }
     }
+
+    // Get the canvas context for gradient (this will work when chart renders)
+    const getGradient = (context) => {
+      const chart = context.chart;
+      const { ctx, chartArea } = chart;
+      if (!chartArea) {
+        return primaryColor ? `${primaryColor}80` : "#2ecc7180";
+      }
+      const gradient = ctx.createLinearGradient(
+        0,
+        chartArea.bottom,
+        0,
+        chartArea.top,
+      );
+      gradient.addColorStop(
+        0,
+        primaryColor ? `${primaryColor}20` : "#2ecc7120",
+      );
+      gradient.addColorStop(
+        1,
+        primaryColor ? `${primaryColor}80` : "#2ecc7180",
+      );
+      return gradient;
+    };
 
     return {
       labels: last7Days,
@@ -450,9 +838,16 @@ const handlePendingPunchOut = async (data) => {
         {
           label: "Hours Worked",
           data: hoursWorked,
-          backgroundColor: primaryColor || "#2ecc71",
-          borderRadius: 8,
-          barPercentage: 0.6,
+          borderColor: primaryColor || "#2ecc71",
+          backgroundColor: getGradient,
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: primaryColor || "#2ecc71",
+          pointBorderColor: "#fff",
+          pointBorderWidth: 2,
+          tension: 0.3,
+          fill: true,
         },
       ],
     };
@@ -462,9 +857,26 @@ const handlePendingPunchOut = async (data) => {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false },
+      legend: {
+        display: true,
+        position: "top",
+        align: "center",
+        labels: {
+          usePointStyle: true,
+          pointStyle: "circle",
+          boxWidth: 8,
+          font: {
+            size: 11,
+            weight: "bold",
+          },
+        },
+      },
       tooltip: {
-        backgroundColor: primaryColor || "#2ecc71",
+        backgroundColor: "rgba(0,0,0,0.8)",
+        titleColor: "#fff",
+        bodyColor: "#ddd",
+        borderColor: primaryColor || "#2ecc71",
+        borderWidth: 1,
         callbacks: {
           label: (context) => {
             const hours = context.raw;
@@ -476,11 +888,48 @@ const handlePendingPunchOut = async (data) => {
     scales: {
       y: {
         beginAtZero: true,
-        max: 9,
-        title: { display: true, text: "Hours", font: { size: 11 } },
-        ticks: { stepSize: 2 },
+        max: 10,
+        grid: {
+          color: "rgba(0,0,0,0.05)",
+          drawBorder: false,
+        },
+        title: {
+          display: true,
+          text: "Hours",
+          font: { size: 11, weight: "bold" },
+          color: "#888",
+        },
+        ticks: {
+          stepSize: 2,
+          callback: (value) => `${value}h`,
+          padding: 8,
+        },
       },
-      x: { ticks: { font: { size: 11 } } },
+      x: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          font: { size: 11, weight: "bold" },
+          padding: 8,
+        },
+      },
+    },
+    elements: {
+      line: {
+        borderJoin: "round",
+      },
+      point: {
+        hoverRadius: 8,
+      },
+    },
+    layout: {
+      padding: {
+        top: 10,
+        bottom: 10,
+        left: 5,
+        right: 5,
+      },
     },
   };
 
@@ -527,6 +976,32 @@ const handlePendingPunchOut = async (data) => {
   const statusDisplay = getStatusDisplay();
   const displayPunchTime = punchInTimeFromApi || todayAttendance.punch_in_time;
 
+  // Update duration every second when punched in
+  // Initialize duration when component loads or punch-in state changes
+  useEffect(() => {
+    if (isActuallyPunchedIn && displayPunchTime) {
+      // Force an immediate duration calculation
+      const updateDuration = () => {
+        const newDuration = getDuration();
+        setCurrentDuration(newDuration);
+      };
+      updateDuration();
+
+      // Set up interval for real-time updates
+      const interval = setInterval(updateDuration, 1000);
+      return () => clearInterval(interval);
+    } else {
+      // If not punched in, show zero duration
+      setCurrentDuration("00h 00m 00s");
+    }
+  }, [
+    isActuallyPunchedIn,
+    displayPunchTime,
+    totalBreakMs,
+    isOnBreak,
+    breakStartTime,
+  ]);
+
   const getDuration = () => {
     if (!displayPunchTime) return "00h 00m 00s";
 
@@ -540,13 +1015,18 @@ const handlePendingPunchOut = async (data) => {
       } else {
         endTime = new Date();
       }
-    } else if (todayAttendance.punched_out === true) {
+    } else if (
+      todayAttendance.punched_out === true &&
+      todayAttendance.punch_out_time !== "--"
+    ) {
+      // Only consider punched out if there's an actual punch out time
       const outTime =
         todayAttendance.punch_out_time || todayAttendance.punch_out;
-      if (outTime) {
+      if (outTime && outTime !== "--") {
         endTime = parsePunchTime(outTime);
       } else {
-        return "00h 00m 00s";
+        // If no valid punch out time, treat as still punched in
+        endTime = new Date();
       }
     } else {
       return "00h 00m 00s";
@@ -591,7 +1071,7 @@ const handlePendingPunchOut = async (data) => {
   return (
     <div>
       {/* Welcome Banner with Theme Support */}
-      <div 
+      <div
         className="welcome-banner rounded-xl p-5 md:p-7 mb-7 flex flex-col md:flex-row justify-between items-center gap-5"
         style={gradientStyle}
       >
@@ -615,6 +1095,9 @@ const handlePendingPunchOut = async (data) => {
           <div className="date text-xs opacity-90">{currentDate}</div>
         </div>
       </div>
+
+      {/* Location Info */}
+      {renderLocationInfo()}
 
       {/* Punch Card */}
       <div className="punch-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 md:p-6 mb-7 flex flex-col md:flex-row justify-between items-center gap-5">
@@ -642,7 +1125,7 @@ const handlePendingPunchOut = async (data) => {
               Duration
             </div>
             <div className={`punch-value text-2xl font-bold text-blue-500`}>
-              {getDuration()}
+              {currentDuration}
             </div>
           </div>
           <div className="punch-item text-center">
@@ -652,10 +1135,7 @@ const handlePendingPunchOut = async (data) => {
             <div
               className={`punch-value text-lg font-bold ${isOnBreak ? "text-amber-500" : statusDisplay.color}`}
             >
-              {isOnBreak ? "On Break ☕" : statusDisplay.text}
-              {isActuallyPunchedIn && !isOnBreak && (
-                <span className="ml-2 text-xs animate-pulse">●</span>
-              )}
+              {isOnBreak ? "On Break" : statusDisplay.text}
             </div>
           </div>
         </div>
@@ -710,7 +1190,7 @@ const handlePendingPunchOut = async (data) => {
                         hour: "2-digit",
                         minute: "2-digit",
                         hour12: false,
-                      })
+                      }),
                     )}
                   </div>
                 </div>
@@ -751,7 +1231,7 @@ const handlePendingPunchOut = async (data) => {
                       hour: "2-digit",
                       minute: "2-digit",
                       hour12: false,
-                    })
+                    }),
                   )}{" "}
                   -{" "}
                   {formatTo12Hour(
@@ -759,7 +1239,7 @@ const handlePendingPunchOut = async (data) => {
                       hour: "2-digit",
                       minute: "2-digit",
                       hour12: false,
-                    })
+                    }),
                   )}{" "}
                   ({Math.round(b.durationMs / 60000)} min)
                 </div>
@@ -773,7 +1253,7 @@ const handlePendingPunchOut = async (data) => {
                       hour: "2-digit",
                       minute: "2-digit",
                       hour12: false,
-                    })
+                    }),
                   )}{" "}
                   - Ongoing (
                   {Math.floor((new Date() - new Date(breakStartTime)) / 60000)}{" "}
@@ -824,83 +1304,141 @@ const handlePendingPunchOut = async (data) => {
         </div>
       </div>
 
-      {/* Chart Card */}
-      <div className="chart-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 mb-7">
-        <h3 className="text-base font-semibold text-[var(--text)] mb-5 flex items-center gap-2">
-          <i className="fas fa-chart-line"></i> My Attendance (Last 7 Days)
-        </h3>
-        <div className="chart-container h-64 relative">
-          <Bar ref={chartRef} data={getChartData()} options={chartOptions} />
-        </div>
-      </div>
-
-      {/* Recent Activity Section */}
-      {dashboardData?.attendance_history &&
-        dashboardData.attendance_history.length > 0 && (
-          <div className="recent-activity bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
-            <h3 className="text-base font-semibold text-[var(--text)] mb-5 flex items-center gap-2">
-              <i className="fas fa-history"></i> Recent Activity
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--border)]">
-                    <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold">
-                      Date
-                    </th>
-                    <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold">
-                      Punch In
-                    </th>
-                    <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold">
-                      Punch Out
-                    </th>
-                    <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold">
-                      Hours
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dashboardData.attendance_history
-                    .slice(0, 5)
-                    .map((attendance, index) => {
-                      const pIn = parsePunchTime(attendance.punch_in);
-                      const pOut = parsePunchTime(attendance.punch_out);
-                      const hours =
-                        pIn &&
-                        pOut &&
-                        !isNaN(pIn.getTime()) &&
-                        !isNaN(pOut.getTime())
-                          ? ((pOut - pIn) / (1000 * 60 * 60)).toFixed(1)
-                          : "-";
-                      return (
-                        <tr
-                          key={index}
-                          className="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
-                        >
-                          <td className="py-3 px-4 text-[var(--text)]">
-                            {attendance.log_date}
-                           </td>
-                          <td className="py-3 px-4 text-[var(--text)]">
-                            {attendance.punch_in
-                              ? formatPunchTime(attendance.punch_in)
-                              : "-"}
-                           </td>
-                          <td className="py-3 px-4 text-[var(--text)]">
-                            {attendance.punch_out
-                              ? formatPunchTime(attendance.punch_out)
-                              : "-"}
-                           </td>
-                          <td className="py-3 px-4 text-[var(--text)] font-semibold">
-                            {hours !== "-" ? `${hours} hrs` : "-"}
-                           </td>
-                         </tr>
-                      );
-                    })}
-                </tbody>
-               </table>
-            </div>
+      {/* Chart and Recent Activity Side by Side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-7 mb-7">
+        {/* Chart Card */}
+        <div className="chart-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
+          <h3 className="text-base font-semibold text-[var(--text)] mb-5 flex items-center gap-2">
+            <i className="fas fa-chart-line text-blue-500"></i> My Attendance
+            (Last 7 Days)
+          </h3>
+          <div
+            className="chart-container"
+            style={{ height: "320px", width: "100%", position: "relative" }}
+          >
+            <Line ref={chartRef} data={getChartData()} options={chartOptions} />
           </div>
-        )}
+        </div>
+
+        {/* Recent Activity Section */}
+        {dashboardData?.attendance_history &&
+          dashboardData.attendance_history.length > 0 && (
+            <div className="recent-activity bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 flex flex-col">
+              <div className="flex justify-between items-center mb-5">
+                <h3 className="text-base font-semibold text-[var(--text)] flex items-center gap-2">
+                  <i className="fas fa-history text-blue-500"></i>
+                  Recent Activity
+                </h3>
+              </div>
+
+              <div className="overflow-x-auto -mx-1 px-1 flex-1">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[var(--surface2)] rounded-lg">
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Punch In
+                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Location
+                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Punch Out
+                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Hours
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dashboardData.attendance_history.map(
+                      (attendance, index) => {
+                        // Parse date from DD/MM/YYYY format
+                        const dateParts = attendance.log_date.split("/");
+                        const dateObj = new Date(
+                          dateParts[2],
+                          dateParts[1] - 1,
+                          dateParts[0],
+                        );
+
+                        // Format date as "MMM DD" (e.g., "Jun 9")
+                        const formattedDate = dateObj.toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                          },
+                        );
+
+                        const locationAddress = attendance.punch_in_address;
+
+                        return (
+                          <tr
+                            key={index}
+                            className="border-b border-[var(--border)]"
+                          >
+                            <td className="py-3 px-4">
+                              <div>
+                                <div className="text-[var(--text)] font-medium">
+                                  {formattedDate}
+                                </div>
+                                <div className="text-xs text-[var(--muted)]">
+                                  {dateObj.toLocaleDateString("en-US", {
+                                    weekday: "short",
+                                  })}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              {attendance.punch_in &&
+                              attendance.punch_in !== "--" ? (
+                                <div className="text-[var(--text)] font-medium">
+                                  {attendance.punch_in}
+                                </div>
+                              ) : (
+                                <span className="text-[var(--muted)]">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              {locationAddress && (
+                                <div className="text-xs text-[var(--muted)]">
+                                  <i className="fas fa-map-marker-alt text-green-500 text-xs mr-1"></i>
+                                  {locationAddress.substring(0, 40)}
+                                  {locationAddress.length > 40 ? "..." : ""}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              {attendance.punch_out &&
+                              attendance.punch_out !== "--" ? (
+                                <div className="text-[var(--text)] font-medium">
+                                  {attendance.punch_out}
+                                </div>
+                              ) : (
+                                <span className="text-[var(--muted)]">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              {attendance.working_hours !== "--" ? (
+                                <div className="text-[var(--text)] font-bold">
+                                  {attendance.working_hours}
+                                </div>
+                              ) : (
+                                <span className="text-[var(--muted)]">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      },
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+      </div>
 
       {/* Punch Out Modal */}
       <PunchOutModal
@@ -910,6 +1448,17 @@ const handlePendingPunchOut = async (data) => {
         loading={isSubmitting}
       />
 
+      {/* Location Modal */}
+      <LocationModal
+        isOpen={showLocationModal}
+        onClose={() => {
+          setShowLocationModal(false);
+          setPunchOutData(null);
+        }}
+        onConfirm={handleLocationConfirm}
+        type={punchType}
+      />
+
       <PendingPunchOutModal
         isOpen={showPendingModal}
         onClose={() => setShowPendingModal(false)}
@@ -917,6 +1466,9 @@ const handlePendingPunchOut = async (data) => {
         loading={pendingPunchSubmitting}
         pendingDate={pendingPunchDate}
       />
+
+      {/* Map Modal */}
+      {renderMapModal()}
 
       {/* Toast Notification */}
       {toast && (

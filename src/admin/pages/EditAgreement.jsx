@@ -349,7 +349,7 @@ const EditAgreement = () => {
         "success",
       );
       setTimeout(() => {
-        navigate("/admin/agreements");
+        navigate("/admin/documents");
       }, 1200);
     } else {
       const errorPayload = result.payload;
@@ -467,10 +467,10 @@ const EditAgreement = () => {
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
         <Link
-          to="/admin/agreements"
+          to="/admin/documents"
           className="text-green-500 hover:text-green-600 font-medium"
         >
-          Agreements
+          Documents
         </Link>
         <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
         <span className="text-gray-500 dark:text-gray-400">Edit Agreement</span>
@@ -852,7 +852,7 @@ const EditAgreement = () => {
           {/* Form Actions */}
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 md:pt-6 border-t border-gray-200 dark:border-gray-700">
             <Link
-              to="/admin/agreements"
+              to="/admin/documents"
               className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
             >
               <i className="fas fa-times text-xs md:text-sm"></i>
