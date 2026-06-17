@@ -20,10 +20,6 @@ const Layout = () => {
 
   return (
     <div className="app flex min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div
-        className={`overlay ${sidebarOpen ? "show" : ""}`}
-        onClick={toggleSidebar}
-      />
 
       <div id="sidebar">
         <Sidebar 
