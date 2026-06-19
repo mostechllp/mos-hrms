@@ -334,6 +334,12 @@ function App() {
             element={<Navigate to="/employee/dashboard" replace />}
           />
           <Route path="dashboard" element={<EmployeeDashboard />} />
+          <Route path="leave-management" element={<Leaves />} />
+          <Route path="leaves/allocations" element={<LeaveAllocations />} />
+          <Route
+            path="leaves/allocations/:id"
+            element={<EditLeaveAllocation />}
+          />
           <Route path="leaves" element={<EmployeeLeaves />} />
           <Route path="request-leave" element={<RequestLeave />} />
           <Route path="wfh" element={<EmployeeWFH />} />
