@@ -230,6 +230,11 @@ const employeeSlice = createSlice({
       state.filters = initialState.filters;
       state.currentPage = 1;
     },
+    clearCurrentEmployee: (state) => {
+    state.currentEmployee = null;
+    state.loading = false;
+    state.error = null;
+  },
   },
   extraReducers: (builder) => {
     builder
