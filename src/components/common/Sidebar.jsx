@@ -11,7 +11,7 @@ const ADMIN_ROUTE_MAP = {
   "attendance-requests": "/admin/attendance-requests",
   "wfh-requests": "/admin/wfh-requests",
   documents: "/admin/documents",
-  leave: "/admin/leaves",
+  leaves: "/admin/leaves",
   "my-leaves": "/admin/my-leaves",
   "task-reports": "/admin/task-reports",
   reports: "/admin/reports",
@@ -19,6 +19,8 @@ const ADMIN_ROUTE_MAP = {
   payroll: "/admin/payroll/add",
   roles: "/admin/role-management",
   settings: "/admin/settings",
+  "my-tasks": "/admin/my-tasks",
+  organizations: "/admin/organizations",
 };
 
 const EMPLOYEE_ROUTE_MAP = {
@@ -32,11 +34,13 @@ const EMPLOYEE_ROUTE_MAP = {
   reports: "/employee/reports",
   projects: "/employee/projects",
   settings: "/employee/settings",
-  leave: "/employee/leave-management",
+  leaves: "/employee/leave-management",
   "my-leaves": "/employee/leaves",
   "wfh-requests": "/employee/wfh",
   payroll: "/employee/payroll/add",
   roles: "/employee/role-management",
+  "my-tasks": "/employee/my-tasks",
+  organizations: "/employee/organizations",
 };
 
 const ICON_MAP = {
@@ -48,7 +52,7 @@ const ICON_MAP = {
   "attendance-requests": "fas fa-clock",
   "wfh-requests": "fas fa-house-user",
   documents: "fas fa-file-signature",
-  leave: "fas fa-calendar-check",
+  leaves: "fas fa-calendar-check",
   "my-leaves": "fas fa-calendar-alt",
   "task-reports": "fas fa-tasks",
   reports: "fas fa-chart-bar",
@@ -56,10 +60,50 @@ const ICON_MAP = {
   payroll: "fas fa-file-invoice-dollar",
   roles: "fas fa-user-shield",
   settings: "fas fa-gear",
+  "my-tasks": "fas fa-list-check",
+  organizations: "fas fa-building",
 };
 
-// Define which modules are children of "Leaves" parent
-const LEAVES_CHILDREN = ["leave", "my-leaves"];
+// Configuration for parent menus and their children
+const PARENT_MENU_CONFIG = {
+  leaves: {
+    label: "Leaves",
+    icon: "fas fa-calendar-check",
+    children: ["leaves", "my-leaves"],
+    roles: ["HR Manager", "hr manager", "HR"],
+    order: 999,
+  },
+  tasks: {
+    label: "Tasks",
+    icon: "fas fa-tasks",
+    children: ["task-reports", "my-tasks"],
+    roles: ["HR Manager", "hr manager", "HR"],
+    order: 1000,
+  },
+};
+
+// Define which modules are children (for filtering)
+const ALL_CHILDREN = Object.values(PARENT_MENU_CONFIG).flatMap(config => config.children);
+
+// Define order of standalone modules
+const MODULE_ORDER = {
+  dashboard: 1,
+  onboarding: 2,
+  employees: 3,
+  offboarding: 4,
+  projects: 5,
+  attendance: 6,
+  documents: 7,
+  reports: 8,
+  settings: 9,
+  roles: 10,
+  payroll: 11,
+  leaves: 12,
+  organization: 13,
+};
+
+// Child modules that should be hidden for Admin/Super Admin
+const HIDDEN_FOR_ADMIN = ["my-leaves", "task-reports", "my-tasks"];
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -88,61 +132,128 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const activeRouteMap = user?.type === 'admin' ? ADMIN_ROUTE_MAP : EMPLOYEE_ROUTE_MAP;
   
-  // Get all available modules from API
+  // Check if user has a specific role
+  const userRole = user?.role?.name;
+  const isHR = userRole && ["HR Manager", "hr manager", "HR"].includes(userRole);
+  const hasAllPermissions = user?.permissions?.all === true;
+
+  // Get permissions from user object
+  const permissions = user?.permissions || {};
+
+  // Check if user has read permission for a module
+  const hasReadPermission = (slug) => {
+    // If user has 'all' permission (Super Admin), allow all
+    if (hasAllPermissions) return true;
+    
+    // Check specific permission for the module
+    const modulePermission = permissions[slug];
+    if (modulePermission) {
+      return modulePermission.read === true;
+    }
+    
+    // If no permission found, default to false
+    return false;
+  };
+
+  // Check if module should be shown for Admin
+  const shouldShowForAdmin = (slug) => {
+    // If user has all permissions, hide child modules
+    if (hasAllPermissions) {
+      return !HIDDEN_FOR_ADMIN.includes(slug);
+    }
+    return true;
+  };
+
+  // Get all available modules from API and filter by permissions
   const allModules = (user?.sidebar_modules || [])
-    .filter((mod) => mod.status === "active" && activeRouteMap[mod.slug]);
+    .filter((mod) => {
+      // Must be active and have a route
+      if (mod.status !== "active" || !activeRouteMap[mod.slug]) return false;
+      
+      // Check if user has read permission for this module
+      if (!hasReadPermission(mod.slug)) return false;
+      
+      // For Admin with all permissions, hide child modules
+      if (!shouldShowForAdmin(mod.slug)) return false;
+      
+      return true;
+    })
+    .map((mod) => mod.slug);
 
   // Build navigation with submenus
   const buildNavItems = () => {
     const navItems = [];
     const processedSlugs = new Set();
+    const parentItems = [];
+    const standaloneItems = [];
 
-    // First, add all standalone modules (excluding leave-related ones)
-    allModules.forEach((mod) => {
-      if (!LEAVES_CHILDREN.includes(mod.slug)) {
-        navItems.push({
-          type: "single",
-          slug: mod.slug,
-          label: mod.name,
-          path: activeRouteMap[mod.slug],
-          icon: ICON_MAP[mod.slug] || "fas fa-circle",
+    // Only create parent menus for HR (not for Admin with all permissions)
+    if (isHR && !hasAllPermissions) {
+      // Check each parent menu configuration
+      Object.entries(PARENT_MENU_CONFIG).forEach(([parentKey, config]) => {
+        // Check if user has permission to see this parent menu
+        const hasRoleAccess = config.roles.some(role => userRole === role);
+        if (!hasRoleAccess) return;
+
+        // Check if ALL children exist AND have read permission
+        const hasAllChildren = config.children.every(child => {
+          return allModules.includes(child) && hasReadPermission(child);
         });
-      }
-    });
+        
+        if (hasAllChildren) {
+          // Create parent menu with all children
+          const children = config.children.map(childSlug => {
+            const module = user?.sidebar_modules?.find(m => m.slug === childSlug);
+            return {
+              slug: childSlug,
+              label: module?.name || childSlug,
+              path: activeRouteMap[childSlug],
+              icon: ICON_MAP[childSlug] || "fas fa-circle",
+            };
+          });
 
-    // Then, add the "Leaves" parent menu at the end
-    const hasLeaveModules = allModules.some(mod => 
-      LEAVES_CHILDREN.includes(mod.slug)
-    );
+          const isActive = children.some(child => location.pathname === child.path);
 
-    if (hasLeaveModules) {
-      // Get children modules
-      const children = allModules
-        .filter(mod => LEAVES_CHILDREN.includes(mod.slug))
-        .map(mod => ({
-          slug: mod.slug,
-          label: mod.name,
-          path: activeRouteMap[mod.slug],
-          icon: ICON_MAP[mod.slug] || "fas fa-circle",
-        }));
+          parentItems.push({
+            type: "parent",
+            slug: parentKey,
+            label: config.label,
+            icon: config.icon,
+            children: children,
+            isActive: isActive,
+            order: config.order || 500,
+          });
 
-      // Check if any child is active
-      const isActive = children.some(child => location.pathname === child.path);
-
-      navItems.push({
-        type: "parent",
-        slug: "leaves",
-        label: "Leaves",
-        icon: "fas fa-calendar-check",
-        children: children,
-        isActive: isActive
+          // Mark children as processed
+          children.forEach(child => processedSlugs.add(child.slug));
+        }
       });
-
-      // Mark children as processed
-      children.forEach(child => processedSlugs.add(child.slug));
     }
 
-    return navItems;
+    // Add all standalone modules
+    allModules.forEach((slug) => {
+      // Skip if already processed (already in a parent menu)
+      if (processedSlugs.has(slug)) return;
+      
+      // For HR without all permissions, skip children that are in parent menus
+      if (isHR && !hasAllPermissions && ALL_CHILDREN.includes(slug)) return;
+
+      const module = user?.sidebar_modules?.find(m => m.slug === slug);
+      standaloneItems.push({
+        type: "single",
+        slug: slug,
+        label: module?.name || slug,
+        path: activeRouteMap[slug],
+        icon: ICON_MAP[slug] || "fas fa-circle",
+        order: MODULE_ORDER[slug] || 100,
+      });
+    });
+
+    // Combine and sort by order
+    const allItems = [...standaloneItems, ...parentItems];
+    allItems.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    return allItems;
   };
 
   const navItems = buildNavItems();

@@ -87,6 +87,7 @@ const extractAttendanceRecords = (response) => {
           company: record.company?.company_name || "N/A",
           company_id: record.company_id || null,
           department: department,
+          designation: record.user?.designation?.name || "-",
           date: record.log_date || "-",
           punchIn: punchIn,
           punchOut: punchOut,
