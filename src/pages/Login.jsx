@@ -1,25 +1,29 @@
+// src/pages/Login.js
+
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { clearError, loginUser, setRememberMe } from "../store/slices/authSlice";
 import { showToast } from "../components/common/Toast";
-import { useAppTheme } from "../context/ThemeContext"; // Import the theme hook
+import { useAppTheme } from "../context/ThemeContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMeState] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { loading, error, isAuthenticated, userType } = useSelector(
     (state) => state.auth
   );
   
-  // Get the primary color from theme context
   const { primaryColor } = useAppTheme();
 
-  // Helper function to adjust color brightness
   const adjustColor = (color, percent) => {
     let r, g, b;
     if (color.startsWith('#')) {
@@ -37,8 +41,6 @@ const Login = () => {
     return `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`;
   };
 
-  // eslint-disable-next-line no-unused-vars
-  const lighterColor = adjustColor(primaryColor, 15);
   const darkerColor = adjustColor(primaryColor, -15);
 
   // Load remembered email if exists
@@ -46,7 +48,6 @@ const Login = () => {
     const remembered = localStorage.getItem("remember-me") === "true";
     const savedEmail = localStorage.getItem("remembered-email");
     if (remembered && savedEmail) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEmail(savedEmail);
       setRememberMeState(true);
     }
@@ -76,13 +77,175 @@ const Login = () => {
       return;
     }
 
+    if (!agreeToTerms) {
+      showToast("Please agree to the Privacy Policy and Terms & Conditions", "error");
+      return;
+    }
+
     dispatch(setRememberMe(rememberMe));
     await dispatch(loginUser({ email, password }));
   };
 
+  // Privacy Policy Content
+  const PrivacyPolicyContent = () => (
+    <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
+      <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">Privacy Policy</h3>
+      <p>
+        <strong>Last Updated:</strong> January 2026
+      </p>
+      
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">1. Information We Collect</h4>
+        <p>We collect information you provide directly, such as your name, email address, phone number, and location data for attendance tracking purposes.</p>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">2. Location Data</h4>
+        <p>When you use our attendance punching feature, we collect your location data to verify your presence at the workplace. This includes:</p>
+        <ul className="list-disc list-inside ml-4 mt-2 space-y-1">
+          <li>GPS coordinates of your device</li>
+          <li>IP address</li>
+          <li>Device information</li>
+          <li>Timestamp of your punch-in/punch-out</li>
+        </ul>
+        <p className="mt-2">Location data is only collected when you actively punch in or out for attendance.</p>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">3. How We Use Your Information</h4>
+        <ul className="list-disc list-inside ml-4 space-y-1">
+          <li>Track attendance and work hours</li>
+          <li>Generate reports for management</li>
+          <li>Ensure workplace safety compliance</li>
+          <li>Improve our HR management services</li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">4. Data Security</h4>
+        <p>We implement appropriate technical and organizational measures to protect your personal data against unauthorized access, alteration, disclosure, or destruction.</p>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">5. Your Rights</h4>
+        <ul className="list-disc list-inside ml-4 space-y-1">
+          <li>Access your personal data</li>
+          <li>Request correction of inaccurate data</li>
+          <li>Request deletion of your data</li>
+          <li>Withdraw consent at any time</li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">6. Contact Us</h4>
+        <p>If you have questions about this Privacy Policy, please contact us at:</p>
+        <p className="mt-1">Email: privacy@mostech.com</p>
+        <p>Phone: +971 000000000</p>
+      </div>
+    </div>
+  );
+
+  // Terms & Conditions Content
+  const TermsContent = () => (
+    <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
+      <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">Terms & Conditions</h3>
+      <p>
+        <strong>Last Updated:</strong> January 2026
+      </p>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">1. Acceptance of Terms</h4>
+        <p>By accessing and using this HR Management System, you agree to comply with and be bound by these Terms & Conditions.</p>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">2. User Accounts</h4>
+        <ul className="list-disc list-inside ml-4 space-y-1">
+          <li>You are responsible for maintaining the confidentiality of your account credentials</li>
+          <li>You must notify us immediately of any unauthorized use of your account</li>
+          <li>You are responsible for all activities that occur under your account</li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">3. Attendance Tracking</h4>
+        <ul className="list-disc list-inside ml-4 space-y-1">
+          <li>Location data is required for attendance verification purposes</li>
+          <li>False attendance reporting is strictly prohibited</li>
+          <li>Attendance records are maintained for compliance and payroll processing</li>
+          <li>You must have location services enabled for accurate punch-in/punch-out</li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">4. Acceptable Use</h4>
+        <ul className="list-disc list-inside ml-4 space-y-1">
+          <li>Use the system only for legitimate HR and administrative purposes</li>
+          <li>Do not attempt to circumvent security measures</li>
+          <li>Do not use the system for any unlawful or prohibited activities</li>
+          <li>Do not share your account credentials with others</li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">5. Data Privacy</h4>
+        <p>Your use of this system is also governed by our Privacy Policy. We collect and process your personal data in accordance with applicable data protection laws.</p>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">6. Termination</h4>
+        <p>We reserve the right to suspend or terminate your account if you violate these Terms & Conditions or engage in any fraudulent or malicious activities.</p>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">7. Changes to Terms</h4>
+        <p>We may update these Terms & Conditions from time to time. Continued use of the system constitutes acceptance of the updated terms.</p>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">8. Contact</h4>
+        <p>If you have any questions about these Terms & Conditions, please contact us at:</p>
+        <p className="mt-1">Email: support@mostech.com</p>
+        <p>Phone: +971 0000000000</p>
+      </div>
+    </div>
+  );
+
+  // Modal Component
+  const Modal = ({ isOpen, onClose, title, children }) => {
+    if (!isOpen) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">{title}</h2>
+            <button
+              onClick={onClose}
+              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <i className="fas fa-times text-gray-500 text-lg"></i>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            {children}
+          </div>
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Branding - Dynamic gradient based on theme */}
+      {/* Left Side - Branding */}
       <div 
         className="hidden lg:flex flex-1 relative overflow-hidden items-center justify-center p-10"
         style={{ 
@@ -177,7 +340,7 @@ const Login = () => {
               </div>
             </div>
 
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -192,13 +355,50 @@ const Login = () => {
               </label>
             </div>
 
+            {/* Privacy Policy & Terms Checkbox */}
+            <div className="space-y-2">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreeToTerms}
+                  onChange={(e) => setAgreeToTerms(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 transition-all flex-shrink-0"
+                  style={{ accentColor: primaryColor }}
+                  disabled={loading}
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  I agree to the{" "}
+                  <button
+                    type="button"
+                    onClick={() => setShowPrivacyModal(true)}
+                    className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                  >
+                    Privacy Policy
+                  </button>
+                  {" "}and{" "}
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(true)}
+                    className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                  >
+                    Terms & Conditions
+                  </button>
+                  . <span className="text-red-500">*</span>
+                </span>
+              </label>
+              {!agreeToTerms && (
+                <p className="text-xs text-red-500">
+                  You must agree to the Privacy Policy and Terms & Conditions to continue
+                </p>
+              )}
+            </div>
+
             <button
               type="submit"
               disabled={loading}
               className="w-full text-white font-semibold py-3 rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
               style={{ 
                 backgroundColor: primaryColor,
-                '&:hover': { backgroundColor: adjustColor(primaryColor, -10) }
               }}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = adjustColor(primaryColor, -10)}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = primaryColor}
@@ -216,6 +416,24 @@ const Login = () => {
           </form>
         </div>
       </div>
+
+      {/* Privacy Policy Modal */}
+      <Modal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+        title="Privacy Policy"
+      >
+        <PrivacyPolicyContent />
+      </Modal>
+
+      {/* Terms & Conditions Modal */}
+      <Modal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        title="Terms & Conditions"
+      >
+        <TermsContent />
+      </Modal>
     </div>
   );
 };

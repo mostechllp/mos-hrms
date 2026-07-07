@@ -5,6 +5,7 @@ import { fetchEmployees } from "../store/slices/employeeSlice";
 import { fetchOrganizations } from "../store/slices/organizationSlice";
 import { fetchAttendanceRecords } from "../store/slices/attendanceSlice";
 import { fetchLeaves } from "../store/slices/LeaveSlice";
+import { fetchTaskReports } from "../store/slices/reportSlice";
 
 const Reports = () => {
   const dispatch = useDispatch();
@@ -19,6 +20,9 @@ const Reports = () => {
   const { leaves: leaveRecords = [] } = useSelector(
     (state) => state.leaves || {},
   );
+  const { taskReports = [], taskReportsTotalCount = 0 } = useSelector(
+    (state) => state.reports || {},
+  );
 
   // Get user role from auth
   const { user } = useSelector((state) => state.auth);
@@ -32,6 +36,16 @@ const Reports = () => {
     dispatch(fetchEmployees());
     dispatch(fetchAttendanceRecords());
     dispatch(fetchLeaves());
+    // Fetch task reports to get count
+    dispatch(
+      fetchTaskReports({
+        page: 1,
+        per_page: 1, // Only fetch 1 record to get the total count
+        date_range: "custom",
+        from_date: new Date(new Date().setDate(1)).toISOString().split("T")[0],
+        to_date: new Date().toISOString().split("T")[0],
+      })
+    );
   }, [dispatch]);
 
   // Calculate statistics for cards
@@ -39,6 +53,7 @@ const Reports = () => {
   const pendingLeaves = leaveRecords.filter(
     (leave) => leave.status === "Pending",
   ).length;
+  const totalTaskReports = taskReportsTotalCount || taskReports.length;
 
   // Calculate expiry statistics
   const today = new Date();
@@ -107,7 +122,7 @@ const Reports = () => {
       iconBg: "bg-indigo-100 dark:bg-indigo-900/30",
       iconColor: "text-indigo-600 dark:text-indigo-400",
       link: `${basePath}/reports/task-reports`,
-      count: 0, // Will be updated dynamically
+      count: totalTaskReports,
     },
     {
       id: "leave-requests",
