@@ -1,3 +1,5 @@
+// src/admin/pages/EditCompany.js
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -8,6 +10,7 @@ import {
   clearError,
 } from "../store/slices/companySlice";
 import { fetchOrganizations } from "../store/slices/organizationSlice";
+import CountrySelect from "../components/common/CountrySelect";
 
 const EditCompany = () => {
   const navigate = useNavigate();
@@ -33,9 +36,18 @@ const EditCompany = () => {
     phone: "",
     email: "",
     address: "",
-    trade_license: "", // Added trade_license field
+    country: "", // Added country field
+    trade_license: "",
+    company_type: "",
     organization_id: "",
   });
+
+  const companyTypeOptions = [
+    { value: "llp", label: "LLP" },
+    { value: "private_limited", label: "Private Limited (Pvt. Ltd.)" },
+    { value: "proprietorship", label: "Proprietorship / Company" },
+    { value: "other", label: "Other" },
+  ];
 
   // Fetch organizations
   useEffect(() => {
@@ -48,7 +60,6 @@ const EditCompany = () => {
   useEffect(() => {
     if (organizations.length > 0 && organizationId) {
       const org = organizations.find((o) => o.id === parseInt(organizationId));
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentOrganization(org);
     }
   }, [organizations, organizationId]);
@@ -63,6 +74,13 @@ const EditCompany = () => {
       );
     }
   }, [dispatch, organizationId, id]);
+
+  const handleCountryChange = (countryCode) => {
+    setFormData({
+      ...formData,
+      country: countryCode,
+    });
+  };
 
   const getBaseUrl = () => {
     const apiUrl = import.meta.env.VITE_API_URL;
@@ -95,20 +113,26 @@ const EditCompany = () => {
   // Set form data when company is loaded
   useEffect(() => {
     if (currentCompany) {
-      console.log("Current Company Data:", currentCompany); // Debug log
-      
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      console.log("Current Company Data:", currentCompany);
+
       setFormData({
         company_name: currentCompany.company_name || currentCompany.name || "",
         phone: currentCompany.phone || "",
         email: currentCompany.email || "",
         address: currentCompany.address || "",
-        trade_license: currentCompany.raw?.trade_license || "", // Make sure this matches the API response
+        country: currentCompany.country || currentCompany.raw?.country || "", // Added country
+        trade_license:
+          currentCompany.trade_license ||
+          currentCompany.raw?.trade_license ||
+          "",
+        company_type:
+          currentCompany.company_type || currentCompany.raw?.company_type || "",
         organization_id: currentCompany.organization_id || organizationId,
       });
-      
-      console.log("Trade license value:", currentCompany.trade_license); // Debug log
-      
+
+      console.log("Country value:", currentCompany.country);
+      console.log("Trade license value:", currentCompany.trade_license);
+
       if (currentCompany.logo) {
         setLogoPreview(getFullLogoUrl(currentCompany.logo));
       }
@@ -168,11 +192,11 @@ const EditCompany = () => {
       phone: formData.phone,
       email: formData.email,
       address: formData.address,
-      trade_license: formData.trade_license || null, // Send null if empty
+      country: formData.country || null,
+      trade_license: formData.trade_license || null,
+      company_type: formData.company_type || null, // Added
       organization_id: parseInt(organizationId),
     };
-
-    console.log("Submitting company data:", companyData); // Debug log
 
     const result = await dispatch(
       updateCompany({ id: parseInt(id), data: companyData }),
@@ -219,9 +243,7 @@ const EditCompany = () => {
           {currentOrganization?.name || "Companies"}
         </Link>
         <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
-        <span className="text-gray-500 dark:text-gray-400">
-          Edit Company
-        </span>
+        <span className="text-gray-500 dark:text-gray-400">Edit Company</span>
       </div>
 
       {/* Page Header */}
@@ -250,8 +272,8 @@ const EditCompany = () => {
               {/* Parent Organization - Full Width */}
               <div className="md:col-span-2">
                 <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                  <i className="fas fa-sitemap text-green-500 mr-1"></i>{" "}
-                  Parent Organization
+                  <i className="fas fa-sitemap text-green-500 mr-1"></i> Parent
+                  Organization
                 </label>
                 <input
                   type="text"
@@ -308,10 +330,50 @@ const EditCompany = () => {
                 />
               </div>
 
-              {/* Trade License - New Field */}
+              {/* Country - NEW FIELD */}
               <div>
                 <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                  <i className="fas fa-certificate text-green-500 mr-1"></i> Trade License
+                  <i className="fas fa-globe text-green-500 mr-1"></i> Country
+                </label>
+                <CountrySelect
+                  value={formData.country || ""}
+                  onChange={handleCountryChange}
+                  placeholder="Search and select a country..."
+                  className="w-full"
+                />
+                <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Select the country where the company is registered
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                  <i className="fas fa-building text-green-500 mr-1"></i>{" "}
+                  Company Type
+                </label>
+                <select
+                  name="company_type"
+                  value={formData.company_type || ""}
+                  onChange={handleChange}
+                  className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                >
+                  <option value="">Select Company Type</option>
+                  {companyTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Select the legal structure of the company
+                </p>
+              </div>
+
+              {/* Trade License */}
+              <div>
+                <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                  <i className="fas fa-certificate text-green-500 mr-1"></i>{" "}
+                  Trade License
                 </label>
                 <select
                   name="trade_license"
@@ -331,7 +393,8 @@ const EditCompany = () => {
               {/* Address - Full Width */}
               <div className="md:col-span-2">
                 <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                  <i className="fas fa-map-marker-alt text-green-500 mr-1"></i> Address
+                  <i className="fas fa-map-marker-alt text-green-500 mr-1"></i>{" "}
+                  Address
                 </label>
                 <textarea
                   name="address"

@@ -11,6 +11,7 @@ import {
   fetchTaskReports,
   exportTaskReports 
 } from "../../store/slices/reportSlice";
+import { fetchEmployees } from "../../store/slices/employeeSlice";
 
 const TaskReports = () => {
   const dispatch = useDispatch();
@@ -20,6 +21,8 @@ const TaskReports = () => {
     taskReportsTotalCount: totalCount = 0,
     taskReportsLastPage: lastPage = 1,
   } = useSelector((state) => state.reports || {});
+  
+  const { employees = [] } = useSelector((state) => state.employees || {});
 
   // Local state
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,32 +43,43 @@ const TaskReports = () => {
     return new Date().toISOString().split("T")[0];
   });
 
-  // Get unique employees for filters
-  const uniqueEmployees = [
-    ...new Set(
-      records
-        .map((record) => ({
-          id: record.employeeId || record.employee_id || record.id,
-          name: record.employee || record.employee_name,
-        }))
-        .filter((emp) => emp.id && emp.name)
-    ),
-  ];
+  // Fetch employees on mount for filter dropdown
+  useEffect(() => {
+    dispatch(fetchEmployees());
+  }, [dispatch]);
+
+  // Get unique employees for filters from employees list (not from records)
+  const employeeOptions = employees.map((emp) => ({
+    id: emp.id || emp.employee_id,
+    name: emp.name || emp.employee_name,
+  })).filter(emp => emp.id && emp.name);
 
   // Fetch task reports data with filters
   useEffect(() => {
     const fetchData = async () => {
-      await dispatch(
-        fetchTaskReports({
-          page: currentPage,
-          per_page: perPage,
-          employee_id: employeeFilter !== "all" ? employeeFilter : undefined,
-          search: searchTerm || undefined,
-          date_range: datePreset,
-          from_date: datePreset === "custom" ? startDate : undefined,
-          to_date: datePreset === "custom" ? endDate : undefined,
-        }),
-      );
+      const params = {
+        page: currentPage,
+        per_page: perPage,
+        date_range: datePreset,
+      };
+
+      // Add from_date and to_date only for custom range
+      if (datePreset === "custom") {
+        params.from_date = startDate;
+        params.to_date = endDate;
+      }
+
+      // Add employee filter - use employee_id as parameter
+      if (employeeFilter !== "all") {
+        params.employee_id = employeeFilter;
+      }
+
+      // Add search
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+
+      await dispatch(fetchTaskReports(params));
     };
     fetchData();
   }, [
@@ -198,7 +212,7 @@ const TaskReports = () => {
   const start = (currentPage - 1) * perPage;
 
   // Calculate statistics
-  const totalEmployees = [...new Set(allRecords.map(r => r.employee || r.employee_name))].length;
+  const totalEmployees = employeeOptions.length;
   const today = new Date().toISOString().split("T")[0];
   const todayReports = allRecords.filter(r => r.report_date === today || r.date === today).length;
   const withRemarks = allRecords.filter(r => r.remarks && r.remarks.trim()).length;
@@ -351,25 +365,6 @@ const TaskReports = () => {
               </button>
             </div>
           </div>
-        </div>
-
-        {/* Additional Filters - Employee */}
-        <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
-          <select
-            value={employeeFilter}
-            onChange={(e) => {
-              setEmployeeFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-3 md:px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs md:text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-indigo-500 min-w-[150px]"
-          >
-            <option value="all">All Employees</option>
-            {uniqueEmployees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.name}
-              </option>
-            ))}
-          </select>
         </div>
 
         {/* Actions Bar */}
