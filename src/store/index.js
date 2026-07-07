@@ -23,6 +23,7 @@ import checklistCategoryReducer from "../admin/store/slices/checklistCategorySli
 import taskReducer from "../admin/store/slices/tasksSlice";
 import projectReducer from "../admin/store/slices/projectsSlice";
 import moduleReducer from "../admin/store/slices/moduleSlice";
+import reportReducer from "../admin/store/slices/reportSlice";
 
 
 // Employee reducers
@@ -63,6 +64,7 @@ export const store = configureStore({
     tasks: taskReducer,
     projects: projectReducer,
     settings: settingsReducer,
+    reports: reportReducer,
 
     // Employee
     EmpLeaves: leavesReducer,

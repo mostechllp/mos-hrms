@@ -51,6 +51,9 @@ const EmployeeDetailsReport = lazy(
 const AttendanceReport = lazy(
   () => import("./admin/components/reports/AttendanceReport"),
 );
+const TaskReport = lazy(
+  () => import("./admin/components/reports/TaskReport"),
+);
 const LeaveRequestReport = lazy(
   () => import("./admin/components/reports/LeaveRequestsReports"),
 );
@@ -136,7 +139,7 @@ const LazyWrapper = ({ children }) => {
 function App() {
   const { theme } = useTheme();
   const dispatch = useDispatch();
-  const { loading: authLoading } = useSelector((state) => state.auth);
+  const { loading: authLoading, user } = useSelector((state) => state.auth);
   const [initialLoad, setInitialLoad] = useState(true);
 
   useEffect(() => {
@@ -277,6 +280,7 @@ function App() {
             path="reports/attendance-reports"
             element={<AttendanceReport />}
           />
+          <Route path="reports/task-reports" element={<TaskReport />} />
           <Route
             path="reports/leave-requests-reports"
             element={<LeaveRequestReport />}
@@ -310,6 +314,8 @@ function App() {
           />
           <Route path="payroll/add" element={<AddPayroll />} />
           <Route path="wfh" element={<AdminWFH />} />
+          <Route path="attendance-requests" element={<AttendanceRequests />} /> 
+          <Route path="wfh-requests" element={<AdminWFH />} />  
           <Route path="settings" element={<Settings />} />
           <Route path="role-management" element={<RoleManagement />} />
           <Route path="modules" element={<ModuleManagement />} />
@@ -332,16 +338,28 @@ function App() {
             element={<Navigate to="/employee/dashboard" replace />}
           />
           <Route path="dashboard" element={<EmployeeDashboard />} />
+          <Route path="leave-management" element={<Leaves />} />
+          <Route path="leaves/allocations" element={<LeaveAllocations />} />
+          <Route
+            path="leaves/allocations/:id"
+            element={<EditLeaveAllocation />}
+          />
           <Route path="leaves" element={<EmployeeLeaves />} />
           <Route path="request-leave" element={<RequestLeave />} />
           <Route path="wfh" element={<EmployeeWFH />} />
-          <Route path="task-reports" element={<EmployeeTaskReports />} />
+          <Route path="my-tasks" element={<EmployeeTaskReports />} />
+          <Route path="task-reports" element={<TaskReports />} />
           <Route path="tasks" element={<EmployeeTasks />} />
           <Route path="profile" element={<EmployeeProfile />} />
           <Route path="attendance-requests" element={<AttendanceRequests />} />
+          <Route path="organizations" element={<Organizations />} />
 
           {/* Add admin-style routes for HR managers */}
           <Route path="employees" element={<Employees />} />
+          <Route path="employees/add-employee" element={<AddEmployee />} />
+          <Route path="employees/edit/:id" element={<EditEmployee />} />
+          <Route path="employees/:id" element={<EmployeeDetails />} />
+          
           <Route path="onboarding" element={<Onboarding />} />
           <Route path="attendance" element={<Attendances />} />
           <Route path="documents" element={<Agreements />} />
@@ -349,7 +367,209 @@ function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="projects" element={<Projects />} />
           <Route path="projects/:id/tasks" element={<ProjectTasks />} />
+          <Route
+            path="reports/employee-details"
+            element={<EmployeeDetailsReport />}
+          />
+          <Route
+            path="reports/attendance-reports"
+            element={<AttendanceReport />}
+          />
+          <Route path="reports/task-reports" element={<TaskReport />} />
+          <Route
+            path="reports/leave-requests-reports"
+            element={<LeaveRequestReport />}
+          />
+          <Route
+            path="reports/pending-leaves-reports"
+            element={<PendingLeaveReport />}
+          />
+          <Route
+            path="reports/employee-near-expiry"
+            element={<EmployeeNearestExpiryReport />}
+          />
+          <Route
+            path="reports/employee-upcoming-renewals"
+            element={<EmployeeUpcomingRenewalReport />}
+          />
+          <Route
+            path="reports/organization-near-expiry"
+            element={<OrgNearestExpiryReport />}
+          />
+          <Route
+            path="reports/organization-upcoming-renewals"
+            element={<OrgUpcomingRenewalReport />}
+          />
+          <Route path="designations" element={<Designations />} />
+          <Route path="departments" element={<Departments />} />
         </Route>
+
+        <Route
+          path="/admin/reports/employee-details"
+          element={
+            <ProtectedRoute>
+              <LazyWrapper>
+                {user?.type === "employee" ? (
+                  <Navigate to="/employee/reports/employee-details" replace />
+                ) : (
+                  <Navigate to="/admin/reports/employee-details" replace />
+                )}
+              </LazyWrapper>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/reports/attendance-reports"
+          element={
+            <ProtectedRoute>
+              <LazyWrapper>
+                {user?.type === "employee" ? (
+                  <Navigate to="/employee/reports/attendance-reports" replace />
+                ) : (
+                  <Navigate to="/admin/reports/attendance-reports" replace />
+                )}
+              </LazyWrapper>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/reports/task-reports"
+          element={
+            <ProtectedRoute>
+              <LazyWrapper>
+                {user?.type === "employee" ? (
+                  <Navigate to="/employee/reports/task-reports" replace />
+                ) : (
+                  <Navigate to="/admin/reports/task-reports" replace />
+                )}
+              </LazyWrapper>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/reports/leave-requests-reports"
+          element={
+            <ProtectedRoute>
+              <LazyWrapper>
+                {user?.type === "employee" ? (
+                  <Navigate
+                    to="/employee/reports/leave-requests-reports"
+                    replace
+                  />
+                ) : (
+                  <Navigate
+                    to="/admin/reports/leave-requests-reports"
+                    replace
+                  />
+                )}
+              </LazyWrapper>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/reports/pending-leaves-reports"
+          element={
+            <ProtectedRoute>
+              <LazyWrapper>
+                {user?.type === "employee" ? (
+                  <Navigate
+                    to="/employee/reports/pending-leaves-reports"
+                    replace
+                  />
+                ) : (
+                  <Navigate
+                    to="/admin/reports/pending-leaves-reports"
+                    replace
+                  />
+                )}
+              </LazyWrapper>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/reports/employee-near-expiry"
+          element={
+            <ProtectedRoute>
+              <LazyWrapper>
+                {user?.type === "employee" ? (
+                  <Navigate
+                    to="/employee/reports/employee-near-expiry"
+                    replace
+                  />
+                ) : (
+                  <Navigate to="/admin/reports/employee-near-expiry" replace />
+                )}
+              </LazyWrapper>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/reports/employee-upcoming-renewals"
+          element={
+            <ProtectedRoute>
+              <LazyWrapper>
+                {user?.type === "employee" ? (
+                  <Navigate
+                    to="/employee/reports/employee-upcoming-renewals"
+                    replace
+                  />
+                ) : (
+                  <Navigate
+                    to="/admin/reports/employee-upcoming-renewals"
+                    replace
+                  />
+                )}
+              </LazyWrapper>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/reports/organization-near-expiry"
+          element={
+            <ProtectedRoute>
+              <LazyWrapper>
+                {user?.type === "employee" ? (
+                  <Navigate
+                    to="/employee/reports/organization-near-expiry"
+                    replace
+                  />
+                ) : (
+                  <Navigate
+                    to="/admin/reports/organization-near-expiry"
+                    replace
+                  />
+                )}
+              </LazyWrapper>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/reports/organization-upcoming-renewals"
+          element={
+            <ProtectedRoute>
+              <LazyWrapper>
+                {user?.type === "employee" ? (
+                  <Navigate
+                    to="/employee/reports/organization-upcoming-renewals"
+                    replace
+                  />
+                ) : (
+                  <Navigate
+                    to="/admin/reports/organization-upcoming-renewals"
+                    replace
+                  />
+                )}
+              </LazyWrapper>
+            </ProtectedRoute>
+          }
+        />
 
         {/* Global 404 - No layout, full page */}
         <Route path="*" element={<NotFound />} />

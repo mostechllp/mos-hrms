@@ -20,17 +20,11 @@ const Layout = () => {
 
   return (
     <div className="app flex min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div
-        className={`overlay ${sidebarOpen ? "show" : ""}`}
-        onClick={toggleSidebar}
-      />
 
-      <div id="sidebar">
-        <Sidebar 
-          isOpen={sidebarOpen} 
-          setIsOpen={setSidebarOpen} 
-        />
-      </div>
+      <Sidebar 
+        isOpen={sidebarOpen} 
+        setIsOpen={setSidebarOpen} 
+      />
 
       <div className="main flex-1">
         <Header onMenuClick={toggleSidebar} />
