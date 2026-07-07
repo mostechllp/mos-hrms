@@ -18,9 +18,12 @@ class PDFGenerator {
   addHeader(title, subtitle = "", filters = {}) {
     if (!this.doc) return;
 
-    // Title
+    // Dark navy blue color
+    const primaryColor = [2, 12, 77]; // #020c4d
+
+    // Title - using primary color
     this.doc.setFontSize(18);
-    this.doc.setTextColor(46, 204, 113);
+    this.doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     this.doc.text(title, 14, 20);
 
     // Subtitle / Generation date
@@ -58,19 +61,28 @@ class PDFGenerator {
       }
     }
 
-    // Summary stats
+    // Summary stats - using primary color for emphasis
     if (filters.stats) {
       this.doc.setFontSize(9);
-      this.doc.setTextColor(0, 0, 0);
+      this.doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       this.doc.text(filters.stats, 14, yOffset);
       yOffset += 7;
     }
 
-    return yOffset;
+    // Add a decorative line under the header
+    this.doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    this.doc.setLineWidth(0.5);
+    this.doc.line(14, yOffset + 2, this.doc.internal.pageSize.getWidth() - 14, yOffset + 2);
+
+    return yOffset + 5;
   }
 
   addTable(columns, data, startY = 48, options = {}) {
     if (!this.doc) return;
+
+    // Dark navy blue color
+    const primaryColor = [2, 12, 77];
+    const primaryLight = [40, 60, 120];
 
     const defaultOptions = {
       theme: "striped",
@@ -81,14 +93,14 @@ class PDFGenerator {
         lineWidth: 0.1,
       },
       headStyles: {
-        fillColor: [46, 204, 113],
+        fillColor: primaryColor, // #020c4d
         textColor: [255, 255, 255],
         fontSize: 8,
         fontStyle: "bold",
         halign: "center",
       },
       alternateRowStyles: {
-        fillColor: [245, 245, 245],
+        fillColor: [248, 249, 253], // Very light blue tint
       },
       margin: { top: startY, left: 14, right: 14, bottom: 20 },
     };
@@ -104,15 +116,36 @@ class PDFGenerator {
   addFooter() {
     if (!this.doc) return;
 
+    const primaryColor = [2, 12, 77];
     const pageCount = this.doc.internal.getNumberOfPages();
+    
     for (let i = 1; i <= pageCount; i++) {
       this.doc.setPage(i);
+      
+      // Add a footer line
+      this.doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      this.doc.setLineWidth(0.3);
+      this.doc.line(
+        14, 
+        this.doc.internal.pageSize.getHeight() - 12,
+        this.doc.internal.pageSize.getWidth() - 14,
+        this.doc.internal.pageSize.getHeight() - 12
+      );
+      
+      // Page number
       this.doc.setFontSize(8);
       this.doc.setTextColor(150, 150, 150);
       this.doc.text(
         `Page ${i} of ${pageCount}`,
         this.doc.internal.pageSize.getWidth() - 20,
-        this.doc.internal.pageSize.getHeight() - 10
+        this.doc.internal.pageSize.getHeight() - 5
+      );
+      
+      // Generated date on the left
+      this.doc.text(
+        `Generated: ${new Date().toLocaleDateString()}`,
+        14,
+        this.doc.internal.pageSize.getHeight() - 5
       );
     }
   }

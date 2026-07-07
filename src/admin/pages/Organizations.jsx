@@ -110,11 +110,26 @@ const Organizations = () => {
 
   return (
     <div className="w-full overflow-x-hidden">
-      {/* Header */}
-      <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4 md:mb-6">
         <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
           Organization Directory
         </h2>
+        <div className="flex gap-2">
+          <Link
+            to="/admin/designations"
+            className="bg-green-500 hover:bg-green-600 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
+          >
+            <i className="fas fa-briefcase"></i>
+            <span>Designations</span>
+          </Link>
+          <Link
+            to="/admin/departments"
+            className="bg-green-500 hover:bg-green-600 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
+          >
+            <i className="fas fa-diagram-project"></i>
+            <span>Departments</span>
+          </Link>
+        </div>
       </div>
 
       {/* No Organization State - Show Add Button */}
@@ -132,7 +147,7 @@ const Organizations = () => {
             </p>
             <Link
               to="/admin/organizations/add-organization"
-              className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-full text-sm font-semibold flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
+              className="bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white px-6 py-3 rounded-full text-sm font-semibold flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
             >
               <i className="fas fa-plus-circle"></i> Add Organization
             </Link>
@@ -280,7 +295,7 @@ const Organizations = () => {
                               {isMultiCompany && (
                                 <button
                                   onClick={() => handleManageCompanies(org)}
-                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-500 transition-colors"
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-500 dark:text-blue-400 transition-colors"
                                   title="Manage Companies"
                                 >
                                   <i className="fas fa-building text-xs md:text-sm"></i>
@@ -288,14 +303,14 @@ const Organizations = () => {
                               )}
                               <Link
                                 to={`/admin/organizations/edit-organization/${org.id}`}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
+                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 dark:text-amber-400 transition-colors"
                                 title="Edit"
                               >
                                 <i className="fas fa-edit text-xs md:text-sm"></i>
                               </Link>
                               <button
                                 onClick={() => handleDeleteClick(org)}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
+                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 dark:text-red-400 transition-colors"
                                 title="Delete"
                               >
                                 <i className="fas fa-trash text-xs md:text-sm"></i>

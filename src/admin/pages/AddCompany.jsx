@@ -1,14 +1,17 @@
+// src/admin/pages/AddCompany.js
+
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, Link, useParams } from "react-router-dom";
 import { addCompany, clearError } from "../store/slices/companySlice";
 import { fetchOrganizations } from "../store/slices/organizationSlice";
 import { showToast } from "../../components/common/Toast";
+import CountrySelect from "../components/common/CountrySelect";
 
 const AddCompany = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { organizationId } = useParams(); // Get organizationId from URL
+  const { organizationId } = useParams();
   const { organizations = [], loading: orgLoading } = useSelector(
     (state) => state.organizations || {},
   );
@@ -17,12 +20,14 @@ const AddCompany = () => {
   );
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    organization_id: organizationId || "", // Pre-fill from URL
+    organization_id: organizationId || "",
     company_name: "",
     phone: "",
     email: "",
     address: "",
-    trade_license: "", // Added trade_license field
+    country: "",
+    trade_license: "",
+    company_type: "", // Added company_type
     logo: null,
   });
   const [previewLogo, setPreviewLogo] = useState(null);
@@ -33,15 +38,12 @@ const AddCompany = () => {
     }
   }, [dispatch, organizations]);
 
-  // Handle company error
   useEffect(() => {
     if (companyError) {
       console.log("Company error received:", companyError);
 
-      // Handle validation errors
       if (companyError && typeof companyError === "object") {
         if (companyError.errors) {
-          // Display specific field errors
           Object.keys(companyError.errors).forEach((field) => {
             const messages = companyError.errors[field];
             if (Array.isArray(messages)) {
@@ -64,13 +66,10 @@ const AddCompany = () => {
     }
   }, [companyError, dispatch]);
 
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "phone") {
-      // Allow: digits, spaces, +, -, (, )
       const cleanedValue = value.replace(/[^\d\s()+-]/g, "");
-
       setFormData({
         ...formData,
         [name]: cleanedValue,
@@ -83,16 +82,21 @@ const AddCompany = () => {
     }
   };
 
+  const handleCountryChange = (countryCode) => {
+    setFormData({
+      ...formData,
+      country: countryCode,
+    });
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file size (2MB)
       if (file.size > 2 * 1024 * 1024) {
         showToast("File size must be less than 2MB", "error");
         return;
       }
 
-      // Validate file type
       const allowedTypes = [
         "image/jpeg",
         "image/png",
@@ -105,15 +109,8 @@ const AddCompany = () => {
         return;
       }
 
-      console.log("Selected file:", {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-      });
-
       setFormData({ ...formData, logo: file });
 
-      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewLogo(reader.result);
@@ -138,7 +135,6 @@ const AddCompany = () => {
     setLoading(true);
 
     try {
-      // Create FormData for file upload - matching Postman exactly
       const submitData = new FormData();
       submitData.append("organization_id", formData.organization_id);
       submitData.append("company_name", formData.company_name.trim());
@@ -146,14 +142,14 @@ const AddCompany = () => {
       if (formData.phone) submitData.append("phone", formData.phone);
       if (formData.email) submitData.append("email", formData.email);
       if (formData.address) submitData.append("address", formData.address);
-      if (formData.trade_license) submitData.append("trade_license", formData.trade_license); // Added trade_license
+      if (formData.country) submitData.append("country", formData.country);
+      if (formData.trade_license) submitData.append("trade_license", formData.trade_license);
+      if (formData.company_type) submitData.append("company_type", formData.company_type); // Added company_type
 
-      // Only append logo if it exists
       if (formData.logo) {
         submitData.append("logo", formData.logo);
       }
 
-      // Log FormData contents for debugging
       console.log("Submitting company with FormData:");
       for (let pair of submitData.entries()) {
         if (pair[0] === "logo") {
@@ -178,7 +174,6 @@ const AddCompany = () => {
           );
         }, 1500);
       } else {
-        console.error("Failed result:", result);
         if (result.payload && result.payload.message) {
           showToast(result.payload.message, "error");
         } else if (typeof result.payload === "string") {
@@ -195,10 +190,17 @@ const AddCompany = () => {
     }
   };
 
-  // Get selected organization name
   const selectedOrg = organizations.find(
     (org) => org.id === parseInt(formData.organization_id),
   );
+
+  // Company type options
+  const companyTypeOptions = [
+    { value: "llp", label: "LLP" },
+    { value: "private_limited", label: "Private Limited (Pvt. Ltd.)" },
+    { value: "proprietorship", label: "Proprietorship / Company" },
+    { value: "other", label: "Other" },
+  ];
 
   return (
     <div className="w-full overflow-x-hidden px-4 md:px-6">
@@ -261,7 +263,7 @@ const AddCompany = () => {
             onChange={handleChange}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
             required
-            disabled={!!organizationId} // Disable if coming from URL
+            disabled={!!organizationId}
           >
             <option value="">Select Organization</option>
             {organizations &&
@@ -339,7 +341,45 @@ const AddCompany = () => {
           />
         </div>
 
-        {/* Trade License - New Field */}
+        {/* Country */}
+        <div className="mb-5">
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            <i className="fas fa-globe text-green-500 mr-1"></i> Country
+          </label>
+          <CountrySelect
+            value={formData.country}
+            onChange={handleCountryChange}
+            placeholder="Search and select a country..."
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Select the country where the company is registered
+          </p>
+        </div>
+
+        {/* Company Type - NEW FIELD */}
+        <div className="mb-5">
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            <i className="fas fa-building text-green-500 mr-1"></i> Company Type
+          </label>
+          <select
+            name="company_type"
+            value={formData.company_type}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+          >
+            <option value="">Select Company Type</option>
+            {companyTypeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Select the legal structure of the company
+          </p>
+        </div>
+
+        {/* Trade License */}
         <div className="mb-5">
           <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
             Trade License

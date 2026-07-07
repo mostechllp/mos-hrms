@@ -1,3 +1,5 @@
+// src/admin/store/slices/companySlice.js
+
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import apiClient from "../../../utils/apiClient";
 
@@ -8,7 +10,6 @@ export const fetchCompanies = createAsyncThunk(
     try {
       const response = await apiClient.get("/admin/companies");
       let companies = response.data.data || [];
-      // Filter companies by organization
       if (organizationId) {
         companies = companies.filter(
           (company) => company.organization_id === parseInt(organizationId),
@@ -28,14 +29,12 @@ export const addCompany = createAsyncThunk(
   "companies/add",
   async (companyData, { rejectWithValue }) => {
     try {
-      // Don't set headers here - let the interceptor handle it
       const response = await apiClient.post("/admin/companies", companyData);
       console.log("Company add response:", response.data);
       return response.data.data;
     } catch (error) {
       console.error("Company add error:", error.response?.data);
       
-      // Return detailed validation errors
       if (error.response?.data?.errors) {
         return rejectWithValue({
           message: error.response.data.message,
@@ -60,6 +59,9 @@ export const updateCompany = createAsyncThunk(
         phone: data.phone || "",
         email: data.email || "",
         address: data.address || "",
+        country: data.country || "",
+        trade_license: data.trade_license || null,
+        company_type: data.company_type || null, // Added company_type
       };
 
       const response = await apiClient.put(`/admin/companies/${id}`, payload);
@@ -91,16 +93,11 @@ export const fetchCompanyById = createAsyncThunk(
   "companies/fetchById",
   async ({ organizationId, companyId }, { rejectWithValue }) => {
     try {
-      // First fetch all companies for the organization
       const response = await apiClient.get("/admin/companies");
       let companies = response.data.data || [];
-
-      // Filter by organization
       companies = companies.filter(
         (company) => company.organization_id === parseInt(organizationId),
       );
-
-      // Find the specific company
       const company = companies.find((c) => c.id === parseInt(companyId));
 
       if (!company) {
@@ -144,7 +141,6 @@ const companySlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Fetch Companies
       .addCase(fetchCompanies.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -159,6 +155,9 @@ const companySlice = createSlice({
           phone: company.phone || "-",
           email: company.email || "-",
           address: company.address || "-",
+          country: company.country || "-",
+          trade_license: company.trade_license || "-",
+          company_type: company.company_type || "-", // Added company_type
           logo: company.logo || null,
           organization_id: company.organization_id,
           createdAt: company.created_at
@@ -176,7 +175,6 @@ const companySlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      // Fetch Single Company
       .addCase(fetchCompanyById.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -191,6 +189,9 @@ const companySlice = createSlice({
           phone: action.payload.company.phone || "",
           email: action.payload.company.email || "",
           address: action.payload.company.address || "",
+          country: action.payload.company.country || "",
+          trade_license: action.payload.company.trade_license || "",
+          company_type: action.payload.company.company_type || "", // Added company_type
           logo: action.payload.company.logo || null,
           organization_id: action.payload.company.organization_id,
           raw: action.payload.company,
@@ -200,7 +201,6 @@ const companySlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      // Add Company
       .addCase(addCompany.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -214,6 +214,9 @@ const companySlice = createSlice({
           phone: action.payload.phone || "-",
           email: action.payload.email || "-",
           address: action.payload.address || "-",
+          country: action.payload.country || "-",
+          trade_license: action.payload.trade_license || "-",
+          company_type: action.payload.company_type || "-", // Added company_type
           logo: action.payload.logo || null,
           organization_id: action.payload.organization_id,
           createdAt: action.payload.created_at
@@ -236,7 +239,6 @@ const companySlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      // Update Company
       .addCase(updateCompany.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -254,11 +256,13 @@ const companySlice = createSlice({
             phone: action.payload.phone || "-",
             email: action.payload.email || "-",
             address: action.payload.address || "-",
+            country: action.payload.country || "-",
+            trade_license: action.payload.trade_license || "-",
+            company_type: action.payload.company_type || "-", // Added company_type
             logo: action.payload.logo || state.companies[index].logo,
             raw: action.payload,
           };
         }
-        // Also update currentCompany if it matches
         if (
           state.currentCompany &&
           state.currentCompany.id === action.payload.id
@@ -270,6 +274,9 @@ const companySlice = createSlice({
             phone: action.payload.phone || "-",
             email: action.payload.email || "-",
             address: action.payload.address || "-",
+            country: action.payload.country || "-",
+            trade_license: action.payload.trade_license || "-",
+            company_type: action.payload.company_type || "-", // Added company_type
             raw: action.payload,
           };
         }
@@ -278,7 +285,6 @@ const companySlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      // Delete Company
       .addCase(deleteCompany.pending, (state) => {
         state.loading = true;
         state.error = null;

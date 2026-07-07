@@ -122,7 +122,9 @@ const Employees = () => {
 
   const activeCount = employees.filter((e) => e.status === "Active").length;
   const inactiveCount = employees.filter((e) => e.status === "Inactive").length;
-  const onboardingCount = employees.filter((e) => e.status === "Onboarding").length;
+  const onboardingCount = employees.filter(
+    (e) => e.status === "Onboarding",
+  ).length;
 
   return (
     // Remove the outer div with Sidebar and flex layout
@@ -297,7 +299,7 @@ const Employees = () => {
               </tr>
             </thead>
             <tbody>
-              {!loading && pageEmployees.length > 0 ? ( 
+              {!loading && pageEmployees.length > 0 ? (
                 pageEmployees.map((emp, idx) => {
                   // Helper function to get photo URL
                   const getEmployeePhoto = () => {
@@ -401,8 +403,8 @@ const Employees = () => {
                               emp.status === "Active"
                                 ? "text-green-600 dark:text-green-400"
                                 : emp.status === "Onboarding"
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-red-600 dark:text-red-400"
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-red-600 dark:text-red-400"
                             }`}
                           >
                             {emp.status}
@@ -420,6 +422,12 @@ const Employees = () => {
                           </Link>
                           <Link
                             to={`/admin/employees/edit/${emp.id}`}
+                            onClick={() => {
+                              // Clear current employee data before navigating
+                              dispatch({
+                                type: "employees/clearCurrentEmployee",
+                              });
+                            }}
                             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
                             title="Edit"
                           >
