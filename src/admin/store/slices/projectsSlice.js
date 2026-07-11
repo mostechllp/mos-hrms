@@ -368,7 +368,7 @@ export const fetchProjects = createAsyncThunk(
   "projects/fetchAll",
   async (params = {}, { rejectWithValue }) => {
     // For development: use dummy data
-    const USE_DUMMY_DATA = true; // Set to false when backend is ready
+    const USE_DUMMY_DATA = false; // Set to false when backend is ready
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 800)); // Simulate network delay
@@ -388,7 +388,7 @@ export const fetchProjects = createAsyncThunk(
 export const fetchProjectById = createAsyncThunk(
   "projects/fetchById",
   async (id, { rejectWithValue }) => {
-    const USE_DUMMY_DATA = true;
+    const USE_DUMMY_DATA = false;
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -422,7 +422,7 @@ export const fetchProjectById = createAsyncThunk(
 export const createProject = createAsyncThunk(
   "projects/create",
   async (projectData, { rejectWithValue }) => {
-    const USE_DUMMY_DATA = true;
+    const USE_DUMMY_DATA = false;
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -441,6 +441,7 @@ export const createProject = createAsyncThunk(
       const response = await apiClient.post("/admin/projects", projectData);
       return response.data;
     } catch (error) {
+      console.error("Create Project Error Payload:", error.response?.data);
       return rejectWithValue(error.response?.data?.message || "Failed to create project");
     }
   }
@@ -450,7 +451,7 @@ export const createProject = createAsyncThunk(
 export const updateProject = createAsyncThunk(
   "projects/update",
   async ({ id, data }, { rejectWithValue }) => {
-    const USE_DUMMY_DATA = true;
+    const USE_DUMMY_DATA = false;
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -461,6 +462,7 @@ export const updateProject = createAsyncThunk(
       const response = await apiClient.put(`/admin/projects/${id}`, data);
       return response.data;
     } catch (error) {
+      console.error("Update Project Error Payload:", error.response?.data);
       return rejectWithValue(error.response?.data?.message || "Failed to update project");
     }
   }
@@ -470,7 +472,7 @@ export const updateProject = createAsyncThunk(
 export const deleteProject = createAsyncThunk(
   "projects/delete",
   async (id, { rejectWithValue }) => {
-    const USE_DUMMY_DATA = true;
+    const USE_DUMMY_DATA = false;
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -490,7 +492,7 @@ export const deleteProject = createAsyncThunk(
 export const updateProjectStatus = createAsyncThunk(
   "projects/updateStatus",
   async ({ id, status }, { rejectWithValue }) => {
-    const USE_DUMMY_DATA = true;
+    const USE_DUMMY_DATA = false;
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 300));

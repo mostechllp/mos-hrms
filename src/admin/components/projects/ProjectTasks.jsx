@@ -173,7 +173,7 @@ const ProjectTasks = () => {
       <div className="flex items-center gap-2 text-sm mb-6">
         <Link to="/admin/projects" className="text-green-500 hover:underline">Projects</Link>
         <i className="fas fa-chevron-right text-gray-400 text-xs"></i>
-        <span className="text-gray-500">{currentProject.name}</span>
+        <span className="text-gray-500">{currentProject.project_name || currentProject.name}</span>
         <i className="fas fa-chevron-right text-gray-400 text-xs"></i>
         <span className="text-gray-500">Tasks</span>
       </div>
@@ -182,7 +182,7 @@ const ProjectTasks = () => {
       <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 mb-6 text-white">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold mb-2">{currentProject.name}</h1>
+            <h1 className="text-2xl font-bold mb-2">{currentProject.project_name || currentProject.name}</h1>
             <p className="text-white/90 text-sm mb-3">{currentProject.client_name}</p>
             {currentProject.website_url && (
               <a href={currentProject.website_url} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-sm inline-flex items-center gap-1">
@@ -268,17 +268,22 @@ const ProjectTasks = () => {
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{idx + 1}</td>
                       <td className="px-4 py-3">
                         <div>
-                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{task.name}</p>
-                          {task.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{task.description}</p>}
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{task.title}</p>
+                          {task.task_description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{task.task_description}</p>}
                         </div>
                        </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {task.assigned_to?.map((emp, i) => (
-                            <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs">
-                              {emp.name}
-                            </span>
-                          ))}
+                          {(task.assignedTo || task.assigned_to)?.map((empItem, i) => {
+                            const empId = typeof empItem === 'object' ? empItem.id : empItem;
+                            const emp = employees?.find(e => e.id === empId) || (typeof empItem === 'object' ? empItem : null);
+                            if (!emp) return null;
+                            return (
+                              <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs">
+                                {emp.name || emp.employee_name || emp.first_name}
+                              </span>
+                            );
+                          })}
                         </div>
                        </td>
                       <td className="px-4 py-3 text-sm whitespace-nowrap">
@@ -347,7 +352,7 @@ const ProjectTasks = () => {
         onClose={() => setConfirmDelete(null)}
         onConfirm={confirmDeleteTask}
         title="Delete Task"
-        message={`Are you sure you want to delete "${confirmDelete?.name}"?`}
+        message={`Are you sure you want to delete "${confirmDelete?.title}"?`}
         confirmText="Delete"
         loading={actionLoading}
       />

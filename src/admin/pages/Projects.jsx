@@ -200,14 +200,14 @@ const Projects = () => {
           {projects.map((project) => (
             <div key={project.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 p-4 hover:shadow-md transition-all">
               <div className="flex justify-between items-start mb-3">
-                <h3 className="font-bold text-gray-800 dark:text-gray-200">{project.name}</h3>
+                <h3 className="font-bold text-gray-800 dark:text-gray-200">{project.project_name || project.name}</h3>
                 {getStatusBadge(project.status)}
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{project.client_name}</p>
               {project.website_url && (
                 <a href={project.website_url} target="_blank" className="text-xs text-blue-500 hover:underline block mb-2">{project.website_url}</a>
               )}
-              <p className="text-xs text-gray-500 mb-3 line-clamp-2">{project.description}</p>
+              <p className="text-xs text-gray-500 mb-3 line-clamp-2">{project.description || project.Project_descriptions}</p>
               <div className="flex justify-between items-center pt-3 border-t border-gray-200">
                 <div className="text-xs text-gray-500">
                   {formatDate(project.start_date)} - {formatDate(project.end_date) || "Ongoing"}
@@ -234,7 +234,7 @@ const Projects = () => {
       )}
 
       <ProjectModal isOpen={showProjectModal} onClose={() => setShowProjectModal(false)} project={selectedProject} onSuccess={handleRefresh} />
-      <ConfirmModal isOpen={!!confirmDelete} onClose={() => setConfirmDelete(null)} onConfirm={confirmDeleteProject} title="Delete Project" message={`Delete "${confirmDelete?.name}"?`} confirmText="Delete" loading={actionLoading} />
+      <ConfirmModal isOpen={!!confirmDelete} onClose={() => setConfirmDelete(null)} onConfirm={confirmDeleteProject} title="Delete Project" message={`Delete "${confirmDelete?.project_name || confirmDelete?.name}"?`} confirmText="Delete" loading={actionLoading} />
     </div>
   );
 };
