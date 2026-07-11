@@ -656,8 +656,8 @@ const Dashboard = () => {
   const fetchEmployeeTasks = async () => {
     setTasksLoading(true);
     try {
-      // Fetch only 2 tasks for dashboard overview
-      const result = await dispatch(fetchMyTasks({ per_page: 2, page: 1 }));
+      // Fetch 4 tasks for dashboard overview
+      const result = await dispatch(fetchMyTasks({ per_page: 4, page: 1 }));
       if (fetchMyTasks.fulfilled.match(result)) {
         const data = result.payload?.data || result.payload;
         // Handle the new task structure with project object
@@ -1306,17 +1306,92 @@ const Dashboard = () => {
 
       {/* Chart and Recent Activity Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-7 mb-7">
-        {/* Chart Card */}
-        <div className="chart-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
-          <h3 className="text-base font-semibold text-[var(--text)] mb-5 flex items-center gap-2">
-            <i className="fas fa-chart-line text-blue-500"></i> My Attendance
-            (Last 7 Days)
-          </h3>
-          <div
-            className="chart-container"
-            style={{ height: "320px", width: "100%", position: "relative" }}
-          >
-            <Line ref={chartRef} data={getChartData()} options={chartOptions} />
+        {/* Tasks Card */}
+        <div className="tasks-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 flex flex-col h-[380px] shadow-sm">
+          <div className="flex justify-between items-center mb-5 pb-3 border-b border-[var(--border)]">
+            <h3 className="text-base font-semibold text-[var(--text)] flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <i className="fas fa-tasks text-green-500"></i>
+              </div>
+              My Assigned Tasks
+            </h3>
+            <button onClick={() => navigate("/employee/tasks")} className="text-xs bg-[var(--surface2)] hover:bg-green-50 text-green-600 px-3 py-1.5 rounded-lg transition-colors font-semibold border border-[var(--border)] hover:border-green-200">
+              View All <i className="fas fa-arrow-right ml-1"></i>
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+            {tasksLoading ? (
+              <div className="flex justify-center items-center h-full min-h-[200px]">
+                <i className="fas fa-spinner fa-spin text-green-500 text-2xl"></i>
+              </div>
+            ) : tasks && tasks.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {tasks.map(task => (
+                  <div key={task.id} className="group p-4 border border-[var(--border)] rounded-xl hover:border-green-400 hover:shadow-md transition-all bg-[var(--surface)] flex flex-col gap-3 cursor-default">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="text-sm font-bold text-[var(--text)] group-hover:text-green-600 transition-colors">{task.title || task.name}</h4>
+                          <span className={`w-2 h-2 rounded-full shrink-0 shadow-sm ${
+                            task.priority === 'high' ? 'bg-red-500' :
+                            task.priority === 'medium' ? 'bg-amber-500' :
+                            'bg-green-500'
+                          }`}></span>
+                        </div>
+                        {task.project?.name && (
+                           <p className="text-[11px] text-[var(--muted)] font-medium flex items-center gap-1">
+                             <i className="fas fa-folder-open text-gray-400"></i> {task.project.name}
+                           </p>
+                        )}
+                      </div>
+                      
+                      <div className="shrink-0 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1 border border-gray-100 dark:border-gray-700 shadow-inner">
+                        <select 
+                          value={task.status}
+                          onChange={(e) => handleTaskStatusUpdate(task.id, e.target.value)}
+                          className={`text-[10px] font-bold rounded px-2 py-1 outline-none cursor-pointer border-none bg-transparent transition-colors ${
+                            task.status === 'completed' ? 'text-green-600' :
+                            task.status === 'in_progress' ? 'text-blue-600' :
+                            task.status === 'overdue' ? 'text-red-600' :
+                            'text-amber-600'
+                          }`}
+                        >
+                          <option value="pending" className="text-amber-600">Pending</option>
+                          <option value="in_progress" className="text-blue-600">In Progress</option>
+                          <option value="completed" className="text-green-600">Completed</option>
+                          <option value="overdue" className="text-red-600">Overdue</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-dashed border-[var(--border)]">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]">
+                        <i className={`far fa-clock ${task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed' ? 'text-red-500' : ''}`}></i> 
+                        <span className={task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed' ? 'text-red-500' : ''}>
+                          {task.due_date ? new Date(task.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "No date"}
+                        </span>
+                      </div>
+                      <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md ${
+                        task.priority === 'high' ? 'bg-red-50 text-red-600 dark:bg-red-900/20' :
+                        task.priority === 'medium' ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20' :
+                        'bg-green-50 text-green-600 dark:bg-green-900/20'
+                      }`}>
+                        <i className="fas fa-bolt"></i> {task.priority?.charAt(0).toUpperCase() + task.priority?.slice(1) || "Normal"}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-[var(--muted)] min-h-[200px]">
+                <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-3">
+                  <i className="fas fa-check-double text-2xl text-green-500"></i>
+                </div>
+                <p className="text-sm font-semibold text-[var(--text)]">No tasks assigned</p>
+                <p className="text-xs mt-1">You're all caught up!</p>
+              </div>
+            )}
           </div>
         </div>
 
