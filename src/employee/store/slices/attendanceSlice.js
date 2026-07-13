@@ -25,6 +25,29 @@ export const fetchDashboardData = createAsyncThunk(
   },
 );
 
+// Fetch Employee Breaks
+export const fetchEmployeeBreaks = createAsyncThunk(
+  "attendance/fetchEmployeeBreaks",
+  async (date, { rejectWithValue }) => {
+    try {
+      const url = date ? `/employee/breaks?date=${date}` : "/employee/breaks";
+      const response = await apiClient.get(url);
+      if (response.data && response.data.status === "success") {
+        return response.data.data;
+      } else {
+        return rejectWithValue(
+          response.data?.message || "Failed to fetch breaks",
+        );
+      }
+    } catch (error) {
+      console.error("Breaks fetch error:", error);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch breaks",
+      );
+    }
+  },
+);
+
 // attendanceSlice.js - Fix to handle 201 status code
 
 export const punchIn = createAsyncThunk(
@@ -232,14 +255,15 @@ export const startBreak = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await apiClient.post("/employee/break/start");
-      if (response.data && response.data.status === "success") {
-        return response.data;
+      if (response.status === 200 || response.status === 201) {
+        return response.data?.data || response.data;
       } else {
         return rejectWithValue(
           response.data?.message || "Failed to start break",
         );
       }
     } catch (error) {
+      console.error("Start break error:", error.response?.data);
       return rejectWithValue(
         error.response?.data?.message || "Failed to start break",
       );
@@ -253,12 +277,13 @@ export const endBreak = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await apiClient.post("/employee/break/end");
-      if (response.data && response.data.status === "success") {
-        return response.data;
+      if (response.status === 200 || response.status === 201) {
+        return response.data?.data || response.data;
       } else {
         return rejectWithValue(response.data?.message || "Failed to end break");
       }
     } catch (error) {
+      console.error("End break error:", error.response?.data);
       return rejectWithValue(
         error.response?.data?.message || "Failed to end break",
       );
@@ -273,6 +298,7 @@ const initialState = {
   loading: false,
   error: null,
   dashboardData: null,
+  employeeBreaks: null,
 };
 
 const attendanceSlice = createSlice({
@@ -386,6 +412,19 @@ const attendanceSlice = createSlice({
         state.loading = false;
       })
       .addCase(endBreak.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // ✅ Fetch Employee Breaks
+      .addCase(fetchEmployeeBreaks.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchEmployeeBreaks.fulfilled, (state, action) => {
+        state.loading = false;
+        state.employeeBreaks = action.payload;
+      })
+      .addCase(fetchEmployeeBreaks.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

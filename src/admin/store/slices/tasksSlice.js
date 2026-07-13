@@ -461,7 +461,7 @@ export const updateTaskStatus = createAsyncThunk(
     }
     
     try {
-      const response = await apiClient.post(`/admin/tasks/${id}/status`, { status });
+      const response = await apiClient.patch(`/admin/tasks/${id}/status`, { status });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Failed to update task status");

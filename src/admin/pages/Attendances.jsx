@@ -544,6 +544,7 @@ const Attendances = () => {
                       "Department",
                       "Punch In",
                       "Punch Out",
+                      "Breaks",
                       "Working Hours",
                       "Status",
                       "Location",
@@ -594,6 +595,18 @@ const Attendances = () => {
                               Not Punched Out
                             </span>
                           )}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                          {(() => {
+                            if (record.breaks && Array.isArray(record.breaks) && record.breaks.length > 0) {
+                              const totalMinutes = record.breaks.reduce((total, b) => total + (b.duration_minutes || 0), 0);
+                              if (totalMinutes === 0) return "--";
+                              const hrs = Math.floor(totalMinutes / 60);
+                              const mins = totalMinutes % 60;
+                              return hrs > 0 ? `${hrs} hrs ${mins} mins` : `${mins} mins`;
+                            }
+                            return record.total_break || record.break_duration || "--";
+                          })()}
                         </td>
                         <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
                           {record.working_hours === "--" &&

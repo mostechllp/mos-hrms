@@ -17,7 +17,7 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
     assigned_date: new Date().toISOString().split("T")[0],
     due_date: "",
     priority: "medium",
-    status: "pending",
+    status: "in_progress",
     description: "",
     assigned_by_name: authUser?.name || authUser?.username || "Admin",
   });
@@ -42,7 +42,7 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
         assigned_date: task.assigned_date?.split("T")[0] || new Date().toISOString().split("T")[0],
         due_date: task.due_date?.split("T")[0] || "",
         priority: task.priority || "medium",
-        status: task.status || "pending",
+        status: task.status || task.task_status || task.assigned_to?.[0]?.pivot?.status || "in_progress",
         description: task.task_description || "",
         assigned_by_name: task.assign_by || task.assignedBy?.name || task.assigned_by?.name || authUser?.name || authUser?.username || "Admin",
       });
@@ -54,7 +54,7 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
         assigned_date: new Date().toISOString().split("T")[0],
         due_date: "",
         priority: "medium",
-        status: "pending",
+        status: "in_progress",
         description: "",
         assigned_by_name: authUser?.name || authUser?.username || "Admin",
       });
@@ -420,13 +420,12 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                   <select
                     name="status"
                     value={formData.status}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                    disabled
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed"
                   >
-                    <option value="pending">Pending</option>
                     <option value="in_progress">In Progress</option>
                     <option value="completed">Completed</option>
-                    <option value="overdue">Overdue</option>
+                    <option value="on_hold">On Hold</option>
                   </select>
                 </div>
               )}

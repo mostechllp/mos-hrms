@@ -54,10 +54,21 @@ const ProjectTasks = () => {
     if (projectTasks.length > 0) {
       const stats = {
         total: projectTasks.length,
-        completed: projectTasks.filter(t => t.status === "completed").length,
-        inProgress: projectTasks.filter(t => t.status === "in_progress").length,
-        pending: projectTasks.filter(t => t.status === "pending").length,
-        overdue: projectTasks.filter(t => t.status === "overdue").length,
+        completed: projectTasks.filter(t => {
+          const rawStatus = t.status || t.task_status || t.assigned_to?.[0]?.pivot?.status || "";
+          const s = String(rawStatus).toLowerCase();
+          return s === "completed" || s === "done";
+        }).length,
+        inProgress: projectTasks.filter(t => {
+          const rawStatus = t.status || t.task_status || t.assigned_to?.[0]?.pivot?.status || "";
+          const s = String(rawStatus).toLowerCase();
+          return s === "in_progress" || s === "in progress" || s === "progress";
+        }).length,
+        onHold: projectTasks.filter(t => {
+          const rawStatus = t.status || t.task_status || t.assigned_to?.[0]?.pivot?.status || "";
+          const s = String(rawStatus).toLowerCase();
+          return s === "on_hold" || s === "on hold" || s === "hold";
+        }).length,
       };
       setProjectStats(stats);
     }
@@ -111,14 +122,20 @@ const ProjectTasks = () => {
     dispatch(fetchProjectById(id));
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (rawStatus) => {
+    if (!rawStatus) return <span className="text-gray-400">-</span>;
+    const status = String(rawStatus).toLowerCase().replace(/\s+/g, '_');
+    
     const statusMap = {
-      pending: { label: "Pending", class: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
       in_progress: { label: "In Progress", class: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+      progress: { label: "In Progress", class: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
       completed: { label: "Completed", class: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
-      overdue: { label: "Overdue", class: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+      done: { label: "Completed", class: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
+      on_hold: { label: "On Hold", class: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+      hold: { label: "On Hold", class: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+      pending: { label: "Pending", class: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" }
     };
-    const s = statusMap[status] || statusMap.pending;
+    const s = statusMap[status] || { label: rawStatus, class: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" };
     return <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${s.class}`}>{s.label}</span>;
   };
 
@@ -203,7 +220,7 @@ const ProjectTasks = () => {
       </div>
 
       {/* Project Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center border border-gray-200 dark:border-gray-700">
           <div className="text-2xl font-bold text-purple-600">{projectStats.total}</div>
           <div className="text-xs text-gray-500">Total Tasks</div>
@@ -217,12 +234,8 @@ const ProjectTasks = () => {
           <div className="text-xs text-gray-500">In Progress</div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center border border-gray-200 dark:border-gray-700">
-          <div className="text-2xl font-bold text-amber-600">{projectStats.pending}</div>
-          <div className="text-xs text-gray-500">Pending</div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center border border-gray-200 dark:border-gray-700">
-          <div className="text-2xl font-bold text-red-600">{projectStats.overdue}</div>
-          <div className="text-xs text-gray-500">Overdue</div>
+          <div className="text-2xl font-bold text-amber-600">{projectStats.onHold || 0}</div>
+          <div className="text-xs text-gray-500">On Hold</div>
         </div>
       </div>
 
@@ -295,16 +308,7 @@ const ProjectTasks = () => {
                        </td>
                       <td className="px-4 py-3">{getPriorityBadge(task.priority)}</td>
                       <td className="px-4 py-3">
-                        <select
-                          value={task.status}
-                          onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                          className="text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="completed">Completed</option>
-                          <option value="overdue">Overdue</option>
-                        </select>
+                        {getStatusBadge(task.status || task.task_status || task.assigned_to?.[0]?.pivot?.status)}
                        </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">

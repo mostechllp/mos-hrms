@@ -10,7 +10,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { path: "/employee/dashboard", icon: "fas fa-chart-line", label: "Dashboard" },
     { path: "/employee/leaves", icon: "fas fa-calendar-check", label: "My Leaves" },
     // { path: "/employee/wfh", icon: "fas fa-home", label: "WFH Requests" },
-    { path: "/employee/tasks", icon: "fas fa-tasks", label: "My Tasks" },
+    { path: "/employee/tasks", icon: "fas fa-tasks", label: "Task Reports" },
     {
       path: "/employee/task-reports",
       icon: "fas fa-clipboard-list",
