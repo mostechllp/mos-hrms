@@ -1359,7 +1359,7 @@ const Dashboard = () => {
                       </tr>
                     </thead>
                   <tbody>
-                    {dashboardData.attendance_history.slice(0, 10).map(
+                    {dashboardData.attendance_history.map(
                       (attendance, index) => {
                         // Parse date from DD/MM/YYYY format
                         const dateParts = attendance.log_date.split("/");
@@ -1498,14 +1498,59 @@ const Dashboard = () => {
                             <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
                               Duration
                             </th>
-                            <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                              Actions
-                            </th>
+                            {activeBreakTab === "all" && (
+                              <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                                Actions
+                              </th>
+                            )}
                           </tr>
                         </thead>
                         <tbody>
                           {(() => {
-                            // Group breaks by date
+                            if (activeBreakTab === "today") {
+                              return displayBreaks.map((b, index) => {
+                                let dateStr = b.start_time ? b.start_time.split("T")[0] : "-";
+                                let formattedDate = dateStr;
+                                let dayOfWeek = "";
+                                if (dateStr && dateStr.includes("-")) {
+                                  const dateParts = dateStr.split("-");
+                                  const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+                                  formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                                  dayOfWeek = dateObj.toLocaleDateString("en-US", { weekday: "short" });
+                                }
+                                
+                                return (
+                                  <tr key={index} className="border-b border-[var(--border)] hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                                    <td className="py-3 px-4">
+                                      <div>
+                                        <div className="text-[var(--text)] font-medium">{formattedDate}</div>
+                                        <div className="text-xs text-[var(--muted)] flex items-center gap-1">
+                                          {dayOfWeek}
+                                          <span className="text-[10px] opacity-70 ml-1">(Break #{index + 1})</span>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                                        <span className="font-medium text-[var(--text)]">{formatTo12Hour(b.start_time) || "-"}</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                        <span className="font-medium text-[var(--text)]">{b.end_time ? formatTo12Hour(b.end_time) : "-"}</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-3 px-4 font-medium text-[var(--text)]">
+                                      {b.duration_minutes ? `${b.duration_minutes} mins` : "-"}
+                                    </td>
+                                  </tr>
+                                );
+                              });
+                            }
+
+                            // For "All Breaks", group by date
                             const groupedBreaks = displayBreaks.reduce((acc, b) => {
                               const d = b.start_time ? b.start_time.split("T")[0] : "-";
                               if (!acc[d]) acc[d] = [];
@@ -1513,7 +1558,7 @@ const Dashboard = () => {
                               return acc;
                             }, {});
                             
-                            return Object.entries(groupedBreaks).slice(0, 10).map(([dateStr, dayBreaks], index) => {
+                            return Object.entries(groupedBreaks).map(([dateStr, dayBreaks], index) => {
                               let formattedDate = dateStr;
                               let dayOfWeek = "";
                               if (dateStr && dateStr.includes("-")) {
@@ -1551,16 +1596,18 @@ const Dashboard = () => {
                                     <td className="py-3 px-4 font-medium text-[var(--text)]">
                                       {firstBreak.duration_minutes ? `${firstBreak.duration_minutes} mins` : "-"}
                                     </td>
-                                    <td className="py-3 px-4">
-                                      {hasMultiple && (
-                                        <button 
-                                          onClick={() => toggleExpandedDate(dateStr)}
-                                          className="text-xs text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
-                                        >
-                                          {isExpanded ? "Hide" : `View All (${dayBreaks.length})`}
-                                        </button>
-                                      )}
-                                    </td>
+                                    {activeBreakTab === "all" && (
+                                      <td className="py-3 px-4">
+                                        {hasMultiple && (
+                                          <button 
+                                            onClick={() => toggleExpandedDate(dateStr)}
+                                            className="text-xs text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
+                                          >
+                                            {isExpanded ? "Hide" : `View All (${dayBreaks.length})`}
+                                          </button>
+                                        )}
+                                      </td>
+                                    )}
                                   </tr>
                                   {isExpanded && dayBreaks.slice(1).map((b, bIndex) => (
                                     <tr key={`${index}-${bIndex}`} className="border-b border-[var(--border)] bg-gray-50/30 dark:bg-gray-800/10">
@@ -1585,7 +1632,7 @@ const Dashboard = () => {
                                       <td className="py-2 px-4 text-sm text-[var(--text)] opacity-80">
                                         {b.duration_minutes ? `${b.duration_minutes} mins` : "-"}
                                       </td>
-                                      <td className="py-2 px-4"></td>
+                                      {activeBreakTab === "all" && <td className="py-2 px-4"></td>}
                                     </tr>
                                   ))}
                                 </Fragment>

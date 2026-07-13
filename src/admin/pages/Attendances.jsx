@@ -24,6 +24,7 @@ import {
   deleteAttendance,
 } from "../store/slices/attendanceSlice";
 import LocationViewModal from "../components/attendance/LocationViewModal";
+import BreakDetailsModal from "../components/attendance/BreakDetailsModal";
 
 const Attendances = () => {
   const dispatch = useDispatch();
@@ -48,6 +49,7 @@ const Attendances = () => {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
+  const [selectedBreakRecord, setSelectedBreakRecord] = useState(null);
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -597,16 +599,14 @@ const Attendances = () => {
                           )}
                         </td>
                         <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                          {(() => {
-                            if (record.breaks && Array.isArray(record.breaks) && record.breaks.length > 0) {
-                              const totalMinutes = record.breaks.reduce((total, b) => total + (b.duration_minutes || 0), 0);
-                              if (totalMinutes === 0) return "--";
-                              const hrs = Math.floor(totalMinutes / 60);
-                              const mins = totalMinutes % 60;
-                              return hrs > 0 ? `${hrs} hrs ${mins} mins` : `${mins} mins`;
-                            }
-                            return record.total_break || record.break_duration || "--";
-                          })()}
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setSelectedBreakRecord(record)}
+                              className="px-2 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors text-xs flex-shrink-0"
+                            >
+                              View
+                            </button>
+                          </div>
                         </td>
                         <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
                           {record.working_hours === "--" &&
@@ -724,6 +724,16 @@ const Attendances = () => {
         confirmText="Delete"
         cancelText="Cancel"
         loading={deleteSubmitting}
+      />
+
+      {/* Break Details Modal */}
+      <BreakDetailsModal
+        isOpen={!!selectedBreakRecord}
+        onClose={() => setSelectedBreakRecord(null)}
+        initialBreaks={selectedBreakRecord?.breaks}
+        employeeName={selectedBreakRecord?.employeeName}
+        date={selectedBreakRecord?.date}
+        userId={selectedBreakRecord?.userid || selectedBreakRecord?.employee_id || selectedBreakRecord?.user?.id}
       />
 
       {/* Location View Modal */}

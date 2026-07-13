@@ -104,6 +104,7 @@ const extractAttendanceRecords = (response) => {
           punch_out_latitude: record.punch_out_latitude,
           punch_out_longitude: record.punch_out_longitude,
           punch_out_address: record.punch_out_address,
+          breaks: record.breaks || [],
         };
       });
 

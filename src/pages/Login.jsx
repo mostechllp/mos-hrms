@@ -83,7 +83,7 @@ const Login = () => {
     }
 
     dispatch(setRememberMe(rememberMe));
-    await dispatch(loginUser({ email, password }));
+    await dispatch(loginUser({ email, password, agreeToTerms }));
   };
 
   // Privacy Policy Content
