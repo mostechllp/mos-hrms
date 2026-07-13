@@ -239,19 +239,7 @@ const ProjectTasks = () => {
         </div>
       </div>
 
-      {/* Progress Bar */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-6 border border-gray-200 dark:border-gray-700">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Project Progress</span>
-          <span className="text-sm font-bold text-green-600">{calculateProgress()}%</span>
-        </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-          <div 
-            className="bg-green-500 h-2.5 rounded-full transition-all duration-500"
-            style={{ width: `${calculateProgress()}%` }}
-          ></div>
-        </div>
-      </div>
+
 
       {/* Tasks Table */}
       {loading && projectTasks.length === 0 ? (
