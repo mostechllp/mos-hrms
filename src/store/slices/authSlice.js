@@ -4,11 +4,12 @@ import apiClient from "../../utils/apiClient";
 // Update the loginUser thunk
 export const loginUser = createAsyncThunk(
   "auth/login",
-  async ({ email, password }, { rejectWithValue }) => {
+  async ({ email, password, agreeToTerms }, { rejectWithValue }) => {
     try {
       const response = await apiClient.post("/auth/login", {
         username: email,  
         password,
+        agreeToTerms
       });
 
       const data = response.data.data;

@@ -204,9 +204,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           // Create parent menu with all children
           const children = config.children.map(childSlug => {
             const module = user?.sidebar_modules?.find(m => m.slug === childSlug);
+            let moduleName = module?.name || childSlug;
+            if (moduleName === "My Tasks" || childSlug === "my-tasks") {
+              moduleName = "Task Reports";
+            }
+            
             return {
               slug: childSlug,
-              label: module?.name || childSlug,
+              label: moduleName,
               path: activeRouteMap[childSlug],
               icon: ICON_MAP[childSlug] || "fas fa-circle",
             };
@@ -239,10 +244,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       if (isHR && !hasAllPermissions && ALL_CHILDREN.includes(slug)) return;
 
       const module = user?.sidebar_modules?.find(m => m.slug === slug);
+      let moduleName = module?.name || slug;
+      if (moduleName === "My Tasks" || slug === "my-tasks") {
+        moduleName = "Task Reports";
+      }
+
       standaloneItems.push({
         type: "single",
         slug: slug,
-        label: module?.name || slug,
+        label: moduleName,
         path: activeRouteMap[slug],
         icon: ICON_MAP[slug] || "fas fa-circle",
         order: MODULE_ORDER[slug] || 100,

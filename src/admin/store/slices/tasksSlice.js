@@ -286,7 +286,7 @@ export const fetchTasks = createAsyncThunk(
   "tasks/fetchAll",
   async (params = {}, { rejectWithValue }) => {
     // For development: use dummy data
-    const USE_DUMMY_DATA = true; // Set to false when backend is ready
+    const USE_DUMMY_DATA = false; // Set to false when backend is ready
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 800)); // Simulate network delay
@@ -347,7 +347,7 @@ export const fetchTasks = createAsyncThunk(
 export const fetchTasksByProject = createAsyncThunk(
   "tasks/fetchByProject",
   async (projectId, { rejectWithValue }) => {
-    const USE_DUMMY_DATA = true;
+    const USE_DUMMY_DATA = false;
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -355,7 +355,9 @@ export const fetchTasksByProject = createAsyncThunk(
     }
     
     try {
-      const response = await apiClient.get(`/admin/projects/${projectId}/tasks`);
+      const response = await apiClient.get("/admin/tasks", { 
+        params: { project_id: projectId } 
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Failed to fetch project tasks");
@@ -367,7 +369,7 @@ export const fetchTasksByProject = createAsyncThunk(
 export const createTask = createAsyncThunk(
   "tasks/create",
   async (taskData, { rejectWithValue }) => {
-    const USE_DUMMY_DATA = true;
+    const USE_DUMMY_DATA = false;
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 600));
@@ -395,7 +397,7 @@ export const createTask = createAsyncThunk(
 export const updateTask = createAsyncThunk(
   "tasks/update",
   async ({ id, data }, { rejectWithValue }) => {
-    const USE_DUMMY_DATA = true;
+    const USE_DUMMY_DATA = false;
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -424,7 +426,7 @@ export const updateTask = createAsyncThunk(
 export const deleteTask = createAsyncThunk(
   "tasks/delete",
   async (id, { rejectWithValue }) => {
-    const USE_DUMMY_DATA = true;
+    const USE_DUMMY_DATA = false;
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -444,7 +446,7 @@ export const deleteTask = createAsyncThunk(
 export const updateTaskStatus = createAsyncThunk(
   "tasks/updateStatus",
   async ({ id, status }, { rejectWithValue }) => {
-    const USE_DUMMY_DATA = true;
+    const USE_DUMMY_DATA = false;
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -459,7 +461,7 @@ export const updateTaskStatus = createAsyncThunk(
     }
     
     try {
-      const response = await apiClient.post(`/admin/tasks/${id}/status`, { status });
+      const response = await apiClient.patch(`/admin/tasks/${id}/status`, { status });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Failed to update task status");
@@ -527,7 +529,7 @@ const taskSlice = createSlice({
       })
       .addCase(fetchTasksByProject.fulfilled, (state, action) => {
         state.loading = false;
-        state.projectTasks = action.payload.data || action.payload || [];
+        state.projectTasks = action.payload.data?.data || action.payload.data || action.payload || [];
       })
       .addCase(fetchTasksByProject.rejected, (state, action) => {
         state.loading = false;

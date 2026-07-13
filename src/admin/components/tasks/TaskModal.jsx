@@ -17,8 +17,9 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
     assigned_date: new Date().toISOString().split("T")[0],
     due_date: "",
     priority: "medium",
-    status: "pending",
+    status: "in_progress",
     description: "",
+    assigned_by_name: authUser?.name || authUser?.username || "Admin",
   });
 
   // Close dropdown when clicking outside
@@ -35,28 +36,30 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
   useEffect(() => {
     if (task) {
       setFormData({
-        name: task.name || "",
-        project_id: task.project_id || "",
-        assigned_to_ids: task.assigned_to_ids || task.assigned_to?.map(a => a.id) || [],
+        name: task.title || "",
+        project_id: task.project_id || (projects?.length === 1 ? projects[0].id : ""),
+        assigned_to_ids: (task.assignedTo || task.assigned_to)?.map(a => typeof a === 'object' ? a.id : a) || [],
         assigned_date: task.assigned_date?.split("T")[0] || new Date().toISOString().split("T")[0],
         due_date: task.due_date?.split("T")[0] || "",
         priority: task.priority || "medium",
-        status: task.status || "pending",
-        description: task.description || "",
+        status: task.status || task.task_status || task.assigned_to?.[0]?.pivot?.status || "in_progress",
+        description: task.task_description || "",
+        assigned_by_name: task.assign_by || task.assignedBy?.name || task.assigned_by?.name || authUser?.name || authUser?.username || "Admin",
       });
     } else {
       setFormData({
         name: "",
-        project_id: "",
+        project_id: projects?.length === 1 ? projects[0].id : "",
         assigned_to_ids: [],
         assigned_date: new Date().toISOString().split("T")[0],
         due_date: "",
         priority: "medium",
-        status: "pending",
+        status: "in_progress",
         description: "",
+        assigned_by_name: authUser?.name || authUser?.username || "Admin",
       });
     }
-  }, [task]);
+  }, [task, projects, authUser]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -122,9 +125,15 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
     setLoading(true);
 
     const submitData = {
-      ...formData,
-      assigned_by_id: authUser?.id,
-      assigned_by_name: authUser?.name || authUser?.username,
+      title: formData.name,
+      project_id: formData.project_id,
+      assigned_date: formData.assigned_date,
+      due_date: formData.due_date || null,
+      priority: formData.priority,
+      status: formData.status,
+      task_description: formData.description || null,
+      assign_by: formData.assigned_by_name,
+      assigned_to: formData.assigned_to_ids,
     };
 
     let result;
@@ -187,25 +196,34 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                 />
               </div>
 
-              {/* Project Selection */}
+              {/* Project Selection / Display */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Select Project <span className="text-red-500">*</span>
+                  {projects?.length === 1 ? "Project" : "Select Project"} <span className="text-red-500">*</span>
                 </label>
-                <select
-                  name="project_id"
-                  value={formData.project_id}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
-                  required
-                >
-                  <option value="">Select a project</option>
-                  {projects?.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name} - {project.client_name}
-                    </option>
-                  ))}
-                </select>
+                {projects?.length === 1 ? (
+                  <input
+                    type="text"
+                    disabled
+                    value={`${projects[0].project_name || projects[0].name} ${projects[0].client_name ? `- ${projects[0].client_name}` : ''}`}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+                  />
+                ) : (
+                  <select
+                    name="project_id"
+                    value={formData.project_id}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                    required
+                  >
+                    <option value="">Select a project</option>
+                    {projects?.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.project_name || project.name} - {project.client_name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Project Details Display */}
@@ -332,16 +350,18 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                 </p>
               </div>
 
-              {/* Assigned By (Auto-filled) */}
+              {/* Assigned By (Editable) */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Assigned By
                 </label>
                 <input
                   type="text"
-                  value={authUser?.name || authUser?.username || "Admin"}
-                  disabled
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+                  name="assigned_by_name"
+                  value={formData.assigned_by_name}
+                  onChange={handleChange}
+                  placeholder="Enter assigner name"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
                 />
               </div>
 
@@ -400,13 +420,12 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                   <select
                     name="status"
                     value={formData.status}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                    disabled
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed"
                   >
-                    <option value="pending">Pending</option>
                     <option value="in_progress">In Progress</option>
                     <option value="completed">Completed</option>
-                    <option value="overdue">Overdue</option>
+                    <option value="on_hold">On Hold</option>
                   </select>
                 </div>
               )}

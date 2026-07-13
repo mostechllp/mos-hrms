@@ -234,7 +234,7 @@ export const fetchMyTasks = createAsyncThunk(
 export const updateTaskStatus = createAsyncThunk(
   "employeeTasks/updateStatus",
   async ({ id, status }, { rejectWithValue, getState }) => {
-    const USE_DUMMY_DATA = true;
+    const USE_DUMMY_DATA = false;
     
     if (USE_DUMMY_DATA) {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -258,7 +258,7 @@ export const updateTaskStatus = createAsyncThunk(
     }
     
     try {
-      const response = await apiClient.post(`/employee/tasks/${id}/status`, { status });
+      const response = await apiClient.patch(`/employee/tasks/${id}/status`, { status });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Failed to update task status");
