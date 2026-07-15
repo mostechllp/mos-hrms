@@ -7,17 +7,43 @@ const ConfirmModal = ({
   confirmText = "Yes",
   cancelText = "Cancel",
   loading = false,
+  variant = "danger", // "danger" | "success" | "warning" | "info"
 }) => {
   if (!isOpen) return null;
+
+  // Variant configurations
+  const variants = {
+    danger: {
+      color: "red",
+      icon: "fa-exclamation-triangle",
+      loadingText: "Deleting...",
+    },
+    success: {
+      color: "green",
+      icon: "fa-check-circle",
+      loadingText: "Processing...",
+    },
+    warning: {
+      color: "yellow",
+      icon: "fa-exclamation-circle",
+      loadingText: "Processing...",
+    },
+    info: {
+      color: "blue",
+      icon: "fa-info-circle",
+      loadingText: "Processing...",
+    },
+  };
+
+  const currentVariant = variants[variant] || variants.danger;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 shadow-soft-lg border border-gray-200 dark:border-gray-700">
-
         {/* Header */}
         <div className="flex justify-between items-center mb-4 border-b pb-3">
           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-            <i className="fas fa-exclamation-triangle text-red-500"></i>
+            <i className={`fas ${currentVariant.icon} text-${currentVariant.color}-500`}></i>
             {title}
           </h3>
           <button
@@ -45,15 +71,15 @@ const ConfirmModal = ({
           <button
             onClick={onConfirm}
             disabled={loading}
-            className="px-4 py-2 rounded-full bg-red-500 text-white text-sm font-semibold flex items-center gap-2 disabled:opacity-70"
+            className={`px-4 py-2 rounded-full bg-${currentVariant.color}-500 text-white text-sm font-semibold flex items-center gap-2 disabled:opacity-70 hover:bg-${currentVariant.color}-600 transition-colors`}
           >
             {loading ? (
               <>
-                <i className="fas fa-spinner fa-spin"></i> Deleting...
+                <i className="fas fa-spinner fa-spin"></i> {currentVariant.loadingText}
               </>
             ) : (
               <>
-                <i className="fas fa-trash"></i> {confirmText}
+                <i className={`fas ${currentVariant.icon}`}></i> {confirmText}
               </>
             )}
           </button>

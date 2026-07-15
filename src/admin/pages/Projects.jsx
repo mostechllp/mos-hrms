@@ -1,14 +1,4 @@
-// import React from 'react'
-// import UnderDevelopment from '../../components/common/UnderDevelopment';
-
-// const Projects = () => {
-//   return (
-//     <UnderDevelopment pageName='Porjects' />
-//   )
-// }
-
-// export default Projects
-
+// Projects.jsx - Simplified version without tasks
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
@@ -87,14 +77,6 @@ const Projects = () => {
       showToast(result.payload || "Failed to delete project", "error");
     }
     setActionLoading(false);
-  };
-
-  const handleStatusChange = async (projectId, newStatus) => {
-    const result = await dispatch(updateProjectStatus({ id: projectId, status: newStatus }));
-    if (updateProjectStatus.fulfilled.match(result)) {
-      showToast(`Project marked as ${newStatus}`, "success");
-      handleRefresh();
-    }
   };
 
   const handleEdit = (project) => {
@@ -205,7 +187,7 @@ const Projects = () => {
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{project.client_name}</p>
               {project.website_url && (
-                <a href={project.website_url} target="_blank" className="text-xs text-blue-500 hover:underline block mb-2">{project.website_url}</a>
+                <a href={project.website_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline block mb-2">{project.website_url}</a>
               )}
               <p className="text-xs text-gray-500 mb-3 line-clamp-2">{project.description || project.Project_descriptions}</p>
               <div className="flex justify-between items-center pt-3 border-t border-gray-200">
@@ -213,9 +195,6 @@ const Projects = () => {
                   {formatDate(project.start_date)} - {formatDate(project.end_date) || "Ongoing"}
                 </div>
                 <div className="flex gap-2">
-                  <Link to={`/admin/projects/${project.id}/tasks`} className="p-1.5 text-green-500 hover:bg-green-50 rounded-lg" title="View Tasks">
-                    <i className="fas fa-tasks"></i>
-                  </Link>
                   <button onClick={() => handleEdit(project)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg" title="Edit">
                     <i className="fas fa-edit"></i>
                   </button>
@@ -234,7 +213,7 @@ const Projects = () => {
       )}
 
       <ProjectModal isOpen={showProjectModal} onClose={() => setShowProjectModal(false)} project={selectedProject} onSuccess={handleRefresh} />
-      <ConfirmModal isOpen={!!confirmDelete} onClose={() => setConfirmDelete(null)} onConfirm={confirmDeleteProject} title="Delete Project" message={`Delete "${confirmDelete?.project_name || confirmDelete?.name}"?`} confirmText="Delete" loading={actionLoading} />
+      <ConfirmModal isOpen={!!confirmDelete} onClose={() => setConfirmDelete(null)} onConfirm={confirmDeleteProject} title="Delete Project" message={`Delete "${confirmDelete?.project_name || confirmDelete?.name}"?`} confirmText="Delete" loading={actionLoading} variant="danger" />
     </div>
   );
 };

@@ -256,6 +256,7 @@ const LeaveTypeManagement = () => {
         confirmText="Delete"
         cancelText="Cancel"
         loading={deleteLoading}
+        variant="danger"
       />
     </div>
   );

@@ -331,6 +331,7 @@ const Header = ({ onMenuClick }) => {
         confirmText="Logout"
         cancelText="Cancel"
         loading={logoutLoading}
+        variant="danger"
       />
     </>
   );

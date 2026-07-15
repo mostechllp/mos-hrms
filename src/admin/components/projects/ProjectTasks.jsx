@@ -347,6 +347,7 @@ const ProjectTasks = () => {
         message={`Are you sure you want to delete "${confirmDelete?.title}"?`}
         confirmText="Delete"
         loading={actionLoading}
+        variant="danger"
       />
     </div>
   );

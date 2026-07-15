@@ -656,6 +656,11 @@ const PendingLeavesReport = () => {
             : "bg-red-500 hover:bg-red-600"
         }
         loading={actionLoading}
+        variant={
+          actionType === "approve"
+          ? "success"
+          : "danger"
+        }
       >
         {actionType === "reject" && (
           <div className="mt-4">

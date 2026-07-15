@@ -1,7 +1,10 @@
+// TaskModal.jsx - Updated with DateInput component
 import React, { useState, useEffect, useRef } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { createTask, updateTask } from "../../store/slices/tasksSlice";
+import { fetchDepartments } from "../../store/slices/departmentSlice";
 import { showToast } from "../../../components/common/Toast";
+import DateInput from "../../components/common/DateInput";
 
 const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, authUser }) => {
   const dispatch = useDispatch();
@@ -9,6 +12,12 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
   const [searchEmployee, setSearchEmployee] = useState("");
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
   const employeeDropdownRef = useRef(null);
+  const [filteredEmployeesByDepartment, setFilteredEmployeesByDepartment] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [departmentMap, setDepartmentMap] = useState({});
+  
+  // Fetch departments from Redux store
+  const { departments: deptList } = useSelector((state) => state.departments || {});
   
   const [formData, setFormData] = useState({
     name: "",
@@ -22,6 +31,34 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
     assigned_by_name: authUser?.name || authUser?.username || "Admin",
   });
 
+  // Fetch departments when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      dispatch(fetchDepartments());
+    }
+  }, [isOpen, dispatch]);
+
+  // Build department map from fetched departments
+  useEffect(() => {
+    if (deptList && deptList.length > 0) {
+      let deptArray = deptList;
+      
+      if (deptList.data && Array.isArray(deptList.data)) {
+        deptArray = deptList.data;
+      }
+      
+      setDepartments(deptArray);
+      
+      const map = {};
+      deptArray.forEach(dept => {
+        const id = dept.id;
+        const name = dept.name || dept.department_name || dept.dept_name || `Department ${id}`;
+        map[id] = name;
+      });
+      setDepartmentMap(map);
+    }
+  }, [deptList]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -33,12 +70,80 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Helper function to get department ID from employee
+  const getEmployeeDepartmentId = (emp) => {
+    if (!emp) return null;
+    
+    // Check all possible locations for department_id
+    if (emp.raw?.user?.department_id !== undefined && emp.raw?.user?.department_id !== null) {
+      return emp.raw.user.department_id;
+    }
+    if (emp.raw?.user?.department?.id !== undefined && emp.raw?.user?.department?.id !== null) {
+      return emp.raw.user.department.id;
+    }
+    if (emp.raw?.department_id !== undefined && emp.raw?.department_id !== null) {
+      return emp.raw.department_id;
+    }
+    if (emp.user?.department_id !== undefined && emp.user?.department_id !== null) {
+      return emp.user.department_id;
+    }
+    if (emp.department_id !== undefined && emp.department_id !== null) {
+      return emp.department_id;
+    }
+    if (emp.user?.department?.id !== undefined && emp.user?.department?.id !== null) {
+      return emp.user.department.id;
+    }
+    if (emp.department?.id !== undefined && emp.department?.id !== null) {
+      return emp.department.id;
+    }
+    return null;
+  };
+
+  // Helper function to get employee name
+  const getEmployeeName = (emp) => {
+    if (emp.name) return emp.name;
+    if (emp.first_name && emp.last_name) return `${emp.first_name} ${emp.last_name}`;
+    if (emp.first_name) return emp.first_name;
+    if (emp.raw?.first_name && emp.raw?.last_name) return `${emp.raw.first_name} ${emp.raw.last_name}`;
+    if (emp.raw?.first_name) return emp.raw.first_name;
+    return 'Unknown';
+  };
+
+  // Helper function to get employee department name
+  const getEmployeeDepartmentName = (emp) => {
+    if (emp.department) return emp.department;
+    if (emp.raw?.user?.department?.name) return emp.raw.user.department.name;
+    if (emp.raw?.department?.name) return emp.raw.department.name;
+    if (emp.user?.department?.name) return emp.user.department.name;
+    if (emp.department?.name) return emp.department.name;
+    return null;
+  };
+
+  // Filter employees based on selected project's department
+  useEffect(() => {
+    if (formData.project_id) {
+      const selectedProject = projects.find(p => p.id === parseInt(formData.project_id));
+      
+      if (selectedProject?.department_id) {
+        const filtered = employees.filter(emp => {
+          const empDeptId = getEmployeeDepartmentId(emp);
+          return empDeptId === selectedProject.department_id;
+        });
+        setFilteredEmployeesByDepartment(filtered);
+      } else {
+        setFilteredEmployeesByDepartment(employees);
+      }
+    } else {
+      setFilteredEmployeesByDepartment(employees);
+    }
+  }, [formData.project_id, employees, projects]);
+
   useEffect(() => {
     if (task) {
       setFormData({
         name: task.title || "",
         project_id: task.project_id || (projects?.length === 1 ? projects[0].id : ""),
-        assigned_to_ids: (task.assignedTo || task.assigned_to)?.map(a => typeof a === 'object' ? a.id : a) || [],
+        assigned_to_ids: (task.assigned_to || []).map(a => typeof a === 'object' ? a.id : a) || [],
         assigned_date: task.assigned_date?.split("T")[0] || new Date().toISOString().split("T")[0],
         due_date: task.due_date?.split("T")[0] || "",
         priority: task.priority || "medium",
@@ -66,6 +171,10 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleDateChange = (name, value) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
   // Toggle employee selection
   const toggleEmployee = (employeeId) => {
     if (formData.assigned_to_ids.includes(employeeId)) {
@@ -90,15 +199,20 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
   };
 
   // Filter employees based on search
-  const filteredEmployees = employees?.filter(emp => 
-    emp.name?.toLowerCase().includes(searchEmployee.toLowerCase()) ||
-    emp.employee_id?.toLowerCase().includes(searchEmployee.toLowerCase()) ||
-    emp.email?.toLowerCase().includes(searchEmployee.toLowerCase())
-  );
+  const filteredEmployees = filteredEmployeesByDepartment?.filter(emp => {
+    const searchLower = searchEmployee.toLowerCase();
+    const empName = getEmployeeName(emp).toLowerCase();
+    const empEmail = (emp.raw?.company_email || emp.raw?.personal_email || emp.email || '').toLowerCase();
+    const empId = (emp.raw?.employee_id || emp.employee_id || '').toLowerCase();
+    
+    return empName.includes(searchLower) ||
+           empEmail.includes(searchLower) ||
+           empId.includes(searchLower);
+  });
 
   // Select/Deselect all
   const selectAll = () => {
-    const allEmployeeIds = employees?.map(emp => emp.id) || [];
+    const allEmployeeIds = filteredEmployeesByDepartment?.map(emp => emp.id) || [];
     setFormData(prev => ({ ...prev, assigned_to_ids: allEmployeeIds }));
   };
 
@@ -154,8 +268,26 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
     setLoading(false);
   };
 
-  // Get selected project details
+  // Get selected project details and department name
   const selectedProject = projects?.find(p => p.id === parseInt(formData.project_id));
+  
+  // Get department name from departments map using department_id
+  const getDepartmentName = (departmentId) => {
+    if (!departmentId) return null;
+    
+    if (departmentMap[departmentId]) {
+      return departmentMap[departmentId];
+    }
+    
+    const dept = departments.find(d => d.id === departmentId);
+    if (dept) {
+      return dept.name || dept.department_name || dept.dept_name;
+    }
+    
+    return null;
+  };
+
+  const departmentName = selectedProject?.department_id ? getDepartmentName(selectedProject.department_id) : null;
 
   if (!isOpen) return null;
 
@@ -196,34 +328,29 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                 />
               </div>
 
-              {/* Project Selection / Display */}
+              {/* Project Selection */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  {projects?.length === 1 ? "Project" : "Select Project"} <span className="text-red-500">*</span>
+                  Select Project <span className="text-red-500">*</span>
                 </label>
-                {projects?.length === 1 ? (
-                  <input
-                    type="text"
-                    disabled
-                    value={`${projects[0].project_name || projects[0].name} ${projects[0].client_name ? `- ${projects[0].client_name}` : ''}`}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed"
-                  />
-                ) : (
-                  <select
-                    name="project_id"
-                    value={formData.project_id}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
-                    required
-                  >
-                    <option value="">Select a project</option>
-                    {projects?.map((project) => (
+                <select
+                  name="project_id"
+                  value={formData.project_id}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                  required
+                >
+                  <option value="">Select a project</option>
+                  {projects?.map((project) => {
+                    const deptName = getDepartmentName(project.department_id);
+                    return (
                       <option key={project.id} value={project.id}>
                         {project.project_name || project.name} - {project.client_name}
+                        {deptName && ` (${deptName})`}
                       </option>
-                    ))}
-                  </select>
-                )}
+                    );
+                  })}
+                </select>
               </div>
 
               {/* Project Details Display */}
@@ -233,15 +360,22 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div><span className="text-gray-500">Client:</span> {selectedProject.client_name}</div>
                     <div><span className="text-gray-500">Website:</span> {selectedProject.website_url || "-"}</div>
-                    <div className="md:col-span-2"><span className="text-gray-500">Timeline:</span> {selectedProject.start_date} to {selectedProject.end_date || "Ongoing"}</div>
+                    <div><span className="text-gray-500">Department:</span> {departmentName || "N/A"}</div>
+                    <div><span className="text-gray-500">Timeline:</span> {selectedProject.start_date} to {selectedProject.end_date || "Ongoing"}</div>
                   </div>
                 </div>
               )}
 
-              {/* Assigned To - Checkbox List with Search */}
+              {/* Assigned To - With Department Filter */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Assign To (Multiple) <span className="text-red-500">*</span>
+                  {departmentName && (
+                    <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
+                      <i className="fas fa-filter mr-1"></i>
+                      Filtered by: {departmentName}
+                    </span>
+                  )}
                 </label>
                 
                 {/* Selected Employees Tags */}
@@ -252,7 +386,7 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                       return emp ? (
                         <span key={id} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm">
                           <i className="fas fa-user text-xs"></i>
-                          {emp.name}
+                          {getEmployeeName(emp)}
                           <button
                             type="button"
                             onClick={() => removeEmployee(id)}
@@ -278,7 +412,9 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                         setShowEmployeeDropdown(true);
                       }}
                       onFocus={() => setShowEmployeeDropdown(true)}
-                      placeholder="Search employees by name, ID or email..."
+                      placeholder={departmentName ? 
+                        `Search employees in ${departmentName} department...` : 
+                        "Search employees by name, ID or email..."}
                       className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
@@ -302,12 +438,17 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                         >
                           Deselect All
                         </button>
+                        <span className="text-xs text-gray-500 ml-auto self-center">
+                          {filteredEmployees?.length || 0} employees found
+                        </span>
                       </div>
                       
                       {/* Employee List */}
                       {filteredEmployees?.length > 0 ? (
                         filteredEmployees.map(emp => {
                           const isSelected = formData.assigned_to_ids.includes(emp.id);
+                          const empName = getEmployeeName(emp);
+                          const empDeptName = getEmployeeDepartmentName(emp);
                           return (
                             <label
                               key={emp.id}
@@ -322,11 +463,13 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                                 className="w-4 h-4 rounded border-gray-300 text-green-500 focus:ring-green-500"
                               />
                               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white text-xs font-bold">
-                                {emp.name?.charAt(0) || "U"}
+                                {empName.charAt(0) || "U"}
                               </div>
                               <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{emp.name}</p>
-                                
+                                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{empName}</p>
+                                {empDeptName && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">{empDeptName}</p>
+                                )}
                               </div>
                               {isSelected && (
                                 <i className="fas fa-check-circle text-green-500 text-sm"></i>
@@ -337,7 +480,11 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                       ) : (
                         <div className="text-center py-4 text-gray-500 dark:text-gray-400">
                           <i className="fas fa-user-slash text-2xl mb-1 block"></i>
-                          <p className="text-sm">No employees found</p>
+                          <p className="text-sm">
+                            {departmentName ? 
+                              `No employees found in ${departmentName} department` : 
+                              "No employees found"}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -347,10 +494,11 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                 <p className="text-xs text-gray-500 mt-2">
                   <i className="fas fa-info-circle mr-1"></i>
                   Selected: <span className="font-semibold text-green-600">{formData.assigned_to_ids.length}</span> employee(s)
+                  {departmentName && ` from ${departmentName} department`}
                 </p>
               </div>
 
-              {/* Assigned By (Editable) */}
+              {/* Assigned By */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Assigned By
@@ -370,13 +518,13 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Assigned Date <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="date"
-                  name="assigned_date"
+                <DateInput
                   value={formData.assigned_date}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
-                  required
+                  onChange={(value) => handleDateChange('assigned_date', value)}
+                  placeholder="dd/mm/yyyy"
+                  className="w-full"
+                  type="general"
+                  disableFuture
                 />
               </div>
 
@@ -385,12 +533,12 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Due Date
                 </label>
-                <input
-                  type="date"
-                  name="due_date"
+                <DateInput
                   value={formData.due_date}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                  onChange={(value) => handleDateChange('due_date', value)}
+                  placeholder="dd/mm/yyyy"
+                  className="w-full"
+                  type="general"
                 />
               </div>
 
@@ -411,7 +559,7 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                 </select>
               </div>
 
-              {/* Status (only for edit) */}
+              {/* Status */}
               {task && (
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -420,9 +568,11 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                   <select
                     name="status"
                     value={formData.status}
-                    disabled
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
                   >
+                    <option value="pending">Pending</option>
+                    <option value="assigned">Assigned</option>
                     <option value="in_progress">In Progress</option>
                     <option value="completed">Completed</option>
                     <option value="on_hold">On Hold</option>
@@ -448,7 +598,7 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
           </form>
         </div>
 
-        {/* Footer - Fixed */}
+        {/* Footer */}
         <div className="flex justify-end gap-3 p-5 md:p-6 pt-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-2xl sticky bottom-0">
           <button
             type="button"

@@ -14,7 +14,6 @@ const DateInput = forwardRef(
       minDate,
       maxDate,
       type = "general",
-      disableFuture = false,
       ...props
     },
     // eslint-disable-next-line no-unused-vars
@@ -72,9 +71,6 @@ const DateInput = forwardRef(
 
     const getMaxDate = () => {
       if (maxDate) return maxDate;
-      if (disableFuture) {
-        return new Date(); // Disable all future dates
-      }
       if (type === "dob") {
         // Age must be at least 18
         const eighteenYearsAgo = new Date();
@@ -542,6 +538,7 @@ const DateInput = forwardRef(
           showMonthDropdown
           dropdownMode="select"
           className="w-full"
+          wrapperClassName="w-full"
           calendarClassName="shadow-soft-lg rounded-lg border border-gray-200 dark:border-gray-700"
           popperClassName="z-50"
           {...props}
