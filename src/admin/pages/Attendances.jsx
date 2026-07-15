@@ -724,6 +724,7 @@ const Attendances = () => {
         confirmText="Delete"
         cancelText="Cancel"
         loading={deleteSubmitting}
+        variant="danger"
       />
 
       {/* Break Details Modal */}

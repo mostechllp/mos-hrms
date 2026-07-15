@@ -1,3 +1,5 @@
+// src/admin/pages/EmployeeDetails.js - Full code with proper country detection
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -20,11 +22,17 @@ import {
   FiHome,
   FiCalendar,
   FiAward,
+  FiMapPin,
 } from "react-icons/fi";
-import { FaIdCard, FaVenusMars, FaPassport } from "react-icons/fa";
+import { FaIdCard, FaVenusMars, FaPassport, FaBuilding } from "react-icons/fa";
 import { fetchOrganizations } from "../store/slices/organizationSlice";
 import { fetchCompanies } from "../store/slices/companySlice";
 import { fetchRoles } from "../store/slices/roleSlice";
+import {
+  getCountryConfig,
+  INDIA_EMPLOYEE_TYPES,
+  UAE_EMPLOYEE_TYPES,
+} from "../utils/countryConfig";
 
 const EmployeeDetails = () => {
   const navigate = useNavigate();
@@ -32,16 +40,18 @@ const EmployeeDetails = () => {
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("basic");
+  const [selectedCountry, setSelectedCountry] = useState("UAE");
+  const [countryConfig, setCountryConfig] = useState(getCountryConfig("UAE"));
 
   const { currentEmployee } = useSelector((state) => state.employees || {});
   const { organizations = [] } = useSelector(
     (state) => state.organizations || {},
   );
   const { roles = [] } = useSelector((state) => state.roles || {});
+  const { companies = [] } = useSelector((state) => state.companies || {});
 
   useEffect(() => {
     if (id) {
-      // eslint-disable-next-line react-hooks/immutability
       fetchEmployeeData();
     }
   }, [dispatch, id]);
@@ -52,6 +62,28 @@ const EmployeeDetails = () => {
     dispatch(fetchCompanies());
     dispatch(fetchRoles());
   }, [dispatch]);
+
+  // Determine country based on employee's company
+  useEffect(() => {
+    if (currentEmployee && companies.length > 0) {
+      const companyId = currentEmployee.user?.company?.id || currentEmployee.user?.company_id;
+      if (companyId) {
+        const company = companies.find((comp) => comp.id === parseInt(companyId));
+        if (company) {
+          const companyCountry = company?.country || company?.raw?.country || "UAE";
+          // Normalize country: "AE" -> "UAE", "IN" -> "India"
+          let normalizedCountry = companyCountry;
+          if (companyCountry === "AE") {
+            normalizedCountry = "UAE";
+          } else if (companyCountry === "IN" || companyCountry === "India") {
+            normalizedCountry = "India";
+          }
+          setSelectedCountry(normalizedCountry);
+          setCountryConfig(getCountryConfig(normalizedCountry));
+        }
+      }
+    }
+  }, [currentEmployee, companies]);
 
   const getOrganizationName = (organizationId) => {
     if (!organizationId) return "N/A";
@@ -204,57 +236,77 @@ const EmployeeDetails = () => {
     );
   };
 
-  const tabs = [
-    { id: "basic", label: "Basic Info", icon: <FiUser /> },
-    { id: "passport", label: "Passport", icon: <FaPassport /> },
-    { id: "visa", label: "Visa & Labor", icon: <FiCreditCard /> },
-    { id: "eid", label: "EID", icon: <FaIdCard /> },
-    { id: "contact", label: "Contact", icon: <FiPhoneCall /> },
-    { id: "documents", label: "Documents", icon: <FiFileText /> },
-  ];
+  // Get tabs based on country
+  const getTabs = () => {
+    const baseTabs = [
+      { id: "basic", label: "Basic Info", icon: <FiUser /> },
+    ];
 
-  const documentFields = [
-    {
-      key: "passport_1st_page",
-      label: "Passport 1st Page",
-      icon: "fas fa-passport",
-    },
-    {
-      key: "passport_2nd_page",
-      label: "Passport 2nd Page",
-      icon: "fas fa-passport",
-    },
-    {
-      key: "passport_outer_page",
-      label: "Passport Outer",
-      icon: "fas fa-passport",
-    },
-    { key: "passport_id_page", label: "Passport ID", icon: "fas fa-id-card" },
-    { key: "visa_page", label: "Visa Page", icon: "fas fa-file-contract" },
-    { key: "labor_card", label: "Labor Card", icon: "fas fa-id-card" },
-    {
-      key: "labor_contract",
-      label: "Labor Contract",
-      icon: "fas fa-file-signature",
-    },
-    { key: "eid_1st_page", label: "EID Front Side", icon: "fas fa-id-card" },
-    { key: "eid_2nd_page", label: "EID Back Side", icon: "fas fa-id-card" },
-    {
-      key: "educational_1st_page",
-      label: "Educational Certificate (Front)",
-      icon: "fas fa-graduation-cap",
-    },
-    {
-      key: "educational_2nd_page",
-      label: "Educational Certificate (Back)",
-      icon: "fas fa-graduation-cap",
-    },
-    {
-      key: "home_country_id_proof",
-      label: "Home Country ID Proof",
-      icon: "fas fa-home",
-    },
-  ];
+    if (selectedCountry === "UAE") {
+      baseTabs.push(
+        { id: "passport", label: "Passport", icon: <FaPassport /> },
+        { id: "visa", label: "Visa & Labor", icon: <FiCreditCard /> },
+        { id: "eid", label: "EID", icon: <FaIdCard /> }
+      );
+    } else {
+      baseTabs.push(
+        { id: "identity", label: "Identity Docs", icon: <FaIdCard /> }
+      );
+    }
+
+    baseTabs.push(
+      { id: "contact", label: "Contact", icon: <FiPhoneCall /> },
+      { id: "documents", label: "Documents", icon: <FiFileText /> }
+    );
+
+    return baseTabs;
+  };
+
+  const tabs = getTabs();
+
+  // Get document fields based on country
+  const getDocumentFields = () => {
+    if (selectedCountry === "UAE") {
+      return [
+        { key: "passport_1st_page", label: "Passport 1st Page", icon: "fas fa-passport" },
+        { key: "passport_2nd_page", label: "Passport 2nd Page", icon: "fas fa-passport" },
+        { key: "passport_outer_page", label: "Passport Outer", icon: "fas fa-passport" },
+        { key: "passport_id_page", label: "Passport ID", icon: "fas fa-id-card" },
+        { key: "visa_page", label: "Visa Page", icon: "fas fa-file-contract" },
+        { key: "labor_card", label: "Labor Card", icon: "fas fa-id-card" },
+        { key: "labor_contract", label: "Labor Contract", icon: "fas fa-file-signature" },
+        { key: "eid_1st_page", label: "EID Front Side", icon: "fas fa-id-card" },
+        { key: "eid_2nd_page", label: "EID Back Side", icon: "fas fa-id-card" },
+        { key: "educational_1st_page", label: "Educational Certificate (Front)", icon: "fas fa-graduation-cap" },
+        { key: "educational_2nd_page", label: "Educational Certificate (Back)", icon: "fas fa-graduation-cap" },
+        { key: "home_country_id_proof", label: "Home Country ID Proof", icon: "fas fa-home" },
+      ];
+    } else {
+      return [
+        { key: "aadhar_photo", label: "Aadhaar Card Photo", icon: "fas fa-id-card" },
+        { key: "pan_photo", label: "PAN Card Photo", icon: "fas fa-id-card" },
+        { key: "voter_id", label: "Voter ID", icon: "fas fa-id-card" },
+        { key: "driving_license", label: "Driving License", icon: "fas fa-id-card" },
+        { key: "passport_india", label: "Passport (India)", icon: "fas fa-passport" },
+        { key: "educational_1st_page", label: "Educational Certificate (Front)", icon: "fas fa-graduation-cap" },
+        { key: "educational_2nd_page", label: "Educational Certificate (Back)", icon: "fas fa-graduation-cap" },
+        { key: "home_country_id_proof", label: "Home Country ID Proof", icon: "fas fa-home" },
+      ];
+    }
+  };
+
+  const documentFields = getDocumentFields();
+
+  // Get identity fields for India - using correct column names
+  const getIdentityFields = () => {
+    return [
+      { key: "aadhar_number", label: "Aadhaar Number", icon: <FaIdCard /> },
+      { key: "pan_number", label: "PAN Number", icon: <FaIdCard /> },
+      { key: "voter_id_number", label: "Voter ID Number", icon: <FaIdCard /> },
+      { key: "driving_license_number", label: "Driving License Number", icon: <FaIdCard /> },
+      { key: "passport_india_number", label: "Passport Number", icon: <FaPassport /> },
+    ];
+  };
 
   if (loading) {
     return (
@@ -376,6 +428,9 @@ const EmployeeDetails = () => {
                       <FiAward className="inline mr-1" /> Skilled
                     </span>
                   )}
+                  <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold">
+                    <FiMapPin className="inline mr-1" /> {selectedCountry}
+                  </span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-4 justify-center md:justify-start text-sm text-gray-600">
                   <div className="flex items-center gap-1">
@@ -459,6 +514,14 @@ const EmployeeDetails = () => {
                       </label>
                       <p className="text-gray-800 font-medium mt-1">
                         {isSkilled() ? "Skilled" : "Unskilled"}
+                      </p>
+                    </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                        Country
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1">
+                        {selectedCountry}
                       </p>
                     </div>
                   </div>
@@ -629,8 +692,8 @@ const EmployeeDetails = () => {
               </div>
             )}
 
-            {/* Passport Information Tab */}
-            {activeTab === "passport" && (
+            {/* Passport Information Tab (UAE only) */}
+            {activeTab === "passport" && selectedCountry === "UAE" && (
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <FaPassport className="text-green-500" /> Passport Details
@@ -722,8 +785,29 @@ const EmployeeDetails = () => {
               </div>
             )}
 
-            {/* Visa & Labor Tab */}
-            {activeTab === "visa" && (
+            {/* Identity Documents Tab (India only) */}
+            {activeTab === "identity" && selectedCountry === "India" && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <FaIdCard className="text-green-500" /> Identity Documents
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {getIdentityFields().map((field) => (
+                    <div key={field.key} className="border-b border-gray-100 pb-3">
+                      <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                        {field.icon} {field.label}
+                      </label>
+                      <p className="text-gray-800 font-medium mt-1">
+                        {currentEmployee[field.key] || "N/A"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Visa & Labor Tab (UAE only) */}
+            {activeTab === "visa" && selectedCountry === "UAE" && (
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <FiCreditCard className="text-green-500" /> Visa Details
@@ -801,8 +885,8 @@ const EmployeeDetails = () => {
               </div>
             )}
 
-            {/* EID Tab */}
-            {activeTab === "eid" && (
+            {/* EID Tab (UAE only) */}
+            {activeTab === "eid" && selectedCountry === "UAE" && (
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <FaIdCard className="text-green-500" /> Emirates ID Details
@@ -910,6 +994,9 @@ const EmployeeDetails = () => {
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <FiFileText className="text-green-500" /> Employee Documents
+                  <span className="text-xs text-gray-500 font-normal ml-2">
+                    ({selectedCountry})
+                  </span>
                 </h3>
 
                 {/* Avatar/Photo Document */}

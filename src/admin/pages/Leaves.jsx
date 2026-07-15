@@ -506,6 +506,11 @@ const Leaves = () => {
         }
         confirmText={actionType === "approve" ? "Approve" : "Reject"}
         loading={actionLoading}
+        variant={
+          actionType === "approve"
+          ? "success"
+          : "danger"
+        }
       >
         {actionType === "reject" && (
           <div className="mt-4">

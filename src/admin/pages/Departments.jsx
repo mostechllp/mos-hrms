@@ -323,6 +323,7 @@ const Departments = () => {
         onConfirm={handleDeleteDepartment}
         departmentName={selectedDepartment?.name}
         isLoading={modalLoading}
+        variant="danger"
       />
     </div>
   );

@@ -364,6 +364,7 @@ const RecentFiles = () => {
           message={`Are you sure you want to delete "${selectedDocument?.name}"? This action cannot be undone.`}
           confirmText={isDeleting ? "Deleting..." : "Delete"}
           confirmDisabled={isDeleting}
+          variant="danger"
         />
       </div>
 

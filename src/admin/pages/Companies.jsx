@@ -364,6 +364,7 @@ const Companies = () => {
           message={`Are you sure you want to delete "${selectedCompany?.name}"? This action cannot be undone.`}
           confirmText="Delete"
           loading={deleteLoading}
+          variant="danger"
         />
       </main>
     </div>

@@ -1,4 +1,4 @@
-// src/admin/pages/AddEmployee.js
+// src/admin/pages/AddEmployee.js - Full code with Aadhaar and PAN photo uploads
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -46,9 +46,9 @@ const AddEmployee = () => {
     educational_1st_page: null,
     educational_2nd_page: null,
     home_country_id_proof: null,
-    // India-specific documents
-    aadhaar_card: null,
-    pan_card: null,
+    // India-specific documents - using correct column names
+    aadhar_photo: null,
+    pan_photo: null,
     voter_id: null,
     driving_license: null,
     passport_india: null,
@@ -130,8 +130,8 @@ const AddEmployee = () => {
       other_number: "",
       home_country_number: "",
       role: "",
-      // India-specific fields
-      aadhaar_number: "",
+      // India-specific fields - using correct column names
+      aadhar_number: "",
       pan_number: "",
       voter_id_number: "",
       driving_license_number: "",
@@ -239,18 +239,16 @@ const AddEmployee = () => {
       );
       setSelectedCompanyDetails(company || null);
 
+      // Check for both "AE" and "UAE"
       const companyCountry = company?.country || company?.raw?.country || "UAE";
-      setSelectedCountry(companyCountry);
-      setCountryConfig(getCountryConfig(companyCountry));
+      const normalizedCountry = companyCountry === "AE" ? "UAE" : companyCountry;
 
-      if (company && company.raw?.trade_license === "freezone") {
-        setValue("labor_number", "");
-        setValue("labor_issued_date", "");
-        setValue("labor_expiry_date", "");
-      }
+      setSelectedCountry(normalizedCountry);
+      setCountryConfig(getCountryConfig(normalizedCountry));
 
-      // Reset UAE fields if India
-      if (companyCountry === "India") {
+      // Handle trade license based on country
+      if (normalizedCountry === "India") {
+        // Reset UAE fields for India
         setValue("visa_number", "");
         setValue("visa_type", "");
         setValue("visa_issued_date", "");
@@ -262,6 +260,13 @@ const AddEmployee = () => {
         setValue("labor_issued_date", "");
         setValue("labor_expiry_date", "");
         setIsSkilled(false);
+      } else {
+        // UAE - handle trade license
+        if (company && company.raw?.trade_license === "freezone") {
+          setValue("labor_number", "");
+          setValue("labor_issued_date", "");
+          setValue("labor_expiry_date", "");
+        }
       }
     } else {
       setSelectedCompanyDetails(null);
@@ -269,12 +274,6 @@ const AddEmployee = () => {
       setCountryConfig(getCountryConfig("UAE"));
     }
   }, [watchCompanyId, companies, setValue]);
-
-  const companyTypeOptions = countryConfig.companyTypes || [
-    { value: "llp", label: "LLP" },
-    { value: "private_limited", label: "Private Limited (Pvt. Ltd.)" },
-    { value: "proprietorship", label: "Proprietorship / Company" },
-  ];
 
   const getNationalityOptions = () => {
     if (selectedCountry === "India") {
@@ -331,8 +330,8 @@ const AddEmployee = () => {
         if (selectedCountry === "UAE") {
           return ["passport_issued_date", "passport_expiry_date"];
         } else {
-          // India - validate required identity documents
-          const fields = [];
+          // India - validate PAN and other required identity docs
+          const fields = ["pan_number"];
           countryConfig.identityDocuments.forEach((doc) => {
             if (doc.required) {
               fields.push(doc.key);
@@ -747,6 +746,13 @@ const AddEmployee = () => {
       formData.append("eid_number", "");
       formData.append("eid_issued_date", "");
       formData.append("eid_expiry_date", "");
+      
+      // India-specific fields
+      if (data.aadhar_number) formData.append("aadhar_number", data.aadhar_number);
+      if (data.pan_number) formData.append("pan_number", data.pan_number);
+      if (data.voter_id_number) formData.append("voter_id_number", data.voter_id_number);
+      if (data.driving_license_number) formData.append("driving_license_number", data.driving_license_number);
+      if (data.passport_india_number) formData.append("passport_india_number", data.passport_india_number);
     }
 
     formData.append(
@@ -791,10 +797,10 @@ const AddEmployee = () => {
         }
       });
     } else {
-      // India document fields
+      // India document fields - using correct column names
       const indiaDocumentFields = [
-        "aadhaar_card",
-        "pan_card",
+        "aadhar_photo",
+        "pan_photo",
         "voter_id",
         "driving_license",
         "passport_india",
@@ -1106,6 +1112,7 @@ const AddEmployee = () => {
                   </p>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                  {/* First Name */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-user text-green-500 mr-1"></i> First
@@ -1133,6 +1140,7 @@ const AddEmployee = () => {
                     />
                   </div>
 
+                  {/* Last Name */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-user text-green-500 mr-1"></i> Last
@@ -1152,6 +1160,7 @@ const AddEmployee = () => {
                     />
                   </div>
 
+                  {/* Organization */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-building text-green-500 mr-1"></i>{" "}
@@ -1184,6 +1193,7 @@ const AddEmployee = () => {
                     />
                   </div>
 
+                  {/* Company */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-building text-green-500 mr-1"></i>{" "}
@@ -1242,7 +1252,7 @@ const AddEmployee = () => {
                     />
                   </div>
 
-                  {/* Show trade license info when company is selected */}
+                  {/* Trade License Info */}
                   {selectedCompanyDetails &&
                     selectedCompanyDetails.raw?.trade_license && (
                       <div className="md:col-span-2">
@@ -1287,6 +1297,7 @@ const AddEmployee = () => {
                       </div>
                     )}
 
+                  {/* Department */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-diagram-project text-green-500 mr-1"></i>{" "}
@@ -1319,6 +1330,7 @@ const AddEmployee = () => {
                     />
                   </div>
 
+                  {/* Designation */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
@@ -1351,6 +1363,7 @@ const AddEmployee = () => {
                     />
                   </div>
 
+                  {/* User Type */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-user-tag text-green-500 mr-1"></i>{" "}
@@ -1383,6 +1396,7 @@ const AddEmployee = () => {
                     />
                   </div>
 
+                  {/* Gender */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-venus-mars text-green-500 mr-1"></i>{" "}
@@ -1407,6 +1421,7 @@ const AddEmployee = () => {
                     />
                   </div>
 
+                  {/* Nationality */}
                   {countryConfig.showNationality && (
                     <div>
                       <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
@@ -1433,6 +1448,7 @@ const AddEmployee = () => {
                     </div>
                   )}
 
+                  {/* Marital Status */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-user-friends text-green-500 mr-1"></i>{" "}
@@ -1457,7 +1473,7 @@ const AddEmployee = () => {
                     />
                   </div>
 
-                  {/* Special Days - Array of name and date */}
+                  {/* Special Days */}
                   <div className="md:col-span-2">
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
                       <i className="fas fa-gift text-green-500 mr-1"></i>{" "}
@@ -1540,7 +1556,7 @@ const AddEmployee = () => {
                     </p>
                   </div>
 
-                  {/* Employee ID Section with Radio Buttons */}
+                  {/* Employee ID Section */}
                   <div className="md:col-span-2">
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
                       <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
@@ -1633,6 +1649,7 @@ const AddEmployee = () => {
                     )}
                   </div>
 
+                  {/* Date of Birth */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-calendar text-green-500 mr-1"></i>{" "}
@@ -1660,6 +1677,7 @@ const AddEmployee = () => {
                     />
                   </div>
 
+                  {/* Joining Date */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
                       <i className="fas fa-calendar-alt text-green-500 mr-1"></i>{" "}
@@ -1778,6 +1796,7 @@ const AddEmployee = () => {
                     </div>
                   </div>
 
+                  {/* Employee Category - Skilled/Unskilled */}
                   {countryConfig.showSkilledUnskilled && (
                     <div className="md:col-span-2">
                       <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
@@ -1818,7 +1837,7 @@ const AddEmployee = () => {
                     </div>
                   )}
 
-                  {/* Educational Documents - Only show if Skilled is selected */}
+                  {/* Educational Documents - Only if Skilled */}
                   {isSkilled === true && (
                     <>
                       <div className="md:col-span-2">
@@ -1852,7 +1871,7 @@ const AddEmployee = () => {
                     </>
                   )}
 
-                  {/* Additional Documents Section */}
+                  {/* Additional Documents */}
                   <div className="md:col-span-2">
                     <div className="border-t border-gray-200 pt-4 mt-4">
                       <div className="flex justify-between items-center mb-3">
@@ -1935,15 +1954,15 @@ const AddEmployee = () => {
 
             {/* Step 1 - Identity Documents */}
             <div className={currentStep === 1 ? "block" : "hidden"}>
-              {/* UAE - Passport */}
-              {countryConfig.showPassport && selectedCountry === "UAE" && (
+              {selectedCountry === "UAE" ? (
+                /* UAE - Passport Information */
                 <div>
                   <div className="form-section-title mb-4 md:mb-6">
                     <i className="fas fa-passport text-green-500 mr-2"></i>
                     <h3 className="text-base md:text-lg font-bold text-gray-800">
-                      Passport Information{" "}
+                      Passport Information
                       {countryConfig.passportRequired && (
-                        <span className="text-red-500">*</span>
+                        <span className="text-red-500 ml-2">*</span>
                       )}
                     </h3>
                   </div>
@@ -2179,10 +2198,8 @@ const AddEmployee = () => {
                     </div>
                   </div>
                 </div>
-              )}
-
-              {/* India Identity Documents */}
-              {countryConfig.showIndia && selectedCountry === "India" && (
+              ) : (
+                /* India - Identity Documents */
                 <div>
                   <div className="form-section-title mb-4 md:mb-6">
                     <i className="fas fa-id-card text-green-500 mr-2"></i>
@@ -2193,25 +2210,108 @@ const AddEmployee = () => {
                       </span>
                     </h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {countryConfig.identityDocuments.map((doc) => (
-                      <DocumentUpload
-                        key={doc.key}
-                        fieldKey={doc.key}
-                        label={`${doc.label}${doc.required ? " *" : ""}`}
-                        icon={doc.icon}
-                        required={doc.required}
+
+                  {/* Aadhaar and PAN number fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 mb-6">
+                    <div>
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <i className="fas fa-id-card text-green-500 mr-1"></i>
+                        Aadhaar Number
+                      </label>
+                      <Controller
+                        name="aadhar_number"
+                        control={control}
+                        render={({ field }) => (
+                          <input
+                            {...field}
+                            type="text"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            placeholder="Enter 12-digit Aadhaar number"
+                          />
+                        )}
                       />
-                    ))}
+                      <p className="text-xs text-gray-400 mt-1">
+                        <i className="fas fa-info-circle mr-1"></i>
+                        Enter 12-digit Aadhaar number
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <i className="fas fa-id-card text-green-500 mr-1"></i>
+                        PAN Number <span className="text-red-500">*</span>
+                      </label>
+                      <Controller
+                        name="pan_number"
+                        control={control}
+                        rules={{
+                          required: "PAN number is required",
+                          pattern: {
+                            value: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
+                            message: "Invalid PAN format (e.g., ABCDE1234F)",
+                          },
+                        }}
+                        render={({ field }) => (
+                          <>
+                            <input
+                              {...field}
+                              type="text"
+                              className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:ring-2 ${errors.pan_number ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                              placeholder="Enter 10-digit PAN (e.g., ABCDE1234F)"
+                            />
+                            {errors.pan_number && (
+                              <p className="mt-1 text-xs text-red-500">
+                                {errors.pan_number.message}
+                              </p>
+                            )}
+                          </>
+                        )}
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        <i className="fas fa-info-circle mr-1"></i>
+                        10-digit alphanumeric (e.g., ABCDE1234F)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Document uploads for India - Aadhaar and PAN photos */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <DocumentUpload
+                      fieldKey="aadhar_photo"
+                      label="Aadhaar Card Photo"
+                      icon="fas fa-id-card"
+                      required={false}
+                    />
+                    <DocumentUpload
+                      fieldKey="pan_photo"
+                      label="PAN Card Photo"
+                      icon="fas fa-id-card"
+                      required={false}
+                    />
+                    {countryConfig.identityDocuments.map((doc) => {
+                      // Skip aadhar_photo and pan_photo as we already added them above
+                      if (doc.key === "aadhar_photo" || doc.key === "pan_photo") {
+                        return null;
+                      }
+                      return (
+                        <DocumentUpload
+                          key={doc.key}
+                          fieldKey={doc.key}
+                          label={`${doc.label}${doc.required ? " *" : ""}`}
+                          icon={doc.icon}
+                          required={doc.required}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Step 2 - Visa, Labor & EID (UAE only) */}
-            {countryConfig.showUAE &&
-              currentStep === 2 &&
-              selectedCountry === "UAE" && (
+            {/* Step 2 - Visa, Labor & EID */}
+            <div className={currentStep === 2 ? "block" : "hidden"}>
+              {selectedCountry === "UAE" ? (
+                /* UAE - Visa, Labor & EID */
                 <div>
                   <div className="form-section-title mb-4 md:mb-6">
                     <i className="fas fa-file-contract text-green-500 mr-2"></i>
@@ -2220,7 +2320,7 @@ const AddEmployee = () => {
                     </h3>
                   </div>
                   <div className="space-y-6">
-                    {/* Labor Section - Only show for Mainland companies */}
+                    {/* Labor Section - Only for Mainland companies */}
                     {selectedCompanyDetails?.raw?.trade_license ===
                       "mainland" && (
                       <div className="border border-gray-200 rounded-lg p-4 md:p-5">
@@ -2605,7 +2705,33 @@ const AddEmployee = () => {
                     </div>
                   </div>
                 </div>
+              ) : (
+                /* India - No fields message */
+                <div>
+                  <div className="form-section-title mb-4 md:mb-6">
+                    <i className="fas fa-file-contract text-green-500 mr-2"></i>
+                    <h3 className="text-base md:text-lg font-bold text-gray-800">
+                      Visa, Labor & EID
+                    </h3>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
+                    <i className="fas fa-check-circle text-blue-500 text-4xl mb-3"></i>
+                    <h4 className="text-lg font-semibold text-blue-700 mb-2">
+                      No UAE Documents Required
+                    </h4>
+                    <p className="text-sm text-blue-600">
+                      For Indian employees, Visa, Labor, and Emirates ID documents 
+                      are not required. These documents are specific to UAE-based 
+                      employees.
+                    </p>
+                    <p className="text-xs text-blue-500 mt-3">
+                      <i className="fas fa-info-circle mr-1"></i>
+                      You can proceed to the next step.
+                    </p>
+                  </div>
+                </div>
               )}
+            </div>
 
             {/* Step 3 - Contact */}
             <div className={currentStep === 3 ? "block" : "hidden"}>

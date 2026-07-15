@@ -16,6 +16,7 @@ const ADMIN_ROUTE_MAP = {
   "task-reports": "/admin/task-reports",
   reports: "/admin/reports",
   projects: "/admin/projects",
+  "project-tasks": "/admin/project-tasks", // NEW: Project Tasks route
   payroll: "/admin/payroll/add",
   roles: "/admin/role-management",
   settings: "/admin/settings",
@@ -33,6 +34,7 @@ const EMPLOYEE_ROUTE_MAP = {
   "task-reports": "/employee/task-reports",
   reports: "/employee/reports",
   projects: "/employee/projects",
+  "project-tasks": "/employee/project-tasks", // NEW: Project Tasks route
   settings: "/employee/settings",
   leaves: "/employee/leave-management",
   "my-leaves": "/employee/leaves",
@@ -55,12 +57,13 @@ const ICON_MAP = {
   leaves: "fas fa-calendar-check",
   "my-leaves": "fas fa-calendar-alt",
   "task-reports": "fas fa-tasks",
+  "project-tasks": "fa-solid fa-diagram-project", // NEW: Project Tasks icon
   reports: "fas fa-chart-bar",
   projects: "fas fa-folder",
   payroll: "fas fa-file-invoice-dollar",
   roles: "fas fa-user-shield",
   settings: "fas fa-gear",
-  "my-tasks": "fas fa-list-check",
+  "my-tasks": "fas fa-user-check",
   organizations: "fas fa-building",
 };
 
@@ -92,18 +95,22 @@ const MODULE_ORDER = {
   employees: 3,
   offboarding: 4,
   projects: 5,
-  attendance: 6,
-  documents: 7,
-  reports: 8,
-  settings: 9,
-  roles: 10,
-  payroll: 11,
-  leaves: 12,
-  organization: 13,
+  "project-tasks": 6, // NEW: Project Tasks order
+  attendance: 7,
+  documents: 8,
+  reports: 9,
+  settings: 10,
+  roles: 11,
+  payroll: 12,
+  leaves: 13,
+  organization: 14,
 };
 
 // Child modules that should be hidden for Admin/Super Admin
 const HIDDEN_FOR_ADMIN = ["my-leaves", "task-reports", "my-tasks"];
+
+// Modules that are always shown regardless of permissions (for admin users)
+const ALWAYS_SHOWN_MODULES = ["projects", "project-tasks"];
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -136,6 +143,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const userRole = user?.role?.name;
   const isHR = userRole && ["HR Manager", "hr manager", "HR"].includes(userRole);
   const hasAllPermissions = user?.permissions?.all === true;
+  const isAdmin = user?.type === 'admin';
 
   // Get permissions from user object
   const permissions = user?.permissions || {};
@@ -144,6 +152,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const hasReadPermission = (slug) => {
     // If user has 'all' permission (Super Admin), allow all
     if (hasAllPermissions) return true;
+    
+    // Always show certain modules for admin users
+    if (isAdmin && ALWAYS_SHOWN_MODULES.includes(slug)) return true;
     
     // Check specific permission for the module
     const modulePermission = permissions[slug];
@@ -245,8 +256,13 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
       const module = user?.sidebar_modules?.find(m => m.slug === slug);
       let moduleName = module?.name || slug;
+      
+      // Custom display names for specific modules
       if (moduleName === "My Tasks" || slug === "my-tasks") {
         moduleName = "Task Reports";
+      }
+      if (slug === "project-tasks") {
+        moduleName = "Project Tasks"; // NEW: Custom name for project tasks
       }
 
       standaloneItems.push({
