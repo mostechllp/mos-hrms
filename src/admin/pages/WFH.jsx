@@ -423,6 +423,11 @@ const AdminWFH = () => {
           : "Are you sure you want to reject this WFH request?"}
         confirmText={actionType === "approve" ? "Approve" : "Reject"}
         loading={actionLoading}
+        variant={
+          actionType === "approve"
+          ? "success"
+          : "danger"
+        }
       />
     </div>
   );

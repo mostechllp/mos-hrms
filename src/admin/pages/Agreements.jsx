@@ -359,6 +359,7 @@ const Agreements = () => {
         message={`Are you sure you want to delete "${selectedDocument?.name}"? This action cannot be undone.`}
         confirmText="Delete"
         loading={deleteLoading}
+        variant="danger"
       />
     </div>
   );

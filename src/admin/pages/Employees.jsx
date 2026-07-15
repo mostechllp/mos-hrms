@@ -483,6 +483,7 @@ const Employees = () => {
         message={`Are you sure you want to delete "${selectedEmployee?.name}"? This action cannot be undone.`}
         confirmText="Delete"
         loading={deleteLoading}
+        variant="danger"
       />
     </div>
   );

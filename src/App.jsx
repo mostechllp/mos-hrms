@@ -118,6 +118,7 @@ const Projects = lazy(() => import("./admin/pages/Projects"));
 const ProjectTasks = lazy(
   () => import("./admin/components/projects/ProjectTasks"),
 );
+const ProjectsTasks = lazy(() => import("./admin/pages/ProjectTasks"))
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -271,6 +272,7 @@ function App() {
           <Route path="reports" element={<Reports />} />
           <Route path="tasks" element={<Tasks />} />
           <Route path="projects" element={<Projects />} />
+          <Route path="project-tasks" element={<ProjectsTasks />} />
           <Route path="projects/:id/tasks" element={<ProjectTasks />} />
           <Route
             path="reports/employee-details"
@@ -367,6 +369,7 @@ function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="projects" element={<Projects />} />
           <Route path="projects/:id/tasks" element={<ProjectTasks />} />
+          <Route path="project-tasks" element={<ProjectsTasks />} />
           <Route
             path="reports/employee-details"
             element={<EmployeeDetailsReport />}
@@ -402,6 +405,26 @@ function App() {
           />
           <Route path="designations" element={<Designations />} />
           <Route path="departments" element={<Departments />} />
+          <Route
+            path="organizations/add-organization"
+            element={<AddOrganization />}
+          />
+          <Route
+            path="organizations/edit-organization/:id"
+            element={<EditOrganization />}
+          />
+          <Route
+            path="organizations/:organizationId/companies"
+            element={<Companies />}
+          />
+          <Route
+            path="organizations/:organizationId/add-company"
+            element={<AddCompany />}
+          />
+          <Route
+            path="organizations/:organizationId/edit-company/:id"
+            element={<EditCompany />}
+          />
         </Route>
 
         <Route

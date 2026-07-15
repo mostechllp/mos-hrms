@@ -252,6 +252,7 @@ const Designations = () => {
         message={`Are you sure you want to delete "${selectedDesignation?.name}"?`}
         confirmText="Delete"
         loading={deleteLoading}
+        variant="danger"
       />
     </div>
   );
