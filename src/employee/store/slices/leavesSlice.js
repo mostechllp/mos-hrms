@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import apiClient from "../../../utils/apiClient";
 
 // Fetch Employee Leaves
+// In leavesSlice.js - Update fetchEmployeeLeaves
 export const fetchEmployeeLeaves = createAsyncThunk(
   "leaves/fetchEmployeeLeaves",
   async (_, { rejectWithValue }) => {
@@ -10,10 +11,28 @@ export const fetchEmployeeLeaves = createAsyncThunk(
       console.log("Fetched leaves response:", response.data);
 
       if (response.data && response.data.status === "success") {
-        // The leaves array is inside data.leaves
         const leavesData = response.data.data?.leaves || [];
-        console.log("Leaves data extracted:", leavesData);
-        return leavesData;
+
+        // Transform the data - keep dates as-is from API
+        const transformedLeaves = leavesData.map((leave) => ({
+          ...leave,
+          leave_type_id: leave.leave_type_id || leave.leave_type?.id,
+          leave_type: leave.leave_type || { name: "Leave" },
+          start_session: leave.session1 || "morning",
+          end_session: leave.session2 || "afternoon",
+          claim_salary:
+            leave.claim_salary === 1 ||
+            leave.claim_salary === "1" ||
+            leave.claim_salary === true
+              ? "1"
+              : "0",
+          // Keep the dates as they are from the API
+          start_date: leave.start_date,
+          end_date: leave.end_date,
+          status: leave.status || "pending",
+        }));
+
+        return transformedLeaves;
       } else {
         return rejectWithValue(
           response.data?.message || "Failed to fetch leaves",
@@ -123,27 +142,31 @@ export const updateLeaveRequest = createAsyncThunk(
       // If data is FormData, we need to use POST with _method=PUT
       // because some APIs don't support PUT with FormData
       const response = await apiClient.post(`/employee/leaves/${id}`, data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { "Content-Type": "multipart/form-data" },
       });
       console.log("Update leave response:", response.data);
-      
+
       if (response.data && response.data.status === "success") {
         return response.data.data;
       } else {
-        return rejectWithValue(response.data?.message || "Failed to update leave request");
+        return rejectWithValue(
+          response.data?.message || "Failed to update leave request",
+        );
       }
     } catch (error) {
       console.error("Update leave error:", error);
       // Handle validation errors
       if (error.response?.data?.errors) {
-        const errorMessages = Object.values(error.response.data.errors).flat().join(', ');
+        const errorMessages = Object.values(error.response.data.errors)
+          .flat()
+          .join(", ");
         return rejectWithValue(errorMessages);
       }
       return rejectWithValue(
-        error.response?.data?.message || "Failed to update leave request"
+        error.response?.data?.message || "Failed to update leave request",
       );
     }
-  }
+  },
 );
 
 // Delete Leave Request
@@ -165,6 +188,52 @@ export const deleteLeaveRequest = createAsyncThunk(
       console.error("Delete leave error:", error);
       return rejectWithValue(
         error.response?.data?.message || "Failed to delete leave request",
+      );
+    }
+  },
+);
+
+// Add this to your leavesSlice.js - Fetch Single Leave by ID
+export const fetchLeaveById = createAsyncThunk(
+  "leaves/fetchLeaveById",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(`/employee/leaves/${id}`);
+      console.log("Fetched leave by id response:", response.data);
+
+      if (response.data && response.data.status === "success") {
+        const leaveData = response.data.data;
+
+        // Transform the data to match the component's expected format
+        const transformedLeave = {
+          ...leaveData,
+          leave_type_id: leaveData.leave_type_id || leaveData.leave_type?.id,
+          leave_type: leaveData.leave_type || { name: "Leave" },
+          start_session: leaveData.session1 || "morning",
+          end_session: leaveData.session2 || "afternoon",
+          claim_salary:
+            leaveData.claim_salary === 1 || leaveData.claim_salary === "1"
+              ? "1"
+              : "0",
+          start_date: leaveData.start_date,
+          end_date: leaveData.end_date,
+          status: leaveData.status || "pending",
+        };
+
+        return transformedLeave;
+      } else {
+        return rejectWithValue(
+          response.data?.message || "Failed to fetch leave details",
+        );
+      }
+    } catch (error) {
+      console.error("Fetch leave by id error:", error);
+      // Handle 500 error specifically
+      if (error.response?.status === 500) {
+        return rejectWithValue("Server error. Please try again later.");
+      }
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch leave details",
       );
     }
   },
@@ -361,6 +430,7 @@ export const calculateLeaveBalances = createAsyncThunk(
 const initialState = {
   leaves: [],
   leaveTypes: [],
+   selectedLeave: null,
   leaveBalances: {
     total: {
       allocated: 0,
@@ -503,6 +573,19 @@ const leavesSlice = createSlice({
         state.error = null;
       })
       .addCase(deleteLeaveRequest.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(fetchLeaveById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchLeaveById.fulfilled, (state, action) => {
+        state.loading = false;
+        state.selectedLeave = action.payload; // You'll need to add selectedLeave to initialState
+        state.error = null;
+      })
+      .addCase(fetchLeaveById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

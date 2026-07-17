@@ -7,6 +7,7 @@ import {
   fetchEmployeeLeaves,
   updateLeaveRequest,
   deleteLeaveRequest,
+  fetchLeaveById,
 } from "../store/slices/leavesSlice";
 import {
   FiSearch,
@@ -100,32 +101,14 @@ const Leaves = () => {
     dispatch(fetchEmployeeLeaves());
   }, [dispatch]);
 
-  // Calculate days for edit form
+  // Calculate days for edit form - EXCLUDING SUNDAYS
   useEffect(() => {
-    if (editFormData.start_date && editFormData.end_date) {
-      const from = new Date(editFormData.start_date);
-      const to = new Date(editFormData.end_date);
-      if (to >= from) {
-        let days = Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1;
-
-        if (editFormData.start_session === "afternoon") {
-          days = days - 0.5;
-        }
-        if (editFormData.end_session === "morning") {
-          days = days - 0.5;
-        }
-
-        if (days < 0.5 && days > 0) {
-          days = 0.5;
-        }
-
-        setEditTotalDays(days);
-      } else {
-        setEditTotalDays(0);
-      }
-    } else {
-      setEditTotalDays(0);
-    }
+    calculateEditDays(
+      editFormData.start_date,
+      editFormData.end_date,
+      editFormData.start_session,
+      editFormData.end_session
+    );
   }, [
     editFormData.start_date,
     editFormData.end_date,
@@ -186,13 +169,30 @@ const Leaves = () => {
   const formatDate = (dateString) => {
     if (!dateString) return "-";
     try {
+      // If the date is in YYYY-MM-DD format, handle it directly
+      if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = dateString.split('-');
+        // Use UTC to prevent timezone offset
+        return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          timeZone: 'UTC'
+        });
+      }
+      
+      // For other date formats
       const date = new Date(dateString);
-      return date.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
+      if (isNaN(date.getTime())) return "-";
+      
+      return date.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC'
       });
     } catch (error) {
+      console.error("Date formatting error:", error);
       return "-";
     }
   };
@@ -202,12 +202,98 @@ const Leaves = () => {
     try {
       const from = new Date(startDate);
       const to = new Date(endDate);
-      const days = Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1;
+      // Use UTC dates for calculation
+      const utcFrom = Date.UTC(
+        from.getFullYear(),
+        from.getMonth(),
+        from.getDate(),
+      );
+      const utcTo = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate());
+      const days = Math.ceil((utcTo - utcFrom) / (1000 * 60 * 60 * 24)) + 1;
       return days;
     } catch (error) {
       return 0;
     }
   };
+
+  // Helper function to calculate working days excluding Sundays
+  // Helper function to calculate working days excluding Sundays
+const getWorkingDaysExcludingSundays = (startDate, endDate) => {
+  if (!startDate || !endDate) return 0;
+  
+  try {
+    // Parse dates directly from YYYY-MM-DD format to avoid timezone issues
+    const parseDate = (dateStr) => {
+      const parts = dateStr.split('-');
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    };
+    
+    const from = parseDate(startDate);
+    const to = parseDate(endDate);
+    
+    // Set time to avoid any timezone issues
+    from.setHours(0, 0, 0, 0);
+    to.setHours(0, 0, 0, 0);
+    
+    if (from > to) return 0;
+    
+    let count = 0;
+    const current = new Date(from);
+    
+    while (current <= to) {
+      // Sunday is 0, so exclude Sundays
+      if (current.getDay() !== 0) {
+        count++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    
+    return count;
+  } catch (error) {
+    console.error("Error calculating working days:", error);
+    return 0;
+  }
+};
+
+// Helper function to calculate days for edit form (excluding Sundays)
+const calculateEditDays = (startDate, endDate, startSession, endSession) => {
+  if (!startDate || !endDate) {
+    setEditTotalDays(0);
+    return;
+  }
+
+  try {
+    // Get working days excluding Sundays
+    let days = getWorkingDaysExcludingSundays(startDate, endDate);
+    
+    console.log(`Working days (excluding Sundays): ${days}`);
+    
+    // If no working days, set to 0
+    if (days === 0) {
+      setEditTotalDays(0);
+      return;
+    }
+
+    // Adjust for sessions
+    if (startSession === "afternoon") {
+      days = days - 0.5;
+    }
+    if (endSession === "morning") {
+      days = days - 0.5;
+    }
+
+    // Ensure minimum is 0.5 if there's any leave
+    if (days < 0.5 && days > 0) {
+      days = 0.5;
+    }
+
+    console.log(`Total days after session adjustment: ${days}`);
+    setEditTotalDays(days);
+  } catch (error) {
+    console.error("Error calculating edit days:", error);
+    setEditTotalDays(0);
+  }
+};
 
   const handleStatusFilter = (status) => {
     dispatch(
@@ -239,24 +325,66 @@ const Leaves = () => {
     );
   };
 
-  // Edit handlers
-  const handleEditClick = (leave) => {
-    setEditingLeave(leave);
-    setEditFormData({
-      start_date: leave.start_date?.split("T")[0] || leave.start_date || "",
-      end_date: leave.end_date?.split("T")[0] || leave.end_date || "",
-      reason: leave.reason || "",
-      claim_salary:
-        leave.claim_salary === 1 ||
-        leave.claim_salary === "1" ||
-        leave.claim_salary === "Yes"
-          ? "1"
-          : "0",
-      start_session: leave.start_session || "morning",
-      end_session: leave.end_session || "afternoon",
-    });
+  const handleEditClick = async (leave) => {
+    // Show loading state if needed
     setEditError("");
-    setShowEditModal(true);
+
+    try {
+      // Fetch the full leave data by ID
+      const result = await dispatch(fetchLeaveById(leave.id));
+
+      if (fetchLeaveById.fulfilled.match(result)) {
+        const leaveData = result.payload;
+
+        // Extract dates and ensure they're in the correct format
+        const startDate = leaveData.start_date
+          ? new Date(leaveData.start_date).toISOString().split("T")[0]
+          : "";
+        const endDate = leaveData.end_date
+          ? new Date(leaveData.end_date).toISOString().split("T")[0]
+          : "";
+
+        const startSession =
+          leaveData.session1 || leaveData.start_session || "morning";
+        const endSession =
+          leaveData.session2 || leaveData.end_session || "afternoon";
+
+        const claimSalary =
+          leaveData.claim_salary === 1 ||
+          leaveData.claim_salary === "1" ||
+          leaveData.claim_salary === true
+            ? "1"
+            : "0";
+
+        // Get the leave type ID
+        const leaveTypeId =
+          leaveData.leave_type_id || leaveData.leave_type?.id || "";
+
+        setEditingLeave({
+          ...leaveData,
+          leave_type_id: leaveTypeId,
+        });
+
+        setEditFormData({
+          start_date: startDate,
+          end_date: endDate,
+          reason: leaveData.reason || "",
+          claim_salary: claimSalary,
+          start_session: startSession,
+          end_session: endSession,
+        });
+
+        // Calculate total days excluding Sundays
+        calculateEditDays(startDate, endDate, startSession, endSession);
+
+        setShowEditModal(true);
+      } else {
+        setEditError(result.payload || "Failed to load leave details");
+      }
+    } catch (error) {
+      setEditError("Failed to load leave details. Please try again.");
+      console.error("Error fetching leave:", error);
+    }
   };
 
   const handleEditSubmit = async (e) => {
@@ -272,7 +400,7 @@ const Leaves = () => {
       return;
     }
     if (editTotalDays <= 0) {
-      setEditError("Please select valid dates");
+      setEditError("Please select valid dates (excluding Sundays)");
       return;
     }
     if (editFormData.reason.length < 10) {
@@ -280,19 +408,31 @@ const Leaves = () => {
       return;
     }
 
+    // Get the leave type ID from the editingLeave object
+    const leaveTypeId =
+      editingLeave?.leave_type_id || editingLeave?.leave_type?.id || "";
+
+    if (!leaveTypeId) {
+      setEditError("Leave type ID is missing");
+      return;
+    }
+
     const formData = new FormData();
-    // Include leave_type_id - using the existing leave type from the leave object
-    formData.append(
-      "leave_type_id",
-      editingLeave.leave_type_id || editingLeave.leave_type?.id || "",
-    );
+    formData.append("leave_type_id", leaveTypeId);
     formData.append("start_date", editFormData.start_date);
     formData.append("end_date", editFormData.end_date);
     formData.append("reason", editFormData.reason);
     formData.append("claim_salary", editFormData.claim_salary);
+    // Use session1 and session2 (matching the API response)
     formData.append("session1", editFormData.start_session);
     formData.append("session2", editFormData.end_session);
     formData.append("_method", "PUT");
+
+    // Log the form data for debugging
+    console.log("Submitting edit with data:");
+    for (let pair of formData.entries()) {
+      console.log(pair[0] + ": " + pair[1]);
+    }
 
     try {
       const result = await dispatch(
@@ -306,6 +446,15 @@ const Leaves = () => {
         await dispatch(fetchEmployeeLeaves());
         setShowEditModal(false);
         setEditingLeave(null);
+        // Reset form
+        setEditFormData({
+          start_date: "",
+          end_date: "",
+          reason: "",
+          claim_salary: "0",
+          start_session: "morning",
+          end_session: "afternoon",
+        });
       }
     } catch (error) {
       setEditError(error.message || "Failed to update leave request");
@@ -770,7 +919,9 @@ const Leaves = () => {
                     <span className="text-2xl font-extrabold text-green-600">
                       {editTotalDays}
                     </span>
-                    <span className="text-xs text-gray-500 block">Days</span>
+                    <span className="text-xs text-gray-500 block">
+                      Days (Excluding Sundays)
+                    </span>
                   </div>
                 </div>
                 <div>
