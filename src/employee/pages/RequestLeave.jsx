@@ -156,18 +156,98 @@ const RequestLeave = () => {
     }
   }, [employeeId, leaveTypes]);
 
-  // Calculate days when dates change
+  // Calculate days when dates change - EXCLUDING SUNDAYS
   useEffect(() => {
     calculateDays();
   }, [formData.start_date, formData.end_date, formData.start_session, formData.end_session]);
 
+  /**
+   * Parse date from DD/MM/YYYY or YYYY-MM-DD format
+   * @param {string} dateStr - Date string
+   * @returns {Date|null} Date object or null
+   */
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    
+    // If already in YYYY-MM-DD format
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateStr.split('-');
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    
+    // If in DD/MM/YYYY format
+    if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      const [day, month, year] = dateStr.split('/');
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    
+    // Try to parse as date string
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? null : date;
+  };
+
+  /**
+   * Calculate working days excluding Sundays
+   * @param {Date} startDate - Start date
+   * @param {Date} endDate - End date
+   * @returns {number} Number of days excluding Sundays
+   */
+  const getWorkingDaysExcludingSundays = (startDate, endDate) => {
+    if (!startDate || !endDate) return 0;
+    
+    try {
+      const from = new Date(startDate);
+      const to = new Date(endDate);
+      
+      // Set time to avoid timezone issues
+      from.setHours(0, 0, 0, 0);
+      to.setHours(0, 0, 0, 0);
+      
+      if (from > to) return 0;
+      
+      let count = 0;
+      const current = new Date(from);
+      
+      while (current <= to) {
+        // Sunday is 0, so exclude Sundays
+        if (current.getDay() !== 0) {
+          count++;
+        }
+        current.setDate(current.getDate() + 1);
+      }
+      
+      return count;
+    } catch (error) {
+      console.error("Error calculating working days:", error);
+      return 0;
+    }
+  };
+
   const calculateDays = () => {
     if (formData.start_date && formData.end_date) {
-      const from = new Date(formData.start_date);
-      const to = new Date(formData.end_date);
+      // Parse dates properly
+      const from = parseDate(formData.start_date);
+      const to = parseDate(formData.end_date);
+      
+      if (!from || !to) {
+        setTotalDays(0);
+        return;
+      }
+      
+      from.setHours(0, 0, 0, 0);
+      to.setHours(0, 0, 0, 0);
+      
       if (to >= from) {
-        let days = Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1;
+        // Get working days excluding Sundays
+        let days = getWorkingDaysExcludingSundays(from, to);
         
+        // If no working days, set to 0
+        if (days === 0) {
+          setTotalDays(0);
+          return;
+        }
+        
+        // Adjust for sessions
         if (formData.start_session === "afternoon") {
           days = days - 0.5;
         }
@@ -175,6 +255,7 @@ const RequestLeave = () => {
           days = days - 0.5;
         }
         
+        // Ensure minimum is 0.5 if there's any leave
         if (days < 0.5 && days > 0) {
           days = 0.5;
         }
@@ -193,7 +274,7 @@ const RequestLeave = () => {
     if (
       formData.end_date &&
       dateValue &&
-      new Date(formData.end_date) < new Date(dateValue)
+      parseDate(formData.end_date) < parseDate(dateValue)
     ) {
       setFormData((prev) => ({ ...prev, end_date: "" }));
     }
@@ -251,9 +332,17 @@ const RequestLeave = () => {
     }
 
     const formDataToSend = new FormData();
+    // Convert dates to YYYY-MM-DD for the API
+    const startDateFormatted = formData.start_date.includes('/') 
+      ? formData.start_date.split('/').reverse().join('-')
+      : formData.start_date;
+    const endDateFormatted = formData.end_date.includes('/')
+      ? formData.end_date.split('/').reverse().join('-')
+      : formData.end_date;
+      
     formDataToSend.append("leave_type_id", formData.leave_type_id);
-    formDataToSend.append("start_date", formData.start_date);
-    formDataToSend.append("end_date", formData.end_date);
+    formDataToSend.append("start_date", startDateFormatted);
+    formDataToSend.append("end_date", endDateFormatted);
     formDataToSend.append("reason", formData.reason);
     formDataToSend.append("claim_salary", formData.claim_salary);
     formDataToSend.append("session1", formData.start_session);
@@ -425,7 +514,7 @@ const RequestLeave = () => {
                   type="general"
                   minDate={new Date()}
                   className="w-full"
-                  placeholder="Select start date"
+                  placeholder="dd/mm/yyyy"
                 />
               </div>
 
@@ -458,7 +547,7 @@ const RequestLeave = () => {
                   type="general"
                   minDate={getMinEndDate()}
                   className="w-full"
-                  placeholder="Select end date"
+                  placeholder="dd/mm/yyyy"
                 />
               </div>
 
@@ -491,7 +580,9 @@ const RequestLeave = () => {
                   >
                     {totalDays}
                   </span>
-                  <small className="text-[11px] text-gray-500">Days</small>
+                  <small className="text-[11px] text-gray-500">
+                    {totalDays === 1 ? "Day" : "Days"} (Excluding Sundays)
+                  </small>
                 </div>
               </div>
 
@@ -689,13 +780,6 @@ const RequestLeave = () => {
               </p>
             </div>
           )}
-
-          <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              <FiCalendar className="inline mr-1" />
-              Plan your leave in advance for better scheduling
-            </p>
-          </div>
         </div>
       </div>
     </div>

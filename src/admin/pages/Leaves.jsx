@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-// Remove Sidebar and Header imports - they're now in AdminLayout
-// import Sidebar from '@admin/components/common/Sidebar';
-// import Header from '@admin/components/common/Header';
 import SearchBar from "@admin/components/common/SearchBar";
 import EntriesSelector from "@admin/components/common/EntriesSelector";
 import LeaveModal from "@admin/components/leaves/LeaveModal";
 import { showToast } from "../../components/common/Toast";
 import {
   fetchLeaves,
+  fetchLeaveById,
   updateLeaveStatus,
   clearError,
 } from "@admin/store/slices/LeaveSlice";
@@ -18,8 +16,8 @@ import ConfirmModal from "@admin/components/common/ConfirmModal";
 
 const Leaves = () => {
   const dispatch = useDispatch();
-  const { leaves = [], error = null } = useSelector((state) => {
-    return state.leaves || { leaves: [] };
+  const { leaves = [], error = null, currentLeave = null } = useSelector((state) => {
+    return state.leaves || { leaves: [], currentLeave: null };
   });
   console.log(leaves);
 
@@ -29,26 +27,17 @@ const Leaves = () => {
   const [perPage, setPerPage] = useState(10);
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  // Remove sidebar related state
-  // const [sidebarOpen, setSidebarOpen] = useState(false);
-  // const [isMobile, setIsMobile] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Confirm modal states
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [actionType, setActionType] = useState(null); // 'approve' or 'reject'
+  const [actionType, setActionType] = useState(null);
   const [selectedLeaveId, setSelectedLeaveId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Remove mobile check useEffect - handled by AdminLayout
-  // useEffect(() => {
-  //   const checkMobile = () => {
-  //     setIsMobile(window.innerWidth < 768);
-  //   };
-  //   checkMobile();
-  //   window.addEventListener('resize', checkMobile);
-  //   return () => window.removeEventListener('resize', checkMobile);
-  // }, []);
+  // Get base URL from environment
+  const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
 
   useEffect(() => {
     dispatch(fetchLeaves());
@@ -62,8 +51,39 @@ const Leaves = () => {
     }
   }, [error, dispatch]);
 
+  // Get full document URL
+  const getDocumentUrl = (documentPath) => {
+    if (!documentPath) return null;
+    
+    // If it's already a full URL
+    if (documentPath.startsWith('http://') || documentPath.startsWith('https://')) {
+      return documentPath;
+    }
+    
+    // If it starts with storage/ or /storage/
+    if (documentPath.startsWith('storage/')) {
+      return `${baseUrl}/${documentPath}`;
+    }
+    if (documentPath.startsWith('/storage/')) {
+      return `${baseUrl}${documentPath}`;
+    }
+    
+    // If it's a path like "leaves/documents/filename.pdf"
+    return `${baseUrl}/storage/${documentPath}`;
+  };
+
+  // Helper to get employee name from different possible structures
+  const getEmployeeName = (leave) => {
+    if (leave.employee_name) return leave.employee_name;
+    if (leave.employee?.name) return leave.employee.name;
+    if (leave.employee?.first_name && leave.employee?.last_name) {
+      return `${leave.employee.first_name} ${leave.employee.last_name}`;
+    }
+    if (leave.employee?.first_name) return leave.employee.first_name;
+    return "-";
+  };
+
   const getFilteredLeaves = () => {
-    // Ensure leaves is an array
     const leavesArray = Array.isArray(leaves) ? leaves : [];
     let filtered = leavesArray;
 
@@ -79,6 +99,9 @@ const Leaves = () => {
       filtered = filtered.filter(
         (leave) =>
           (leave.employee?.first_name || "")
+            .toLowerCase()
+            .includes(searchLower) ||
+          (leave.employee?.name || "")
             .toLowerCase()
             .includes(searchLower) ||
           (leave.leave_type?.name || leave.type || "")
@@ -131,7 +154,6 @@ const Leaves = () => {
       setSelectedLeaveId(null);
       setRejectionReason("");
       setActionType(null);
-      // Refresh the list
       dispatch(fetchLeaves());
     } else {
       showToast(
@@ -143,20 +165,37 @@ const Leaves = () => {
     setActionLoading(false);
   };
 
-  const handleView = (leave) => {
-    setSelectedLeave(leave);
-    setShowModal(true);
-  };
-
-  const handleViewDocument = (docUrl) => {
-    if (docUrl) {
-      window.open(docUrl, "_blank");
-    } else {
-      showToast("No document available", "info");
+  const handleView = async (leave) => {
+    setLoading(true);
+    try {
+      // Fetch the full leave details by ID using the thunk
+      const result = await dispatch(fetchLeaveById(leave.id));
+      
+      if (fetchLeaveById.fulfilled.match(result)) {
+        setSelectedLeave(result.payload);
+        setShowModal(true);
+      } else {
+        showToast(result.payload || "Failed to load leave details", "error");
+      }
+    } catch (error) {
+      showToast("Failed to load leave details", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Calculate stats - ensure leaves is an array
+  const handleViewDocument = (docUrl) => {
+    if (!docUrl) {
+      showToast("No document available", "info");
+      return;
+    }
+    
+    const fullUrl = getDocumentUrl(docUrl);
+    console.log("Opening document:", fullUrl);
+    window.open(fullUrl, "_blank");
+  };
+
+  // Calculate stats
   const leavesArray = Array.isArray(leaves) ? leaves : [];
   const total = leavesArray.length;
   const pending = leavesArray.filter(
@@ -179,23 +218,39 @@ const Leaves = () => {
       case "rejected":
         return "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400";
       default:
-        return "bg-gray-100 text-gray-600";
+        return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
     }
   };
 
+  // Format date - handles YYYY-MM-DD format
   const formatDate = (dateString) => {
     if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    try {
+      // If it's in YYYY-MM-DD format
+      if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = dateString.split('-');
+        const date = new Date(year, month - 1, day);
+        return date.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+      }
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+      }
+      return dateString;
+    } catch (error) {
+      return dateString || "-";
+    }
   };
 
   return (
-    // Remove the outer div with Sidebar and flex layout
-    // Just return the main content directly
     <div className="w-full overflow-x-hidden">
       {/* Stats Cards */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
@@ -360,39 +415,40 @@ const Leaves = () => {
                       {start + idx + 1}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
-                      {leave.employee_name || leave.employee?.name || "-"}
+                      {getEmployeeName(leave)}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       {leave.leave_type?.name || leave.type || "-"}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                      {formatDate(leave.from_date || leave.fromDate)}
+                      {formatDate(leave.start_date || leave.from_date)}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                      {formatDate(leave.to_date || leave.toDate)}
+                      {formatDate(leave.end_date || leave.to_date)}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
-                      {leave.number_of_days || leave.days || "-"}
+                      {leave.duration_days || leave.number_of_days || leave.days || "-"}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
                       <span
                         className={`inline-block px-1.5 md:px-2 py-0.5 rounded-full text-[9px] md:text-xs font-semibold whitespace-nowrap ${
                           leave.claim_salary === 1 ||
+                          leave.claim_salary === "1" ||
                           leave.claimSalary === "Yes"
                             ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
                             : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
                         }`}
                       >
-                        {leave.claim_salary === 1 || leave.claimSalary === "Yes"
+                        {leave.claim_salary === 1 || leave.claim_salary === "1" || leave.claimSalary === "Yes"
                           ? "Yes"
                           : "No"}
                       </span>
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
-                      {leave.document_path || leave.doc ? (
+                      {leave.document_path || leave.document || leave.doc ? (
                         <button
                           onClick={() =>
-                            handleViewDocument(leave.document_path || leave.doc)
+                            handleViewDocument(leave.document_path || leave.document || leave.doc)
                           }
                           className="text-blue-500 hover:text-blue-600 text-xs md:text-sm flex items-center gap-1"
                         >
@@ -417,7 +473,7 @@ const Leaves = () => {
                       </span>
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                      {leave.processed_by || leave.processedBy || "-"}
+                      {leave.processed_by || leave.processedBy || leave.approver?.username || "-"}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
                       <div className="flex gap-1 md:gap-2">
@@ -425,8 +481,9 @@ const Leaves = () => {
                           onClick={() => handleView(leave)}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-500 transition-colors"
                           title="View Details"
+                          disabled={loading}
                         >
-                          <i className="fas fa-eye text-xs md:text-sm"></i>
+                          <i className={`fas fa-eye text-xs md:text-sm ${loading ? 'fa-spin' : ''}`}></i>
                         </button>
                         {(leave.status === "pending" ||
                           leave.status === "Pending") && (
@@ -480,7 +537,10 @@ const Leaves = () => {
       <LeaveModal
         isOpen={showModal}
         leave={selectedLeave}
-        onClose={() => setShowModal(false)}
+        onClose={() => {
+          setShowModal(false);
+          setSelectedLeave(null);
+        }}
         onViewDocument={handleViewDocument}
       />
 
