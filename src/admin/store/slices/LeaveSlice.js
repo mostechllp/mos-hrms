@@ -1,32 +1,43 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import apiClient from "../../../utils/apiClient";
 
-// Helper function to transform leave data from admin API
+// Helper function to transform leave data from admin API - PRESERVING ALL FIELDS
 const transformAdminLeaveData = (leave) => {
-  // Handle different possible data structures
   return {
     id: leave.id,
+    employee_id: leave.employee_id,
     employee_name:
       leave.employee?.name ||
       leave.employee?.full_name ||
       `${leave.employee?.first_name || ""} ${leave.employee?.last_name || ""}`.trim() ||
       leave.employee_name ||
       "-",
-    employee_id: leave.employee_id || leave.employee?.id,
-    type: leave.leave_type?.name || leave.leave_type || leave.type || "-",
+    employee: leave.employee || null,
     leave_type_id: leave.leave_type_id || leave.leave_type?.id,
-    from_date: leave.start_date || leave.from_date || leave.fromDate,
-    to_date: leave.end_date || leave.to_date || leave.toDate,
-    days: leave.duration_days || leave.number_of_days || leave.days || 0,
-    claim_salary:
-      leave.claim_salary === 1 || leave.claim_salary === "Yes" ? "Yes" : "No",
-    document: leave.document_path || leave.document || leave.doc,
+    leave_type: leave.leave_type || { name: leave.type || "-" },
+    // PRESERVE original date fields
+    start_date: leave.start_date || leave.from_date || leave.fromDate,
+    end_date: leave.end_date || leave.to_date || leave.toDate,
+    // PRESERVE session fields
+    session1: leave.session1 || leave.start_session || null,
+    session2: leave.session2 || leave.end_session || null,
+    // PRESERVE all other fields
+    duration_days:
+      leave.duration_days || leave.number_of_days || leave.days || 0,
+    claim_salary: leave.claim_salary,
+    document: leave.document_path || leave.document || leave.doc || null,
+    document_path: leave.document_path || leave.document || leave.doc || null,
     reason: leave.reason || "-",
     status: (leave.status || "pending").toLowerCase(),
+    approved_by: leave.approved_by,
+    approver: leave.approver || null,
+    admin_remark: leave.admin_remark || null,
     processed_by: leave.processed_by || leave.processedBy || "-",
     created_at: leave.created_at,
     updated_at: leave.updated_at,
     rejection_reason: leave.rejection_reason || null,
+    // Keep raw data for debugging
+    _raw: leave,
   };
 };
 
@@ -52,8 +63,10 @@ export const fetchLeaves = createAsyncThunk(
         leavesData = [];
       }
 
-      // Transform each leave to a consistent format
+      // Transform each leave to a consistent format - PRESERVING ALL FIELDS
       const transformedLeaves = leavesData.map(transformAdminLeaveData);
+
+      console.log("Transformed leaves:", transformedLeaves); // Debug log
 
       return transformedLeaves;
     } catch (error) {
@@ -108,61 +121,66 @@ export const fetchLeaveBalances = createAsyncThunk(
   "leaves/fetchBalances",
   async ({ employee_id }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get(`/admin/leave-allocations/${employee_id}`);
+      const response = await apiClient.get(
+        `/admin/leave-allocations/${employee_id}`,
+      );
       return response.data.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to fetch leave balances");
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch leave balances",
+      );
     }
-  }
+  },
 );
-
 
 export const updateLeaveAllocation = createAsyncThunk(
   "leaves/updateAllocation",
   async ({ employee_id, allocations }, { rejectWithValue }) => {
     try {
-      // Convert allocations object to an array of integers (just the values)
-      const response = await apiClient.post(`/admin/leave-allocations/${employee_id}`, {
-      allocations: allocations  // ONLY send allocations object
-    });
-    return response.data;
+      const response = await apiClient.post(
+        `/admin/leave-allocations/${employee_id}`,
+        {
+          allocations: allocations,
+        },
+      );
+      return response.data;
     } catch (error) {
       console.error("Update allocation error:", error);
       return rejectWithValue(
-        error.response?.data?.message || "Failed to update allocation"
+        error.response?.data?.message || "Failed to update allocation",
       );
     }
-  }
+  },
 );
 
 // Leave Types
-
 export const fetchLeaveTypes = createAsyncThunk(
   "leaves/fetchLeaveTypes",
   async (_, { rejectWithValue }) => {
     try {
       const response = await apiClient.get("/admin/leave-types");
       console.log("Leave types API response:", response.data);
-      
-      // Handle different response structures
+
       let leaveTypesData = [];
       if (response.data?.data && Array.isArray(response.data.data)) {
         leaveTypesData = response.data.data;
       } else if (Array.isArray(response.data)) {
         leaveTypesData = response.data;
-      } else if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
+      } else if (
+        response.data?.data?.data &&
+        Array.isArray(response.data.data.data)
+      ) {
         leaveTypesData = response.data.data.data;
       }
-      
-      console.log("Extracted leave types:", leaveTypesData);
+
       return leaveTypesData;
     } catch (error) {
       console.error("Fetch leave types error:", error);
       return rejectWithValue(
-        error.response?.data?.message || "Failed to fetch leave types"
+        error.response?.data?.message || "Failed to fetch leave types",
       );
     }
-  }
+  },
 );
 
 export const addLeaveType = createAsyncThunk(
@@ -172,12 +190,10 @@ export const addLeaveType = createAsyncThunk(
       const res = await apiClient.post("/admin/leave-types", data);
       return res.data.data || res.data;
     } catch (err) {
-      
-      // Return the full error for debugging
       return rejectWithValue({
         message: err.response?.data?.message || "Failed to add leave type",
         data: err.response?.data,
-        status: err.response?.status
+        status: err.response?.status,
       });
     }
   },
@@ -227,6 +243,7 @@ export const updateLeaveTypeStatus = createAsyncThunk(
   },
 );
 
+
 export const toggleLeaveTypeStatus = createAsyncThunk(
   "leaves/toggleStatus",
   async ({ id, status }, { rejectWithValue }) => {
@@ -274,7 +291,6 @@ const leaveSlice = createSlice({
       .addCase(fetchLeaves.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
-        console.error("Fetch leaves rejected:", state.error);
       })
 
       // Fetch leave by ID
@@ -330,8 +346,7 @@ const leaveSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-
-      // Add leave type
+      // ... rest of your reducers
       .addCase(addLeaveType.fulfilled, (state, action) => {
         const type = action.payload;
         state.leaveTypes.push({
@@ -341,8 +356,6 @@ const leaveSlice = createSlice({
           raw: type,
         });
       })
-
-      // Update leave type
       .addCase(updateLeaveType.fulfilled, (state, action) => {
         const updatedType = action.payload;
         const index = state.leaveTypes.findIndex(
@@ -357,15 +370,11 @@ const leaveSlice = createSlice({
           };
         }
       })
-
-      // Delete leave type
       .addCase(deleteLeaveType.fulfilled, (state, action) => {
         state.leaveTypes = state.leaveTypes.filter(
           (t) => t.id !== action.payload,
         );
       })
-
-      // Update leave type status
       .addCase(updateLeaveTypeStatus.fulfilled, (state, action) => {
         const updatedType = action.payload;
         const index = state.leaveTypes.findIndex(
@@ -376,7 +385,6 @@ const leaveSlice = createSlice({
           state.leaveTypes[index].raw = updatedType;
         }
       })
-
       .addCase(toggleLeaveTypeStatus.fulfilled, (state, action) => {
         const updatedType = action.payload;
         const index = state.leaveTypes.findIndex(
