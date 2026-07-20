@@ -171,7 +171,7 @@ const Dashboard = () => {
   // Fetch dashboard data on component mount
   useEffect(() => {
     dispatch(fetchDashboardData());
-    dispatch(fetchEmployeeBreaks("all"));
+    dispatch(fetchEmployeeBreaks());
   }, [dispatch]);
 
   // Add to Dashboard component
@@ -372,7 +372,7 @@ const Dashboard = () => {
           localStorage.setItem("attendance-on-break", "true");
           localStorage.setItem("attendance-break-start-time", nowStr);
           showToastMessage("⏸️ Break Started", "success");
-          dispatch(fetchEmployeeBreaks("all"));
+          dispatch(fetchEmployeeBreaks());
         } else {
           showToastMessage(resultAction.payload || "Failed to start break", "error");
         }
@@ -410,7 +410,7 @@ const Dashboard = () => {
           showToastMessage("▶️ Work Resumed", "success");
           
           // Refresh break table from backend
-          dispatch(fetchEmployeeBreaks("all"));
+          dispatch(fetchEmployeeBreaks());
         } else {
           showToastMessage(resultAction.payload || "Failed to end break", "error");
         }
@@ -1558,7 +1558,14 @@ const Dashboard = () => {
                               return acc;
                             }, {});
                             
-                            return Object.entries(groupedBreaks).map(([dateStr, dayBreaks], index) => {
+                            // Sort dates descending
+                            const sortedGroupedBreaks = Object.entries(groupedBreaks).sort((a, b) => {
+                              if (a[0] === "-") return 1;
+                              if (b[0] === "-") return -1;
+                              return new Date(b[0]) - new Date(a[0]);
+                            });
+                            
+                            return sortedGroupedBreaks.map(([dateStr, dayBreaks], index) => {
                               let formattedDate = dateStr;
                               let dayOfWeek = "";
                               if (dateStr && dateStr.includes("-")) {
