@@ -171,7 +171,7 @@ const Dashboard = () => {
   // Fetch dashboard data on component mount
   useEffect(() => {
     dispatch(fetchDashboardData());
-    dispatch(fetchEmployeeBreaks());
+    dispatch(fetchEmployeeBreaks("all"));
   }, [dispatch]);
 
   // Add to Dashboard component
@@ -372,7 +372,7 @@ const Dashboard = () => {
           localStorage.setItem("attendance-on-break", "true");
           localStorage.setItem("attendance-break-start-time", nowStr);
           showToastMessage("⏸️ Break Started", "success");
-          dispatch(fetchEmployeeBreaks());
+          dispatch(fetchEmployeeBreaks("all"));
         } else {
           showToastMessage(resultAction.payload || "Failed to start break", "error");
         }
@@ -410,7 +410,7 @@ const Dashboard = () => {
           showToastMessage("▶️ Work Resumed", "success");
           
           // Refresh break table from backend
-          dispatch(fetchEmployeeBreaks());
+          dispatch(fetchEmployeeBreaks("all"));
         } else {
           showToastMessage(resultAction.payload || "Failed to end break", "error");
         }
