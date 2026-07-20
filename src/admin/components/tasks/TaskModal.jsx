@@ -26,7 +26,6 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
     assigned_date: new Date().toISOString().split("T")[0],
     due_date: "",
     priority: "medium",
-    status: "in_progress",
     description: "",
     assigned_by_name: authUser?.name || authUser?.username || "Admin",
   });
@@ -147,7 +146,6 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
         assigned_date: task.assigned_date?.split("T")[0] || new Date().toISOString().split("T")[0],
         due_date: task.due_date?.split("T")[0] || "",
         priority: task.priority || "medium",
-        status: task.status || task.task_status || task.assigned_to?.[0]?.pivot?.status || "in_progress",
         description: task.task_description || "",
         assigned_by_name: task.assign_by || task.assignedBy?.name || task.assigned_by?.name || authUser?.name || authUser?.username || "Admin",
       });
@@ -159,7 +157,6 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
         assigned_date: new Date().toISOString().split("T")[0],
         due_date: "",
         priority: "medium",
-        status: "in_progress",
         description: "",
         assigned_by_name: authUser?.name || authUser?.username || "Admin",
       });
@@ -244,7 +241,6 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
       assigned_date: formData.assigned_date,
       due_date: formData.due_date || null,
       priority: formData.priority,
-      status: formData.status,
       task_description: formData.description || null,
       assign_by: formData.assigned_by_name,
       assigned_to: formData.assigned_to_ids,
@@ -559,24 +555,15 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                 </select>
               </div>
 
-              {/* Status */}
+              {/* Status - REMOVED for edit mode, only show info message */}
               {task && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="assigned">Assigned</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="on_hold">On Hold</option>
-                  </select>
+                <div className="md:col-span-2">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                      <i className="fas fa-info-circle"></i>
+                      Task status is managed by assigned employees and cannot be changed here.
+                    </p>
+                  </div>
                 </div>
               )}
 

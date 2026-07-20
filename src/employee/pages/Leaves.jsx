@@ -22,6 +22,7 @@ import {
   FiX,
   FiSave,
   FiAlertCircle,
+  FiDownload,
 } from "react-icons/fi";
 import StatusBadge from "../components/common/StatusBadge";
 import DateInput from "../../admin/components/common/DateInput";
@@ -54,6 +55,9 @@ const Leaves = () => {
   // State for delete confirmation
   const [deleteLeaveId, setDeleteLeaveId] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Get base URL from environment
+  const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
 
   // Get all leaves (no filtering by type)
   const allLeaves = useMemo(() => {
@@ -153,6 +157,27 @@ const Leaves = () => {
     return document !== null && document !== undefined && document !== "";
   };
 
+  // Get full document URL
+  const getDocumentUrl = (documentPath) => {
+    if (!documentPath) return null;
+    
+    // If it's already a full URL
+    if (documentPath.startsWith('http://') || documentPath.startsWith('https://')) {
+      return documentPath;
+    }
+    
+    // If it starts with storage/ or /storage/
+    if (documentPath.startsWith('storage/')) {
+      return `${baseUrl}/${documentPath}`;
+    }
+    if (documentPath.startsWith('/storage/')) {
+      return `${baseUrl}${documentPath}`;
+    }
+    
+    // If it's a path like "leaves/documents/filename.pdf"
+    return `${baseUrl}/storage/${documentPath}`;
+  };
+
   const stats = useMemo(
     () => ({
       total: allLeaves.length,
@@ -217,83 +242,82 @@ const Leaves = () => {
   };
 
   // Helper function to calculate working days excluding Sundays
-  // Helper function to calculate working days excluding Sundays
-const getWorkingDaysExcludingSundays = (startDate, endDate) => {
-  if (!startDate || !endDate) return 0;
-  
-  try {
-    // Parse dates directly from YYYY-MM-DD format to avoid timezone issues
-    const parseDate = (dateStr) => {
-      const parts = dateStr.split('-');
-      return new Date(parts[0], parts[1] - 1, parts[2]);
-    };
+  const getWorkingDaysExcludingSundays = (startDate, endDate) => {
+    if (!startDate || !endDate) return 0;
     
-    const from = parseDate(startDate);
-    const to = parseDate(endDate);
-    
-    // Set time to avoid any timezone issues
-    from.setHours(0, 0, 0, 0);
-    to.setHours(0, 0, 0, 0);
-    
-    if (from > to) return 0;
-    
-    let count = 0;
-    const current = new Date(from);
-    
-    while (current <= to) {
-      // Sunday is 0, so exclude Sundays
-      if (current.getDay() !== 0) {
-        count++;
+    try {
+      // Parse dates directly from YYYY-MM-DD format to avoid timezone issues
+      const parseDate = (dateStr) => {
+        const parts = dateStr.split('-');
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+      };
+      
+      const from = parseDate(startDate);
+      const to = parseDate(endDate);
+      
+      // Set time to avoid any timezone issues
+      from.setHours(0, 0, 0, 0);
+      to.setHours(0, 0, 0, 0);
+      
+      if (from > to) return 0;
+      
+      let count = 0;
+      const current = new Date(from);
+      
+      while (current <= to) {
+        // Sunday is 0, so exclude Sundays
+        if (current.getDay() !== 0) {
+          count++;
+        }
+        current.setDate(current.getDate() + 1);
       }
-      current.setDate(current.getDate() + 1);
+      
+      return count;
+    } catch (error) {
+      console.error("Error calculating working days:", error);
+      return 0;
     }
-    
-    return count;
-  } catch (error) {
-    console.error("Error calculating working days:", error);
-    return 0;
-  }
-};
+  };
 
-// Helper function to calculate days for edit form (excluding Sundays)
-const calculateEditDays = (startDate, endDate, startSession, endSession) => {
-  if (!startDate || !endDate) {
-    setEditTotalDays(0);
-    return;
-  }
-
-  try {
-    // Get working days excluding Sundays
-    let days = getWorkingDaysExcludingSundays(startDate, endDate);
-    
-    console.log(`Working days (excluding Sundays): ${days}`);
-    
-    // If no working days, set to 0
-    if (days === 0) {
+  // Helper function to calculate days for edit form (excluding Sundays)
+  const calculateEditDays = (startDate, endDate, startSession, endSession) => {
+    if (!startDate || !endDate) {
       setEditTotalDays(0);
       return;
     }
 
-    // Adjust for sessions
-    if (startSession === "afternoon") {
-      days = days - 0.5;
-    }
-    if (endSession === "morning") {
-      days = days - 0.5;
-    }
+    try {
+      // Get working days excluding Sundays
+      let days = getWorkingDaysExcludingSundays(startDate, endDate);
+      
+      console.log(`Working days (excluding Sundays): ${days}`);
+      
+      // If no working days, set to 0
+      if (days === 0) {
+        setEditTotalDays(0);
+        return;
+      }
 
-    // Ensure minimum is 0.5 if there's any leave
-    if (days < 0.5 && days > 0) {
-      days = 0.5;
-    }
+      // Adjust for sessions
+      if (startSession === "afternoon") {
+        days = days - 0.5;
+      }
+      if (endSession === "morning") {
+        days = days - 0.5;
+      }
 
-    console.log(`Total days after session adjustment: ${days}`);
-    setEditTotalDays(days);
-  } catch (error) {
-    console.error("Error calculating edit days:", error);
-    setEditTotalDays(0);
-  }
-};
+      // Ensure minimum is 0.5 if there's any leave
+      if (days < 0.5 && days > 0) {
+        days = 0.5;
+      }
+
+      console.log(`Total days after session adjustment: ${days}`);
+      setEditTotalDays(days);
+    } catch (error) {
+      console.error("Error calculating edit days:", error);
+      setEditTotalDays(0);
+    }
+  };
 
   const handleStatusFilter = (status) => {
     dispatch(
@@ -491,6 +515,18 @@ const calculateEditDays = (startDate, endDate, startSession, endSession) => {
     const month = String(today.getMonth() + 1).padStart(2, "0");
     const day = String(today.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
+  };
+
+  // Handle document view
+  const handleViewDocument = (documentPath) => {
+    if (!documentPath) {
+      alert("No document available");
+      return;
+    }
+    
+    const fullUrl = getDocumentUrl(documentPath);
+    console.log("Opening document:", fullUrl);
+    window.open(fullUrl, "_blank");
   };
 
   if (loading) {
@@ -723,13 +759,13 @@ const calculateEditDays = (startDate, endDate, startSession, endSession) => {
                     </td>
                     <td className="py-3.5 px-4 border-b border-[var(--border)]">
                       {hasDoc ? (
-                        <a
-                          href="#"
-                          className="text-blue-500 cursor-pointer hover:underline flex items-center gap-1"
+                        <button
+                          onClick={() => handleViewDocument(leave.document)}
+                          className="text-blue-500 hover:text-blue-600 flex items-center gap-1 text-xs"
                         >
-                          <i className="fas fa-file-pdf"></i>
+                          <FiDownload className="w-3.5 h-3.5" />
                           View
-                        </a>
+                        </button>
                       ) : (
                         "-"
                       )}

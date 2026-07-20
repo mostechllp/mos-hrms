@@ -41,9 +41,7 @@ const LeaveAllocations = () => {
             const result = await dispatch(fetchLeaveBalances({ employee_id: employee.id })).unwrap();
             console.log(`Balances for employee ${employee.id}:`, result);
             
-            // Handle the allocations object structure
             if (result && result.allocations) {
-              // Convert allocations object to array
               const allocationsArray = Object.values(result.allocations);
               balances[employee.id] = allocationsArray;
             } else if (result && Array.isArray(result)) {
@@ -94,14 +92,12 @@ const LeaveAllocations = () => {
     const leaveTypeId = getLeaveTypeId(leaveTypeName);
     const balances = leaveBalances[employeeId];
     
-    // Check if balances is an array
     if (!balances || !Array.isArray(balances) || !leaveTypeId) return 0;
     
     const allocation = balances.find(a => a.leave_type_id === leaveTypeId);
     
     if (!allocation) return 0;
     
-    // Handle string or number values
     const allocatedDays = parseFloat(allocation.allocated_days) || 0;
     const usedDays = parseFloat(allocation.used) || 0;
     
@@ -167,59 +163,42 @@ const LeaveAllocations = () => {
           <SearchBar
             value={searchTerm}
             onChange={setSearchTerm}
-            placeholder="Search by employee, designation, company..."
+            placeholder="Search by employee..."
           />
         </div>
       </div>
 
       {/* Leave Allocations Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
-        <div className="min-w-[1200px]">
+        <div className="min-w-[800px]">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                  Sl.No.
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
+                  #
                 </th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
                   Employee
                 </th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                  Designation
-                </th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                  Company
-                </th>
-
-                {/* Annual Leave Column */}
-                <th className="px-3 md:px-4 py-2 md:py-3 text-center text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap bg-amber-50 dark:bg-amber-900/20">
-                  Annual Leave
-                </th>
-
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                  Action
-                </th>
-              </tr>
-              <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                <th colSpan="4" className="px-3 md:px-4 py-1"></th>
-                <th className="px-3 md:px-4 py-1 text-center text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                  <div className="flex justify-center gap-2">
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap bg-amber-50 dark:bg-amber-900/20">
+                  <div>Annual Leave</div>
+                  <div className="flex justify-center gap-1.5 mt-0.5 text-[9px] text-gray-400">
                     <span>Alloc</span>
-                    <span>|</span>
+                    <span className="text-gray-300">|</span>
                     <span>Used</span>
-                    <span>|</span>
+                    <span className="text-gray-300">|</span>
                     <span>Bal</span>
                   </div>
                 </th>
-                <th className="px-3 md:px-4 py-1"></th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody>
               {pageEmployees.length > 0 ? (
                 pageEmployees.map((employee, idx) => {
-                  // Helper function to get photo URL
                   const getEmployeePhoto = () => {
-                    // Check multiple possible photo fields
                     const photoValue =
                       employee.avatar ||
                       employee.avatar_path ||
@@ -230,14 +209,12 @@ const LeaveAllocations = () => {
 
                     if (!photoValue) return null;
 
-                    // Handle object type avatar
                     if (typeof photoValue === "object" && photoValue.path) {
                       const baseUrl =
                         import.meta.env.VITE_API_URL?.replace("/api", "") || "";
                       return `${baseUrl}/storage/${photoValue.path}`;
                     }
 
-                    // Handle string paths
                     if (typeof photoValue === "string") {
                       if (photoValue.startsWith("/tmp/")) {
                         const baseUrl =
@@ -277,17 +254,16 @@ const LeaveAllocations = () => {
                       key={employee.id}
                       className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                     >
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
+                      <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400 text-center">
                         {start + idx + 1}
                       </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3">
-                        <div className="flex items-center gap-2 md:gap-3">
-                          {/* Profile Photo */}
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
                           {photoUrl ? (
                             <img
                               src={photoUrl}
                               alt={employee.name}
-                              className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border border-gray-200"
+                              className="w-7 h-7 rounded-full object-cover border border-gray-200 flex-shrink-0"
                               onError={(e) => {
                                 e.target.style.display = "none";
                                 e.target.parentElement.querySelector(
@@ -297,49 +273,45 @@ const LeaveAllocations = () => {
                             />
                           ) : null}
                           <div
-                            className="fallback-avatar w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white text-sm md:text-base font-semibold"
+                            className="fallback-avatar w-7 h-7 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0"
                             style={{ display: photoUrl ? "none" : "flex" }}
                           >
                             {employee.name?.charAt(0) || "?"}
                           </div>
-                          <span className="text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate max-w-[120px]">
                             {employee.name}
                           </span>
                         </div>
                       </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                        {employee.designation?.name || "-"}
-                      </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                        {employee.company?.company_name || "-"}
-                      </td>
 
                       {/* Annual Leave Values */}
-                      <td className="px-4 py-3">
-                        <div className="flex justify-center items-center gap-2">
-                          <span className="text-xs md:text-sm font-semibold text-green-600 dark:text-green-400 min-w-[30px] text-center">
+                      <td className="px-3 py-2 text-center">
+                        <div className="flex justify-center items-center gap-1.5">
+                          <span className="text-sm font-semibold text-green-600 dark:text-green-400 min-w-[28px] text-center">
                             {formatNumber(annualAlloc)}
                           </span>
-                          <span className="text-gray-400">|</span>
-                          <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400 min-w-[30px] text-center">
+                          <span className="text-gray-300 dark:text-gray-600">|</span>
+                          <span className="text-sm text-gray-600 dark:text-gray-400 min-w-[28px] text-center">
                             {formatNumber(annualUsed)}
                           </span>
-                          <span className="text-gray-400">|</span>
+                          <span className="text-gray-300 dark:text-gray-600">|</span>
                           <span
-                            className={`text-xs md:text-sm font-semibold min-w-[30px] text-center ${annualBal < 0 ? "text-red-600" : "text-blue-600"}`}
+                            className={`text-sm font-semibold min-w-[28px] text-center ${
+                              annualBal < 0 ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"
+                            }`}
                           >
                             {formatNumber(annualBal)}
                           </span>
                         </div>
                       </td>
 
-                      <td className="px-3 md:px-4 py-2 md:py-3">
+                      <td className="px-3 py-2 text-center">
                         <Link
                           to={`/admin/leaves/allocations/${employee.id}`}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors inline-block"
                           title="Edit Allocations"
                         >
-                          <i className="fas fa-edit text-xs md:text-sm"></i>
+                          <i className="fas fa-edit text-sm"></i>
                         </Link>
                       </td>
                     </tr>
@@ -348,7 +320,7 @@ const LeaveAllocations = () => {
               ) : (
                 <tr>
                   <td
-                    colSpan="8"
+                    colSpan="4"
                     className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                   >
                     No employees found

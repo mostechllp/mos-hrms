@@ -193,7 +193,6 @@ export const deleteLeaveRequest = createAsyncThunk(
   },
 );
 
-// Add this to your leavesSlice.js - Fetch Single Leave by ID
 export const fetchLeaveById = createAsyncThunk(
   "leaves/fetchLeaveById",
   async (id, { rejectWithValue }) => {
