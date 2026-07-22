@@ -1558,7 +1558,14 @@ const Dashboard = () => {
                               return acc;
                             }, {});
                             
-                            return Object.entries(groupedBreaks).map(([dateStr, dayBreaks], index) => {
+                            // Sort dates descending
+                            const sortedGroupedBreaks = Object.entries(groupedBreaks).sort((a, b) => {
+                              if (a[0] === "-") return 1;
+                              if (b[0] === "-") return -1;
+                              return new Date(b[0]) - new Date(a[0]);
+                            });
+                            
+                            return sortedGroupedBreaks.map(([dateStr, dayBreaks], index) => {
                               let formattedDate = dateStr;
                               let dayOfWeek = "";
                               if (dateStr && dateStr.includes("-")) {
