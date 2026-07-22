@@ -563,7 +563,8 @@ const Attendances = () => {
                 </thead>
                 <tbody>
                   {records.map((record, idx) => {
-                    const hasLocation = record.punch_in_latitude && record.punch_in_longitude;
+                    const hasLocation =
+                      record.punch_in_latitude && record.punch_in_longitude;
                     return (
                       <tr
                         key={`${record.employee_id}-${record.date}-${idx}`}
@@ -639,7 +640,9 @@ const Attendances = () => {
                               <span className="hidden sm:inline">View</span>
                             </button>
                           ) : (
-                            <span className="text-gray-400 text-xs">No location</span>
+                            <span className="text-gray-400 text-xs">
+                              No location
+                            </span>
                           )}
                         </td>
                         <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
@@ -731,10 +734,11 @@ const Attendances = () => {
       <BreakDetailsModal
         isOpen={!!selectedBreakRecord}
         onClose={() => setSelectedBreakRecord(null)}
+        onRefresh={refreshAllData}
         initialBreaks={selectedBreakRecord?.breaks}
         employeeName={selectedBreakRecord?.employeeName}
         date={selectedBreakRecord?.date}
-        userId={selectedBreakRecord?.userid || selectedBreakRecord?.employee_id || selectedBreakRecord?.user?.id}
+        attendanceId={selectedBreakRecord?.id} // Pass the attendance record ID
       />
 
       {/* Location View Modal */}
