@@ -17,7 +17,6 @@ const isValidPunch = (value) => value && value !== "-" && value.trim() !== "";
 
 const extractAttendanceRecords = (response) => {
   try {
-
     console.log("===== FULL API RESPONSE =====");
     console.log(JSON.stringify(response.data, null, 2));
     const attendance = response.data?.data?.attendance;
@@ -27,7 +26,7 @@ const extractAttendanceRecords = (response) => {
     if (attendance?.data && Array.isArray(attendance.data)) {
       const records = attendance.data.map((record, idx) => {
         const hasPunchOut = record.punch_out && record.punch_out !== "--";
-        
+
         // Format punch times
         const formatPunchTime = (punchValue) => {
           if (!punchValue || punchValue === "--") return "-";
@@ -43,16 +42,17 @@ const extractAttendanceRecords = (response) => {
           }
           return punchValue;
         };
-        
+
         const punchIn = formatPunchTime(record.punch_in);
-        const punchOut = record.punch_out && record.punch_out !== "--" 
-          ? formatPunchTime(record.punch_out) 
-          : null;
+        const punchOut =
+          record.punch_out && record.punch_out !== "--"
+            ? formatPunchTime(record.punch_out)
+            : null;
 
         // ✅ Use record.id (not record.userid) as the unique identifier
         const recordId = record.id;
         const employeeId = record.userid;
-        
+
         let employeeName = "-";
         let department = "-";
 
@@ -73,12 +73,16 @@ const extractAttendanceRecords = (response) => {
 
         let status = "Present";
         if (record.attendance_status) {
-          status = record.attendance_status === "present" ? "Present" : "Absent";
+          status =
+            record.attendance_status === "present" ? "Present" : "Absent";
         } else {
-          status = (record.punch_in && record.punch_in !== "--") ? "Present" : "Absent";
+          status =
+            record.punch_in && record.punch_in !== "--" ? "Present" : "Absent";
         }
 
-        console.log(`Record ID ${recordId}: userid=${employeeId}, employeeName=${employeeName}`);
+        console.log(
+          `Record ID ${recordId}: userid=${employeeId}, employeeName=${employeeName}`,
+        );
 
         return {
           id: recordId, // ✅ Use the actual record ID
@@ -97,7 +101,7 @@ const extractAttendanceRecords = (response) => {
           isLate: false,
           hasPunchOut: hasPunchOut,
           attendance_status: record.attendance_status,
-          working_hours: record.working_hours || "--", 
+          working_hours: record.working_hours || "--",
           punch_in_latitude: record.punch_in_latitude,
           punch_in_longitude: record.punch_in_longitude,
           punch_in_address: record.punch_in_address,
@@ -143,10 +147,24 @@ const extractAttendanceRecords = (response) => {
       };
     }
 
-    return { records: [], total: 0, currentPage: 1, lastPage: 1, perPage: 15, stats: {} };
+    return {
+      records: [],
+      total: 0,
+      currentPage: 1,
+      lastPage: 1,
+      perPage: 15,
+      stats: {},
+    };
   } catch (error) {
     console.error("Error extracting attendance records:", error);
-    return { records: [], total: 0, currentPage: 1, lastPage: 1, perPage: 15, stats: {} };
+    return {
+      records: [],
+      total: 0,
+      currentPage: 1,
+      lastPage: 1,
+      perPage: 15,
+      stats: {},
+    };
   }
 };
 
@@ -448,6 +466,82 @@ export const fetchAbsentees = createAsyncThunk(
   },
 );
 
+// ========== BREAK CRUD THUNKS ==========
+
+// Fetch breaks for a specific attendance record
+export const fetchBreaks = createAsyncThunk(
+  "attendance/fetchBreaks",
+  async (attendanceId, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(
+        `/admin/attendance/${attendanceId}/breaks`,
+      );
+      return { attendanceId, breaks: response.data?.data || [] };
+    } catch (error) {
+      return rejectWithValue(handleApiError(error));
+    }
+  },
+);
+
+// Update a break
+export const updateBreak = createAsyncThunk(
+  "attendance/updateBreak",
+  async ({ breakId, data }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.put(
+        `/admin/attendance/breaks/${breakId}`,
+        data,
+      );
+      return response.data?.data || response.data;
+    } catch (error) {
+      return rejectWithValue(handleApiError(error));
+    }
+  },
+);
+
+// Delete a break
+export const deleteBreak = createAsyncThunk(
+  "attendance/deleteBreak",
+  async (breakId, { rejectWithValue }) => {
+    try {
+      await apiClient.delete(`/admin/attendance/breaks/${breakId}`);
+      return breakId;
+    } catch (error) {
+      return rejectWithValue(handleApiError(error));
+    }
+  },
+);
+
+// Create a new break
+export const createBreak = createAsyncThunk(
+  "attendance/createBreak",
+  async ({ attendanceId, data }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post(
+        `/admin/attendance/${attendanceId}/breaks`,
+        data,
+      );
+      return response.data?.data || response.data;
+    } catch (error) {
+      return rejectWithValue(handleApiError(error));
+    }
+  },
+);
+
+export const fetchBreakById = createAsyncThunk(
+  "attendance/fetchBreakById",
+  async (breakId, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(
+        `/admin/attendance/breaks/${breakId}`,
+      );
+      return response.data?.data || response.data;
+    } catch (error) {
+      return rejectWithValue(handleApiError(error));
+    }
+  },
+);
+
 const attendanceSlice = createSlice({
   name: "attendance",
   initialState: {
@@ -468,8 +562,11 @@ const attendanceSlice = createSlice({
     punchOutToday: [],
     lateComers: [],
     absentees: [],
+    breaksMap: {},
+    selectedBreak: null,
     loading: false,
     uploadLoading: false,
+    actionLoading: false,
     error: null,
     totalCount: 0,
     currentPage: 1,
@@ -640,6 +737,110 @@ const attendanceSlice = createSlice({
         state.totalCount = state.totalCount - 1;
       })
       .addCase(deleteAttendance.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(fetchBreaks.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchBreaks.fulfilled, (state, action) => {
+        state.loading = false;
+        const { attendanceId, breaks } = action.payload;
+        // Store breaks in a separate object keyed by attendanceId
+        if (!state.breaksMap) {
+          state.breaksMap = {};
+        }
+        state.breaksMap[attendanceId] = breaks;
+      })
+      .addCase(fetchBreaks.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Update Break
+      .addCase(updateBreak.pending, (state) => {
+        state.actionLoading = true;
+        state.error = null;
+      })
+      .addCase(updateBreak.fulfilled, (state, action) => {
+        state.actionLoading = false;
+        const updatedBreak = action.payload;
+        // Update the break in breaksMap
+        if (state.breaksMap) {
+          for (const [attendanceId, breaks] of Object.entries(
+            state.breaksMap,
+          )) {
+            const index = breaks.findIndex((b) => b.id === updatedBreak.id);
+            if (index !== -1) {
+              state.breaksMap[attendanceId][index] = updatedBreak;
+              break;
+            }
+          }
+        }
+      })
+      .addCase(updateBreak.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.error = action.payload;
+      })
+
+      // Delete Break
+      .addCase(deleteBreak.pending, (state) => {
+        state.actionLoading = true;
+        state.error = null;
+      })
+      .addCase(deleteBreak.fulfilled, (state, action) => {
+        state.actionLoading = false;
+        const breakId = action.payload;
+        // Remove the break from breaksMap
+        if (state.breaksMap) {
+          for (const [attendanceId, breaks] of Object.entries(
+            state.breaksMap,
+          )) {
+            state.breaksMap[attendanceId] = breaks.filter(
+              (b) => b.id !== breakId,
+            );
+          }
+        }
+      })
+      .addCase(deleteBreak.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.error = action.payload;
+      })
+
+      // Create Break
+      .addCase(createBreak.pending, (state) => {
+        state.actionLoading = true;
+        state.error = null;
+      })
+      .addCase(createBreak.fulfilled, (state, action) => {
+        state.actionLoading = false;
+        const newBreak = action.payload;
+        // If we have breaksMap and we know which attendance this belongs to
+        // This assumes the response includes attendance_id or we track it
+        if (state.breaksMap && newBreak.attendance_id) {
+          if (!state.breaksMap[newBreak.attendance_id]) {
+            state.breaksMap[newBreak.attendance_id] = [];
+          }
+          state.breaksMap[newBreak.attendance_id].push(newBreak);
+        }
+      })
+      .addCase(createBreak.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.error = action.payload;
+      })
+      // Fetch Single Break by ID
+      .addCase(fetchBreakById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchBreakById.fulfilled, (state, action) => {
+        state.loading = false;
+        // Store the fetched break in a separate state for editing
+        state.selectedBreak = action.payload;
+      })
+      .addCase(fetchBreakById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });
