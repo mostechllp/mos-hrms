@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { FiEye, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiLogIn, FiClock } from "react-icons/fi";
+import { FiEye, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiLogIn, FiClock, FiCheck, FiX, FiEdit2, FiTrash2 } from "react-icons/fi";
 import { MdFingerprint } from "react-icons/md";
 import { showToast } from "../components/common/Toast";
 import StatusBadge from "../components/common/StatusBadge";
@@ -8,9 +8,16 @@ import MissedPunchOutModal from "../components/modals/MissedPunchoutModal";
 import MissedPunchInModal from "../components/modals/MissedPunchInModal";
 import LateCheckinModal from "../components/modals/LateCheckinModal";
 import EarlyCheckinModal from "../components/modals/EarlyCheckinModal";
-import { clearAttendanceError, fetchAttendanceRequests } from "../store/slices/attendanceTypeSlice";
+import EditAttendanceRequestModal from "../components/modals/EditAttendanceRequestModal";
+import { 
+  clearAttendanceError, 
+  fetchAttendanceRequests, 
+  updateAttendanceRequestStatus, 
+  deleteAttendanceRequest,
+  deleteAttendanceRequestAdmin
+} from "../store/slices/attendanceTypeSlice";
 
-const AttendanceRequests = () => {
+const AttendanceRequests = ({ isAdmin = false }) => {
   const dispatch = useDispatch();
   
   // Get state from Redux with safe defaults
@@ -30,8 +37,11 @@ const AttendanceRequests = () => {
   const [showLateCheckin, setShowLateCheckin] = useState(false);
   const [showMissedPunchIn, setShowMissedPunchIn] = useState(false);
   const [showMissedPunchOut, setShowMissedPunchOut] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [requestToEdit, setRequestToEdit] = useState(null);
   const [localFilter, setLocalFilter] = useState({ status: "all", search: "" });
   const [localPagination, setLocalPagination] = useState({ currentPage: 1, perPage: 10 });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, request: null, action: null });
 
   // Fetch attendance requests on component mount
   useEffect(() => {
@@ -48,10 +58,65 @@ const AttendanceRequests = () => {
 
   const loadAttendanceRequests = async () => {
     try {
-      await dispatch(fetchAttendanceRequests()).unwrap();
+      await dispatch(fetchAttendanceRequests(isAdmin)).unwrap();
     } catch (error) {
       console.error("Failed to load attendance requests:", error);
     }
+  };
+
+  const handleStatusUpdate = async (request, status) => {
+    try {
+      const payload = {
+        id: request.id,
+        status
+      };
+      await dispatch(updateAttendanceRequestStatus(payload)).unwrap();
+      showToast(`Request ${status} successfully`, "success");
+      loadAttendanceRequests();
+    } catch (error) {
+      showToast(error || `Failed to ${status} request`, "error");
+    } finally {
+      setConfirmModal({ isOpen: false, request: null, action: null });
+    }
+  };
+
+  const handleDelete = async (request) => {
+    try {
+      if (isAdmin) {
+        await dispatch(deleteAttendanceRequestAdmin(request.id)).unwrap();
+      } else {
+        await dispatch(deleteAttendanceRequest(request.id)).unwrap();
+      }
+      showToast("Request deleted successfully", "success");
+      loadAttendanceRequests();
+    } catch (error) {
+      showToast(error || "Failed to delete request", "error");
+    } finally {
+      setConfirmModal({ isOpen: false, request: null, action: null });
+    }
+  };
+
+  const handleEdit = (request) => {
+    setRequestToEdit(request);
+    setShowEditModal(true);
+  };
+
+  const openConfirmModal = (request, action) => {
+    setConfirmModal({ isOpen: true, request, action });
+  };
+
+  const getEmployeeName = (request) => {
+    if (!request) return "-";
+    if (request.user && request.user.name) return request.user.name;
+    if (request.employee?.first_name && request.employee?.last_name) {
+      return `${request.employee.first_name} ${request.employee.last_name}`;
+    }
+    if (request.employee?.first_name) {
+      return request.employee.first_name;
+    }
+    if (request.employee?.name) return request.employee.name;
+    if (request.employee_name) return request.employee_name;
+    return "-";
   };
 
   const getRequestTypeLabel = (type) => {
@@ -98,7 +163,8 @@ const AttendanceRequests = () => {
         (r) =>
           getRequestTypeLabel(r.type).toLowerCase().includes(searchLower) ||
           (r.reason || "").toLowerCase().includes(searchLower) ||
-          (r.status || "").toLowerCase().includes(searchLower)
+          (r.status || "").toLowerCase().includes(searchLower) ||
+          getEmployeeName(r).toLowerCase().includes(searchLower)
       );
     }
     
@@ -155,10 +221,10 @@ const AttendanceRequests = () => {
   };
 
   const stats = {
-    total: requests.length,
-    pending: requests.filter(r => r.status?.toLowerCase() === "pending").length,
-    approved: requests.filter(r => r.status?.toLowerCase() === "approved").length,
-    rejected: requests.filter(r => r.status?.toLowerCase() === "rejected").length,
+    total: requests?.length || 0,
+    pending: (requests || []).filter(r => r.status?.toLowerCase() === "pending").length,
+    approved: (requests || []).filter(r => r.status?.toLowerCase() === "approved").length,
+    rejected: (requests || []).filter(r => r.status?.toLowerCase() === "rejected").length,
   };
 
   const openRequestModal = (type) => {
@@ -283,8 +349,9 @@ const AttendanceRequests = () => {
       </div>
 
       {/* New Request Cards */}
-      <div className="mb-8">
-        <h3 className="text-lg font-semibold text-[var(--text)] mb-4">Create New Request</h3>
+      {!isAdmin && (
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold text-[var(--text)] mb-4">Create New Request</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           <button onClick={() => openRequestModal("early_check_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-orange-500 hover:shadow-md transition-all text-center gap-2 group">
             <div className="w-10 h-10 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -350,6 +417,7 @@ const AttendanceRequests = () => {
           </button>
         </div>
       </div>
+      )}
 
       {/* Status Tabs */}
       <div className="overflow-x-auto pb-2 mb-5 -mx-4 px-4">
@@ -407,6 +475,11 @@ const AttendanceRequests = () => {
               <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
                 #
               </th>
+              {isAdmin && (
+                <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                  Employee
+                </th>
+              )}
               <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
                 Type
               </th>
@@ -455,6 +528,11 @@ const AttendanceRequests = () => {
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
                     {start + idx + 1}
                   </td>
+                  {isAdmin && (
+                    <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
+                      {getEmployeeName(request)}
+                    </td>
+                  )}
                   <td className="py-3.5 px-4 border-b border-[var(--border)]">
                     <div className="flex items-center gap-2">
                       {getRequestTypeIcon(request.type)}
@@ -476,13 +554,54 @@ const AttendanceRequests = () => {
                     <StatusBadge status={request.status} />
                   </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)]">
-                    <button
-                      onClick={() => handleViewDetails(request)}
-                      className="p-1.5 rounded-lg hover:bg-[var(--surface2)] text-green-500 transition-colors"
-                      title="View Details"
-                    >
-                      <FiEye className="text-sm" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleViewDetails(request)}
+                        className="p-1.5 rounded-lg hover:bg-[var(--surface2)] text-blue-500 transition-colors"
+                        title="View Details"
+                      >
+                        <FiEye className="text-sm" />
+                      </button>
+                      
+                      {isAdmin && request.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => openConfirmModal(request, 'approved')}
+                            className="p-1.5 rounded-lg hover:bg-green-500/10 text-green-500 transition-colors"
+                            title="Approve"
+                          >
+                            <FiCheck className="text-sm" />
+                          </button>
+                          <button
+                            onClick={() => openConfirmModal(request, 'rejected')}
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors"
+                            title="Reject"
+                          >
+                            <FiX className="text-sm" />
+                          </button>
+                        </>
+                      )}
+
+                      {/* Edit and Delete for both Admin and Employee */}
+                      {((!isAdmin && request.status !== 'approved') || isAdmin) && (
+                        <>
+                          <button
+                            onClick={() => handleEdit(request)}
+                            className="p-1.5 rounded-lg hover:bg-orange-500/10 text-orange-500 transition-colors"
+                            title="Edit"
+                          >
+                            <FiEdit2 className="text-sm" />
+                          </button>
+                          <button
+                            onClick={() => openConfirmModal(request, 'delete')}
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors"
+                            title="Delete"
+                          >
+                            <FiTrash2 className="text-sm" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -599,6 +718,56 @@ const AttendanceRequests = () => {
         isOpen={showMissedPunchOut} 
         onClose={handleModalClose}
       />
+      <EditAttendanceRequestModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setRequestToEdit(null);
+        }}
+        request={requestToEdit}
+        isAdmin={isAdmin}
+      />
+
+      {/* Confirmation Modal */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1100] flex items-center justify-center p-4" onClick={() => setConfirmModal({ isOpen: false, request: null, action: null })}>
+          <div className="bg-[var(--surface)] max-w-sm w-full rounded-2xl p-6 shadow-xl border border-[var(--border)] text-center" onClick={(e) => e.stopPropagation()}>
+            <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4 ${
+              confirmModal.action === 'approved' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+            }`}>
+              {confirmModal.action === 'approved' ? <FiCheck className="text-3xl" /> : 
+               confirmModal.action === 'delete' ? <FiTrash2 className="text-3xl" /> : 
+               <FiX className="text-3xl" />}
+            </div>
+            <h3 className="text-xl font-bold text-[var(--text)] mb-2">Confirm Action</h3>
+            <p className="text-[var(--text-secondary)] mb-6">
+              Are you sure you want to {confirmModal.action === 'delete' ? 'delete' : confirmModal.action === 'approved' ? 'approve' : 'deny'} this attendance request? This action cannot be undone.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setConfirmModal({ isOpen: false, request: null, action: null })}
+                className="px-5 py-2.5 rounded-xl bg-[var(--surface2)] text-[var(--text)] hover:bg-[var(--border)] transition-all font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (confirmModal.action === 'delete') {
+                    handleDelete(confirmModal.request);
+                  } else {
+                    handleStatusUpdate(confirmModal.request, confirmModal.action);
+                  }
+                }}
+                className={`px-5 py-2.5 rounded-xl text-white transition-all font-medium ${
+                  confirmModal.action === 'approved' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'
+                }`}
+              >
+                Proceed
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -3,7 +3,7 @@ import apiClient from "../../../utils/apiClient";
 
 // Submit attendance request (early check-in, late check-in, missed punch in/out)
 export const submitAttendanceRequest = createAsyncThunk(
-  "attendance/submitRequest",
+  "attendanceRequest/submit",
   async ({ type, request_date, request_time, reason }, { rejectWithValue }) => {
     try {
       const payload = {
@@ -40,10 +40,11 @@ export const submitAttendanceRequest = createAsyncThunk(
 
 // Fetch user's attendance requests history
 export const fetchAttendanceRequests = createAsyncThunk(
-  "attendance/fetchAll",
-  async (_, { rejectWithValue }) => {
+  "attendanceRequest/fetchAll",
+  async (isAdmin = false, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get("/employee/attendance-requests");
+      const endpoint = isAdmin ? "/admin/attendance-requests" : "/employee/attendance-requests";
+      const response = await apiClient.get(endpoint);
       console.log("Fetch attendance requests response:", response.data);
       
       if (response.data?.status === "success") {
@@ -59,12 +60,83 @@ export const fetchAttendanceRequests = createAsyncThunk(
   }
 );
 
+// Update an existing attendance request (for employee)
+export const updateAttendanceRequest = createAsyncThunk(
+  "attendanceRequest/update",
+  async ({ id, data }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.put(`/employee/attendance-requests/${id}`, data);
+      if (response.data?.status === "success") {
+        return response.data.data;
+      }
+      return rejectWithValue(response.data?.message || "Failed to update attendance request");
+    } catch (error) {
+      if (error.response?.data?.errors) {
+        return rejectWithValue(Object.values(error.response.data.errors).flat().join(", "));
+      }
+      return rejectWithValue(error.response?.data?.message || "Failed to update attendance request");
+    }
+  }
+);
+
+// Delete an attendance request (for employee)
+export const deleteAttendanceRequest = createAsyncThunk(
+  "attendanceRequest/delete",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.delete(`/employee/attendance-requests/${id}`);
+      if (response.data?.status === "success") {
+        return id;
+      }
+      return rejectWithValue(response.data?.message || "Failed to delete attendance request");
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to delete attendance request");
+    }
+  }
+);
+
+// Update an existing attendance request (for admin)
+export const updateAttendanceRequestAdmin = createAsyncThunk(
+  "attendanceRequest/updateAdmin",
+  async ({ id, data }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.put(`/admin/attendance-requests/${id}`, data);
+      if (response.data?.status === "success") {
+        return response.data.data;
+      }
+      return rejectWithValue(response.data?.message || "Failed to update attendance request");
+    } catch (error) {
+      if (error.response?.data?.errors) {
+        return rejectWithValue(Object.values(error.response.data.errors).flat().join(", "));
+      }
+      return rejectWithValue(error.response?.data?.message || "Failed to update attendance request");
+    }
+  }
+);
+
+// Delete an attendance request (for admin)
+export const deleteAttendanceRequestAdmin = createAsyncThunk(
+  "attendanceRequest/deleteAdmin",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.delete(`/admin/attendance-requests/${id}`);
+      if (response.data?.status === "success") {
+        return id;
+      }
+      return rejectWithValue(response.data?.message || "Failed to delete attendance request");
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to delete attendance request");
+    }
+  }
+);
+
 // Update attendance request status (for admin)
 export const updateAttendanceRequestStatus = createAsyncThunk(
-  "attendance/updateStatus",
+  "attendanceRequest/updateStatus",
   async ({ id, status }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put(`/admin/attendance-requests/${id}/status`, { status });
+      const payload = { status };
+      const response = await apiClient.post(`/admin/attendance-requests/${id}/status`, payload);
       console.log("Update attendance request status response:", response.data);
       
       if (response.data?.status === "success") {
@@ -150,7 +222,7 @@ const attendanceTypeSlice = createSlice({
         state.error = action.payload;
       })
       
-      // Update Attendance Request Status
+      // Update Attendance Request Status (Admin)
       .addCase(updateAttendanceRequestStatus.fulfilled, (state, action) => {
         const { id, status } = action.payload;
         const index = state.requests.findIndex(r => r.id === id);
@@ -159,6 +231,36 @@ const attendanceTypeSlice = createSlice({
         }
         if (state.currentRequest?.id === id) {
           state.currentRequest.status = status;
+        }
+      })
+      
+      // Update Attendance Request (Employee)
+      .addCase(updateAttendanceRequest.fulfilled, (state, action) => {
+        const index = state.requests.findIndex(r => r.id === action.payload.id);
+        if (index !== -1) {
+          state.requests[index] = action.payload;
+        }
+      })
+      
+      // Update Attendance Request (Admin)
+      .addCase(updateAttendanceRequestAdmin.fulfilled, (state, action) => {
+        const index = state.requests.findIndex(r => r.id === action.payload.id);
+        if (index !== -1) {
+          state.requests[index] = action.payload;
+        }
+      })
+      
+      // Delete Attendance Request (Employee)
+      .addCase(deleteAttendanceRequest.fulfilled, (state, action) => {
+        if (state.requests && Array.isArray(state.requests)) {
+          state.requests = state.requests.filter(r => r.id !== action.payload);
+        }
+      })
+      
+      // Delete Attendance Request (Admin)
+      .addCase(deleteAttendanceRequestAdmin.fulfilled, (state, action) => {
+        if (state.requests && Array.isArray(state.requests)) {
+          state.requests = state.requests.filter(r => r.id !== action.payload);
         }
       });
   },

@@ -1474,7 +1474,19 @@ const Dashboard = () => {
                   
                   {(() => {
                     // Use backend data
-                    const rawBreaks = employeeBreaks?.breaks || [];
+                    const todayBreaks = employeeBreaks?.breaks || [];
+                    const historyBreaks = dashboardData?.attendance_history?.flatMap(a => a.breaks || []) || [];
+                    
+                    const allBreaksMap = new Map();
+                    [...historyBreaks, ...todayBreaks].forEach(b => {
+                        if (b && b.id) {
+                            allBreaksMap.set(b.id, b);
+                        } else if (b && b.start_time) {
+                            allBreaksMap.set(b.start_time, b);
+                        }
+                    });
+                    
+                    const rawBreaks = Array.from(allBreaksMap.values());
                     const todayDateStr = new Date().toISOString().split('T')[0]; // Format matches backend "YYYY-MM-DD"
                     
                     // Filter for today using backend format or split
