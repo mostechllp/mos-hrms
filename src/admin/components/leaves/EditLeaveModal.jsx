@@ -288,7 +288,7 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
       <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full p-6 shadow-soft-lg border border-gray-200 dark:border-gray-700 my-8">
         <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-            <FiCalendar className="text-blue-500" /> Edit Leave Request
+            <FiCalendar className="text-green-500" /> Edit Leave Request
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
             <FiX className="text-2xl" />
@@ -307,7 +307,7 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
             {/* Employee Selection */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiUser className="text-blue-500" /> Employee
+                <FiUser className="text-green-500" /> Employee
               </label>
               <select
                 value={employeeId}
@@ -324,12 +324,12 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
             {/* Leave Type */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiList className="text-blue-500" /> Leave Type <span className="text-red-500">*</span>
+                <FiList className="text-green-500" /> Leave Type <span className="text-red-500">*</span>
               </label>
               <select
                 value={formData.leave_type_id}
                 onChange={(e) => setFormData({ ...formData, leave_type_id: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500"
+                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500"
               >
                 {leaveTypes.map((type) => {
                   const balance = leaveBalances[type.id] || { remaining: 0 };
@@ -346,7 +346,7 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
             {/* Start Date & Session */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiCalendar className="text-blue-500" /> Start Date <span className="text-red-500">*</span>
+                <FiCalendar className="text-green-500" /> Start Date <span className="text-red-500">*</span>
               </label>
               <DateInput
                 value={formData.start_date}
@@ -358,12 +358,12 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
             </div>
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiClock className="text-blue-500" /> Start Session
+                <FiClock className="text-green-500" /> Start Session
               </label>
               <select
                 value={formData.start_session}
                 onChange={(e) => setFormData({ ...formData, start_session: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500"
+                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500"
               >
                 <option value="morning">Morning</option>
                 <option value="afternoon">Afternoon</option>
@@ -373,7 +373,7 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
             {/* End Date & Session */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiCalendar className="text-blue-500" /> End Date <span className="text-red-500">*</span>
+                <FiCalendar className="text-green-500" /> End Date <span className="text-red-500">*</span>
               </label>
               <DateInput
                 value={formData.end_date}
@@ -385,12 +385,12 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
             </div>
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiClock className="text-blue-500" /> End Session
+                <FiClock className="text-green-500" /> End Session
               </label>
               <select
                 value={formData.end_session}
                 onChange={(e) => setFormData({ ...formData, end_session: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500"
+                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500"
               >
                 <option value="morning">Morning</option>
                 <option value="afternoon">Afternoon</option>
@@ -399,7 +399,7 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <MdCalculate className="text-blue-500" /> Total Days
+                <MdCalculate className="text-green-500" /> Total Days
               </label>
               <div className="p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-center font-bold text-gray-800 dark:text-gray-200 text-sm">
                 {totalDays} <span className="text-xs font-normal text-gray-500 ml-1">Days</span>
@@ -408,26 +408,26 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiPaperclip className="text-blue-500" /> Document <span className="text-gray-400 text-[10px] ml-1">(Optional)</span>
+                <FiPaperclip className="text-green-500" /> Document <span className="text-gray-400 text-[10px] ml-1">(Optional)</span>
               </label>
               <input
                 type="file"
                 onChange={(e) => setSelectedFile(e.target.files[0])}
                 accept=".pdf,.doc,.docx,.jpg,.png"
-                className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-500 file:text-white file:cursor-pointer"
+                className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-500 file:text-white file:cursor-pointer"
               />
             </div>
           </div>
 
           <div className="flex flex-col gap-2">
             <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-              <FiMessageSquare className="text-blue-500" /> Reason <span className="text-red-500">*</span>
+              <FiMessageSquare className="text-green-500" /> Reason <span className="text-red-500">*</span>
             </label>
             <textarea
               value={formData.reason}
               onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
               rows="3"
-              className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500 resize-none"
+              className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 resize-none"
               placeholder="Reason for leave (min 10 chars)..."
             />
           </div>
@@ -435,18 +435,18 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
           <div className="flex items-center gap-4">
             <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Claim Salary</label>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" value="1" checked={formData.claim_salary === "1"} onChange={() => setFormData({ ...formData, claim_salary: "1" })} className="text-blue-500" />
+              <input type="radio" value="1" checked={formData.claim_salary === "1"} onChange={() => setFormData({ ...formData, claim_salary: "1" })} className="text-green-500" />
               <span className="text-sm">Yes</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" value="0" checked={formData.claim_salary === "0"} onChange={() => setFormData({ ...formData, claim_salary: "0" })} className="text-blue-500" />
+              <input type="radio" value="0" checked={formData.claim_salary === "0"} onChange={() => setFormData({ ...formData, claim_salary: "0" })} className="text-green-500" />
               <span className="text-sm">No</span>
             </label>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
             <button type="button" onClick={onClose} className="px-5 py-2 rounded-full font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all">Cancel</button>
-            <button type="submit" disabled={submitting} className="px-5 py-2 rounded-full font-semibold bg-blue-500 text-white hover:bg-blue-600 transition-all flex items-center gap-2">
+            <button type="submit" disabled={submitting} className="px-5 py-2 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center gap-2">
               {submitting ? "Saving..." : <><FiSend /> Save Changes</>}
             </button>
           </div>
