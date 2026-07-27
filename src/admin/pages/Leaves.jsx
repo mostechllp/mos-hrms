@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import SearchBar from "@admin/components/common/SearchBar";
 import EntriesSelector from "@admin/components/common/EntriesSelector";
 import LeaveModal from "@admin/components/leaves/LeaveModal";
+import AddLeaveModal from "@admin/components/leaves/AddLeaveModal";
 import { showToast } from "../../components/common/Toast";
 import {
   fetchLeaves,
@@ -27,6 +28,7 @@ const Leaves = () => {
   const [perPage, setPerPage] = useState(10);
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Confirm modal states
@@ -349,6 +351,14 @@ const Leaves = () => {
             onChange={setSearchTerm}
             placeholder="Search by employee..."
           />
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+          >
+            <i className="fas fa-plus"></i>
+            <span className="hidden sm:inline">Apply Leave</span>
+            <span className="sm:hidden">Apply</span>
+          </button>
           <Link
             to="/admin/leaves/allocations"
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
@@ -542,6 +552,11 @@ const Leaves = () => {
           setSelectedLeave(null);
         }}
         onViewDocument={handleViewDocument}
+      />
+
+      <AddLeaveModal 
+        isOpen={showAddModal} 
+        onClose={() => setShowAddModal(false)} 
       />
 
       {/* Confirm Modal for Approve/Reject */}
