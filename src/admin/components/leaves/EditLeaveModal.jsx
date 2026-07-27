@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchEmployees } from "../../store/slices/employeeSlice";
-import { addLeave, fetchLeaveBalances, fetchLeaveTypes, fetchLeaves } from "../../store/slices/LeaveSlice";
+import { updateLeave, fetchLeaveBalances, fetchLeaveTypes, fetchLeaves } from "../../store/slices/LeaveSlice";
 import { showToast } from "../../../components/common/Toast";
 import DateInput from "../common/DateInput";
 import {
@@ -17,7 +17,7 @@ import {
 } from "react-icons/fi";
 import { MdCalculate } from "react-icons/md";
 
-const AddLeaveModal = ({ isOpen, onClose }) => {
+const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
   const dispatch = useDispatch();
 
   const { employees = [] } = useSelector((state) => state.employees || {});
@@ -42,27 +42,58 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
   const [localError, setLocalError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Format date helper for pre-filling
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch (e) {
+      return dateString;
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       dispatch(fetchEmployees());
       dispatch(fetchLeaveTypes());
-      // reset state
-      setEmployeeId("");
+      
+      if (leaveToEdit) {
+        setEmployeeId(leaveToEdit.employee_id || "");
+        
+        setFormData({
+          leave_type_id: leaveToEdit.leave_type_id || leaveToEdit.leave_type?.id || "",
+          start_date: formatDateForInput(leaveToEdit.start_date || leaveToEdit.from_date),
+          end_date: formatDateForInput(leaveToEdit.end_date || leaveToEdit.to_date),
+          reason: leaveToEdit.reason || "",
+          claim_salary: leaveToEdit.claim_salary === 1 || leaveToEdit.claim_salary === "1" || leaveToEdit.claim_salary === true || leaveToEdit.claimSalary === "Yes" ? "1" : "0",
+          start_session: leaveToEdit.session1 || leaveToEdit.start_session || "morning",
+          end_session: leaveToEdit.session2 || leaveToEdit.end_session || "afternoon",
+        });
+        setTotalDays(leaveToEdit.duration_days || leaveToEdit.number_of_days || leaveToEdit.days || 0);
+      } else {
+        setEmployeeId("");
+        setFormData({
+          leave_type_id: "",
+          start_date: "",
+          end_date: "",
+          reason: "",
+          claim_salary: "0",
+          start_session: "morning",
+          end_session: "afternoon",
+        });
+        setTotalDays(0);
+      }
+      
       setLeaveBalances({});
-      setFormData({
-        leave_type_id: "",
-        start_date: "",
-        end_date: "",
-        reason: "",
-        claim_salary: "0",
-        start_session: "morning",
-        end_session: "afternoon",
-      });
-      setTotalDays(0);
       setSelectedFile(null);
       setLocalError("");
     }
-  }, [isOpen, dispatch]);
+  }, [isOpen, dispatch, leaveToEdit]);
 
   useEffect(() => {
     const loadBalances = async () => {
@@ -101,18 +132,10 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
     loadBalances();
   }, [employeeId, dispatch]);
 
-  // Set first leave type as default
   useEffect(() => {
-    if (leaveTypes.length > 0 && !formData.leave_type_id) {
-      setFormData(prev => ({
-        ...prev,
-        leave_type_id: leaveTypes[0].id.toString()
-      }));
+    if (isOpen) {
+      calculateDays();
     }
-  }, [leaveTypes, formData.leave_type_id]);
-
-  useEffect(() => {
-    calculateDays();
   }, [formData.start_date, formData.end_date, formData.start_session, formData.end_session]);
 
   const parseDate = (dateStr) => {
@@ -216,14 +239,15 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
     e.preventDefault();
     setLocalError("");
     if (!validateForm()) return;
+    
+    // Calculate the original days to check if we are requesting MORE days than originally allocated
+    const originalDays = leaveToEdit?.duration_days || leaveToEdit?.number_of_days || leaveToEdit?.days || 0;
+    const extraDays = totalDays - originalDays;
 
     const balance = leaveBalances[formData.leave_type_id] || { remaining: 0 };
-    if (totalDays > balance.remaining && balance.remaining >= 0) {
-        // Just a warning for admin? Or block it? Let's show a toast warning but allow?
-        // Actually, employee is blocked. Let's block admin too or show a warning.
-        // We'll block it to be consistent with employee logic, unless admin bypass is needed.
-        // Actually let's just warn but proceed or block. We'll block.
-        setLocalError(`Requested days (${totalDays}) exceed available balance (${balance.remaining} days)`);
+    // Only warn if they are requesting extra days that exceed the balance
+    if (extraDays > 0 && extraDays > balance.remaining && balance.remaining >= 0) {
+        setLocalError(`Requested extra days (${extraDays}) exceed available balance (${balance.remaining} days)`);
         return;
     }
 
@@ -245,14 +269,14 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
 
     if (selectedFile) formDataToSend.append("document", selectedFile);
 
-    const result = await dispatch(addLeave(formDataToSend));
+    const result = await dispatch(updateLeave({ id: leaveToEdit.id, formData: formDataToSend }));
 
-    if (addLeave.fulfilled.match(result)) {
-      showToast("Leave request added successfully", "success");
+    if (updateLeave.fulfilled.match(result)) {
+      showToast("Leave request updated successfully", "success");
       dispatch(fetchLeaves());
       onClose();
     } else {
-      setLocalError(result.payload || "Failed to add leave request");
+      setLocalError(result.payload || "Failed to update leave request");
     }
     setSubmitting(false);
   };
@@ -264,7 +288,7 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
       <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full p-6 shadow-soft-lg border border-gray-200 dark:border-gray-700 my-8">
         <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-            <FiCalendar className="text-green-500" /> Apply Leave for Employee
+            <FiCalendar className="text-blue-500" /> Edit Leave Request
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
             <FiX className="text-2xl" />
@@ -283,12 +307,12 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
             {/* Employee Selection */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiUser className="text-green-500" /> Employee <span className="text-red-500">*</span>
+                <FiUser className="text-blue-500" /> Employee
               </label>
               <select
                 value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500"
+                disabled
+                className="w-full px-3.5 py-2.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-500 dark:text-gray-400 focus:outline-none cursor-not-allowed"
               >
                 <option value="">Select Employee</option>
                 {employees.map(emp => (
@@ -300,12 +324,12 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
             {/* Leave Type */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiList className="text-green-500" /> Leave Type <span className="text-red-500">*</span>
+                <FiList className="text-blue-500" /> Leave Type <span className="text-red-500">*</span>
               </label>
               <select
                 value={formData.leave_type_id}
                 onChange={(e) => setFormData({ ...formData, leave_type_id: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500"
+                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500"
               >
                 {leaveTypes.map((type) => {
                   const balance = leaveBalances[type.id] || { remaining: 0 };
@@ -322,7 +346,7 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
             {/* Start Date & Session */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiCalendar className="text-green-500" /> Start Date <span className="text-red-500">*</span>
+                <FiCalendar className="text-blue-500" /> Start Date <span className="text-red-500">*</span>
               </label>
               <DateInput
                 value={formData.start_date}
@@ -334,12 +358,12 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
             </div>
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiClock className="text-green-500" /> Start Session
+                <FiClock className="text-blue-500" /> Start Session
               </label>
               <select
                 value={formData.start_session}
                 onChange={(e) => setFormData({ ...formData, start_session: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500"
+                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500"
               >
                 <option value="morning">Morning</option>
                 <option value="afternoon">Afternoon</option>
@@ -349,7 +373,7 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
             {/* End Date & Session */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiCalendar className="text-green-500" /> End Date <span className="text-red-500">*</span>
+                <FiCalendar className="text-blue-500" /> End Date <span className="text-red-500">*</span>
               </label>
               <DateInput
                 value={formData.end_date}
@@ -361,12 +385,12 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
             </div>
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiClock className="text-green-500" /> End Session
+                <FiClock className="text-blue-500" /> End Session
               </label>
               <select
                 value={formData.end_session}
                 onChange={(e) => setFormData({ ...formData, end_session: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500"
+                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500"
               >
                 <option value="morning">Morning</option>
                 <option value="afternoon">Afternoon</option>
@@ -375,7 +399,7 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <MdCalculate className="text-green-500" /> Total Days
+                <MdCalculate className="text-blue-500" /> Total Days
               </label>
               <div className="p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-center font-bold text-gray-800 dark:text-gray-200 text-sm">
                 {totalDays} <span className="text-xs font-normal text-gray-500 ml-1">Days</span>
@@ -384,26 +408,26 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiPaperclip className="text-green-500" /> Document <span className="text-gray-400 text-[10px] ml-1">(Optional)</span>
+                <FiPaperclip className="text-blue-500" /> Document <span className="text-gray-400 text-[10px] ml-1">(Optional)</span>
               </label>
               <input
                 type="file"
                 onChange={(e) => setSelectedFile(e.target.files[0])}
                 accept=".pdf,.doc,.docx,.jpg,.png"
-                className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-500 file:text-white file:cursor-pointer"
+                className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-500 file:text-white file:cursor-pointer"
               />
             </div>
           </div>
 
           <div className="flex flex-col gap-2">
             <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-              <FiMessageSquare className="text-green-500" /> Reason <span className="text-red-500">*</span>
+              <FiMessageSquare className="text-blue-500" /> Reason <span className="text-red-500">*</span>
             </label>
             <textarea
               value={formData.reason}
               onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
               rows="3"
-              className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 resize-none"
+              className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500 resize-none"
               placeholder="Reason for leave (min 10 chars)..."
             />
           </div>
@@ -411,19 +435,19 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
           <div className="flex items-center gap-4">
             <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Claim Salary</label>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" value="1" checked={formData.claim_salary === "1"} onChange={() => setFormData({ ...formData, claim_salary: "1" })} className="text-green-500" />
+              <input type="radio" value="1" checked={formData.claim_salary === "1"} onChange={() => setFormData({ ...formData, claim_salary: "1" })} className="text-blue-500" />
               <span className="text-sm">Yes</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" value="0" checked={formData.claim_salary === "0"} onChange={() => setFormData({ ...formData, claim_salary: "0" })} className="text-green-500" />
+              <input type="radio" value="0" checked={formData.claim_salary === "0"} onChange={() => setFormData({ ...formData, claim_salary: "0" })} className="text-blue-500" />
               <span className="text-sm">No</span>
             </label>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
             <button type="button" onClick={onClose} className="px-5 py-2 rounded-full font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all">Cancel</button>
-            <button type="submit" disabled={submitting} className="px-5 py-2 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center gap-2">
-              {submitting ? "Submitting..." : <><FiSend /> Submit</>}
+            <button type="submit" disabled={submitting} className="px-5 py-2 rounded-full font-semibold bg-blue-500 text-white hover:bg-blue-600 transition-all flex items-center gap-2">
+              {submitting ? "Saving..." : <><FiSend /> Save Changes</>}
             </button>
           </div>
         </form>
@@ -432,4 +456,4 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
   );
 };
 
-export default AddLeaveModal;
+export default EditLeaveModal;

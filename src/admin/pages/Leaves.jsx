@@ -5,6 +5,7 @@ import SearchBar from "@admin/components/common/SearchBar";
 import EntriesSelector from "@admin/components/common/EntriesSelector";
 import LeaveModal from "@admin/components/leaves/LeaveModal";
 import AddLeaveModal from "@admin/components/leaves/AddLeaveModal";
+import EditLeaveModal from "@admin/components/leaves/EditLeaveModal";
 import { showToast } from "../../components/common/Toast";
 import {
   fetchLeaves,
@@ -29,6 +30,8 @@ const Leaves = () => {
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [leaveToEdit, setLeaveToEdit] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // Confirm modal states
@@ -495,6 +498,16 @@ const Leaves = () => {
                         >
                           <i className={`fas fa-eye text-xs md:text-sm ${loading ? 'fa-spin' : ''}`}></i>
                         </button>
+                        <button
+                          onClick={() => {
+                            setLeaveToEdit(leave);
+                            setShowEditModal(true);
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-orange-500 transition-colors"
+                          title="Edit Leave Request"
+                        >
+                          <i className="fas fa-edit text-xs md:text-sm"></i>
+                        </button>
                         {(leave.status === "pending" ||
                           leave.status === "Pending") && (
                           <>
@@ -557,6 +570,15 @@ const Leaves = () => {
       <AddLeaveModal 
         isOpen={showAddModal} 
         onClose={() => setShowAddModal(false)} 
+      />
+
+      <EditLeaveModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setLeaveToEdit(null);
+        }}
+        leaveToEdit={leaveToEdit}
       />
 
       {/* Confirm Modal for Approve/Reject */}
