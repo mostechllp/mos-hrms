@@ -7,9 +7,11 @@ import "./index.css";
 import App from "./App.jsx";
 import { LoadingProvider } from "./context/LoadingContext.jsx";
 import { Toaster } from "react-hot-toast";
+import { TranslationProvider } from "./i118n/TranslationProvider.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
+    <TranslationProvider>
     <Provider store={store}>
       <BrowserRouter basename="/">
         <LoadingProvider>
@@ -41,5 +43,6 @@ createRoot(document.getElementById("root")).render(
         </LoadingProvider>
       </BrowserRouter>
     </Provider>
+    </TranslationProvider>
   </StrictMode>
 );
