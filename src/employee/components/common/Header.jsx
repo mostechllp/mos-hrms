@@ -4,7 +4,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAppSelector } from '../../store/hooks';
 import { useAppTheme } from '../../../context/ThemeContext';
 import { logoutUser } from '../../../store/slices/authSlice';
-import LanguageSwitcher from '../../../shared/components/LanguageSwitcher';
 
 const Header = ({ onMenuClick }) => {
   const dispatch = useDispatch();
@@ -66,8 +65,6 @@ const Header = ({ onMenuClick }) => {
         <div className="date-badge hidden md:flex items-center gap-2 bg-[var(--surface2)] border border-[var(--border)] px-3.5 py-1.5 rounded-full text-xs font-medium text-[var(--text-secondary)]">
           <i className="far fa-calendar-alt"></i> {currentDate}
         </div>
-
-        <LanguageSwitcher />
         
         <div className="theme-toggle flex bg-[var(--surface2)] border border-[var(--border)] rounded-full p-0.5 gap-0.5">
           <button
