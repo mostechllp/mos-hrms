@@ -185,6 +185,25 @@ export const fetchLeaveBalances = createAsyncThunk(
   },
 );
 
+export const fetchAllLeaveAllocations = createAsyncThunk(
+  "leaves/fetchAllAllocations",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get("/admin/leave-allocations");
+      console.log("fetchAllLeaveAllocations raw response:", response.data);
+      let data = response.data?.data;
+      if (data && data.data && Array.isArray(data.data)) {
+        data = data.data; // Handle Laravel pagination
+      }
+      return data || response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch all leave allocations",
+      );
+    }
+  },
+);
+
 export const updateLeaveAllocation = createAsyncThunk(
   "leaves/updateAllocation",
   async ({ employee_id, allocations }, { rejectWithValue }) => {
@@ -316,6 +335,7 @@ const leaveSlice = createSlice({
     leaves: [],
     currentLeave: null,
     leaveTypes: [],
+    allAllocations: [],
     loading: false,
     error: null,
     totalCount: 0,
@@ -341,6 +361,20 @@ const leaveSlice = createSlice({
         state.totalCount = action.payload?.length || 0;
       })
       .addCase(fetchLeaves.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+      
+      // Fetch all leave allocations
+      .addCase(fetchAllLeaveAllocations.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchAllLeaveAllocations.fulfilled, (state, action) => {
+        state.loading = false;
+        state.allAllocations = action.payload;
+      })
+      .addCase(fetchAllLeaveAllocations.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
