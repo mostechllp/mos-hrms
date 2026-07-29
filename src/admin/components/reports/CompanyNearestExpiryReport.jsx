@@ -5,16 +5,22 @@ import SearchBar from "../common/SearchBar";
 import EntriesSelector from "../common/EntriesSelector";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
-import { fetchCompanyNearestExpiryReport } from "../../store/slices/reportSlice";
+import { 
+  fetchCompanyNearestExpiryReport,
+  exportReport
+} from "../../store/slices/reportSlice";
 import ExportModal from "../../../components/common/ExportModal";
-import { exportToCSV, formatDate, getDaysDifference } from "../../../utils/reportUtils";
-import { generateCompanyExpiryPDF } from "../../../utils/reportPDFConfigs";
+import { formatDate, getDaysDifference } from "../../../utils/reportUtils";
 
 const CompanyNearestExpiryReport = () => {
   const dispatch = useDispatch();
-  const { organizations = [], loading } = useSelector(
-    (state) => state.organizations || {},
-  );
+  const { 
+    companyNearestExpiry: companies = [],
+    companyNearestExpiryLoading: loading = false,
+    companyNearestExpiryTotalCount: totalCount = 0,
+    companyNearestExpiryLastPage: lastPage = 1,
+    exportLoading = false,
+  } = useSelector((state) => state.reports || {});
 
   // Local state
   const [currentPage, setCurrentPage] = useState(1);
@@ -25,158 +31,22 @@ const CompanyNearestExpiryReport = () => {
   // Filter states
   const [expiryDays, setExpiryDays] = useState(30); // Default to 30 days
 
+  // Fetch company nearest expiry report
   useEffect(() => {
     dispatch(
       fetchCompanyNearestExpiryReport({
         page: currentPage,
         per_page: perPage,
-        start_date: "2024-01-01",
-        end_date: "2024-01-31",
-      }),
+        expiry_days: expiryDays,
+        search: searchTerm || undefined,
+      })
     );
-  }, [dispatch]);
+  }, [dispatch, currentPage, perPage, expiryDays, searchTerm]);
 
   // Reset to first page when filters change
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [searchTerm, expiryDays, perPage]);
-
-  // Transform organization data to extract document expiry fields
-  const transformOrganization = (org) => {
-    // Handle both organization and individual company structures
-    const companies = org.companies || (org.id ? [org] : []);
-
-    if (companies.length > 0) {
-      return companies.map((company) => ({
-        id: company.id,
-        name: company.company_name || org.name || "-",
-        organization_id: org.id,
-        organization_name: org.name,
-        trade_license_number:
-          company.trade_license_number || org.trade_license_number,
-        trade_license_expiry:
-          company.trade_license_expiry || org.trade_license_expiry,
-        establishment_card_number:
-          company.establishment_card_number || org.establishment_card_number,
-        establishment_card_expiry:
-          company.establishment_card_expiry || org.establishment_card_expiry,
-        // Additional fields that might be useful
-        phone: company.phone || org.phone,
-        email: company.email || org.email,
-        address: company.address || org.address,
-      }));
-    }
-
-    // Single organization/company
-    return [
-      {
-        id: org.id,
-        name: org.company_name || org.name || "-",
-        trade_license_number: org.trade_license_number,
-        trade_license_expiry: org.trade_license_expiry,
-        establishment_card_number: org.establishment_card_number,
-        establishment_card_expiry: org.establishment_card_expiry,
-        phone: org.phone,
-        email: org.email,
-        address: org.address,
-      },
-    ];
-  };
-
-  // Check if a date is within expiry days
-  const isWithinExpiry = (dateStr) => {
-    if (!dateStr) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const expiryDate = new Date(dateStr);
-    if (isNaN(expiryDate.getTime())) return false;
-
-    const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays <= expiryDays;
-  };
-
-  // Get companies with nearest expiry
-  const getCompaniesWithNearestExpiry = () => {
-    let allCompanies = [];
-
-    if (Array.isArray(organizations)) {
-      organizations.forEach((org) => {
-        const companies = transformOrganization(org);
-        allCompanies = [...allCompanies, ...companies];
-      });
-    }
-
-    let filtered = allCompanies.filter((company) => {
-      // Check if any document is expiring within the selected days
-      return (
-        isWithinExpiry(company.trade_license_expiry) ||
-        isWithinExpiry(company.establishment_card_expiry)
-      );
-    });
-
-    // Apply search term
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (company) =>
-          (company.name || "").toLowerCase().includes(searchLower) ||
-          (company.trade_license_number || "")
-            .toLowerCase()
-            .includes(searchLower) ||
-          (company.establishment_card_number || "")
-            .toLowerCase()
-            .includes(searchLower),
-      );
-    }
-
-    // Sort by earliest expiry date
-    filtered.sort((a, b) => {
-      const getEarliestExpiry = (company) => {
-        const expiryDates = [
-          company.trade_license_expiry,
-          company.establishment_card_expiry,
-        ].filter((date) => date);
-
-        if (expiryDates.length === 0) return null;
-        return new Date(Math.min(...expiryDates.map((date) => new Date(date))));
-      };
-
-      const expiryA = getEarliestExpiry(a);
-      const expiryB = getEarliestExpiry(b);
-
-      if (!expiryA && !expiryB) return 0;
-      if (!expiryA) return 1;
-      if (!expiryB) return -1;
-
-      return expiryA - expiryB;
-    });
-
-    return filtered;
-  };
-
-  // Transform data for export
-  const getExportData = () => {
-    const filteredCompanies = getCompaniesWithNearestExpiry();
-    return filteredCompanies.map((company) => ({
-      company_name: company.name,
-      trade_license_number: company.trade_license_number || "-",
-      trade_license_expiry: formatDate(company.trade_license_expiry),
-      trade_license_days_left: getDaysDifference(company.trade_license_expiry) || "-",
-      establishment_card_number: company.establishment_card_number || "-",
-      establishment_card_expiry: formatDate(company.establishment_card_expiry),
-      establishment_card_days_left: getDaysDifference(company.establishment_card_expiry) || "-",
-      // Additional fields for export
-      phone: company.phone || "-",
-      email: company.email || "-",
-    }));
-  };
-
-  const filteredCompanies = getCompaniesWithNearestExpiry();
-  const totalFiltered = filteredCompanies.length;
-  const totalPages = Math.ceil(totalFiltered / perPage);
-  const start = (currentPage - 1) * perPage;
-  const pageCompanies = filteredCompanies.slice(start, start + perPage);
 
   const handleResetFilters = () => {
     setExpiryDays(30);
@@ -185,49 +55,54 @@ const CompanyNearestExpiryReport = () => {
     showToast("Filters reset successfully", "success");
   };
 
+  // Handle export using the exportReport thunk
   const handleExport = async (format) => {
-    const exportData = getExportData();
-    
-    if (exportData.length === 0) {
-      showToast("No data to export", "warning");
-      return;
+    // Build export parameters
+    const params = {
+      format: format,
+      expiry_days: expiryDays,
+    };
+
+    // Add search if present
+    if (searchTerm) {
+      params.search = searchTerm;
     }
 
-    const headers = [
-      { key: "company_name", label: "Company Name" },
-      { key: "trade_license_number", label: "Trade License" },
-      { key: "trade_license_expiry", label: "TL Expiry Date" },
-      { key: "trade_license_days_left", label: "Days Left (TL)" },
-      { key: "establishment_card_number", label: "Establishment Card" },
-      { key: "establishment_card_expiry", label: "EC Expiry Date" },
-      { key: "establishment_card_days_left", label: "Days Left (EC)" },
-      { key: "phone", label: "Phone" },
-      { key: "email", label: "Email" },
-    ];
-
-    const filename = `company_expiry_report_${expiryDays}days_${new Date().toISOString().split("T")[0]}`;
-
-    if (format === "csv") {
-      exportToCSV(exportData, headers, `${filename}.csv`);
-      showToast("Company expiry data exported successfully!", "success");
-    } else if (format === "pdf") {
-      generateCompanyExpiryPDF(filteredCompanies, "Company Document Expiry Report", {
-        expiryDays: expiryDays,
-        search: searchTerm || null,
-        generated_date: new Date().toISOString(),
-      });
-      showToast("PDF report generated successfully!", "success");
+    // Dispatch the export thunk with report_type: "company-expiry"
+    const result = await dispatch(exportReport({
+      reportType: "company-expiry", // This is the report_type for company expiry
+      params: params,
+      format: format,
+    }));
+    
+    if (exportReport.fulfilled.match(result)) {
+      const { url, filename } = result.payload;
+      
+      // Create a download link
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Revoke the URL after download
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      
+      showToast(`Company expiry report exported successfully!`, "success");
+    } else {
+      showToast(result.payload || "Failed to export report", "error");
     }
   };
 
   const getExpiryClass = (expiryDate) => {
     const daysLeft = getDaysDifference(expiryDate);
-    if (daysLeft === null) return "";
+    if (daysLeft === null || daysLeft < 0) return "";
 
-    if (daysLeft < 0)
-      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-semibold";
     if (daysLeft <= 7)
-      return "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 font-semibold";
+      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-semibold";
     if (daysLeft <= 15)
       return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
     if (daysLeft <= expiryDays)
@@ -235,33 +110,30 @@ const CompanyNearestExpiryReport = () => {
     return "";
   };
 
-  // Calculate stats
-  const getDocumentStats = () => {
-    let tradeLicenseExpiring = 0;
-    let establishmentCardExpiring = 0;
-    let totalCompanies = 0;
-
-    let allCompanies = [];
-    if (Array.isArray(organizations)) {
-      organizations.forEach((org) => {
-        const companies = transformOrganization(org);
-        allCompanies = [...allCompanies, ...companies];
-      });
-    }
-
-    allCompanies.forEach((company) => {
-      totalCompanies++;
-      if (isWithinExpiry(company.trade_license_expiry)) tradeLicenseExpiring++;
-      if (isWithinExpiry(company.establishment_card_expiry))
-        establishmentCardExpiring++;
-    });
-
-    return { tradeLicenseExpiring, establishmentCardExpiring, totalCompanies };
+  // Transform data for export
+  const getExportData = () => {
+    const companiesArray = Array.isArray(companies) ? companies : [];
+    return companiesArray.map((company) => ({
+      company_name: company.name || company.company_name || "-",
+      trade_license_number: company.trade_license_number || "-",
+      trade_license_expiry: formatDate(company.trade_license_expiry),
+      trade_license_days_left: getDaysDifference(company.trade_license_expiry) || "-",
+      establishment_card_number: company.establishment_card_number || "-",
+      establishment_card_expiry: formatDate(company.establishment_card_expiry),
+      establishment_card_days_left: getDaysDifference(company.establishment_card_expiry) || "-",
+      phone: company.phone || "-",
+      email: company.email || "-",
+    }));
   };
 
-  const stats = getDocumentStats();
+  // Calculate stats from API data
+  const companiesArray = Array.isArray(companies) ? companies : [];
+  const totalFiltered = totalCount || companiesArray.length;
+  const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
+  const start = (currentPage - 1) * perPage;
 
-  const expiringWithin7Days = filteredCompanies.filter((company) => {
+  // Calculate expiring counts
+  const expiringWithin7Days = companiesArray.filter((company) => {
     const tlDays = getDaysDifference(company.trade_license_expiry);
     const ecDays = getDaysDifference(company.establishment_card_expiry);
     return (
@@ -270,18 +142,34 @@ const CompanyNearestExpiryReport = () => {
     );
   }).length;
 
-  const expiringWithin15Days =
-    filteredCompanies.filter((company) => {
-      const tlDays = getDaysDifference(company.trade_license_expiry);
-      const ecDays = getDaysDifference(company.establishment_card_expiry);
-      return (
-        (tlDays !== null && tlDays <= 15 && tlDays >= 0) ||
-        (ecDays !== null && ecDays <= 15 && ecDays >= 0)
-      );
-    }).length - expiringWithin7Days;
+  const expiringWithin15Days = companiesArray.filter((company) => {
+    const tlDays = getDaysDifference(company.trade_license_expiry);
+    const ecDays = getDaysDifference(company.establishment_card_expiry);
+    return (
+      (tlDays !== null && tlDays <= 15 && tlDays >= 0) ||
+      (ecDays !== null && ecDays <= 15 && ecDays >= 0)
+    );
+  }).length - expiringWithin7Days;
 
-  const expiringWithin30Days =
-    filteredCompanies.length - (expiringWithin7Days + expiringWithin15Days);
+  const expiringWithin30Days = companiesArray.filter((company) => {
+    const tlDays = getDaysDifference(company.trade_license_expiry);
+    const ecDays = getDaysDifference(company.establishment_card_expiry);
+    return (
+      (tlDays !== null && tlDays <= expiryDays && tlDays >= 0) ||
+      (ecDays !== null && ecDays <= expiryDays && ecDays >= 0)
+    );
+  }).length;
+
+  // Document type stats
+  const tradeLicenseExpiring = companiesArray.filter((company) => {
+    const days = getDaysDifference(company.trade_license_expiry);
+    return days !== null && days >= 0 && days <= expiryDays;
+  }).length;
+
+  const establishmentCardExpiring = companiesArray.filter((company) => {
+    const days = getDaysDifference(company.establishment_card_expiry);
+    return days !== null && days >= 0 && days <= expiryDays;
+  }).length;
 
   return (
     <div className="w-full overflow-x-hidden">
@@ -366,7 +254,7 @@ const CompanyNearestExpiryReport = () => {
                   Trade License Expiring
                 </p>
                 <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {stats.tradeLicenseExpiring}
+                  {tradeLicenseExpiring}
                 </p>
               </div>
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
@@ -382,7 +270,7 @@ const CompanyNearestExpiryReport = () => {
                   Establishment Card Expiring
                 </p>
                 <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                  {stats.establishmentCardExpiring}
+                  {establishmentCardExpiring}
                 </p>
               </div>
               <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
@@ -445,15 +333,20 @@ const CompanyNearestExpiryReport = () => {
             />
             <button
               onClick={() => setShowExportModal(true)}
-              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+              disabled={exportLoading}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <i className="fas fa-download"></i> Export Report
+              {exportLoading ? (
+                <><i className="fas fa-spinner fa-spin"></i> Exporting...</>
+              ) : (
+                <><i className="fas fa-download"></i> Export Report</>
+              )}
             </button>
           </div>
         </div>
 
         {/* Loading State */}
-        {loading && filteredCompanies.length === 0 ? (
+        {loading && companiesArray.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
             <i className="fas fa-spinner fa-spin text-3xl text-green-500 mb-3"></i>
             <p className="text-gray-500 dark:text-gray-400">
@@ -495,8 +388,8 @@ const CompanyNearestExpiryReport = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {pageCompanies.length > 0 ? (
-                      pageCompanies.map((company, idx) => {
+                    {companiesArray.length > 0 ? (
+                      companiesArray.map((company, idx) => {
                         const tlDays = getDaysDifference(
                           company.trade_license_expiry,
                         );
@@ -513,7 +406,7 @@ const CompanyNearestExpiryReport = () => {
                               {start + idx + 1}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
-                              {company.name}
+                              {company.name || company.company_name || "-"}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-mono text-gray-600 dark:text-gray-400">
                               {company.trade_license_number || "-"}
@@ -608,12 +501,18 @@ const CompanyNearestExpiryReport = () => {
       {/* Export Modal */}
       <ExportModal
         isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
+        onClose={() => {
+          if (!exportLoading) {
+            setShowExportModal(false);
+          }
+        }}
         onExport={handleExport}
         title="Export Company Expiry Report"
-        totalRecords={getExportData().length}
+        totalRecords={totalCount || companiesArray.length}
         formats={["csv", "pdf"]}
         defaultFormat="csv"
+        loading={exportLoading}
+        subtitle={`Exporting companies with documents expiring within ${expiryDays} days`}
       />
     </div>
   );
