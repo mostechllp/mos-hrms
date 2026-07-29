@@ -32,8 +32,9 @@ import {
 import LocationModal from "../components/modals/LocationModal";
 import MapView from "../components/common/MapView";
 
+// Status tab mapping - assigned goes to its own tab now
 const STATUS_TAB_MAP = {
-  assigned: "in_progress",
+  assigned: "assigned", // Now assigned has its own tab
   pending: "in_progress",
   in_progress: "in_progress",
   completed: "completed",
@@ -735,7 +736,6 @@ const Dashboard = () => {
   };
 
   // Prepare chart data from attendance history - Line chart version
-  // Prepare chart data from attendance history - Line chart version
   const getChartData = () => {
     if (
       !dashboardData?.attendance_history ||
@@ -1249,6 +1249,7 @@ const Dashboard = () => {
             {[
               "today_assigned_tasks",
               "all_tasks",
+              "assigned",
               "in_progress",
               "completed",
               "on_hold",
@@ -1266,11 +1267,13 @@ const Dashboard = () => {
                   ? "Today's Tasks"
                   : tab === "all_tasks"
                     ? "All Tasks"
-                    : tab === "in_progress"
-                      ? "In Progress"
-                      : tab === "on_hold"
-                        ? "Hold"
-                        : "Completed"}
+                    : tab === "assigned"
+                      ? "Assigned"
+                      : tab === "in_progress"
+                        ? "In Progress"
+                        : tab === "on_hold"
+                          ? "Hold"
+                          : "Completed"}
               </button>
             ))}
           </div>
@@ -1293,9 +1296,13 @@ const Dashboard = () => {
                   displayTasks = todayTasks;
                 } else if (activeTaskTab === "all_tasks") {
                   displayTasks = allTasks;
+                } else if (activeTaskTab === "assigned") {
+                  // Show only tasks with status "assigned"
+                  displayTasks = allTasks.filter(
+                    (task) => task.status === "assigned",
+                  );
                 } else {
                   // For status tabs (in_progress, completed, on_hold)
-                  // Map status values to tab keys
                   displayTasks = allTasks.filter((task) => {
                     const taskStatus = task.status || "pending";
                     const mappedStatus =
@@ -1363,6 +1370,12 @@ const Dashboard = () => {
                                 }
                                 className={`text-[10px] font-bold rounded px-2 py-1 outline-none cursor-pointer border-none bg-transparent transition-colors ${statusColor}`}
                               >
+                                <option
+                                  value="assigned"
+                                  className="text-gray-600"
+                                >
+                                  Assigned
+                                </option>
                                 <option
                                   value="in_progress"
                                   className="text-blue-600"

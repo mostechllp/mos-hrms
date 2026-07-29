@@ -202,31 +202,95 @@ export const generateLeavesPDF = (leaves, filters = {}) => {
   const pdf = new PDFGenerator();
   pdf.init("landscape");
 
-  const pending = leaves.filter(l => l.status === "Pending").length;
-  const approved = leaves.filter(l => l.status === "Approved").length;
-  const rejected = leaves.filter(l => l.status === "Rejected").length;
+  // Helper function to get full employee name
+  const getEmployeeFullName = (leave) => {
+    if (leave.employee) {
+      const firstName = leave.employee.first_name || '';
+      const lastName = leave.employee.last_name || '';
+      if (firstName || lastName) {
+        return `${firstName} ${lastName}`.trim();
+      }
+    }
+    if (leave.employee_name) return leave.employee_name;
+    if (leave.employee?.name) return leave.employee.name;
+    if (leave.employee?.first_name) return leave.employee.first_name;
+    return "-";
+  };
+
+  // Helper function to get reason with fallback
+  const getReason = (leave) => {
+    return leave.reason || leave.remarks || leave.admin_remark || "-";
+  };
+
+  // Helper function to format date
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "-";
+    try {
+      if (dateValue instanceof Date) {
+        return dateValue.toLocaleDateString("en-GB");
+      }
+      if (typeof dateValue === "string") {
+        if (dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [year, month, day] = dateValue.split("-");
+          return `${day}/${month}/${year}`;
+        }
+        const date = new Date(dateValue);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString("en-GB");
+        }
+      }
+      return dateValue;
+    } catch (error) {
+      return dateValue || "-";
+    }
+  };
+
+  // Calculate stats
+  const pending = leaves.filter(l => 
+    (l.status || "").toLowerCase() === "pending"
+  ).length;
+  const approved = leaves.filter(l => 
+    (l.status || "").toLowerCase() === "approved"
+  ).length;
+  const rejected = leaves.filter(l => 
+    (l.status || "").toLowerCase() === "rejected"
+  ).length;
+  
   const stats = `Total: ${leaves.length} | Pending: ${pending} | Approved: ${approved} | Rejected: ${rejected}`;
   
   pdf.addHeader("Leave Requests Report", "", { ...filters, stats });
 
-  const columns = ["S.No", "Request Date", "Employee", "Leave Type", "From", "To", "Days", "Status"];
+  // Updated columns to include Reason
+  const columns = [
+    "S.No", 
+    "Request Date", 
+    "Employee", 
+    "Leave Type", 
+    "From", 
+    "To", 
+    "Days", 
+    "Reason", 
+    "Status"
+  ];
 
+  // Prepare data with all fields
   const data = leaves.map((leave, index) => [
     index + 1,
-    formatDate(leave.created_at || leave.request_date),
-    leave.employee_name || leave.employee?.name || "-",
-    leave.leave_type?.name || leave.type,
-    formatDate(leave.from_date || leave.fromDate),
-    formatDate(leave.to_date || leave.toDate),
-    leave.number_of_days || leave.days,
-    leave.status,
+    formatDate(leave.created_at || leave.request_date || leave.date),
+    getEmployeeFullName(leave),
+    leave.leave_type?.name || leave.type || leave.leave_type || "-",
+    formatDate(leave.from_date || leave.fromDate || leave.start_date),
+    formatDate(leave.to_date || leave.toDate || leave.end_date),
+    leave.number_of_days || leave.days || leave.duration_days || "-",
+    getReason(leave),
+    leave.status || "-",
   ]);
 
-  pdf.addTable(columns, data, 55);
+  // Add table with adjusted column width (58 instead of 55 for more columns)
+  pdf.addTable(columns, data, 58);
   pdf.addFooter();
   pdf.save(`leave_requests_${new Date().toISOString().split("T")[0]}.pdf`);
 };
-
 export const generateEmployeeExpiryPDF = (employees, title, filters = {}) => {
   const pdf = new PDFGenerator();
   pdf.init("landscape");

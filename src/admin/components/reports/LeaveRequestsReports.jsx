@@ -5,19 +5,27 @@ import SearchBar from "../common/SearchBar";
 import EntriesSelector from "../common/EntriesSelector";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
-import { fetchLeavesReport } from "../../store/slices/reportSlice";
-import { clearError } from "../../store/slices/LeaveSlice";
+import {
+  fetchLeavesReport,
+  exportLeavesReport,
+  clearLeavesError,
+  selectLeaveRecords,
+  selectLeavesLoading,
+  selectLeavesError,
+  selectLeavesPagination,
+} from "../../store/slices/reportSlice";
 import ExportModal from "../../../components/common/ExportModal";
-import { exportToCSV, formatDate } from "../../../utils/reportUtils";
-import { generateLeavesPDF } from "../../../utils/reportPDFConfigs";
+import { formatDate } from "../../../utils/reportUtils";
 
 const LeaveRequestReports = () => {
   const dispatch = useDispatch();
-  const {
-    leaves = [],
-    loading,
-    error = null,
-  } = useSelector((state) => state.leaves || { leaves: [] });
+
+  // Use selectors from reportSlice
+  const leaves = useSelector(selectLeaveRecords);
+  const loading = useSelector(selectLeavesLoading);
+  const error = useSelector(selectLeavesError);
+  const pagination = useSelector(selectLeavesPagination);
+  const exportLoading = useSelector((state) => state.reports.exportLoading);
 
   // Local state
   const [currentPage, setCurrentPage] = useState(1);
@@ -28,32 +36,78 @@ const LeaveRequestReports = () => {
   // Filter states
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedLeaveType, setSelectedLeaveType] = useState("all");
-  const [dateRange, setDateRange] = useState("all");
+  const [dateRange, setDateRange] = useState("this_month");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Helper function to get full employee name
+  const getEmployeeFullName = (leave) => {
+    if (leave.employee) {
+      const firstName = leave.employee.first_name || "";
+      const lastName = leave.employee.last_name || "";
+      if (firstName || lastName) {
+        return `${firstName} ${lastName}`.trim();
+      }
+    }
+    if (leave.employee_name) return leave.employee_name;
+    if (leave.employee?.name) return leave.employee.name;
+    if (leave.employee?.first_name) return leave.employee.first_name;
+    return "-";
+  };
+
+  // Helper function to get reason with fallback
+  const getReason = (leave) => {
+    return leave.reason || leave.remarks || leave.admin_remark || "-";
+  };
+
+  // Fetch leaves report with filters
   useEffect(() => {
-    dispatch(
-      fetchLeavesReport({
-        page: currentPage,
-        per_page: perPage,
-        start_date: "2024-01-01",
-        end_date: "2024-01-31",
-      }),
-    );
-  }, [dispatch]);
+    const params = {
+      page: currentPage,
+      per_page: perPage,
+      date_range: dateRange,
+    };
+
+    // Add custom date range params if selected
+    if (dateRange === "custom") {
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+    }
+
+    // Add optional filters
+    if (selectedStatus !== "all") {
+      params.status = selectedStatus;
+    }
+    if (selectedLeaveType !== "all") {
+      params.leave_type = selectedLeaveType;
+    }
+    if (searchTerm) {
+      params.search = searchTerm;
+    }
+
+    dispatch(fetchLeavesReport(params));
+  }, [
+    dispatch,
+    currentPage,
+    perPage,
+    dateRange,
+    startDate,
+    endDate,
+    selectedStatus,
+    selectedLeaveType,
+    searchTerm,
+  ]);
 
   // Handle errors
   useEffect(() => {
     if (error) {
       showToast(error, "error");
-      dispatch(clearError());
+      dispatch(clearLeavesError());
     }
   }, [error, dispatch]);
 
   // Reset to first page when filters change
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [
     searchTerm,
@@ -70,33 +124,17 @@ const LeaveRequestReports = () => {
   const uniqueLeaveTypes = [
     ...new Set(
       leavesArray
-        .map((leave) => leave.leave_type?.name || leave.type)
+        .map(
+          (leave) => leave.leave_type?.name || leave.type || leave.leave_type,
+        )
         .filter(Boolean),
     ),
   ];
 
-  // Transform leave data for export
-  const getExportData = () => {
-    const filtered = getFilteredLeaves();
-    return filtered.map((leave) => ({
-      request_date: formatDate(leave.created_at || leave.request_date),
-      employee_name: leave.employee_name ||
-        leave.employee?.name ||
-        leave.employee?.first_name ||
-        "-",
-      leave_type: leave.leave_type?.name || leave.type || "-",
-      from_date: formatDate(leave.from_date || leave.fromDate),
-      to_date: formatDate(leave.to_date || leave.toDate),
-      days: leave.number_of_days || leave.days || "-",
-      status: leave.status || "-",
-    }));
-  };
-
-  // Filter leaves
+  // Client-side filtering for display only
   const getFilteredLeaves = () => {
     let filtered = [...leavesArray];
 
-    // Apply status filter
     if (selectedStatus !== "all") {
       filtered = filtered.filter(
         (leave) =>
@@ -104,92 +142,47 @@ const LeaveRequestReports = () => {
       );
     }
 
-    // Apply leave type filter
     if (selectedLeaveType !== "all") {
-      filtered = filtered.filter(
-        (leave) => (leave.leave_type?.name || leave.type) === selectedLeaveType,
-      );
-    }
-
-    // Apply date range filter based on request date
-    if (dateRange !== "all") {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
       filtered = filtered.filter((leave) => {
-        const requestDate = new Date(leave.created_at || leave.request_date);
-        if (isNaN(requestDate.getTime())) return true;
-
-        switch (dateRange) {
-          case "today":
-            return requestDate.toDateString() === today.toDateString();
-          case "thisWeek": {
-            const startOfWeek = new Date(today);
-            startOfWeek.setDate(today.getDate() - today.getDay());
-            const endOfWeek = new Date(today);
-            endOfWeek.setDate(today.getDate() + (6 - today.getDay()));
-            return requestDate >= startOfWeek && requestDate <= endOfWeek;
-          }
-          case "thisMonth": {
-            const startOfMonth = new Date(
-              today.getFullYear(),
-              today.getMonth(),
-              1,
-            );
-            const endOfMonth = new Date(
-              today.getFullYear(),
-              today.getMonth() + 1,
-              0,
-            );
-            return requestDate >= startOfMonth && requestDate <= endOfMonth;
-          }
-          case "custom":
-            if (startDate && endDate) {
-              const start = new Date(startDate);
-              const end = new Date(endDate);
-              end.setHours(23, 59, 59);
-              return requestDate >= start && requestDate <= end;
-            }
-            return true;
-          default:
-            return true;
-        }
+        const type = leave.leave_type?.name || leave.type || leave.leave_type;
+        return type === selectedLeaveType;
       });
     }
 
-    // Apply search term
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (leave) =>
-          (
-            leave.employee_name ||
-            leave.employee?.name ||
-            leave.employee?.first_name ||
-            ""
-          )
-            .toLowerCase()
-            .includes(searchLower) ||
-          (leave.leave_type?.name || leave.type || "")
-            .toLowerCase()
-            .includes(searchLower) ||
-          (leave.status || "").toLowerCase().includes(searchLower),
-      );
+      filtered = filtered.filter((leave) => {
+        const fullName = getEmployeeFullName(leave).toLowerCase();
+        const leaveType = (
+          leave.leave_type?.name ||
+          leave.type ||
+          leave.leave_type ||
+          ""
+        ).toLowerCase();
+        const status = (leave.status || "").toLowerCase();
+        const reason = getReason(leave).toLowerCase();
+
+        return (
+          fullName.includes(searchLower) ||
+          leaveType.includes(searchLower) ||
+          status.includes(searchLower) ||
+          reason.includes(searchLower)
+        );
+      });
     }
 
     return filtered;
   };
 
   const filteredLeaves = getFilteredLeaves();
-  const totalFiltered = filteredLeaves.length;
-  const totalPages = Math.ceil(totalFiltered / perPage);
-  const start = (currentPage - 1) * perPage;
-  const pageLeaves = filteredLeaves.slice(start, start + perPage);
+  const totalRecords = pagination?.total || 0;
+  const totalPages = pagination?.lastPage || 1;
+  const pageLeaves = leavesArray;
 
   const handleResetFilters = () => {
     setSelectedStatus("all");
     setSelectedLeaveType("all");
-    setDateRange("all");
+    setDateRange("this_month");
     setStartDate("");
     setEndDate("");
     setSearchTerm("");
@@ -197,41 +190,53 @@ const LeaveRequestReports = () => {
     showToast("Filters reset successfully", "success");
   };
 
+  // Updated handleExport using the exportLeavesReport thunk
   const handleExport = async (format) => {
-    const exportData = getExportData();
-    
-    if (exportData.length === 0) {
-      showToast("No data to export", "warning");
-      return;
+    // Build export parameters as query params
+    const params = {
+      format: format,
+      date_range: dateRange,
+    };
+
+    // Add custom date range params if selected
+    if (dateRange === "custom") {
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
     }
 
-    const headers = [
-      { key: "request_date", label: "Request Date" },
-      { key: "employee_name", label: "Employee" },
-      { key: "leave_type", label: "Leave Type" },
-      { key: "from_date", label: "From" },
-      { key: "to_date", label: "To" },
-      { key: "days", label: "Days" },
-      { key: "status", label: "Status" },
-    ];
+    // Add optional filters
+    if (selectedStatus !== "all") {
+      params.status = selectedStatus;
+    }
+    if (selectedLeaveType !== "all") {
+      params.leave_type = selectedLeaveType;
+    }
+    if (searchTerm) {
+      params.search = searchTerm;
+    }
 
-    const filename = `leave_requests_${new Date().toISOString().split("T")[0]}`;
-
-    if (format === "csv") {
-      exportToCSV(exportData, headers, `${filename}.csv`);
-      showToast("Leave requests exported successfully!", "success");
-    } else if (format === "pdf") {
-      // Get filter summary for PDF
-      const filters = {
-        status: selectedStatus !== "all" ? selectedStatus : null,
-        leave_type: selectedLeaveType !== "all" ? selectedLeaveType : null,
-        date_range: dateRange !== "all" ? dateRange : null,
-        start_date: startDate || null,
-        end_date: endDate || null,
-      };
+    // Dispatch the export thunk
+    const result = await dispatch(exportLeavesReport(params));
+    
+    if (exportLeavesReport.fulfilled.match(result)) {
+      const { url, filename } = result.payload;
       
-      generateLeavesPDF(filteredLeaves, filters);
-      showToast("PDF report generated successfully!", "success");
+      // Create a download link
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Revoke the URL after download
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      
+      showToast(`Leave requests exported successfully!`, "success");
+    } else {
+      showToast(result.payload || "Failed to export report", "error");
     }
   };
 
@@ -312,7 +317,7 @@ const LeaveRequestReports = () => {
                   Total Requests
                 </p>
                 <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {total}
+                  {totalRecords || total}
                 </p>
               </div>
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
@@ -373,7 +378,6 @@ const LeaveRequestReports = () => {
         {/* Filters Bar */}
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Status Filter */}
             <div>
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
                 <i className="fas fa-circle mr-1"></i> Status
@@ -387,6 +391,23 @@ const LeaveRequestReports = () => {
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                <i className="fas fa-calendar-alt mr-1"></i> Request Date
+              </label>
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="this_week">This Week</option>
+                <option value="this_month">This Month</option>
+                <option value="custom">Custom Range</option>
               </select>
             </div>
 
@@ -409,25 +430,6 @@ const LeaveRequestReports = () => {
               </select>
             </div>
 
-            {/* Date Range Filter */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                <i className="fas fa-calendar-alt mr-1"></i> Request Date
-              </label>
-              <select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
-              >
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="thisWeek">This Week</option>
-                <option value="thisMonth">This Month</option>
-                <option value="custom">Custom Range</option>
-              </select>
-            </div>
-
-            {/* Filter Actions */}
             <div className="flex items-end gap-2">
               <button
                 onClick={handleResetFilters}
@@ -438,7 +440,6 @@ const LeaveRequestReports = () => {
             </div>
           </div>
 
-          {/* Custom Date Range */}
           {dateRange === "custom" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <div>
@@ -483,19 +484,28 @@ const LeaveRequestReports = () => {
                 setSearchTerm(val);
                 setCurrentPage(1);
               }}
-              placeholder="Search by employee name, leave type, status..."
+              placeholder="Search by employee name, leave type, status or reason..."
             />
             <button
               onClick={() => setShowExportModal(true)}
-              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+              disabled={exportLoading}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <i className="fas fa-download"></i> Export Report
+              {exportLoading ? (
+                <>
+                  <i className="fas fa-spinner fa-spin"></i> Loading...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-download"></i> Export Report
+                </>
+              )}
             </button>
           </div>
         </div>
 
         {/* Loading State */}
-        {loading && filteredLeaves.length === 0 ? (
+        {loading && leavesArray.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
             <i className="fas fa-spinner fa-spin text-3xl text-green-500 mb-3"></i>
             <p className="text-gray-500 dark:text-gray-400">
@@ -506,7 +516,7 @@ const LeaveRequestReports = () => {
           <>
             {/* Leave Requests Table */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
-              <div className="min-w-[800px] md:min-w-0">
+              <div className="min-w-[1000px] md:min-w-0">
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
@@ -532,50 +542,79 @@ const LeaveRequestReports = () => {
                         DAYS
                       </th>
                       <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                        REASON
+                      </th>
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
                         STATUS
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {pageLeaves.length > 0 ? (
-                      pageLeaves.map((leave, idx) => (
-                        <tr
-                          key={leave.id}
-                          className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                        >
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
-                            {start + idx + 1}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {formatDate(leave.created_at || leave.request_date)}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
-                            {leave.employee_name ||
-                              leave.employee?.name ||
-                              leave.employee?.first_name ||
-                              "-"}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {leave.leave_type?.name || leave.type || "-"}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {formatDate(leave.from_date || leave.fromDate)}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {formatDate(leave.to_date || leave.toDate)}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
-                            {leave.number_of_days || leave.days || "-"}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3">
-                            {getStatusBadge(leave.status)}
-                          </td>
-                        </tr>
-                      ))
+                      pageLeaves.map((leave, idx) => {
+                        const serialNumber =
+                          (pagination?.currentPage - 1) *
+                            (pagination?.perPage || 10) +
+                          idx +
+                          1;
+                        return (
+                          <tr
+                            key={leave.id}
+                            className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                          >
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
+                              {serialNumber}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                              {formatDate(
+                                leave.created_at ||
+                                  leave.request_date ||
+                                  leave.date,
+                              )}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                              {getEmployeeFullName(leave)}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                              {leave.leave_type?.name ||
+                                leave.type ||
+                                leave.leave_type ||
+                                "-"}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                              {formatDate(
+                                leave.from_date ||
+                                  leave.fromDate ||
+                                  leave.start_date,
+                              )}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                              {formatDate(
+                                leave.to_date || leave.toDate || leave.end_date,
+                              )}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
+                              {leave.number_of_days ||
+                                leave.days ||
+                                leave.duration_days ||
+                                "-"}
+                            </td>
+                            <td
+                              className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate"
+                              title={getReason(leave)}
+                            >
+                              {getReason(leave)}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3">
+                              {getStatusBadge(leave.status)}
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td
-                          colSpan="8"
+                          colSpan="9"
                           className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                         >
                           <div className="flex flex-col items-center justify-center gap-2">
@@ -594,13 +633,16 @@ const LeaveRequestReports = () => {
             </div>
 
             {/* Pagination */}
-            {totalFiltered > 0 && (
+            {totalRecords > 0 && (
               <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                totalItems={totalFiltered}
-                itemsPerPage={perPage}
+                currentPage={pagination?.currentPage || 1}
+                totalPages={pagination?.lastPage || 1}
+                onPageChange={(page) => {
+                  setCurrentPage(page);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                totalItems={pagination?.total || 0}
+                itemsPerPage={pagination?.perPage || 10}
               />
             )}
           </>
@@ -610,12 +652,18 @@ const LeaveRequestReports = () => {
       {/* Export Modal */}
       <ExportModal
         isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
+        onClose={() => {
+          if (!exportLoading) {
+            setShowExportModal(false);
+          }
+        }}
         onExport={handleExport}
         title="Export Leave Requests"
-        totalRecords={getExportData().length}
+        totalRecords={pagination?.total || leavesArray.length}
         formats={["csv", "pdf"]}
         defaultFormat="csv"
+        loading={exportLoading}
+        subtitle={`Exporting all ${pagination?.total || leavesArray.length} records matching current filters`}
       />
     </div>
   );

@@ -228,20 +228,43 @@ export const fetchAllTaskReports = createAsyncThunk(
 );
 
 // ==================== Leaves Report ====================
+// ==================== Leaves Report ====================
 export const fetchLeavesReport = createAsyncThunk(
   "reports/fetchLeaves",
   async (params, { rejectWithValue }) => {
     try {
+      // Build params matching backend expectations
+      const apiParams = {
+        page: params.page || 1,
+        per_page: params.per_page || 50,
+        date_range: params.date_range || "this_month", // Backend default is "this_month"
+      };
+
+      // Add optional filters
+      if (params.status && params.status !== "all") {
+        apiParams.status = params.status;
+      }
+      if (params.leave_type && params.leave_type !== "all") {
+        apiParams.leave_type = params.leave_type;
+      }
+      if (params.employee_id && params.employee_id !== "all") {
+        apiParams.employee_id = params.employee_id;
+      }
+      if (params.department_id && params.department_id !== "all") {
+        apiParams.department_id = params.department_id;
+      }
+      if (params.search) {
+        apiParams.search = params.search;
+      }
+
+      // Handle custom date range
+      if (params.date_range === "custom") {
+        if (params.start_date) apiParams.start_date = params.start_date;
+        if (params.end_date) apiParams.end_date = params.end_date;
+      }
+
       const response = await apiClient.get("/admin/reports/leaves", {
-        params: {
-          page: params.page || 1,
-          per_page: params.per_page || 10,
-          status: params.status,
-          leave_type: params.leave_type,
-          start_date: params.start_date,
-          end_date: params.end_date,
-          search: params.search,
-        },
+        params: apiParams,
       });
       return response.data;
     } catch (error) {
@@ -502,6 +525,357 @@ export const exportTaskReports = createAsyncThunk(
   },
 );
 
+// ==================== Fetch All Leaves for Export ====================
+export const fetchAllLeavesForExport = createAsyncThunk(
+  "reports/fetchAllLeaves",
+  async (params, { rejectWithValue }) => {
+    try {
+      // Build params for fetching all data
+      const apiParams = {
+        page: 1,
+        per_page: 1000, // Get a large batch
+        date_range: params.date_range || "this_month",
+      };
+
+      // Add custom date range params if selected
+      if (params.date_range === "custom") {
+        if (params.start_date) apiParams.start_date = params.start_date;
+        if (params.end_date) apiParams.end_date = params.end_date;
+      }
+
+      // Add optional filters
+      if (params.status && params.status !== "all") {
+        apiParams.status = params.status;
+      }
+      if (params.leave_type && params.leave_type !== "all") {
+        apiParams.leave_type = params.leave_type;
+      }
+      if (params.search) {
+        apiParams.search = params.search;
+      }
+
+      const response = await apiClient.get("/admin/reports/leaves", {
+        params: apiParams,
+      });
+
+      const allData = response.data?.data?.data || [];
+      const total = response.data?.data?.total || 0;
+
+      // If there are more records, fetch remaining pages
+      let allLeaves = [...allData];
+      const perPage = response.data?.data?.per_page || 1000;
+      const totalPages = Math.ceil(total / perPage);
+
+      if (totalPages > 1) {
+        const promises = [];
+        for (let page = 2; page <= totalPages; page++) {
+          promises.push(
+            apiClient.get("/admin/reports/leaves", {
+              params: { ...apiParams, page },
+            }),
+          );
+        }
+        const responses = await Promise.all(promises);
+        responses.forEach((res) => {
+          const pageData = res.data?.data?.data || [];
+          allLeaves = [...allLeaves, ...pageData];
+        });
+      }
+
+      return {
+        data: allLeaves,
+        total: allLeaves.length,
+      };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message ||
+          "Failed to fetch all leaves for export",
+      );
+    }
+  },
+);
+
+// ==================== Export Report (Generic) ====================
+export const exportReport = createAsyncThunk(
+  "reports/export",
+  async ({ reportType, params, format }, { rejectWithValue }) => {
+    try {
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      
+      // Always include report_type and format
+      queryParams.append("report_type", reportType);
+      queryParams.append("format", format || "csv");
+      
+      // Add all other params as query parameters
+      Object.keys(params || {}).forEach(key => {
+        if (params[key] !== undefined && params[key] !== null && params[key] !== "") {
+          queryParams.append(key, params[key]);
+        }
+      });
+
+      const url = `/admin/reports/export?${queryParams.toString()}`;
+      console.log("Exporting report with URL:", url);
+
+      // POST request with query params
+      const response = await apiClient.post(url, null, {
+        responseType: "blob", // Important for file download
+      });
+
+      // Determine content type and extension
+      const contentType = format === "pdf" ? "application/pdf" : "text/csv";
+      const extension = format === "pdf" ? "pdf" : "csv";
+
+      // Create a blob URL for the file
+      const blob = new Blob([response.data], { type: contentType });
+      const urlBlob = window.URL.createObjectURL(blob);
+
+      // Generate filename
+      const dateStr = new Date().toISOString().split("T")[0];
+      const filename = `${reportType}_report_${dateStr}.${extension}`;
+
+      return { url: urlBlob, filename, blob };
+    } catch (error) {
+      console.error("Export error:", error);
+      
+      let errorMessage = "Failed to export report";
+      if (error.response && error.response.data) {
+        try {
+          const text = await new Response(error.response.data).text();
+          const parsed = JSON.parse(text);
+          errorMessage = parsed.message || parsed.error || errorMessage;
+        } catch {
+          errorMessage = error.response.statusText || errorMessage;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+// ==================== Export Attendance Report ====================
+export const exportAttendanceReport = createAsyncThunk(
+  "reports/exportAttendance",
+  async (params, { rejectWithValue }) => {
+    try {
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      
+      queryParams.append("report_type", "attendance");
+      queryParams.append("format", params.format || "csv");
+      
+      // Add all other params as query parameters
+      const { format, ...restParams } = params;
+      Object.keys(restParams).forEach(key => {
+        if (restParams[key] !== undefined && restParams[key] !== null && restParams[key] !== "") {
+          queryParams.append(key, restParams[key]);
+        }
+      });
+
+      const url = `/admin/reports/export?${queryParams.toString()}`;
+      console.log("Exporting attendance report with URL:", url);
+
+      // POST request with query params
+      const response = await apiClient.post(url, null, {
+        responseType: "blob",
+      });
+
+      const contentType = params.format === "pdf" ? "application/pdf" : "text/csv";
+      const extension = params.format === "pdf" ? "pdf" : "csv";
+
+      const blob = new Blob([response.data], { type: contentType });
+      const urlBlob = window.URL.createObjectURL(blob);
+
+      const dateStr = new Date().toISOString().split("T")[0];
+      const filename = `attendance_report_${dateStr}.${extension}`;
+
+      return { url: urlBlob, filename, blob };
+    } catch (error) {
+      console.error("Export attendance error:", error);
+      
+      let errorMessage = "Failed to export attendance report";
+      if (error.response && error.response.data) {
+        try {
+          const text = await new Response(error.response.data).text();
+          const parsed = JSON.parse(text);
+          errorMessage = parsed.message || parsed.error || errorMessage;
+        } catch {
+          errorMessage = error.response.statusText || errorMessage;
+        }
+      }
+      
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+// ==================== Export Leaves Report ====================
+export const exportLeavesReport = createAsyncThunk(
+  "reports/exportLeaves",
+  async (params, { rejectWithValue }) => {
+    try {
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      
+      queryParams.append("report_type", "leaves");
+      queryParams.append("format", params.format || "csv");
+      
+      // Add all other params as query parameters
+      const { format, ...restParams } = params;
+      Object.keys(restParams).forEach(key => {
+        if (restParams[key] !== undefined && restParams[key] !== null && restParams[key] !== "") {
+          queryParams.append(key, restParams[key]);
+        }
+      });
+
+      const url = `/admin/reports/export?${queryParams.toString()}`;
+      console.log("Exporting leaves report with URL:", url);
+
+      // POST request with query params
+      const response = await apiClient.post(url, null, {
+        responseType: "blob",
+      });
+
+      const contentType = params.format === "pdf" ? "application/pdf" : "text/csv";
+      const extension = params.format === "pdf" ? "pdf" : "csv";
+
+      const blob = new Blob([response.data], { type: contentType });
+      const urlBlob = window.URL.createObjectURL(blob);
+
+      const dateStr = new Date().toISOString().split("T")[0];
+      const filename = `leaves_report_${dateStr}.${extension}`;
+
+      return { url: urlBlob, filename, blob };
+    } catch (error) {
+      console.error("Export leaves error:", error);
+      
+      let errorMessage = "Failed to export leaves report";
+      if (error.response && error.response.data) {
+        try {
+          const text = await new Response(error.response.data).text();
+          const parsed = JSON.parse(text);
+          errorMessage = parsed.message || parsed.error || errorMessage;
+        } catch {
+          errorMessage = error.response.statusText || errorMessage;
+        }
+      }
+      
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+// ==================== Export Tasks Report ====================
+export const exportTasksReport = createAsyncThunk(
+  "reports/exportTasks",
+  async (params, { rejectWithValue }) => {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      queryParams.append("report_type", "tasks");
+      queryParams.append("format", params.format || "csv");
+      
+      const { format, ...restParams } = params;
+      Object.keys(restParams).forEach(key => {
+        if (restParams[key] !== undefined && restParams[key] !== null && restParams[key] !== "") {
+          queryParams.append(key, restParams[key]);
+        }
+      });
+
+      const url = `/admin/reports/export?${queryParams.toString()}`;
+      console.log("Exporting tasks report with URL:", url);
+
+      // POST request with query params
+      const response = await apiClient.post(url, null, {
+        responseType: "blob",
+      });
+
+      const contentType = params.format === "pdf" ? "application/pdf" : "text/csv";
+      const extension = params.format === "pdf" ? "pdf" : "csv";
+
+      const blob = new Blob([response.data], { type: contentType });
+      const urlBlob = window.URL.createObjectURL(blob);
+
+      const dateStr = new Date().toISOString().split("T")[0];
+      const filename = `tasks_report_${dateStr}.${extension}`;
+
+      return { url: urlBlob, filename, blob };
+    } catch (error) {
+      console.error("Export tasks error:", error);
+      
+      let errorMessage = "Failed to export tasks report";
+      if (error.response && error.response.data) {
+        try {
+          const text = await new Response(error.response.data).text();
+          const parsed = JSON.parse(text);
+          errorMessage = parsed.message || parsed.error || errorMessage;
+        } catch {
+          errorMessage = error.response.statusText || errorMessage;
+        }
+      }
+      
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+// ==================== Export Employees Report ====================
+export const exportEmployeesReport = createAsyncThunk(
+  "reports/exportEmployees",
+  async (params, { rejectWithValue }) => {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      queryParams.append("report_type", "employees");
+      queryParams.append("format", params.format || "csv");
+      
+      const { format, ...restParams } = params;
+      Object.keys(restParams).forEach(key => {
+        if (restParams[key] !== undefined && restParams[key] !== null && restParams[key] !== "") {
+          queryParams.append(key, restParams[key]);
+        }
+      });
+
+      const url = `/admin/reports/export?${queryParams.toString()}`;
+      console.log("Exporting employees report with URL:", url);
+
+      // POST request with query params
+      const response = await apiClient.post(url, null, {
+        responseType: "blob",
+      });
+
+      const contentType = params.format === "pdf" ? "application/pdf" : "text/csv";
+      const extension = params.format === "pdf" ? "pdf" : "csv";
+
+      const blob = new Blob([response.data], { type: contentType });
+      const urlBlob = window.URL.createObjectURL(blob);
+
+      const dateStr = new Date().toISOString().split("T")[0];
+      const filename = `employees_report_${dateStr}.${extension}`;
+
+      return { url: urlBlob, filename, blob };
+    } catch (error) {
+      console.error("Export employees error:", error);
+      
+      let errorMessage = "Failed to export employees report";
+      if (error.response && error.response.data) {
+        try {
+          const text = await new Response(error.response.data).text();
+          const parsed = JSON.parse(text);
+          errorMessage = parsed.message || parsed.error || errorMessage;
+        } catch {
+          errorMessage = error.response.statusText || errorMessage;
+        }
+      }
+      
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
 // ==================== Initial State ====================
 const initialState = {
   // Attendance Report
@@ -530,6 +904,7 @@ const initialState = {
   leavesCurrentPage: 1,
   leavesPerPage: 10,
   leavesLastPage: 1,
+  allLeaveRecords: [],
 
   // Employees Basic Report
   basicEmployees: [],
@@ -593,6 +968,9 @@ const initialState = {
   pendingLeavesCurrentPage: 1,
   pendingLeavesPerPage: 10,
   pendingLeavesLastPage: 1,
+
+  exportLoading: false,
+  exportError: null,
 };
 
 // ==================== Slice ====================
@@ -862,6 +1240,84 @@ const reportSlice = createSlice({
           0,
           state.pendingLeavesTotalCount - 1,
         );
+      })
+      // Add to extraReducers
+      .addCase(fetchAllLeavesForExport.pending, (state) => {
+        state.leavesLoading = true;
+        state.leavesError = null;
+      })
+      .addCase(fetchAllLeavesForExport.fulfilled, (state, action) => {
+        state.leavesLoading = false;
+        // Store all leaves for export in a separate state or use existing
+        state.allLeaveRecords = action.payload.data || [];
+      })
+      .addCase(fetchAllLeavesForExport.rejected, (state, action) => {
+        state.leavesLoading = false;
+        state.leavesError = action.payload;
+      })
+      // ==================== Export Report ====================
+      .addCase(exportReport.pending, (state) => {
+        state.exportLoading = true;
+        state.exportError = null;
+      })
+      .addCase(exportReport.fulfilled, (state) => {
+        state.exportLoading = false;
+      })
+      .addCase(exportReport.rejected, (state, action) => {
+        state.exportLoading = false;
+        state.exportError = action.payload;
+      })
+
+      // ==================== Export Attendance Report ====================
+      .addCase(exportAttendanceReport.pending, (state) => {
+        state.exportLoading = true;
+        state.exportError = null;
+      })
+      .addCase(exportAttendanceReport.fulfilled, (state) => {
+        state.exportLoading = false;
+      })
+      .addCase(exportAttendanceReport.rejected, (state, action) => {
+        state.exportLoading = false;
+        state.exportError = action.payload;
+      })
+
+      // ==================== Export Leaves Report ====================
+      .addCase(exportLeavesReport.pending, (state) => {
+        state.exportLoading = true;
+        state.exportError = null;
+      })
+      .addCase(exportLeavesReport.fulfilled, (state) => {
+        state.exportLoading = false;
+      })
+      .addCase(exportLeavesReport.rejected, (state, action) => {
+        state.exportLoading = false;
+        state.exportError = action.payload;
+      })
+
+      // ==================== Export Tasks Report ====================
+      .addCase(exportTasksReport.pending, (state) => {
+        state.exportLoading = true;
+        state.exportError = null;
+      })
+      .addCase(exportTasksReport.fulfilled, (state) => {
+        state.exportLoading = false;
+      })
+      .addCase(exportTasksReport.rejected, (state, action) => {
+        state.exportLoading = false;
+        state.exportError = action.payload;
+      })
+
+      // ==================== Export Employees Report ====================
+      .addCase(exportEmployeesReport.pending, (state) => {
+        state.exportLoading = true;
+        state.exportError = null;
+      })
+      .addCase(exportEmployeesReport.fulfilled, (state) => {
+        state.exportLoading = false;
+      })
+      .addCase(exportEmployeesReport.rejected, (state, action) => {
+        state.exportLoading = false;
+        state.exportError = action.payload;
       });
   },
 });
