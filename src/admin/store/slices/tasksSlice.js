@@ -99,6 +99,50 @@ export const fetchTasksByProject = createAsyncThunk(
   }
 );
 
+// NEW: Fetch employees for task assignment
+export const fetchTaskEmployees = createAsyncThunk(
+  "tasks/fetchEmployees",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get("/admin/tasks/employees");
+      console.log("Task employees response:", response.data);
+      
+      // Handle the response structure
+      // The API returns an array of employees directly
+      let employees = [];
+      
+      if (Array.isArray(response.data)) {
+        employees = response.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        employees = response.data.data;
+      } else if (response.data?.employees && Array.isArray(response.data.employees)) {
+        employees = response.data.employees;
+      } else if (response.data?.status === "success" && response.data?.data) {
+        employees = Array.isArray(response.data.data) ? response.data.data : [];
+      }
+      
+      // Transform the employee data to match the expected format
+      // The API returns: { id, name, designation }
+      // We need to map it to the format expected by the TaskModal
+      const formattedEmployees = employees.map(emp => ({
+        id: emp.id,
+        name: emp.name,
+        first_name: emp.name, // For display purposes
+        last_name: "",
+        employee_name: emp.name,
+        designation: emp.designation || "",
+        // Keep raw data for reference
+        raw: emp
+      }));
+      
+      return formattedEmployees;
+    } catch (error) {
+      console.error("Failed to fetch task employees:", error);
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch employees");
+    }
+  }
+);
+
 // Create a new task
 export const createTask = createAsyncThunk(
   "tasks/create",
@@ -154,6 +198,7 @@ export const updateTaskStatus = createAsyncThunk(
 const initialState = {
   tasks: [],
   projectTasks: [],
+  taskEmployees: [], // New state for task-specific employees
   loading: false,
   error: null,
   totalCount: 0,
@@ -182,6 +227,9 @@ const taskSlice = createSlice({
     },
     clearProjectTasks: (state) => {
       state.projectTasks = [];
+    },
+    clearTaskEmployees: (state) => {
+      state.taskEmployees = [];
     },
   },
   extraReducers: (builder) => {
@@ -231,6 +279,19 @@ const taskSlice = createSlice({
         }
       })
       .addCase(fetchTasksByProject.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // NEW: Handle fetchTaskEmployees
+      .addCase(fetchTaskEmployees.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchTaskEmployees.fulfilled, (state, action) => {
+        state.loading = false;
+        state.taskEmployees = action.payload || [];
+      })
+      .addCase(fetchTaskEmployees.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -315,5 +376,5 @@ const taskSlice = createSlice({
   },
 });
 
-export const { clearError, setPagination, clearProjectTasks } = taskSlice.actions;
+export const { clearError, setPagination, clearProjectTasks, clearTaskEmployees } = taskSlice.actions;
 export default taskSlice.reducer;

@@ -11,10 +11,10 @@ import {
   deleteTask,
   updateTaskStatus,
   clearError,
+  fetchTaskEmployees,
 } from "../store/slices/tasksSlice";
 import { fetchProjects } from "../store/slices/projectsSlice";
-import { fetchEmployees } from "../store/slices/employeeSlice";
-import { fetchDepartments } from "../store/slices/departmentSlice"; // Add this import
+import { fetchDepartments } from "../store/slices/departmentSlice";
 
 const Tasks = () => {
   const dispatch = useDispatch();
@@ -26,6 +26,7 @@ const Tasks = () => {
     currentPage,
     lastPage,
     perPage,
+     taskEmployees = [],
   } = useSelector((state) => state.tasks || {});
   const { projects = [] } = useSelector((state) => state.projects || {});
   const { employees = [] } = useSelector((state) => state.employees || {});
@@ -51,7 +52,7 @@ const Tasks = () => {
   // Fetch initial data
   useEffect(() => {
     dispatch(fetchProjects());
-    dispatch(fetchEmployees());
+    dispatch(fetchTaskEmployees());
     dispatch(fetchDepartments()); // Add this
   }, [dispatch]);
 
