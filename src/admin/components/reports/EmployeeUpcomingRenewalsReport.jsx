@@ -5,16 +5,22 @@ import SearchBar from "../common/SearchBar";
 import EntriesSelector from "../common/EntriesSelector";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
-import { fetchEmployeeUpcomingRenewalsReport } from "../../store/slices/reportSlice";
+import { 
+  fetchEmployeeUpcomingRenewalsReport,
+  exportReport
+} from "../../store/slices/reportSlice";
 import ExportModal from "../../../components/common/ExportModal";
-import { exportToCSV, formatDate, getDaysDifference } from "../../../utils/reportUtils";
-import { generateEmployeeUpcomingRenewalsPDF } from "../../../utils/reportPDFConfigs";
+import { formatDate, getDaysDifference } from "../../../utils/reportUtils";
 
 const EmployeeUpcomingRenewalsReport = () => {
   const dispatch = useDispatch();
-  const { employees = [], loading } = useSelector(
-    (state) => state.employees || {},
-  );
+  const { 
+    employeeUpcomingRenewals: employees = [],
+    employeeUpcomingRenewalsLoading: loading = false,
+    employeeUpcomingRenewalsTotalCount: totalCount = 0,
+    employeeUpcomingRenewalsLastPage: lastPage = 1,
+    exportLoading = false,
+  } = useSelector((state) => state.reports || {});
 
   // Local state
   const [currentPage, setCurrentPage] = useState(1);
@@ -28,43 +34,40 @@ const EmployeeUpcomingRenewalsReport = () => {
   const [minDays, setMinDays] = useState(31);
   const [maxDays, setMaxDays] = useState(90);
 
+  // Fetch employee upcoming renewals report
   useEffect(() => {
     dispatch(
       fetchEmployeeUpcomingRenewalsReport({
         page: currentPage,
         per_page: perPage,
-        start_date: "2024-01-01",
-        end_date: "2024-01-31",
-      }),
+        min_days: minDays,
+        max_days: maxDays,
+        company: selectedCompany !== "all" ? selectedCompany : undefined,
+        department: selectedDepartment !== "all" ? selectedDepartment : undefined,
+        search: searchTerm || undefined,
+      })
     );
-  }, [dispatch]);
+  }, [dispatch, currentPage, perPage, minDays, maxDays, selectedCompany, selectedDepartment, searchTerm]);
 
   // Reset to first page when filters change
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [searchTerm, selectedCompany, selectedDepartment, minDays, maxDays, perPage]);
 
   // Transform employee data to extract document expiry fields
   const transformEmployee = (emp) => {
-    const raw = emp.raw;
-    const user = raw?.user;
-    const company = user?.company;
-    const department = user?.department;
-
     return {
-      id: emp.id,
-      emp_id: raw?.employee_id || "-",
-      name: emp.name,
-      company_name: company?.company_name || "-",
-      department_name: department?.name || "-",
-      passport_expiry: raw?.passport_expiry_date,
-      visa_expiry: raw?.visa_expiry_date,
-      labor_expiry: raw?.labor_expiry_date,
-      eid_expiry: raw?.eid_expiry_date,
-      // Additional fields for better export
-      email: raw?.company_email || raw?.personal_email || user?.email || "-",
-      phone: raw?.company_mobile_number || raw?.personal_number || "-",
+      id: emp.id || emp.employee_id,
+      emp_id: emp.employee_id || emp.emp_id || "-",
+      name: emp.name || emp.employee_name || `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || "-",
+      company_name: emp.company || emp.company_name || emp.organization || "-",
+      department_name: emp.department || emp.department_name || "-",
+      passport_expiry: emp.passport_expiry_date || emp.passport_expiry,
+      visa_expiry: emp.visa_expiry_date || emp.visa_expiry,
+      labor_expiry: emp.labor_expiry_date || emp.labor_expiry,
+      eid_expiry: emp.eid_expiry_date || emp.eid_expiry,
+      email: emp.email || emp.company_email || emp.personal_email || "-",
+      phone: emp.phone || emp.company_mobile_number || emp.personal_number || "-",
     };
   };
 
@@ -101,7 +104,6 @@ const EmployeeUpcomingRenewalsReport = () => {
       : [];
 
     let filtered = transformedEmps.filter((emp) => {
-      // Check if any document is expiring within the upcoming renewal range
       return (
         isUpcomingRenewal(emp.passport_expiry) ||
         isUpcomingRenewal(emp.visa_expiry) ||
@@ -110,19 +112,19 @@ const EmployeeUpcomingRenewalsReport = () => {
       );
     });
 
-    // Apply company filter
+    // Apply company filter (client-side for display)
     if (selectedCompany !== "all") {
       filtered = filtered.filter((emp) => emp.company_name === selectedCompany);
     }
 
-    // Apply department filter
+    // Apply department filter (client-side for display)
     if (selectedDepartment !== "all") {
       filtered = filtered.filter(
         (emp) => emp.department_name === selectedDepartment,
       );
     }
 
-    // Apply search term
+    // Apply search term (client-side for display)
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -175,8 +177,8 @@ const EmployeeUpcomingRenewalsReport = () => {
   };
 
   const filteredEmployees = getEmployeesWithUpcomingRenewals();
-  const totalFiltered = filteredEmployees.length;
-  const totalPages = Math.ceil(totalFiltered / perPage);
+  const totalFiltered = totalCount || filteredEmployees.length;
+  const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
   const start = (currentPage - 1) * perPage;
   const pageEmployees = filteredEmployees.slice(start, start + perPage);
 
@@ -190,45 +192,52 @@ const EmployeeUpcomingRenewalsReport = () => {
     showToast("Filters reset successfully", "success");
   };
 
+  // Handle export using the exportReport thunk
   const handleExport = async (format) => {
-    const exportData = getExportData();
-    
-    if (exportData.length === 0) {
-      showToast("No data to export", "warning");
-      return;
+    // Build export parameters
+    const params = {
+      format: format,
+      min_days: minDays,
+      max_days: maxDays,
+    };
+
+    // Add filters
+    if (selectedCompany !== "all") {
+      params.company = selectedCompany;
+    }
+    if (selectedDepartment !== "all") {
+      params.department = selectedDepartment;
+    }
+    if (searchTerm) {
+      params.search = searchTerm;
     }
 
-    const headers = [
-      { key: "emp_id", label: "Employee ID" },
-      { key: "name", label: "Name" },
-      { key: "company_name", label: "Company" },
-      { key: "department_name", label: "Department" },
-      { key: "passport_expiry", label: "Passport Expiry" },
-      { key: "visa_expiry", label: "Visa Expiry" },
-      { key: "labor_expiry", label: "Labor Expiry" },
-      { key: "eid_expiry", label: "EID Expiry" },
-      { key: "earliest_document", label: "Earliest Document" },
-      { key: "days_left", label: "Days Left" },
-      { key: "email", label: "Email" },
-      { key: "phone", label: "Phone" },
-      { key: "renewal_range", label: "Renewal Range" },
-    ];
-
-    const filename = `employee_upcoming_renewals_${minDays}_${maxDays}days_${new Date().toISOString().split("T")[0]}`;
-
-    if (format === "csv") {
-      exportToCSV(exportData, headers, `${filename}.csv`);
-      showToast("Employee upcoming renewals exported successfully!", "success");
-    } else if (format === "pdf") {
-      generateEmployeeUpcomingRenewalsPDF(filteredEmployees, "Employee Upcoming Renewals Report", {
-        minDays: minDays,
-        maxDays: maxDays,
-        company: selectedCompany !== "all" ? selectedCompany : null,
-        department: selectedDepartment !== "all" ? selectedDepartment : null,
-        search: searchTerm || null,
-        generated_date: new Date().toISOString(),
-      });
-      showToast("PDF report generated successfully!", "success");
+    // Dispatch the export thunk with report_type: "employee-upcoming-renewals"
+    const result = await dispatch(exportReport({
+      reportType: "employee-upcoming-renewals", // This is the report_type for employee upcoming renewals
+      params: params,
+      format: format,
+    }));
+    
+    if (exportReport.fulfilled.match(result)) {
+      const { url, filename } = result.payload;
+      
+      // Create a download link
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Revoke the URL after download
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      
+      showToast(`Employee upcoming renewals report exported successfully!`, "success");
+    } else {
+      showToast(result.payload || "Failed to export report", "error");
     }
   };
 
@@ -552,9 +561,14 @@ const EmployeeUpcomingRenewalsReport = () => {
             />
             <button
               onClick={() => setShowExportModal(true)}
-              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+              disabled={exportLoading}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <i className="fas fa-download"></i> Export Report
+              {exportLoading ? (
+                <><i className="fas fa-spinner fa-spin"></i> Exporting...</>
+              ) : (
+                <><i className="fas fa-download"></i> Export Report</>
+              )}
             </button>
           </div>
         </div>
@@ -614,7 +628,7 @@ const EmployeeUpcomingRenewalsReport = () => {
                         
                         return (
                           <tr
-                            key={emp.id}
+                            key={emp.id || idx}
                             className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                           >
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
@@ -711,12 +725,18 @@ const EmployeeUpcomingRenewalsReport = () => {
       {/* Export Modal */}
       <ExportModal
         isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
+        onClose={() => {
+          if (!exportLoading) {
+            setShowExportModal(false);
+          }
+        }}
         onExport={handleExport}
         title="Export Employee Upcoming Renewals"
-        totalRecords={getExportData().length}
+        totalRecords={totalCount || filteredEmployees.length}
         formats={["csv", "pdf"]}
         defaultFormat="csv"
+        loading={exportLoading}
+        subtitle={`Exporting employees with documents expiring within ${minDays}-${maxDays} days`}
       />
     </div>
   );

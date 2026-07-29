@@ -7,18 +7,23 @@ import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
 import ConfirmModal from "../common/ConfirmModal";
 import { clearError, updateLeaveStatus } from "../../store/slices/LeaveSlice";
-import { fetchPendingLeavesReport } from "../../store/slices/reportSlice";
+import { 
+  fetchPendingLeavesReport,
+  exportReport
+} from "../../store/slices/reportSlice";
 import ExportModal from "../../../components/common/ExportModal";
-import { exportToCSV, formatDate } from "../../../utils/reportUtils";
-import { generateLeavesPDF } from "../../../utils/reportPDFConfigs";
+import { formatDate } from "../../../utils/reportUtils";
 
 const PendingLeavesReport = () => {
   const dispatch = useDispatch();
   const {
-    leaves = [],
-    loading,
-    error = null,
-  } = useSelector((state) => state.leaves || { leaves: [] });
+    pendingLeaves: leaves = [],
+    pendingLeavesLoading: loading = false,
+    pendingLeavesError: error = null,
+    pendingLeavesTotalCount: totalCount = 0,
+    pendingLeavesLastPage: lastPage = 1,
+    exportLoading = false,
+  } = useSelector((state) => state.reports || {});
 
   // Local state
   const [currentPage, setCurrentPage] = useState(1);
@@ -39,16 +44,19 @@ const PendingLeavesReport = () => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Fetch pending leaves report
   useEffect(() => {
     dispatch(
       fetchPendingLeavesReport({
         page: currentPage,
         per_page: perPage,
-        start_date: "2024-01-01",
-        end_date: "2024-01-31",
-      }),
+        leave_type: selectedLeaveType !== "all" ? selectedLeaveType : undefined,
+        start_date: dateRange === "custom" ? startDate : undefined,
+        end_date: dateRange === "custom" ? endDate : undefined,
+        search: searchTerm || undefined,
+      })
     );
-  }, [dispatch]);
+  }, [dispatch, currentPage, perPage, selectedLeaveType, dateRange, startDate, endDate, searchTerm]);
 
   // Handle errors
   useEffect(() => {
@@ -60,7 +68,6 @@ const PendingLeavesReport = () => {
 
   // Reset to first page when filters change
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [searchTerm, selectedLeaveType, dateRange, startDate, endDate, perPage]);
 
@@ -70,113 +77,46 @@ const PendingLeavesReport = () => {
     ...new Set(
       leavesArray
         .filter((leave) => (leave.status || "").toLowerCase() === "pending")
-        .map((leave) => leave.leave_type?.name || leave.type)
+        .map((leave) => leave.leave_type?.name || leave.type || leave.leave_type)
         .filter(Boolean),
     ),
   ];
 
-  // Filter leaves (only pending)
+  // Filter leaves (only pending) - client-side for display
   const getFilteredLeaves = () => {
     let filtered = leavesArray.filter(
       (leave) => (leave.status || "").toLowerCase() === "pending",
     );
 
-    // Apply leave type filter
+    // Apply leave type filter (client-side)
     if (selectedLeaveType !== "all") {
       filtered = filtered.filter(
-        (leave) => (leave.leave_type?.name || leave.type) === selectedLeaveType,
+        (leave) => (leave.leave_type?.name || leave.type || leave.leave_type) === selectedLeaveType,
       );
     }
 
-    // Apply date range filter based on request date
-    if (dateRange !== "all") {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      filtered = filtered.filter((leave) => {
-        const requestDate = new Date(leave.created_at || leave.request_date);
-        if (isNaN(requestDate.getTime())) return true;
-
-        switch (dateRange) {
-          case "today":
-            return requestDate.toDateString() === today.toDateString();
-          case "thisWeek": {
-            const startOfWeek = new Date(today);
-            startOfWeek.setDate(today.getDate() - today.getDay());
-            const endOfWeek = new Date(today);
-            endOfWeek.setDate(today.getDate() + (6 - today.getDay()));
-            return requestDate >= startOfWeek && requestDate <= endOfWeek;
-          }
-          case "thisMonth": {
-            const startOfMonth = new Date(
-              today.getFullYear(),
-              today.getMonth(),
-              1,
-            );
-            const endOfMonth = new Date(
-              today.getFullYear(),
-              today.getMonth() + 1,
-              0,
-            );
-            return requestDate >= startOfMonth && requestDate <= endOfMonth;
-          }
-          case "custom":
-            if (startDate && endDate) {
-              const start = new Date(startDate);
-              const end = new Date(endDate);
-              end.setHours(23, 59, 59);
-              return requestDate >= start && requestDate <= end;
-            }
-            return true;
-          default:
-            return true;
-        }
-      });
-    }
-
-    // Apply search term
+    // Apply search term (client-side)
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(
-        (leave) =>
-          (
-            leave.employee_name ||
+        (leave) => {
+          const employeeName = leave.employee_name ||
             leave.employee?.name ||
             leave.employee?.first_name ||
-            ""
-          )
-            .toLowerCase()
-            .includes(searchLower) ||
-          (leave.leave_type?.name || leave.type || "")
-            .toLowerCase()
-            .includes(searchLower),
+            "";
+          const leaveType = leave.leave_type?.name || leave.type || leave.leave_type || "";
+          return employeeName.toLowerCase().includes(searchLower) ||
+                 leaveType.toLowerCase().includes(searchLower);
+        }
       );
     }
 
     return filtered;
   };
 
-  // Transform data for export
-  const getExportData = () => {
-    const filtered = getFilteredLeaves();
-    return filtered.map((leave) => ({
-      request_date: formatDate(leave.created_at || leave.request_date),
-      employee_name: leave.employee_name ||
-        leave.employee?.name ||
-        leave.employee?.first_name ||
-        "-",
-      leave_type: leave.leave_type?.name || leave.type || "-",
-      from_date: formatDate(leave.from_date || leave.fromDate),
-      to_date: formatDate(leave.to_date || leave.toDate),
-      days: leave.number_of_days || leave.days || "-",
-      status: "Pending",
-      reason: leave.reason || "-",
-    }));
-  };
-
   const filteredLeaves = getFilteredLeaves();
-  const totalFiltered = filteredLeaves.length;
-  const totalPages = Math.ceil(totalFiltered / perPage);
+  const totalFiltered = totalCount || filteredLeaves.length;
+  const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
   const start = (currentPage - 1) * perPage;
   const pageLeaves = filteredLeaves.slice(start, start + perPage);
 
@@ -213,13 +153,13 @@ const PendingLeavesReport = () => {
         status: actionType === "approve" ? "approved" : "rejected",
         processedBy: "HR Admin",
         rejection_reason: actionType === "reject" ? rejectionReason : null,
-      }),
+      })
     );
 
     if (updateLeaveStatus.fulfilled.match(result)) {
       showToast(
         `Leave request ${actionType === "approve" ? "approved" : "rejected"} successfully`,
-        "success",
+        "success"
       );
       setConfirmOpen(false);
       setSelectedLeave(null);
@@ -230,56 +170,68 @@ const PendingLeavesReport = () => {
         fetchPendingLeavesReport({
           page: currentPage,
           per_page: perPage,
-          start_date: "2024-01-01",
-          end_date: "2024-01-31",
-        }),
+          leave_type: selectedLeaveType !== "all" ? selectedLeaveType : undefined,
+          start_date: dateRange === "custom" ? startDate : undefined,
+          end_date: dateRange === "custom" ? endDate : undefined,
+          search: searchTerm || undefined,
+        })
       );
     } else {
       showToast(
         result.payload || `Failed to ${actionType} leave request`,
-        "error",
+        "error"
       );
     }
 
     setActionLoading(false);
   };
 
+  // Handle export using the exportReport thunk
   const handleExport = async (format) => {
-    const exportData = getExportData();
-    
-    if (exportData.length === 0) {
-      showToast("No data to export", "warning");
-      return;
+    // Build export parameters
+    const params = {
+      format: format,
+      status: "pending", // Only pending leaves
+    };
+
+    // Add filters
+    if (selectedLeaveType !== "all") {
+      params.leave_type = selectedLeaveType;
+    }
+    if (dateRange === "custom") {
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+    }
+    if (searchTerm) {
+      params.search = searchTerm;
     }
 
-    const headers = [
-      { key: "request_date", label: "Request Date" },
-      { key: "employee_name", label: "Employee" },
-      { key: "leave_type", label: "Leave Type" },
-      { key: "from_date", label: "From" },
-      { key: "to_date", label: "To" },
-      { key: "days", label: "Days" },
-      { key: "status", label: "Status" },
-      { key: "reason", label: "Reason" },
-    ];
-
-    const filename = `pending_leaves_${new Date().toISOString().split("T")[0]}`;
-
-    if (format === "csv") {
-      exportToCSV(exportData, headers, `${filename}.csv`);
-      showToast("Pending leaves exported successfully!", "success");
-    } else if (format === "pdf") {
-      // Get filter summary for PDF
-      const filters = {
-        leave_type: selectedLeaveType !== "all" ? selectedLeaveType : null,
-        date_range: dateRange !== "all" ? dateRange : null,
-        start_date: startDate || null,
-        end_date: endDate || null,
-        status_filter: "Pending",
-      };
+    // Dispatch the export thunk with report_type: "pending-leaves"
+    const result = await dispatch(exportReport({
+      reportType: "pending-leaves", // This is the report_type for pending leaves
+      params: params,
+      format: format,
+    }));
+    
+    if (exportReport.fulfilled.match(result)) {
+      const { url, filename } = result.payload;
       
-      generateLeavesPDF(filteredLeaves, filters);
-      showToast("PDF report generated successfully!", "success");
+      // Create a download link
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Revoke the URL after download
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      
+      showToast(`Pending leaves report exported successfully!`, "success");
+    } else {
+      showToast(result.payload || "Failed to export report", "error");
     }
   };
 
@@ -477,9 +429,14 @@ const PendingLeavesReport = () => {
             />
             <button
               onClick={() => setShowExportModal(true)}
-              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+              disabled={exportLoading}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <i className="fas fa-download"></i> Export Report
+              {exportLoading ? (
+                <><i className="fas fa-spinner fa-spin"></i> Exporting...</>
+              ) : (
+                <><i className="fas fa-download"></i> Export Report</>
+              )}
             </button>
           </div>
         </div>
@@ -540,7 +497,7 @@ const PendingLeavesReport = () => {
                             {start + idx + 1}
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {formatDate(leave.created_at || leave.request_date)}
+                            {formatDate(leave.created_at || leave.request_date || leave.date)}
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
                             {leave.employee_name ||
@@ -549,16 +506,16 @@ const PendingLeavesReport = () => {
                               "-"}
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {leave.leave_type?.name || leave.type || "-"}
+                            {leave.leave_type?.name || leave.type || leave.leave_type || "-"}
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {formatDate(leave.from_date || leave.fromDate)}
+                            {formatDate(leave.from_date || leave.fromDate || leave.start_date)}
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {formatDate(leave.to_date || leave.toDate)}
+                            {formatDate(leave.to_date || leave.toDate || leave.end_date)}
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
-                            {leave.number_of_days || leave.days || "-"}
+                            {leave.number_of_days || leave.days || leave.duration_days || "-"}
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3">
                             {getStatusBadge()}
@@ -621,12 +578,18 @@ const PendingLeavesReport = () => {
       {/* Export Modal */}
       <ExportModal
         isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
+        onClose={() => {
+          if (!exportLoading) {
+            setShowExportModal(false);
+          }
+        }}
         onExport={handleExport}
         title="Export Pending Leave Requests"
-        totalRecords={getExportData().length}
+        totalRecords={totalCount || filteredLeaves.length}
         formats={["csv", "pdf"]}
         defaultFormat="csv"
+        loading={exportLoading}
+        subtitle={`Exporting ${totalCount || filteredLeaves.length} pending leave requests`}
       />
 
       {/* Confirm Modal for Approve/Reject */}
