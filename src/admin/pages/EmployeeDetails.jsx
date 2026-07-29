@@ -1,4 +1,4 @@
-// src/admin/pages/EmployeeDetails.js - Full code with proper country detection
+// src/admin/pages/EmployeeDetails.js - Full code with dark theme support
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -57,13 +57,11 @@ const EmployeeDetails = () => {
   }, [dispatch, id]);
 
   useEffect(() => {
-    // Fetch organizations, companies, and roles for display
     dispatch(fetchOrganizations());
     dispatch(fetchCompanies());
     dispatch(fetchRoles());
   }, [dispatch]);
 
-  // Determine country based on employee's company
   useEffect(() => {
     if (currentEmployee && companies.length > 0) {
       const companyId = currentEmployee.user?.company?.id || currentEmployee.user?.company_id;
@@ -71,7 +69,6 @@ const EmployeeDetails = () => {
         const company = companies.find((comp) => comp.id === parseInt(companyId));
         if (company) {
           const companyCountry = company?.country || company?.raw?.country || "UAE";
-          // Normalize country: "AE" -> "UAE", "IN" -> "India"
           let normalizedCountry = companyCountry;
           if (companyCountry === "AE") {
             normalizedCountry = "UAE";
@@ -229,14 +226,12 @@ const EmployeeDetails = () => {
     }
   };
 
-  // Check if employee is skilled
   const isSkilled = () => {
     return (
       currentEmployee?.is_skilled === 1 || currentEmployee?.is_skilled === true
     );
   };
 
-  // Get tabs based on country
   const getTabs = () => {
     const baseTabs = [
       { id: "basic", label: "Basic Info", icon: <FiUser /> },
@@ -264,7 +259,6 @@ const EmployeeDetails = () => {
 
   const tabs = getTabs();
 
-  // Get document fields based on country
   const getDocumentFields = () => {
     if (selectedCountry === "UAE") {
       return [
@@ -297,7 +291,6 @@ const EmployeeDetails = () => {
 
   const documentFields = getDocumentFields();
 
-  // Get identity fields for India - using correct column names
   const getIdentityFields = () => {
     return [
       { key: "aadhar_number", label: "Aadhaar Number", icon: <FaIdCard /> },
@@ -325,8 +318,8 @@ const EmployeeDetails = () => {
       <div className="w-full overflow-x-hidden">
         <main className="content px-4 py-4 md:px-6 md:py-6">
           <div className="text-center py-12">
-            <FiUser className="text-6xl text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700">
+            <FiUser className="text-6xl text-[var(--muted)] mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-[var(--text)]">
               Employee not found
             </h3>
             <button
@@ -351,16 +344,16 @@ const EmployeeDetails = () => {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => navigate("/admin/employees")}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-[var(--surface2)] rounded-lg transition-colors"
                   title="Back to Employees"
                 >
-                  <FiArrowLeft className="text-gray-600 text-xl" />
+                  <FiArrowLeft className="text-[var(--text)] text-xl" />
                 </button>
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+                  <h1 className="text-2xl md:text-3xl font-bold text-[var(--text)]">
                     Employee Details
                   </h1>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-[var(--muted)] mt-1">
                     View complete employee information
                   </p>
                 </div>
@@ -374,14 +367,14 @@ const EmployeeDetails = () => {
             </div>
           </div>
 
-          {/* Profile Summary Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          {/* Profile Summary Card - FIXED DARK THEME */}
+          <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6 mb-6">
             <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
               {getEmployeePhoto() ? (
                 <img
                   src={getEmployeePhoto()}
                   alt={`${currentEmployee.first_name || "Employee"} photo`}
-                  className="w-24 h-24 rounded-full object-cover border-2 border-green-100 shadow-md"
+                  className="w-24 h-24 rounded-full object-cover border-2 border-green-100 dark:border-green-800 shadow-md"
                   onError={(e) => {
                     console.error("Failed to load image:", getEmployeePhoto());
                     e.target.style.display = "none";
@@ -398,20 +391,20 @@ const EmployeeDetails = () => {
                 </div>
               )}
               <div className="flex-1 text-center md:text-left">
-                <h2 className="text-2xl font-bold text-gray-800">
+                <h2 className="text-2xl font-bold text-[var(--text)]">
                   {currentEmployee.first_name} {currentEmployee.last_name}
                 </h2>
                 <div className="flex flex-wrap gap-2 mt-2 justify-center md:justify-start">
-                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                  <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-semibold">
                     {currentEmployee.user?.type?.toUpperCase() || "EMPLOYEE"}
                   </span>
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-semibold ${
                       currentEmployee.user?.status === "active"
-                        ? "bg-green-100 text-green-700"
+                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                         : currentEmployee.user?.status === "onboarding"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-red-100 text-red-700"
+                        ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                        : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                     }`}
                   >
                     {currentEmployee.user?.status === "active"
@@ -420,19 +413,19 @@ const EmployeeDetails = () => {
                       ? "Onboarding"
                       : "Inactive"}
                   </span>
-                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-semibold">
                     ID: {currentEmployee.employee_id}
                   </span>
                   {isSkilled() && (
-                    <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                    <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-full text-xs font-semibold">
                       <FiAward className="inline mr-1" /> Skilled
                     </span>
                   )}
-                  <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold">
+                  <span className="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-full text-xs font-semibold">
                     <FiMapPin className="inline mr-1" /> {selectedCountry}
                   </span>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-4 justify-center md:justify-start text-sm text-gray-600">
+                <div className="mt-3 flex flex-wrap gap-4 justify-center md:justify-start text-sm text-[var(--text)]">
                   <div className="flex items-center gap-1">
                     <FiMail className="text-green-500" />{" "}
                     {currentEmployee.personal_email || "N/A"}
@@ -446,8 +439,8 @@ const EmployeeDetails = () => {
             </div>
           </div>
 
-          {/* Tabs Navigation */}
-          <div className="bg-white border border-gray-200 rounded-xl mb-6 overflow-x-auto">
+          {/* Tabs Navigation - FIXED DARK THEME */}
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl mb-6 overflow-x-auto">
             <div className="flex min-w-max">
               {tabs.map((tab) => (
                 <button
@@ -455,8 +448,8 @@ const EmployeeDetails = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`px-5 py-3 flex items-center gap-2 text-sm font-medium transition-all ${
                     activeTab === tab.id
-                      ? "text-green-600 border-b-2 border-green-600 bg-gray-50"
-                      : "text-gray-600 hover:text-green-600 hover:bg-gray-50"
+                      ? "text-green-600 dark:text-green-400 border-b-2 border-green-600 dark:border-green-400 bg-[var(--surface2)]"
+                      : "text-[var(--text)] hover:text-green-600 dark:hover:text-green-400 hover:bg-[var(--surface2)]"
                   }`}
                 >
                   {tab.icon}
@@ -466,178 +459,178 @@ const EmployeeDetails = () => {
             </div>
           </div>
 
-          {/* Tab Content */}
-          <div className="bg-white border border-gray-200 rounded-xl p-6">
+          {/* Tab Content - FIXED DARK THEME */}
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
             {/* Basic Information Tab */}
             {activeTab === "basic" && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
                   <FiUser className="text-green-500" /> Personal Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Full Name
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.first_name} {currentEmployee.last_name}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Employee ID
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.employee_id}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Username
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.user?.username || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         User Type
                       </label>
-                      <p className="text-gray-800 font-medium mt-1 capitalize">
+                      <p className="text-[var(--text)] font-medium mt-1 capitalize">
                         {currentEmployee.user?.type || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Employee Category
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {isSkilled() ? "Skilled" : "Unskilled"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Country
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {selectedCountry}
                       </p>
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
                         <FaVenusMars /> Gender
                       </label>
-                      <p className="text-gray-800 font-medium mt-1 capitalize">
+                      <p className="text-[var(--text)] font-medium mt-1 capitalize">
                         {currentEmployee.gender || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
                         <FiCalendar /> Date of Birth
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.dob
                           ? formatDate(currentEmployee.dob)
                           : "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
                         <FiCalendar /> Joining Date
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.joining_date
                           ? formatDate(currentEmployee.joining_date)
                           : "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
                         <FiFlag /> Nationality
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.nationality || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
                         <FiHeart /> Marital Status
                       </label>
-                      <p className="text-gray-800 font-medium mt-1 capitalize">
+                      <p className="text-[var(--text)] font-medium mt-1 capitalize">
                         {currentEmployee.marital_status || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Dependents
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.dependents || "0"}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <h3 className="text-lg font-semibold text-gray-800 mt-6 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-[var(--text)] mt-6 mb-4 flex items-center gap-2">
                   <FiBriefcase className="text-green-500" /> Organization
                   Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Organization
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {getOrganizationName(
                           currentEmployee.user?.organization_id,
                         )}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Company
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.user?.company?.company_name ||
                           currentEmployee.user?.company?.name ||
                           "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Trade License Type
                       </label>
-                      <p className="text-gray-800 font-medium mt-1 capitalize">
+                      <p className="text-[var(--text)] font-medium mt-1 capitalize">
                         {currentEmployee.user?.company?.trade_license || "N/A"}
                       </p>
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Designation
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.user?.designation?.name || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Department
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.user?.department?.name || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Role
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {getRoleName(currentEmployee.user?.role_id)}
                       </p>
                     </div>
@@ -645,10 +638,10 @@ const EmployeeDetails = () => {
                 </div>
 
                 {/* Special Days Section */}
-                <h3 className="text-lg font-semibold text-gray-800 mt-6 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-[var(--text)] mt-6 mb-4 flex items-center gap-2">
                   <FiHeart className="text-green-500" /> Special Days
                 </h3>
-                <div className="border-t border-gray-100 pt-4">
+                <div className="border-t border-[var(--border)] pt-4">
                   {(() => {
                     const formattedSpecialDays = formatSpecialDays(
                       currentEmployee.special_days,
@@ -658,7 +651,7 @@ const EmployeeDetails = () => {
                       formattedSpecialDays.length === 0
                     ) {
                       return (
-                        <p className="text-gray-600">
+                        <p className="text-[var(--muted)]">
                           No special days recorded
                         </p>
                       );
@@ -668,18 +661,18 @@ const EmployeeDetails = () => {
                         {formattedSpecialDays.map((day, index) => (
                           <div
                             key={index}
-                            className="bg-gray-50 rounded-lg p-3 flex items-center gap-3"
+                            className="bg-[var(--surface2)] rounded-lg p-3 flex items-center gap-3"
                           >
-                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                              <span className="text-green-600 font-semibold text-sm">
+                            <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                              <span className="text-green-600 dark:text-green-400 font-semibold text-sm">
                                 {index + 1}
                               </span>
                             </div>
                             <div>
-                              <p className="font-semibold text-gray-800">
+                              <p className="font-semibold text-[var(--text)]">
                                 {day.name}
                               </p>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-[var(--muted)]">
                                 {day.date}
                               </p>
                             </div>
@@ -695,40 +688,40 @@ const EmployeeDetails = () => {
             {/* Passport Information Tab (UAE only) */}
             {activeTab === "passport" && selectedCountry === "UAE" && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
                   <FaPassport className="text-green-500" /> Passport Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Passport Full Name
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.passport_full_name || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Passport Number
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.passport_number || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Issued From
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.passport_issued_from || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Issued Date
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.passport_issued_date
                           ? formatDate(currentEmployee.passport_issued_date)
                           : "N/A"}
@@ -736,48 +729,48 @@ const EmployeeDetails = () => {
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Expiry Date
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.passport_expiry_date
                           ? formatDate(currentEmployee.passport_expiry_date)
                           : "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Place of Birth
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.place_of_birth || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Father's Name
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.father_name || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Mother's Name
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.mother_name || "N/A"}
                       </p>
                     </div>
                   </div>
                 </div>
                 <div className="mt-6">
-                  <div className="border-b border-gray-100 pb-3">
-                    <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                  <div className="border-b border-[var(--border)] pb-3">
+                    <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
                       <FiHome /> Address
                     </label>
-                    <p className="text-gray-800 font-medium mt-1">
+                    <p className="text-[var(--text)] font-medium mt-1">
                       {currentEmployee.address || "N/A"}
                     </p>
                   </div>
@@ -788,16 +781,16 @@ const EmployeeDetails = () => {
             {/* Identity Documents Tab (India only) */}
             {activeTab === "identity" && selectedCountry === "India" && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
                   <FaIdCard className="text-green-500" /> Identity Documents
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {getIdentityFields().map((field) => (
-                    <div key={field.key} className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                    <div key={field.key} className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
                         {field.icon} {field.label}
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee[field.key] || "N/A"}
                       </p>
                     </div>
@@ -809,42 +802,42 @@ const EmployeeDetails = () => {
             {/* Visa & Labor Tab (UAE only) */}
             {activeTab === "visa" && selectedCountry === "UAE" && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
                   <FiCreditCard className="text-green-500" /> Visa Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Visa Type
                       </label>
-                      <p className="text-gray-800 font-medium mt-1 capitalize">
+                      <p className="text-[var(--text)] font-medium mt-1 capitalize">
                         {currentEmployee.visa_type?.replace("_", " ") || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Visa Number
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.visa_number || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Visa Issued Date
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.visa_issued_date
                           ? formatDate(currentEmployee.visa_issued_date)
                           : "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Visa Expiry Date
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.visa_expiry_date
                           ? formatDate(currentEmployee.visa_expiry_date)
                           : "N/A"}
@@ -852,29 +845,29 @@ const EmployeeDetails = () => {
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Labor Number
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.labor_number || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Labor Issued Date
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.labor_issued_date
                           ? formatDate(currentEmployee.labor_issued_date)
                           : "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Labor Expiry Date
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.labor_expiry_date
                           ? formatDate(currentEmployee.labor_expiry_date)
                           : "N/A"}
@@ -888,34 +881,34 @@ const EmployeeDetails = () => {
             {/* EID Tab (UAE only) */}
             {activeTab === "eid" && selectedCountry === "UAE" && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
                   <FaIdCard className="text-green-500" /> Emirates ID Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         EID Number
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.eid_number || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         EID Issued Date
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.eid_issued_date
                           ? formatDate(currentEmployee.eid_issued_date)
                           : "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         EID Expiry Date
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.eid_expiry_date
                           ? formatDate(currentEmployee.eid_expiry_date)
                           : "N/A"}
@@ -929,58 +922,58 @@ const EmployeeDetails = () => {
             {/* Contact Information Tab */}
             {activeTab === "contact" && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
                   <FiPhoneCall className="text-green-500" /> Contact Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Company Email
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.company_email || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Personal Email
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.personal_email || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Company Mobile Number
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.company_mobile_number || "N/A"}
                       </p>
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Personal Number
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.personal_number || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Other Number
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.other_number || "N/A"}
                       </p>
                     </div>
-                    <div className="border-b border-gray-100 pb-3">
-                      <label className="text-xs text-gray-500 uppercase tracking-wide">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
                         Home Country Number
                       </label>
-                      <p className="text-gray-800 font-medium mt-1">
+                      <p className="text-[var(--text)] font-medium mt-1">
                         {currentEmployee.home_country_number || "N/A"}
                       </p>
                     </div>
@@ -989,20 +982,19 @@ const EmployeeDetails = () => {
               </div>
             )}
 
-            {/* Documents Tab */}
+            {/* Documents Tab - FIXED DARK THEME */}
             {activeTab === "documents" && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
                   <FiFileText className="text-green-500" /> Employee Documents
-                  <span className="text-xs text-gray-500 font-normal ml-2">
+                  <span className="text-xs text-[var(--muted)] font-normal ml-2">
                     ({selectedCountry})
                   </span>
                 </h3>
 
-                {/* Avatar/Photo Document */}
                 {(currentEmployee.avatar || currentEmployee.avatar_path) && (
-                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <h4 className="font-semibold text-gray-700 mb-3">
+                  <div className="mb-6 p-4 bg-[var(--surface2)] rounded-lg">
+                    <h4 className="font-semibold text-[var(--text)] mb-3">
                       Profile Photo
                     </h4>
                     <a
@@ -1025,19 +1017,19 @@ const EmployeeDetails = () => {
                     return (
                       <div
                         key={doc.key}
-                        className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                        className="border border-[var(--border)] rounded-lg p-4 hover:shadow-md transition-shadow"
                       >
                         <div className="flex items-center gap-3 mb-3">
-                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                          <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                             <i
-                              className={`${doc.icon} text-green-600 text-lg`}
+                              className={`${doc.icon} text-green-600 dark:text-green-400 text-lg`}
                             ></i>
                           </div>
                           <div>
-                            <h4 className="font-semibold text-gray-800 text-sm">
+                            <h4 className="font-semibold text-[var(--text)] text-sm">
                               {doc.label}
                             </h4>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-[var(--muted)]">
                               {hasDocument ? "Uploaded" : "Not Uploaded"}
                             </p>
                           </div>
@@ -1047,12 +1039,12 @@ const EmployeeDetails = () => {
                             href={getDocumentUrl(documentPath)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 px-3 py-2 bg-green-50 text-green-600 rounded-lg text-sm hover:bg-green-100 transition-colors w-full justify-center"
+                            className="inline-flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg text-sm hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors w-full justify-center"
                           >
                             <FiDownload /> View Document
                           </a>
                         ) : (
-                          <div className="text-center py-2 text-gray-400 text-sm">
+                          <div className="text-center py-2 text-[var(--muted)] text-sm">
                             <FiXCircle className="inline mr-1" /> No document
                             uploaded
                           </div>

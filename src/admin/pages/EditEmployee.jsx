@@ -1,4 +1,3 @@
-// src/admin/pages/EditEmployee.js - Full code with Aadhaar and PAN photo uploads
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -1274,7 +1273,7 @@ useEffect(() => {
     return true;
   };
 
-  // DocumentUpload component
+  // DocumentUpload component - FIXED FOR DARK THEME
   const DocumentUpload = ({
     fieldKey,
     label,
@@ -1295,20 +1294,20 @@ useEffect(() => {
     };
 
     return (
-      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/30">
-        <label className="block text-sm font-semibold text-gray-700 mb-3">
+      <div className="border border-[var(--border)] rounded-lg p-4 bg-[var(--surface2)]">
+        <label className="block text-sm font-semibold text-[var(--text)] mb-3">
           <i className={`${icon} text-green-500 mr-2`}></i>
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
           {!required && (
-            <span className="text-xs text-gray-400 ml-2">(Optional)</span>
+            <span className="text-xs text-[var(--muted)] ml-2">(Optional)</span>
           )}
         </label>
 
         {/* Existing document */}
         {existingDoc && !isRemoved && !newFile && (
-          <div className="mb-3 p-2 bg-gray-100 rounded-lg flex justify-between items-center">
-            <span className="text-sm text-gray-600">
+          <div className="mb-3 p-2 bg-[var(--surface)] rounded-lg flex justify-between items-center border border-[var(--border)]">
+            <span className="text-sm text-[var(--text)]">
               <i className="fas fa-file-alt mr-2"></i>Current file
             </span>
             <div className="flex gap-2">
@@ -1316,14 +1315,14 @@ useEffect(() => {
                 href={getDocumentUrl(existingDoc)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-500 text-sm"
+                className="text-blue-500 text-sm hover:text-blue-600"
               >
                 <i className="fas fa-download"></i> View
               </a>
               <button
                 type="button"
                 onClick={() => handleRemoveExistingDocument(fieldKey)}
-                className="text-red-500 text-sm"
+                className="text-red-500 text-sm hover:text-red-600"
               >
                 <i className="fas fa-trash"></i> Remove
               </button>
@@ -1357,7 +1356,7 @@ useEffect(() => {
               </>
             )}
           </button>
-          <span className="text-sm text-gray-500 truncate flex-1">
+          <span className="text-sm text-[var(--muted)] truncate flex-1">
             {isUploading
               ? "Uploading..."
               : newFile
@@ -1374,12 +1373,12 @@ useEffect(() => {
             <img
               src={preview}
               alt={label}
-              className="h-20 w-20 object-cover rounded-lg border"
+              className="h-20 w-20 object-cover rounded-lg border border-[var(--border)]"
             />
             <button
               type="button"
               onClick={() => handleCancelNewDocument(fieldKey)}
-              className="mt-2 text-xs text-red-500"
+              className="mt-2 text-xs text-red-500 hover:text-red-600"
             >
               <i className="fas fa-trash"></i> Cancel
             </button>
@@ -1387,20 +1386,20 @@ useEffect(() => {
         )}
         {newFile && preview === "pdf" && (
           <div className="mt-3">
-            <div className="h-20 w-20 bg-red-100 rounded-lg flex items-center justify-center">
+            <div className="h-20 w-20 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
               <i className="fas fa-file-pdf text-red-500 text-3xl"></i>
             </div>
             <button
               type="button"
               onClick={() => handleCancelNewDocument(fieldKey)}
-              className="mt-2 text-xs text-red-500"
+              className="mt-2 text-xs text-red-500 hover:text-red-600"
             >
               <i className="fas fa-trash"></i> Cancel
             </button>
           </div>
         )}
 
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-[var(--muted)] mt-2">
           Max size: {fieldKey === "avatar" ? "2MB" : "5MB"}. Allowed: JPG, PNG,
           PDF
         </p>
@@ -1426,20 +1425,20 @@ useEffect(() => {
         >
           Employees
         </Link>
-        <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
-        <span className="text-gray-500">Edit Employee</span>
+        <i className="fas fa-chevron-right text-[var(--muted)] text-[10px] md:text-xs"></i>
+        <span className="text-[var(--muted)]">Edit Employee</span>
       </div>
 
       {/* Page Header */}
       <div className="mb-4 md:mb-6">
-        <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent">
+        <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent dark:from-gray-200 dark:to-green-400">
           <i className="fas fa-user-edit mr-2"></i> Edit Employee
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-[var(--muted)] mt-1">
           Update employee information
         </p>
         {selectedCountry && (
-          <p className="text-xs text-blue-600 mt-1">
+          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
             <i className="fas fa-info-circle mr-1"></i>
             Country: <span className="font-semibold">{selectedCountry}</span> -
             {selectedCountry === "UAE"
@@ -1461,10 +1460,10 @@ useEffect(() => {
                 currentStep === index
                   ? "bg-green-500 text-white shadow-md"
                   : stepErrors[index]
-                    ? "bg-red-50 text-red-600 border border-red-300"
+                    ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700"
                     : index < currentStep
-                      ? "text-green-500"
-                      : "text-gray-500 bg-gray-100"
+                      ? "text-green-500 dark:text-green-400"
+                      : "text-[var(--muted)] bg-[var(--surface2)]"
               }`}
             >
               <i className={`${step.icon} mr-1 text-xs md:text-sm`}></i>
@@ -1481,12 +1480,12 @@ useEffect(() => {
       </div>
 
       {/* Form Container */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 lg:p-8 shadow-soft">
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 md:p-6 lg:p-8 shadow-soft">
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-8">
             {stepErrors[currentStep] && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-                <p className="text-xs md:text-sm text-red-600">
+              <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-3 py-2">
+                <p className="text-xs md:text-sm text-red-600 dark:text-red-400">
                   <i className="fas fa-exclamation-circle mr-1"></i>Please
                   complete required fields in this section.
                 </p>
@@ -1498,14 +1497,14 @@ useEffect(() => {
               <div>
                 <div className="form-section-title mb-4 md:mb-6">
                   <i className="fas fa-user-circle text-green-500 mr-2"></i>
-                  <h3 className="text-base md:text-lg font-bold text-gray-800">
+                  <h3 className="text-base md:text-lg font-bold text-[var(--text)]">
                     Basic Information
                   </h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                   {/* First Name */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       First Name <span className="text-red-500">*</span>
                     </label>
                     <Controller
@@ -1517,7 +1516,9 @@ useEffect(() => {
                           <input
                             {...field}
                             type="text"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base ${errors.first_name ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)] ${
+                              errors.first_name ? "border-red-500" : "border-[var(--border)] focus:border-green-500"
+                            }`}
                             placeholder="Enter first name"
                           />
                           {errors.first_name && (
@@ -1532,7 +1533,7 @@ useEffect(() => {
 
                   {/* Last Name */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Last Name
                     </label>
                     <Controller
@@ -1542,7 +1543,7 @@ useEffect(() => {
                         <input
                           {...field}
                           type="text"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                           placeholder="Enter last name"
                         />
                       )}
@@ -1551,7 +1552,7 @@ useEffect(() => {
 
                   {/* Organization */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Organization <span className="text-red-500">*</span>
                     </label>
                     <Controller
@@ -1562,7 +1563,9 @@ useEffect(() => {
                         <>
                           <select
                             {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.organization_id ? "border-red-500" : "border-gray-200"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] ${
+                              errors.organization_id ? "border-red-500" : "border-[var(--border)]"
+                            }`}
                           >
                             <option value="">Select Organization</option>
                             {organizations.map((org) => (
@@ -1583,7 +1586,7 @@ useEffect(() => {
 
                   {/* Company */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Company
                       {selectedOrgDetails?.multi_company === "Yes" && (
                         <span className="text-red-500">*</span>
@@ -1605,11 +1608,11 @@ useEffect(() => {
                             disabled={
                               selectedOrgDetails?.multi_company !== "Yes"
                             }
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] ${
                               selectedOrgDetails?.multi_company !== "Yes"
                                 ? "opacity-50 cursor-not-allowed"
                                 : ""
-                            } ${errors.company_id ? "border-red-500" : "border-gray-200"}`}
+                            } ${errors.company_id ? "border-red-500" : "border-[var(--border)]"}`}
                           >
                             <option value="">
                               {selectedOrgDetails?.multi_company === "Yes"
@@ -1622,7 +1625,7 @@ useEffect(() => {
                               <option key={company.id} value={company.id}>
                                 {company.company_name || company.name}
                                 {company.raw?.trade_license && (
-                                  <span className="text-xs text-gray-500 ml-1">
+                                  <span className="text-xs text-[var(--muted)] ml-1">
                                     ({company.raw?.trade_license})
                                   </span>
                                 )}
@@ -1644,20 +1647,27 @@ useEffect(() => {
                     selectedCompanyDetails.raw?.trade_license && (
                       <div className="md:col-span-2">
                         <div
-                          className={`p-3 rounded-lg ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "bg-blue-50 border border-blue-200" : "bg-yellow-50 border border-yellow-200"}`}
+                          className={`p-3 rounded-lg ${
+                            selectedCompanyDetails.raw?.trade_license === "mainland"
+                              ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                              : "bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800"
+                          }`}
                         >
                           <div className="flex items-center gap-2">
                             <i
-                              className={`fas ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "fa-building" : "fa-globe"} ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "text-blue-600" : "text-yellow-600"}`}
+                              className={`fas ${
+                                selectedCompanyDetails.raw?.trade_license === "mainland"
+                                  ? "fa-building text-blue-600 dark:text-blue-400"
+                                  : "fa-globe text-yellow-600 dark:text-yellow-400"
+                              }`}
                             ></i>
-                            <span className="text-sm font-semibold text-gray-700">
+                            <span className="text-sm font-semibold text-[var(--text)]">
                               Company Trade License:{" "}
                               <span
                                 className={
-                                  selectedCompanyDetails.raw?.trade_license ===
-                                  "mainland"
-                                    ? "text-blue-600"
-                                    : "text-yellow-600"
+                                  selectedCompanyDetails.raw?.trade_license === "mainland"
+                                    ? "text-blue-600 dark:text-blue-400"
+                                    : "text-yellow-600 dark:text-yellow-400"
                                 }
                               >
                                 {selectedCompanyDetails.raw?.trade_license.toUpperCase()}
@@ -1670,7 +1680,7 @@ useEffect(() => {
 
                   {/* Designation */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Designation <span className="text-red-500">*</span>
                     </label>
                     <Controller
@@ -1681,7 +1691,9 @@ useEffect(() => {
                         <>
                           <select
                             {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.designation_id ? "border-red-500" : "border-gray-200"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] ${
+                              errors.designation_id ? "border-red-500" : "border-[var(--border)]"
+                            }`}
                           >
                             <option value="">Select Designation</option>
                             {designations.map((desig) => (
@@ -1702,7 +1714,7 @@ useEffect(() => {
 
                   {/* Department */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Department <span className="text-red-500">*</span>
                     </label>
                     <Controller
@@ -1713,7 +1725,9 @@ useEffect(() => {
                         <>
                           <select
                             {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.department_id ? "border-red-500" : "border-gray-200"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] ${
+                              errors.department_id ? "border-red-500" : "border-[var(--border)]"
+                            }`}
                           >
                             <option value="">Select Department</option>
                             {departments.map((dept) => (
@@ -1734,7 +1748,7 @@ useEffect(() => {
 
                   {/* User Type */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       User Type <span className="text-red-500">*</span>
                     </label>
                     <Controller
@@ -1744,7 +1758,7 @@ useEffect(() => {
                       render={({ field }) => (
                         <select
                           {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)]"
                         >
                           {userTypeOptions.map((type) => (
                             <option key={type} value={type}>
@@ -1758,7 +1772,7 @@ useEffect(() => {
 
                   {/* Gender */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Gender
                     </label>
                     <Controller
@@ -1767,7 +1781,7 @@ useEffect(() => {
                       render={({ field }) => (
                         <select
                           {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)]"
                         >
                           <option value="">Select Gender</option>
                           {genderOptions.map((gender) => (
@@ -1783,7 +1797,7 @@ useEffect(() => {
                   {/* Nationality */}
                   {countryConfig.showNationality && (
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                         Nationality
                       </label>
                       <Controller
@@ -1792,7 +1806,7 @@ useEffect(() => {
                         render={({ field }) => (
                           <select
                             {...field}
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)]"
                           >
                             <option value="">Select Nationality</option>
                             {nationalityOptions.map((nationality) => (
@@ -1808,7 +1822,7 @@ useEffect(() => {
 
                   {/* Marital Status */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Marital Status
                     </label>
                     <Controller
@@ -1817,7 +1831,7 @@ useEffect(() => {
                       render={({ field }) => (
                         <select
                           {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)]"
                         >
                           <option value="">Select Marital Status</option>
                           {maritalStatusOptions.map((status) => (
@@ -1832,7 +1846,7 @@ useEffect(() => {
 
                   {/* Special Days */}
                   <div className="md:col-span-2">
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-2">
                       Special Days
                     </label>
                     <div className="space-y-3">
@@ -1848,10 +1862,10 @@ useEffect(() => {
                                     {...field}
                                     type="text"
                                     placeholder="e.g., Birthday / Anniversary"
-                                    className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:outline-none ${
+                                    className={`w-full px-3 py-2 bg-[var(--surface2)] border rounded-lg text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none ${
                                       errors?.special_days?.[index]?.name
                                         ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
-                                        : "border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                                        : "border-[var(--border)] focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                                     }`}
                                   />
                                   {errors?.special_days?.[index]?.name && (
@@ -1890,7 +1904,7 @@ useEffect(() => {
                             <button
                               type="button"
                               onClick={() => remove(index)}
-                              className="p-2 text-red-500"
+                              className="p-2 text-red-500 hover:text-red-600"
                             >
                               <i className="fas fa-trash"></i>
                             </button>
@@ -1900,7 +1914,7 @@ useEffect(() => {
                       <button
                         type="button"
                         onClick={() => append({ name: "", date: "" })}
-                        className="text-green-500 text-sm font-semibold flex items-center gap-2"
+                        className="text-green-500 text-sm font-semibold flex items-center gap-2 hover:text-green-600"
                       >
                         <i className="fas fa-plus-circle"></i> Add Special Day
                       </button>
@@ -1909,7 +1923,7 @@ useEffect(() => {
 
                   {/* Employee ID */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
                       Employee ID <span className="text-red-500">*</span>
                     </label>
@@ -1923,7 +1937,9 @@ useEffect(() => {
                             type="text"
                             readOnly
                             disabled
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 border rounded-lg text-sm md:text-base text-gray-600 cursor-not-allowed ${errors.employee_id ? "border-red-500" : "border-gray-200"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] opacity-70 cursor-not-allowed ${
+                              errors.employee_id ? "border-red-500" : "border-[var(--border)]"
+                            }`}
                             placeholder="Employee ID"
                           />
                           {errors.employee_id && (
@@ -1934,7 +1950,7 @@ useEffect(() => {
                         </>
                       )}
                     />
-                    <p className="mt-1 text-xs text-gray-400">
+                    <p className="mt-1 text-xs text-[var(--muted)]">
                       <i className="fas fa-info-circle mr-1"></i>
                       Employee ID is auto-generated based on DOB and Joining
                       Date and cannot be edited
@@ -1943,7 +1959,7 @@ useEffect(() => {
 
                   {/* Date of Birth */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Date of Birth <span className="text-red-500">*</span>
                     </label>
                     <Controller
@@ -1969,7 +1985,7 @@ useEffect(() => {
 
                   {/* Joining Date */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Joining Date <span className="text-red-500">*</span>
                     </label>
                     <Controller
@@ -1995,8 +2011,8 @@ useEffect(() => {
 
                   {/* Avatar Upload */}
                   <div className="md:col-span-2">
-                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/30">
-                      <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    <div className="border border-[var(--border)] rounded-lg p-4 bg-[var(--surface2)]">
+                      <label className="block text-sm font-semibold text-[var(--text)] mb-3">
                         <i className="fas fa-camera text-green-500 mr-2"></i>
                         Passport Size Photo
                       </label>
@@ -2012,7 +2028,7 @@ useEffect(() => {
                   {/* Skilled/Unskilled Dropdown */}
                   {countryConfig.showSkilledUnskilled && (
                     <div className="md:col-span-2">
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-2">
                         <i className="fas fa-graduation-cap text-green-500 mr-1"></i>
                         Employee Category{" "}
                         <span className="text-red-500">*</span>
@@ -2022,7 +2038,7 @@ useEffect(() => {
                         control={control}
                         render={({ field }) => (
                           <div className="flex gap-4">
-                            <label className="flex items-center">
+                            <label className="flex items-center text-[var(--text)]">
                               <input
                                 type="radio"
                                 value="true"
@@ -2030,11 +2046,9 @@ useEffect(() => {
                                 onChange={() => field.onChange(true)}
                                 className="mr-2 text-green-500 focus:ring-green-500"
                               />
-                              <span className="text-sm text-gray-700">
-                                Skilled
-                              </span>
+                              <span className="text-sm">Skilled</span>
                             </label>
-                            <label className="flex items-center">
+                            <label className="flex items-center text-[var(--text)]">
                               <input
                                 type="radio"
                                 value="false"
@@ -2042,9 +2056,7 @@ useEffect(() => {
                                 onChange={() => field.onChange(false)}
                                 className="mr-2 text-green-500 focus:ring-green-500"
                               />
-                              <span className="text-sm text-gray-700">
-                                Unskilled
-                              </span>
+                              <span className="text-sm">Unskilled</span>
                             </label>
                           </div>
                         )}
@@ -2056,8 +2068,8 @@ useEffect(() => {
                   {watch("is_skilled") === true && (
                     <>
                       <div className="md:col-span-2">
-                        <div className="border-t border-gray-200 pt-4 mt-2">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                        <div className="border-t border-[var(--border)] pt-4 mt-2">
+                          <h4 className="text-sm font-semibold text-[var(--text)] mb-3">
                             Educational Documents
                           </h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2092,17 +2104,16 @@ useEffect(() => {
             {currentStep === 1 && (
               <div>
                 {selectedCountry === "UAE" ? (
-                  /* UAE - Passport Information */
                   <div>
                     <div className="form-section-title mb-4 md:mb-6">
                       <i className="fas fa-passport text-green-500 mr-2"></i>
-                      <h3 className="text-base md:text-lg font-bold text-gray-800">
+                      <h3 className="text-base md:text-lg font-bold text-[var(--text)]">
                         Passport Information
                       </h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                       <div className="md:col-span-2">
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                           Passport Full Name
                         </label>
                         <Controller
@@ -2112,7 +2123,7 @@ useEffect(() => {
                             <input
                               {...field}
                               type="text"
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                               placeholder="Enter name as per passport"
                             />
                           )}
@@ -2120,7 +2131,7 @@ useEffect(() => {
                       </div>
 
                       <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                           Passport Number
                         </label>
                         <Controller
@@ -2130,7 +2141,7 @@ useEffect(() => {
                             <input
                               {...field}
                               type="text"
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                               placeholder="Enter passport number"
                             />
                           )}
@@ -2138,7 +2149,7 @@ useEffect(() => {
                       </div>
 
                       <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                           Issued From
                         </label>
                         <Controller
@@ -2148,7 +2159,7 @@ useEffect(() => {
                             <input
                               {...field}
                               type="text"
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                               placeholder="Enter issuing country/city"
                             />
                           )}
@@ -2156,7 +2167,7 @@ useEffect(() => {
                       </div>
 
                       <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                           Issued Date
                         </label>
                         <Controller
@@ -2184,7 +2195,7 @@ useEffect(() => {
                       </div>
 
                       <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                           Expiry Date
                         </label>
                         <Controller
@@ -2212,7 +2223,7 @@ useEffect(() => {
                       </div>
 
                       <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                           Place of Birth
                         </label>
                         <Controller
@@ -2222,7 +2233,7 @@ useEffect(() => {
                             <input
                               {...field}
                               type="text"
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                               placeholder="Enter place of birth"
                             />
                           )}
@@ -2230,7 +2241,7 @@ useEffect(() => {
                       </div>
 
                       <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                           Father's Name
                         </label>
                         <Controller
@@ -2240,7 +2251,7 @@ useEffect(() => {
                             <input
                               {...field}
                               type="text"
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                               placeholder="Enter father's name"
                             />
                           )}
@@ -2248,7 +2259,7 @@ useEffect(() => {
                       </div>
 
                       <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                           Mother's Name
                         </label>
                         <Controller
@@ -2258,7 +2269,7 @@ useEffect(() => {
                             <input
                               {...field}
                               type="text"
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                               placeholder="Enter mother's name"
                             />
                           )}
@@ -2266,7 +2277,7 @@ useEffect(() => {
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                           Address
                         </label>
                         <Controller
@@ -2276,7 +2287,7 @@ useEffect(() => {
                             <textarea
                               {...field}
                               rows="2"
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                               placeholder="Enter full address"
                             ></textarea>
                           )}
@@ -2284,8 +2295,8 @@ useEffect(() => {
                       </div>
 
                       <div className="md:col-span-2">
-                        <div className="border-t border-gray-200 pt-4 mt-2">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                        <div className="border-t border-[var(--border)] pt-4 mt-2">
+                          <h4 className="text-sm font-semibold text-[var(--text)] mb-3">
                             Passport Documents
                           </h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2315,11 +2326,10 @@ useEffect(() => {
                     </div>
                   </div>
                 ) : (
-                  /* India - Identity Documents */
                   <div>
                     <div className="form-section-title mb-4 md:mb-6">
                       <i className="fas fa-id-card text-green-500 mr-2"></i>
-                      <h3 className="text-base md:text-lg font-bold text-gray-800">
+                      <h3 className="text-base md:text-lg font-bold text-[var(--text)]">
                         Identity Documents
                         <span className="text-xs text-red-500 ml-2">
                           * PAN Card is mandatory
@@ -2327,10 +2337,9 @@ useEffect(() => {
                       </h3>
                     </div>
 
-                    {/* Aadhaar and PAN number fields */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 mb-6">
                       <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                           <i className="fas fa-id-card text-green-500 mr-1"></i>
                           Aadhaar Number
                         </label>
@@ -2341,19 +2350,19 @@ useEffect(() => {
                             <input
                               {...field}
                               type="text"
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                               placeholder="Enter 12-digit Aadhaar number"
                             />
                           )}
                         />
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-[var(--muted)] mt-1">
                           <i className="fas fa-info-circle mr-1"></i>
                           Enter 12-digit Aadhaar number
                         </p>
                       </div>
 
                       <div>
-                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                           <i className="fas fa-id-card text-green-500 mr-1"></i>
                           PAN Number <span className="text-red-500">*</span>
                         </label>
@@ -2366,7 +2375,9 @@ useEffect(() => {
                               <input
                                 {...field}
                                 type="text"
-                                className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.pan_number ? "border-red-500" : "border-gray-200"}`}
+                                className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)] ${
+                                  errors.pan_number ? "border-red-500" : "border-[var(--border)]"
+                                }`}
                                 placeholder="Enter 10-digit PAN (e.g., ABCDE1234F)"
                               />
                               {errors.pan_number && (
@@ -2377,14 +2388,13 @@ useEffect(() => {
                             </>
                           )}
                         />
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-[var(--muted)] mt-1">
                           <i className="fas fa-info-circle mr-1"></i>
                           10-digit alphanumeric (e.g., ABCDE1234F)
                         </p>
                       </div>
                     </div>
 
-                    {/* Document uploads for India - Aadhaar and PAN photos */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <DocumentUpload
                         fieldKey="aadhar_photo"
@@ -2399,7 +2409,6 @@ useEffect(() => {
                         required={false}
                       />
                       {countryConfig.identityDocuments.map((doc) => {
-                        // Skip aadhar_photo and pan_photo as we already added them above
                         if (
                           doc.key === "aadhar_photo" ||
                           doc.key === "pan_photo"
@@ -2426,47 +2435,36 @@ useEffect(() => {
             {currentStep === 2 && (
               <div>
                 {selectedCountry === "UAE" ? (
-                  /* UAE - Visa, Labor & EID */
                   <div>
                     <div className="form-section-title mb-4 md:mb-6">
                       <i className="fas fa-file-contract text-green-500 mr-2"></i>
-                      <h3 className="text-base md:text-lg font-bold text-gray-800">
+                      <h3 className="text-base md:text-lg font-bold text-[var(--text)]">
                         Visa, Labor & Emirates ID
                       </h3>
                     </div>
                     <div className="space-y-6">
-                      {/* Labor Section - Only show for Mainland companies */}
-                      {selectedCompanyDetails?.raw?.trade_license ===
-                        "mainland" && (
-                        <div className="border border-gray-200 rounded-lg p-4">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-4">
+                      {selectedCompanyDetails?.raw?.trade_license === "mainland" && (
+                        <div className="border border-[var(--border)] rounded-lg p-4">
+                          <h4 className="text-sm font-semibold text-[var(--text)] mb-4">
                             Labor Details
-                            <span className="text-xs text-red-500 ml-2">
-                              * Required for Mainland companies
-                            </span>
                           </h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                              <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                                 Labor Number{" "}
                                 <span className="text-red-500">*</span>
                               </label>
                               <Controller
                                 name="labor_number"
                                 control={control}
-                                rules={{
-                                  required:
-                                    selectedCompanyDetails?.raw
-                                      ?.trade_license === "mainland"
-                                      ? "Labor number is required for Mainland companies"
-                                      : false,
-                                }}
                                 render={({ field }) => (
                                   <>
                                     <input
                                       {...field}
                                       type="text"
-                                      className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.labor_number ? "border-red-500" : "border-gray-200"}`}
+                                      className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)] ${
+                                        errors.labor_number ? "border-red-500" : "border-[var(--border)]"
+                                      }`}
                                       placeholder="Enter Labor Number"
                                     />
                                     {errors.labor_number && (
@@ -2480,26 +2478,12 @@ useEffect(() => {
                             </div>
 
                             <div>
-                              <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                              <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                                 Labor Issued Date{" "}
-                                <span className="text-red-500">*</span>
                               </label>
                               <Controller
                                 name="labor_issued_date"
                                 control={control}
-                                rules={{
-                                  required:
-                                    selectedCompanyDetails?.raw
-                                      ?.trade_license === "mainland"
-                                      ? "Labor issued date is required for Mainland companies"
-                                      : false,
-                                  validate: (value) =>
-                                    validateIssueDate(
-                                      value,
-                                      laborExpiry,
-                                      "Labor issued date",
-                                    ),
-                                }}
                                 render={({ field }) => (
                                   <DateInput
                                     {...field}
@@ -2511,26 +2495,12 @@ useEffect(() => {
                             </div>
 
                             <div>
-                              <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                              <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                                 Labor Expiry Date{" "}
-                                <span className="text-red-500">*</span>
                               </label>
                               <Controller
                                 name="labor_expiry_date"
                                 control={control}
-                                rules={{
-                                  required:
-                                    selectedCompanyDetails?.raw
-                                      ?.trade_license === "mainland"
-                                      ? "Labor expiry date is required for Mainland companies"
-                                      : false,
-                                  validate: (value) =>
-                                    validateExpiryDate(
-                                      value,
-                                      laborIssued,
-                                      "Labor expiry date",
-                                    ),
-                                }}
                                 render={({ field }) => (
                                   <DateInput
                                     {...field}
@@ -2544,14 +2514,13 @@ useEffect(() => {
                         </div>
                       )}
 
-                      {/* Visa Section */}
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-4">
+                      <div className="border border-[var(--border)] rounded-lg p-4">
+                        <h4 className="text-sm font-semibold text-[var(--text)] mb-4">
                           Visa Details
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="md:col-span-2">
-                            <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                               Type of Visa
                             </label>
                             <Controller
@@ -2560,7 +2529,7 @@ useEffect(() => {
                               render={({ field }) => (
                                 <select
                                   {...field}
-                                  className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                                  className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)]"
                                 >
                                   <option value="">Select Type of Visa</option>
                                   {visaTypeOptions.map((option) => (
@@ -2577,7 +2546,7 @@ useEffect(() => {
                           </div>
 
                           <div>
-                            <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                               Visa Number
                             </label>
                             <Controller
@@ -2587,7 +2556,7 @@ useEffect(() => {
                                 <input
                                   {...field}
                                   type="text"
-                                  className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                                  className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                                   placeholder="Enter Visa Number"
                                 />
                               )}
@@ -2595,7 +2564,7 @@ useEffect(() => {
                           </div>
 
                           <div>
-                            <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                               Visa Issued Date
                             </label>
                             <Controller
@@ -2620,7 +2589,7 @@ useEffect(() => {
                           </div>
 
                           <div>
-                            <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                               Visa Expiry Date
                             </label>
                             <Controller
@@ -2646,14 +2615,13 @@ useEffect(() => {
                         </div>
                       </div>
 
-                      {/* EID Section */}
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-4">
+                      <div className="border border-[var(--border)] rounded-lg p-4">
+                        <h4 className="text-sm font-semibold text-[var(--text)] mb-4">
                           Emirates ID (EID)
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="md:col-span-2">
-                            <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                               EID Number
                             </label>
                             <Controller
@@ -2663,7 +2631,7 @@ useEffect(() => {
                                 <input
                                   {...field}
                                   type="text"
-                                  className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                                  className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                                   placeholder="Enter EID number (e.g., 784-2024-1234567-8)"
                                 />
                               )}
@@ -2671,7 +2639,7 @@ useEffect(() => {
                           </div>
 
                           <div>
-                            <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                               EID Issued Date
                             </label>
                             <Controller
@@ -2696,7 +2664,7 @@ useEffect(() => {
                           </div>
 
                           <div>
-                            <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                               EID Expiry Date
                             </label>
                             <Controller
@@ -2722,10 +2690,9 @@ useEffect(() => {
                         </div>
                       </div>
 
-                      {/* Supporting Documents */}
                       <div>
-                        <div className="border-t border-gray-200 pt-4 mt-2">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                        <div className="border-t border-[var(--border)] pt-4 mt-2">
+                          <h4 className="text-sm font-semibold text-[var(--text)] mb-3">
                             Supporting Documents
                           </h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2734,8 +2701,7 @@ useEffect(() => {
                               label="Visa Page Copy"
                               icon="fas fa-file-contract"
                             />
-                            {selectedCompanyDetails?.raw?.trade_license ===
-                              "mainland" && (
+                            {selectedCompanyDetails?.raw?.trade_license === "mainland" && (
                               <>
                                 <DocumentUpload
                                   fieldKey="labor_card"
@@ -2765,25 +2731,24 @@ useEffect(() => {
                     </div>
                   </div>
                 ) : (
-                  /* India - No fields message */
                   <div>
                     <div className="form-section-title mb-4 md:mb-6">
                       <i className="fas fa-file-contract text-green-500 mr-2"></i>
-                      <h3 className="text-base md:text-lg font-bold text-gray-800">
+                      <h3 className="text-base md:text-lg font-bold text-[var(--text)]">
                         Visa, Labor & EID
                       </h3>
                     </div>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-8 text-center">
                       <i className="fas fa-check-circle text-blue-500 text-4xl mb-3"></i>
-                      <h4 className="text-lg font-semibold text-blue-700 mb-2">
+                      <h4 className="text-lg font-semibold text-blue-700 dark:text-blue-400 mb-2">
                         No UAE Documents Required
                       </h4>
-                      <p className="text-sm text-blue-600">
+                      <p className="text-sm text-blue-600 dark:text-blue-400">
                         For Indian employees, Visa, Labor, and Emirates ID
                         documents are not required. These documents are specific
                         to UAE-based employees.
                       </p>
-                      <p className="text-xs text-blue-500 mt-3">
+                      <p className="text-xs text-blue-500 dark:text-blue-400 mt-3">
                         <i className="fas fa-info-circle mr-1"></i>
                         You can proceed to the next step.
                       </p>
@@ -2798,13 +2763,13 @@ useEffect(() => {
               <div>
                 <div className="form-section-title mb-4 md:mb-6">
                   <i className="fas fa-address-card text-green-500 mr-2"></i>
-                  <h3 className="text-base md:text-lg font-bold text-gray-800">
+                  <h3 className="text-base md:text-lg font-bold text-[var(--text)]">
                     Contact Information & Others
                   </h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Dependents
                     </label>
                     <Controller
@@ -2815,7 +2780,7 @@ useEffect(() => {
                           {...field}
                           type="number"
                           min="0"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                           placeholder="Number of dependents"
                         />
                       )}
@@ -2823,7 +2788,7 @@ useEffect(() => {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Company Mobile Number
                     </label>
                     <Controller
@@ -2833,7 +2798,7 @@ useEffect(() => {
                         <input
                           {...field}
                           type="tel"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                           placeholder="Enter company mobile number"
                         />
                       )}
@@ -2841,7 +2806,7 @@ useEffect(() => {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Personal Number
                     </label>
                     <Controller
@@ -2851,7 +2816,7 @@ useEffect(() => {
                         <input
                           {...field}
                           type="tel"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                           placeholder="Enter personal phone number"
                         />
                       )}
@@ -2859,7 +2824,7 @@ useEffect(() => {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Other Number
                     </label>
                     <Controller
@@ -2869,7 +2834,7 @@ useEffect(() => {
                         <input
                           {...field}
                           type="tel"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                           placeholder="Enter alternate number"
                         />
                       )}
@@ -2877,7 +2842,7 @@ useEffect(() => {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Home Country Number
                     </label>
                     <Controller
@@ -2887,7 +2852,7 @@ useEffect(() => {
                         <input
                           {...field}
                           type="tel"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
                           placeholder="Enter home country number"
                         />
                       )}
@@ -2895,7 +2860,7 @@ useEffect(() => {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Company Email
                     </label>
                     <Controller
@@ -2906,7 +2871,9 @@ useEffect(() => {
                           <input
                             {...field}
                             type="email"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.company_email ? "border-red-500" : "border-gray-200"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)] ${
+                              errors.company_email ? "border-red-500" : "border-[var(--border)]"
+                            }`}
                             placeholder="name@company.com"
                           />
                           {errors.company_email && (
@@ -2920,7 +2887,7 @@ useEffect(() => {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Personal Email <span className="text-red-500">*</span>
                     </label>
                     <Controller
@@ -2932,7 +2899,9 @@ useEffect(() => {
                           <input
                             {...field}
                             type="email"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg ${errors.personal_email ? "border-red-500" : "border-gray-200"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)] ${
+                              errors.personal_email ? "border-red-500" : "border-[var(--border)]"
+                            }`}
                             placeholder="name@gmail.com"
                           />
                           {errors.personal_email && (
@@ -2946,7 +2915,7 @@ useEffect(() => {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
                       Role <span className="text-red-500">*</span>
                     </label>
                     <Controller
@@ -2957,7 +2926,7 @@ useEffect(() => {
                         <>
                           <select
                             {...field}
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)]"
                           >
                             <option value="">Select Role</option>
                             {roles.map((role) => (
@@ -2976,12 +2945,12 @@ useEffect(() => {
           </div>
 
           {/* Navigation Buttons */}
-          <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 mt-8 pt-6 border-t border-gray-200">
+          <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 mt-8 pt-6 border-t border-[var(--border)]">
             {currentStep > 0 && (
               <button
                 type="button"
                 onClick={handlePrevious}
-                className="px-6 py-2.5 rounded-full font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all flex items-center gap-2"
+                className="px-6 py-2.5 rounded-full font-semibold bg-[var(--surface2)] text-[var(--text)] hover:bg-[var(--border)] transition-all flex items-center gap-2"
               >
                 <i className="fas fa-arrow-left"></i> Previous
               </button>

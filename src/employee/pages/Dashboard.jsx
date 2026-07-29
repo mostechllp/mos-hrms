@@ -32,6 +32,16 @@ import {
 import LocationModal from "../components/modals/LocationModal";
 import MapView from "../components/common/MapView";
 
+// Status tab mapping - assigned goes to its own tab now
+const STATUS_TAB_MAP = {
+  assigned: "assigned", // Now assigned has its own tab
+  pending: "in_progress",
+  in_progress: "in_progress",
+  completed: "completed",
+  done: "completed",
+  on_hold: "on_hold",
+};
+
 // Register ChartJS components for line chart
 ChartJS.register(
   CategoryScale,
@@ -128,10 +138,12 @@ const Dashboard = () => {
   const [activeBreakTab, setActiveBreakTab] = useState("today");
   const [expandedBreakDates, setExpandedBreakDates] = useState([]);
   const chartRef = useRef(null);
-  
+
   const toggleExpandedDate = (dateStr) => {
     setExpandedBreakDates((prev) =>
-      prev.includes(dateStr) ? prev.filter((d) => d !== dateStr) : [...prev, dateStr]
+      prev.includes(dateStr)
+        ? prev.filter((d) => d !== dateStr)
+        : [...prev, dateStr],
     );
   };
 
@@ -141,9 +153,13 @@ const Dashboard = () => {
       // Parse ISO string to local time first
       if (timeString.includes("T") && timeString.includes("Z")) {
         const date = new Date(timeString);
-        return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+        return date.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
       }
-      
+
       // Parse time string (expected format: "HH:MM" or "HH:MM:SS")
       let hours, minutes;
       if (timeString.includes(":")) {
@@ -356,6 +372,33 @@ const Dashboard = () => {
     }
   };
 
+  const getStatusColor = (status) => {
+    if (!status) return "text-gray-600";
+    const statusMap = {
+      assigned: "text-purple-600",
+      pending: "text-gray-600",
+      in_progress: "text-blue-600",
+      completed: "text-green-600",
+      done: "text-green-600",
+      on_hold: "text-amber-600",
+    };
+    return statusMap[status] || "text-gray-600";
+  };
+
+  // Helper to get display label for status
+  const getStatusLabel = (status) => {
+    if (!status) return "Pending";
+    const labelMap = {
+      assigned: "Assigned",
+      pending: "Pending",
+      in_progress: "In Progress",
+      completed: "Completed",
+      done: "Completed",
+      on_hold: "On Hold",
+    };
+    return labelMap[status] || status;
+  };
+
   const handleBreakToggle = async () => {
     if (!isOnBreak) {
       try {
@@ -366,7 +409,10 @@ const Dashboard = () => {
           setBreakStartTime(nowStr);
           setNumberOfBreaks((prev) => {
             const newCount = prev + 1;
-            localStorage.setItem("attendance-breaks-count", newCount.toString());
+            localStorage.setItem(
+              "attendance-breaks-count",
+              newCount.toString(),
+            );
             return newCount;
           });
           localStorage.setItem("attendance-on-break", "true");
@@ -374,7 +420,10 @@ const Dashboard = () => {
           showToastMessage("⏸️ Break Started", "success");
           dispatch(fetchEmployeeBreaks());
         } else {
-          showToastMessage(resultAction.payload || "Failed to start break", "error");
+          showToastMessage(
+            resultAction.payload || "Failed to start break",
+            "error",
+          );
         }
       } catch (err) {
         showToastMessage("Error starting break", "error");
@@ -405,14 +454,20 @@ const Dashboard = () => {
           setIsOnBreak(false);
           setTotalBreakMs(newTotal);
           localStorage.setItem("attendance-on-break", "false");
-          localStorage.setItem("attendance-total-break-ms", newTotal.toString());
+          localStorage.setItem(
+            "attendance-total-break-ms",
+            newTotal.toString(),
+          );
           localStorage.removeItem("attendance-break-start-time");
           showToastMessage("▶️ Work Resumed", "success");
-          
+
           // Refresh break table from backend
           dispatch(fetchEmployeeBreaks());
         } else {
-          showToastMessage(resultAction.payload || "Failed to end break", "error");
+          showToastMessage(
+            resultAction.payload || "Failed to end break",
+            "error",
+          );
         }
       } catch (err) {
         showToastMessage("Error ending break", "error");
@@ -680,7 +735,6 @@ const Dashboard = () => {
     }
   };
 
-  // Prepare chart data from attendance history - Line chart version
   // Prepare chart data from attendance history - Line chart version
   const getChartData = () => {
     if (
@@ -1139,7 +1193,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-
       {/* Stats Grid */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-3 gap-5 mb-7">
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
@@ -1191,173 +1244,295 @@ const Dashboard = () => {
               My Assigned Tasks
             </h3>
           </div>
-          
+
           <div className="flex overflow-x-auto gap-2 mb-3 pb-2 custom-scrollbar">
-            {['today_assigned_tasks', 'all_tasks', 'in_progress', 'completed', 'on_hold'].map(tab => (
-               <button 
-                 key={tab}
-                 onClick={() => setActiveTaskTab(tab)}
-                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors ${
-                   activeTaskTab === tab 
-                     ? 'bg-green-500 text-white' 
-                     : 'bg-[var(--surface2)] text-[var(--muted)] hover:bg-[var(--border)]'
-                 }`}
-               >
-                 {tab === 'today_assigned_tasks' ? "Today's Tasks" : 
-                  tab === 'all_tasks' ? 'All Tasks' :
-                  tab === 'in_progress' ? 'In Progress' :
-                  tab === 'on_hold' ? 'Hold' :
-                  'Completed'}
-               </button>
+            {[
+              "today_assigned_tasks",
+              "all_tasks",
+              "assigned",
+              "in_progress",
+              "completed",
+              "on_hold",
+            ].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTaskTab(tab)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors ${
+                  activeTaskTab === tab
+                    ? "bg-green-500 text-white"
+                    : "bg-[var(--surface2)] text-[var(--muted)] hover:bg-[var(--border)]"
+                }`}
+              >
+                {tab === "today_assigned_tasks"
+                  ? "Today's Tasks"
+                  : tab === "all_tasks"
+                    ? "All Tasks"
+                    : tab === "assigned"
+                      ? "Assigned"
+                      : tab === "in_progress"
+                        ? "In Progress"
+                        : tab === "on_hold"
+                          ? "Hold"
+                          : "Completed"}
+              </button>
             ))}
           </div>
-          
+
           <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
             {loading ? (
               <div className="flex justify-center items-center h-full min-h-[200px]">
                 <i className="fas fa-spinner fa-spin text-green-500 text-2xl"></i>
               </div>
-            ) : (() => {
-              const displayTasks = dashboardData?.tasks?.[activeTaskTab] || [];
+            ) : (
+              (() => {
+                // Get tasks from dashboard data
+                const allTasks = dashboardData?.tasks?.all_tasks || [];
+                const todayTasks =
+                  dashboardData?.tasks?.today_assigned_tasks || [];
 
-              return displayTasks.length > 0 ? (
-              <div className="flex flex-col gap-3">
-                {displayTasks.map(task => (
-                  <div key={task.id} className="group p-4 border border-[var(--border)] rounded-xl hover:border-green-400 hover:shadow-md transition-all bg-[var(--surface)] flex flex-col gap-3 cursor-default">
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="text-sm font-bold text-[var(--text)] group-hover:text-green-600 transition-colors">{task.title || task.name}</h4>
-                        </div>
-                        {(task.project?.name || task.project_name || task.project?.project_name) && (
-                           <p className="text-[11px] text-[var(--muted)] font-medium flex items-center gap-1 mb-1">
-                             <i className="fas fa-folder-open text-gray-400 w-3"></i> {task.project?.name || task.project_name || task.project?.project_name}
-                           </p>
-                        )}
-                        {(task.assign_by || task.assigned_by?.name || task.assignedBy?.name) && (
-                           <p className="text-[11px] text-[var(--muted)] font-medium flex items-center gap-1">
-                             <i className="fas fa-user-tie text-gray-400 w-3"></i> By: {task.assign_by || task.assigned_by?.name || task.assignedBy?.name}
-                           </p>
-                        )}
-                      </div>
-                      
-                      <div className="shrink-0 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1 border border-gray-100 dark:border-gray-700 shadow-inner">
-                        <select 
-                          value={task.status}
-                          onChange={(e) => handleTaskStatusUpdate(task.id, e.target.value)}
-                          className={`text-[10px] font-bold rounded px-2 py-1 outline-none cursor-pointer border-none bg-transparent transition-colors ${
-                            task.status === 'completed' ? 'text-green-600' :
-                            task.status === 'in_progress' ? 'text-blue-600' :
-                            task.status === 'on_hold' ? 'text-amber-600' :
-                            'text-gray-600'
-                          }`}
+                let displayTasks = [];
+
+                if (activeTaskTab === "today_assigned_tasks") {
+                  displayTasks = todayTasks;
+                } else if (activeTaskTab === "all_tasks") {
+                  displayTasks = allTasks;
+                } else if (activeTaskTab === "assigned") {
+                  // Show only tasks with status "assigned"
+                  displayTasks = allTasks.filter(
+                    (task) => task.status === "assigned",
+                  );
+                } else {
+                  // For status tabs (in_progress, completed, on_hold)
+                  displayTasks = allTasks.filter((task) => {
+                    const taskStatus = task.status || "pending";
+                    const mappedStatus =
+                      STATUS_TAB_MAP[taskStatus] || "in_progress";
+                    return mappedStatus === activeTaskTab;
+                  });
+                }
+
+                return displayTasks.length > 0 ? (
+                  <div className="flex flex-col gap-3">
+                    {displayTasks.map((task) => {
+                      const currentStatus = task.status || "pending";
+                      const statusColor = getStatusColor(currentStatus);
+                      const statusLabel = getStatusLabel(currentStatus);
+
+                      return (
+                        <div
+                          key={task.id}
+                          className="group p-4 border border-[var(--border)] rounded-xl hover:border-green-400 hover:shadow-md transition-all bg-[var(--surface)] flex flex-col gap-3 cursor-default"
                         >
-                          <option value="in_progress" className="text-blue-600">In Progress</option>
-                          <option value="completed" className="text-green-600">Completed</option>
-                          <option value="on_hold" className="text-amber-600">On Hold</option>
-                        </select>
-                      </div>
-                    </div>
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="text-sm font-bold text-[var(--text)] group-hover:text-green-600 transition-colors">
+                                  {task.title || task.name}
+                                </h4>
+                                {/* Status badge */}
+                                <span
+                                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusColor} bg-opacity-10`}
+                                >
+                                  {statusLabel}
+                                </span>
+                              </div>
+                              {(task.project?.name ||
+                                task.project_name ||
+                                task.project?.project_name) && (
+                                <p className="text-[11px] text-[var(--muted)] font-medium flex items-center gap-1 mb-1">
+                                  <i className="fas fa-folder-open text-gray-400 w-3"></i>
+                                  {task.project?.name ||
+                                    task.project_name ||
+                                    task.project?.project_name}
+                                </p>
+                              )}
+                              {(task.assign_by ||
+                                task.assigned_by?.name ||
+                                task.assignedBy?.name) && (
+                                <p className="text-[11px] text-[var(--muted)] font-medium flex items-center gap-1">
+                                  <i className="fas fa-user-tie text-gray-400 w-3"></i>
+                                  By:{" "}
+                                  {task.assign_by ||
+                                    task.assigned_by?.name ||
+                                    task.assignedBy?.name}
+                                </p>
+                              )}
+                            </div>
 
-                    {(task.task_description || task.description || task.remarks) && (
-                      <div className="text-xs text-[var(--muted)] bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg border border-gray-100 dark:border-gray-700/50 line-clamp-2">
-                        {task.task_description || task.description || task.remarks}
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-dashed border-[var(--border)]">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]">
-                          <i className={`far fa-clock ${task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed' ? 'text-red-500' : ''}`}></i> 
-                          <span className={task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed' ? 'text-red-500' : ''}>
-                            {task.due_date ? `Due: ${new Date(task.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : "No due date"}
-                          </span>
-                        </div>
-                        {task.assigned_date && (
-                          <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
-                            <i className="fas fa-calendar-plus"></i> 
-                            <span>Assigned: {new Date(task.assigned_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                            <div className="shrink-0 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1 border border-gray-100 dark:border-gray-700 shadow-inner">
+                              <select
+                                value={currentStatus}
+                                onChange={(e) =>
+                                  handleTaskStatusUpdate(
+                                    task.id,
+                                    e.target.value,
+                                  )
+                                }
+                                className={`text-[10px] font-bold rounded px-2 py-1 outline-none cursor-pointer border-none bg-transparent transition-colors ${statusColor}`}
+                              >
+                                <option
+                                  value="assigned"
+                                  className="text-gray-600"
+                                >
+                                  Assigned
+                                </option>
+                                <option
+                                  value="in_progress"
+                                  className="text-blue-600"
+                                >
+                                  In Progress
+                                </option>
+                                <option
+                                  value="completed"
+                                  className="text-green-600"
+                                >
+                                  Completed
+                                </option>
+                                <option
+                                  value="on_hold"
+                                  className="text-amber-600"
+                                >
+                                  On Hold
+                                </option>
+                              </select>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                      <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md h-fit ${
-                        task.priority === 'high' ? 'bg-red-50 text-red-600 dark:bg-red-900/20' :
-                        task.priority === 'medium' ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20' :
-                        'bg-green-50 text-green-600 dark:bg-green-900/20'
-                      }`}>
-                        <i className="fas fa-bolt"></i> {task.priority?.charAt(0).toUpperCase() + task.priority?.slice(1) || "Normal"}
-                      </div>
+
+                          {(task.task_description ||
+                            task.description ||
+                            task.remarks) && (
+                            <div className="text-xs text-[var(--muted)] bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg border border-gray-100 dark:border-gray-700/50 line-clamp-2">
+                              {task.task_description ||
+                                task.description ||
+                                task.remarks}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between mt-auto pt-3 border-t border-dashed border-[var(--border)]">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]">
+                                <i
+                                  className={`far fa-clock ${task.due_date && new Date(task.due_date) < new Date() && currentStatus !== "completed" ? "text-red-500" : ""}`}
+                                ></i>
+                                <span
+                                  className={
+                                    task.due_date &&
+                                    new Date(task.due_date) < new Date() &&
+                                    currentStatus !== "completed"
+                                      ? "text-red-500"
+                                      : ""
+                                  }
+                                >
+                                  {task.due_date
+                                    ? `Due: ${new Date(task.due_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`
+                                    : "No due date"}
+                                </span>
+                              </div>
+                              {task.assigned_date && (
+                                <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                                  <i className="fas fa-calendar-plus"></i>
+                                  <span>
+                                    Assigned:{" "}
+                                    {new Date(
+                                      task.assigned_date,
+                                    ).toLocaleDateString("en-GB", {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            <div
+                              className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md h-fit ${
+                                task.priority === "high"
+                                  ? "bg-red-50 text-red-600 dark:bg-red-900/20"
+                                  : task.priority === "medium"
+                                    ? "bg-amber-50 text-amber-600 dark:bg-amber-900/20"
+                                    : "bg-green-50 text-green-600 dark:bg-green-900/20"
+                              }`}
+                            >
+                              <i className="fas fa-bolt"></i>{" "}
+                              {task.priority?.charAt(0).toUpperCase() +
+                                task.priority?.slice(1) || "Normal"}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-[var(--muted)] min-h-[200px]">
+                    <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-3">
+                      <i className="fas fa-check-double text-2xl text-green-500"></i>
                     </div>
+                    <p className="text-sm font-semibold text-[var(--text)]">
+                      No tasks found
+                    </p>
+                    <p className="text-xs mt-1">
+                      Try selecting a different tab
+                    </p>
                   </div>
-                ))}
-              </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-[var(--muted)] min-h-[200px]">
-                  <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-3">
-                    <i className="fas fa-check-double text-2xl text-green-500"></i>
-                  </div>
-                  <p className="text-sm font-semibold text-[var(--text)]">No tasks found</p>
-                  <p className="text-xs mt-1">Try selecting a different tab</p>
-                </div>
-              );
-            })()}
+                );
+              })()
+            )}
           </div>
         </div>
-
         {/* Recent Activity Section */}
         <div className="recent-activity bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 flex flex-col h-[380px] shadow-sm">
-              <div className="flex justify-between items-center mb-5">
-                <h3 className="text-base font-semibold text-[var(--text)] flex items-center gap-2">
-                  <i className="fas fa-history text-blue-500"></i>
-                  Recent Activity
-                </h3>
-                <div className="flex bg-[var(--surface2)] rounded-lg p-1">
-                  <button
-                    onClick={() => setActiveActivityTab("attendance")}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      activeActivityTab === "attendance"
-                        ? "bg-white dark:bg-gray-700 text-[var(--text)] shadow-sm"
-                        : "text-[var(--muted)] hover:text-[var(--text)]"
-                    }`}
-                  >
-                    Attendance
-                  </button>
-                  <button
-                    onClick={() => setActiveActivityTab("breaks")}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      activeActivityTab === "breaks"
-                        ? "bg-white dark:bg-gray-700 text-[var(--text)] shadow-sm"
-                        : "text-[var(--muted)] hover:text-[var(--text)]"
-                    }`}
-                  >
-                    Breaks
-                  </button>
-                </div>
-              </div>
+          <div className="flex justify-between items-center mb-5">
+            <h3 className="text-base font-semibold text-[var(--text)] flex items-center gap-2">
+              <i className="fas fa-history text-blue-500"></i>
+              Recent Activity
+            </h3>
+            <div className="flex bg-[var(--surface2)] rounded-lg p-1">
+              <button
+                onClick={() => setActiveActivityTab("attendance")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  activeActivityTab === "attendance"
+                    ? "bg-white dark:bg-gray-700 text-[var(--text)] shadow-sm"
+                    : "text-[var(--muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                Attendance
+              </button>
+              <button
+                onClick={() => setActiveActivityTab("breaks")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  activeActivityTab === "breaks"
+                    ? "bg-white dark:bg-gray-700 text-[var(--text)] shadow-sm"
+                    : "text-[var(--muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                Breaks
+              </button>
+            </div>
+          </div>
 
-              <div className="overflow-x-auto overflow-y-auto -mx-1 px-1 flex-1 custom-scrollbar">
-                {activeActivityTab === "attendance" ? (
-                  dashboardData?.attendance_history?.length > 0 ? (
-                  <table className="w-full text-sm relative">
-                    <thead className="sticky top-0 bg-[var(--surface)] z-10">
-                      <tr className="bg-[var(--surface2)] rounded-lg">
-                        <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                          Punch In
-                        </th>
-                        <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                          Location
-                        </th>
-                        <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                          Punch Out
-                        </th>
-                        <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                          Hours
-                        </th>
-                      </tr>
-                    </thead>
+          <div className="overflow-x-auto overflow-y-auto -mx-1 px-1 flex-1 custom-scrollbar">
+            {activeActivityTab === "attendance" ? (
+              dashboardData?.attendance_history?.length > 0 ? (
+                <table className="w-full text-sm relative">
+                  <thead className="sticky top-0 bg-[var(--surface)] z-10">
+                    <tr className="bg-[var(--surface2)] rounded-lg">
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Punch In
+                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Location
+                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Punch Out
+                      </th>
+                      <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                        Hours
+                      </th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {dashboardData.attendance_history.map(
                       (attendance, index) => {
@@ -1441,236 +1616,333 @@ const Dashboard = () => {
                     )}
                   </tbody>
                 </table>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-[var(--muted)] py-10">
-                    <i className="fas fa-calendar-times text-3xl mb-3 text-gray-300 dark:text-gray-600"></i>
-                    <p className="text-sm font-medium">No attendance records found</p>
-                  </div>
-                )
               ) : (
-                <div className="flex flex-col h-full">
-                  <div className="flex bg-[var(--surface2)] rounded-lg p-1 w-fit mb-3">
-                    <button
-                      onClick={() => setActiveBreakTab("today")}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                        activeBreakTab === "today"
-                          ? "bg-white dark:bg-gray-700 text-[var(--text)] shadow-sm"
-                          : "text-[var(--muted)] hover:text-[var(--text)]"
-                      }`}
-                    >
-                      Today's Breaks
-                    </button>
-                    <button
-                      onClick={() => setActiveBreakTab("all")}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                        activeBreakTab === "all"
-                          ? "bg-white dark:bg-gray-700 text-[var(--text)] shadow-sm"
-                          : "text-[var(--muted)] hover:text-[var(--text)]"
-                      }`}
-                    >
-                      All Breaks
-                    </button>
-                  </div>
-                  
-                  {(() => {
-                    // Use backend data
-                    const todayBreaks = employeeBreaks?.breaks || [];
-                    const historyBreaks = dashboardData?.attendance_history?.flatMap(a => a.breaks || []) || [];
-                    
-                    const allBreaksMap = new Map();
-                    [...historyBreaks, ...todayBreaks].forEach(b => {
-                        if (b && b.id) {
-                            allBreaksMap.set(b.id, b);
-                        } else if (b && b.start_time) {
-                            allBreaksMap.set(b.start_time, b);
-                        }
-                    });
-                    
-                    const rawBreaks = Array.from(allBreaksMap.values());
-                    const todayDateStr = new Date().toISOString().split('T')[0]; // Format matches backend "YYYY-MM-DD"
-                    
-                    // Filter for today using backend format or split
-                    const displayBreaks = activeBreakTab === "today" 
-                      ? rawBreaks.filter(b => b.start_time?.startsWith(todayDateStr)) 
+                <div className="flex flex-col items-center justify-center h-full text-[var(--muted)] py-10">
+                  <i className="fas fa-calendar-times text-3xl mb-3 text-gray-300 dark:text-gray-600"></i>
+                  <p className="text-sm font-medium">
+                    No attendance records found
+                  </p>
+                </div>
+              )
+            ) : (
+              <div className="flex flex-col h-full">
+                <div className="flex bg-[var(--surface2)] rounded-lg p-1 w-fit mb-3">
+                  <button
+                    onClick={() => setActiveBreakTab("today")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      activeBreakTab === "today"
+                        ? "bg-white dark:bg-gray-700 text-[var(--text)] shadow-sm"
+                        : "text-[var(--muted)] hover:text-[var(--text)]"
+                    }`}
+                  >
+                    Today's Breaks
+                  </button>
+                  <button
+                    onClick={() => setActiveBreakTab("all")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      activeBreakTab === "all"
+                        ? "bg-white dark:bg-gray-700 text-[var(--text)] shadow-sm"
+                        : "text-[var(--muted)] hover:text-[var(--text)]"
+                    }`}
+                  >
+                    All Breaks
+                  </button>
+                </div>
+
+                {(() => {
+                  // Use backend data
+                  const todayBreaks = employeeBreaks?.breaks || [];
+                  const historyBreaks =
+                    dashboardData?.attendance_history?.flatMap(
+                      (a) => a.breaks || [],
+                    ) || [];
+
+                  const allBreaksMap = new Map();
+                  [...historyBreaks, ...todayBreaks].forEach((b) => {
+                    if (b && b.id) {
+                      allBreaksMap.set(b.id, b);
+                    } else if (b && b.start_time) {
+                      allBreaksMap.set(b.start_time, b);
+                    }
+                  });
+
+                  const rawBreaks = Array.from(allBreaksMap.values());
+                  const todayDateStr = new Date().toISOString().split("T")[0]; // Format matches backend "YYYY-MM-DD"
+
+                  // Filter for today using backend format or split
+                  const displayBreaks =
+                    activeBreakTab === "today"
+                      ? rawBreaks.filter((b) =>
+                          b.start_time?.startsWith(todayDateStr),
+                        )
                       : rawBreaks;
 
-                    return displayBreaks.length > 0 ? (
-                      <table className="w-full text-sm relative">
-                        <thead className="sticky top-0 bg-[var(--surface)] z-10">
-                          <tr className="bg-[var(--surface2)] rounded-lg">
+                  return displayBreaks.length > 0 ? (
+                    <table className="w-full text-sm relative">
+                      <thead className="sticky top-0 bg-[var(--surface)] z-10">
+                        <tr className="bg-[var(--surface2)] rounded-lg">
+                          <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                            Break Out
+                          </th>
+                          <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                            Break In
+                          </th>
+                          <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
+                            Duration
+                          </th>
+                          {activeBreakTab === "all" && (
                             <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                              Date
+                              Actions
                             </th>
-                            <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                              Break Out
-                            </th>
-                            <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                              Break In
-                            </th>
-                            <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                              Duration
-                            </th>
-                            {activeBreakTab === "all" && (
-                              <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                                Actions
-                              </th>
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(() => {
-                            if (activeBreakTab === "today") {
-                              return displayBreaks.map((b, index) => {
-                                let dateStr = b.start_time ? b.start_time.split("T")[0] : "-";
-                                let formattedDate = dateStr;
-                                let dayOfWeek = "";
-                                if (dateStr && dateStr.includes("-")) {
-                                  const dateParts = dateStr.split("-");
-                                  const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
-                                  formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                                  dayOfWeek = dateObj.toLocaleDateString("en-US", { weekday: "short" });
-                                }
-                                
-                                return (
-                                  <tr key={index} className="border-b border-[var(--border)] hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          if (activeBreakTab === "today") {
+                            return displayBreaks.map((b, index) => {
+                              let dateStr = b.start_time
+                                ? b.start_time.split("T")[0]
+                                : "-";
+                              let formattedDate = dateStr;
+                              let dayOfWeek = "";
+                              if (dateStr && dateStr.includes("-")) {
+                                const dateParts = dateStr.split("-");
+                                const dateObj = new Date(
+                                  dateParts[0],
+                                  dateParts[1] - 1,
+                                  dateParts[2],
+                                );
+                                formattedDate = dateObj.toLocaleDateString(
+                                  "en-US",
+                                  { month: "short", day: "numeric" },
+                                );
+                                dayOfWeek = dateObj.toLocaleDateString(
+                                  "en-US",
+                                  { weekday: "short" },
+                                );
+                              }
+
+                              return (
+                                <tr
+                                  key={index}
+                                  className="border-b border-[var(--border)] hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors"
+                                >
+                                  <td className="py-3 px-4">
+                                    <div>
+                                      <div className="text-[var(--text)] font-medium">
+                                        {formattedDate}
+                                      </div>
+                                      <div className="text-xs text-[var(--muted)] flex items-center gap-1">
+                                        {dayOfWeek}
+                                        <span className="text-[10px] opacity-70 ml-1">
+                                          (Break #{index + 1})
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                                      <span className="font-medium text-[var(--text)]">
+                                        {formatTo12Hour(b.start_time) || "-"}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                      <span className="font-medium text-[var(--text)]">
+                                        {b.end_time
+                                          ? formatTo12Hour(b.end_time)
+                                          : "-"}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-4 font-medium text-[var(--text)]">
+                                    {b.duration_minutes
+                                      ? `${b.duration_minutes} mins`
+                                      : "-"}
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          }
+
+                          // For "All Breaks", group by date
+                          const groupedBreaks = displayBreaks.reduce(
+                            (acc, b) => {
+                              const d = b.start_time
+                                ? b.start_time.split("T")[0]
+                                : "-";
+                              if (!acc[d]) acc[d] = [];
+                              acc[d].push(b);
+                              return acc;
+                            },
+                            {},
+                          );
+
+                          // Sort dates descending
+                          const sortedGroupedBreaks = Object.entries(
+                            groupedBreaks,
+                          ).sort((a, b) => {
+                            if (a[0] === "-") return 1;
+                            if (b[0] === "-") return -1;
+                            return new Date(b[0]) - new Date(a[0]);
+                          });
+
+                          return sortedGroupedBreaks.map(
+                            ([dateStr, dayBreaks], index) => {
+                              let formattedDate = dateStr;
+                              let dayOfWeek = "";
+                              if (dateStr && dateStr.includes("-")) {
+                                const dateParts = dateStr.split("-");
+                                const dateObj = new Date(
+                                  dateParts[0],
+                                  dateParts[1] - 1,
+                                  dateParts[2],
+                                );
+                                formattedDate = dateObj.toLocaleDateString(
+                                  "en-US",
+                                  { month: "short", day: "numeric" },
+                                );
+                                dayOfWeek = dateObj.toLocaleDateString(
+                                  "en-US",
+                                  { weekday: "short" },
+                                );
+                              }
+
+                              const isExpanded =
+                                expandedBreakDates.includes(dateStr);
+                              const hasMultiple = dayBreaks.length > 1;
+                              const firstBreak = dayBreaks[0];
+
+                              return (
+                                <Fragment key={index}>
+                                  <tr
+                                    className={`border-b border-[var(--border)] ${isExpanded ? "bg-gray-50/50 dark:bg-gray-800/20" : ""}`}
+                                  >
                                     <td className="py-3 px-4">
                                       <div>
-                                        <div className="text-[var(--text)] font-medium">{formattedDate}</div>
-                                        <div className="text-xs text-[var(--muted)] flex items-center gap-1">
+                                        <div className="text-[var(--text)] font-medium">
+                                          {formattedDate}
+                                        </div>
+                                        <div className="text-xs text-[var(--muted)]">
                                           {dayOfWeek}
-                                          <span className="text-[10px] opacity-70 ml-1">(Break #{index + 1})</span>
                                         </div>
                                       </div>
                                     </td>
                                     <td className="py-3 px-4">
                                       <div className="flex items-center gap-2">
                                         <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                                        <span className="font-medium text-[var(--text)]">{formatTo12Hour(b.start_time) || "-"}</span>
+                                        <span className="font-medium text-[var(--text)]">
+                                          {formatTo12Hour(
+                                            firstBreak.start_time,
+                                          ) || "-"}
+                                        </span>
                                       </div>
                                     </td>
                                     <td className="py-3 px-4">
                                       <div className="flex items-center gap-2">
                                         <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                        <span className="font-medium text-[var(--text)]">{b.end_time ? formatTo12Hour(b.end_time) : "-"}</span>
+                                        <span className="font-medium text-[var(--text)]">
+                                          {firstBreak.end_time
+                                            ? formatTo12Hour(
+                                                firstBreak.end_time,
+                                              )
+                                            : "-"}
+                                        </span>
                                       </div>
                                     </td>
                                     <td className="py-3 px-4 font-medium text-[var(--text)]">
-                                      {b.duration_minutes ? `${b.duration_minutes} mins` : "-"}
-                                    </td>
-                                  </tr>
-                                );
-                              });
-                            }
-
-                            // For "All Breaks", group by date
-                            const groupedBreaks = displayBreaks.reduce((acc, b) => {
-                              const d = b.start_time ? b.start_time.split("T")[0] : "-";
-                              if (!acc[d]) acc[d] = [];
-                              acc[d].push(b);
-                              return acc;
-                            }, {});
-                            
-                            // Sort dates descending
-                            const sortedGroupedBreaks = Object.entries(groupedBreaks).sort((a, b) => {
-                              if (a[0] === "-") return 1;
-                              if (b[0] === "-") return -1;
-                              return new Date(b[0]) - new Date(a[0]);
-                            });
-                            
-                            return sortedGroupedBreaks.map(([dateStr, dayBreaks], index) => {
-                              let formattedDate = dateStr;
-                              let dayOfWeek = "";
-                              if (dateStr && dateStr.includes("-")) {
-                                const dateParts = dateStr.split("-");
-                                const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
-                                formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                                dayOfWeek = dateObj.toLocaleDateString("en-US", { weekday: "short" });
-                              }
-                              
-                              const isExpanded = expandedBreakDates.includes(dateStr);
-                              const hasMultiple = dayBreaks.length > 1;
-                              const firstBreak = dayBreaks[0];
-                              
-                              return (
-                                <Fragment key={index}>
-                                  <tr className={`border-b border-[var(--border)] ${isExpanded ? 'bg-gray-50/50 dark:bg-gray-800/20' : ''}`}>
-                                    <td className="py-3 px-4">
-                                      <div>
-                                        <div className="text-[var(--text)] font-medium">{formattedDate}</div>
-                                        <div className="text-xs text-[var(--muted)]">{dayOfWeek}</div>
-                                      </div>
-                                    </td>
-                                    <td className="py-3 px-4">
-                                      <div className="flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                                        <span className="font-medium text-[var(--text)]">{formatTo12Hour(firstBreak.start_time) || "-"}</span>
-                                      </div>
-                                    </td>
-                                    <td className="py-3 px-4">
-                                      <div className="flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                        <span className="font-medium text-[var(--text)]">{firstBreak.end_time ? formatTo12Hour(firstBreak.end_time) : "-"}</span>
-                                      </div>
-                                    </td>
-                                    <td className="py-3 px-4 font-medium text-[var(--text)]">
-                                      {firstBreak.duration_minutes ? `${firstBreak.duration_minutes} mins` : "-"}
+                                      {firstBreak.duration_minutes
+                                        ? `${firstBreak.duration_minutes} mins`
+                                        : "-"}
                                     </td>
                                     {activeBreakTab === "all" && (
                                       <td className="py-3 px-4">
                                         {hasMultiple && (
-                                          <button 
-                                            onClick={() => toggleExpandedDate(dateStr)}
+                                          <button
+                                            onClick={() =>
+                                              toggleExpandedDate(dateStr)
+                                            }
                                             className="text-xs text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
                                           >
-                                            {isExpanded ? "Hide" : `View All (${dayBreaks.length})`}
+                                            {isExpanded
+                                              ? "Hide"
+                                              : `View All (${dayBreaks.length})`}
                                           </button>
                                         )}
                                       </td>
                                     )}
                                   </tr>
-                                  {isExpanded && dayBreaks.slice(1).map((b, bIndex) => (
-                                    <tr key={`${index}-${bIndex}`} className="border-b border-[var(--border)] bg-gray-50/30 dark:bg-gray-800/10">
-                                      <td className="py-2 px-4">
-                                        <div className="text-xs text-[var(--muted)] flex items-center gap-1">
-                                          <i className="fas fa-level-up-alt rotate-90 opacity-50"></i>
-                                          Break #{bIndex + 2}
-                                        </div>
-                                      </td>
-                                      <td className="py-2 px-4">
-                                        <div className="flex items-center gap-2 text-sm">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500/50"></span>
-                                          <span className="text-[var(--text)] opacity-80">{formatTo12Hour(b.start_time) || "-"}</span>
-                                        </div>
-                                      </td>
-                                      <td className="py-2 px-4">
-                                        <div className="flex items-center gap-2 text-sm">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-green-500/50"></span>
-                                          <span className="text-[var(--text)] opacity-80">{b.end_time ? formatTo12Hour(b.end_time) : "-"}</span>
-                                        </div>
-                                      </td>
-                                      <td className="py-2 px-4 text-sm text-[var(--text)] opacity-80">
-                                        {b.duration_minutes ? `${b.duration_minutes} mins` : "-"}
-                                      </td>
-                                      {activeBreakTab === "all" && <td className="py-2 px-4"></td>}
-                                    </tr>
-                                  ))}
+                                  {isExpanded &&
+                                    dayBreaks.slice(1).map((b, bIndex) => (
+                                      <tr
+                                        key={`${index}-${bIndex}`}
+                                        className="border-b border-[var(--border)] bg-gray-50/30 dark:bg-gray-800/10"
+                                      >
+                                        <td className="py-2 px-4">
+                                          <div className="text-xs text-[var(--muted)] flex items-center gap-1">
+                                            <i className="fas fa-level-up-alt rotate-90 opacity-50"></i>
+                                            Break #{bIndex + 2}
+                                          </div>
+                                        </td>
+                                        <td className="py-2 px-4">
+                                          <div className="flex items-center gap-2 text-sm">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500/50"></span>
+                                            <span className="text-[var(--text)] opacity-80">
+                                              {formatTo12Hour(b.start_time) ||
+                                                "-"}
+                                            </span>
+                                          </div>
+                                        </td>
+                                        <td className="py-2 px-4">
+                                          <div className="flex items-center gap-2 text-sm">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500/50"></span>
+                                            <span className="text-[var(--text)] opacity-80">
+                                              {b.end_time
+                                                ? formatTo12Hour(b.end_time)
+                                                : "-"}
+                                            </span>
+                                          </div>
+                                        </td>
+                                        <td className="py-2 px-4 text-sm text-[var(--text)] opacity-80">
+                                          {b.duration_minutes
+                                            ? `${b.duration_minutes} mins`
+                                            : "-"}
+                                        </td>
+                                        {activeBreakTab === "all" && (
+                                          <td className="py-2 px-4"></td>
+                                        )}
+                                      </tr>
+                                    ))}
                                 </Fragment>
                               );
-                            });
-                          })()}
-                        </tbody>
-                      </table>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-[var(--muted)] py-10">
-                        <i className="fas fa-coffee text-3xl mb-3 text-gray-300 dark:text-gray-600"></i>
-                        <p className="text-sm font-medium">No {activeBreakTab === "today" ? "breaks today" : "break records found"}</p>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
+                            },
+                          );
+                        })()}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-[var(--muted)] py-10">
+                      <i className="fas fa-coffee text-3xl mb-3 text-gray-300 dark:text-gray-600"></i>
+                      <p className="text-sm font-medium">
+                        No{" "}
+                        {activeBreakTab === "today"
+                          ? "breaks today"
+                          : "break records found"}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
-            </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Punch Out Modal */}

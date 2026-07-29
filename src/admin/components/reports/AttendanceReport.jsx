@@ -8,10 +8,9 @@ import Pagination from "../common/Paginations";
 import {
   fetchAllAttendanceReport,
   fetchAttendanceReport,
+  exportAttendanceReport,
 } from "../../store/slices/reportSlice";
 import ExportModal from "../../../components/common/ExportModal";
-import { exportToCSV, formatDate } from "../../../utils/reportUtils";
-import { generateAttendancePDF } from "../../../utils/reportPDFConfigs";
 
 const AttendanceReport = () => {
   const dispatch = useDispatch();
@@ -20,6 +19,7 @@ const AttendanceReport = () => {
     attendanceLoading: loading = false,
     attendanceTotalCount: totalCount = 0,
     attendanceLastPage: lastPage = 1,
+    exportLoading = false,
   } = useSelector((state) => state.reports || {});
 
   // Local state
@@ -154,108 +154,53 @@ const AttendanceReport = () => {
     showToast("Filters reset successfully", "success");
   };
 
-  // Transform attendance data for export
-  const getExportData = () => {
-    const allRecords = records || [];
-    return allRecords.map((record) => ({
-      date: formatDate(record.date),
-      employee_name: record.employeeName || record.name || "-",
-      department: record.department || "-",
-      punch_in: record.punchIn || record.punch_in || "-",
-      punch_out: record.punchOut || record.punch_out || "-",
-      duration: record.duration || "-",
-      worked_hours: record.working_hours
-        ? formatWorkedHours(record.working_hours)
-        : "-",
-      overtime: record.overtime ? formatWorkedHours(record.overtime) : "-",
-      status:
-        record.lateBy && record.lateBy > 0
-          ? "Late"
-          : record.status === "Absent"
-            ? "Absent"
-            : "Present",
-      late_by: record.lateBy ? `${record.lateBy} mins` : "-",
-    }));
-  };
-
+  // Updated handleExport using the export thunk
   const handleExport = async (format) => {
-    let exportData = [];
-    let recordsToExport = [];
+    // Build export parameters
+    const params = {
+      format: format,
+      date_range: datePreset,
+    };
 
-    if (exportType === "all") {
-      showToast("Fetching all data for export...", "success");
+    // Add date range for custom
+    if (datePreset === "custom") {
+      params.from_date = startDate;
+      params.to_date = endDate;
+    }
 
-      try {
-        const result = await dispatch(
-          fetchAllAttendanceReport({
-            company: companyFilter !== "all" ? companyFilter : undefined,
-            employee_id: employeeFilter !== "all" ? employeeFilter : undefined,
-            search: searchTerm || undefined,
-            start_date: startDate,
-            end_date: endDate,
-          }),
-        ).unwrap();
+    // Add filters
+    if (companyFilter && companyFilter !== "all") {
+      params.company_id = companyFilter;
+    }
+    if (employeeFilter && employeeFilter !== "all") {
+      params.employee_id = employeeFilter;
+    }
+    if (searchTerm) {
+      params.search = searchTerm;
+    }
 
-        recordsToExport = result.data || [];
-        exportData = recordsToExport.map((record) => ({
-          date: formatDate(record.date),
-          employee_name: record.employeeName || record.name || "-",
-          department: record.department || "-",
-          punch_in: record.punchIn || record.punch_in || "-",
-          punch_out: record.punchOut || record.punch_out || "-",
-          duration: record.worked_hours
-            ? formatWorkedHours(record.worked_hours)
-            : "-",
-          overtime: record.overtime ? formatWorkedHours(record.overtime) : "-",
-          status: record.status || record.attendance_status || "Present",
-          late_by: record.lateBy ? `${record.lateBy} mins` : "-",
-        }));
-      } catch (error) {
-        showToast("Failed to fetch all data", "error");
-        return;
-      }
+    // Dispatch the export thunk
+    const result = await dispatch(exportAttendanceReport(params));
+    
+    if (exportAttendanceReport.fulfilled.match(result)) {
+      const { url, filename } = result.payload;
+      
+      // Create a download link
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Revoke the URL after download
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      
+      showToast(`Attendance report exported successfully!`, "success");
     } else {
-      recordsToExport = records || [];
-      exportData = getExportData();
-    }
-
-    if (exportData.length === 0) {
-      showToast("No data to export", "warning");
-      return;
-    }
-
-    const headers = [
-      { key: "date", label: "Date" },
-      { key: "employee_name", label: "Employee" },
-      { key: "department", label: "Department" },
-      { key: "punch_in", label: "Punch In" },
-      { key: "punch_out", label: "Punch Out" },
-      { key: "worked_hours", label: "Worked Hours" },
-      { key: "overtime", label: "Overtime" },
-      { key: "status", label: "Status" },
-      { key: "late_by", label: "Late By" },
-    ];
-
-    const filename = `attendance_report_${startDate}_to_${endDate}${exportType === "all" ? "_full" : ""}`;
-
-    if (format === "csv") {
-      exportToCSV(exportData, headers, `${filename}.csv`);
-      showToast(
-        `Attendance report exported successfully! (${exportData.length} records)`,
-        "success",
-      );
-    } else if (format === "pdf") {
-      generateAttendancePDF(recordsToExport, {
-        start_date: startDate,
-        end_date: endDate,
-        company: companyFilter !== "all" ? companyFilter : null,
-        employee_id: employeeFilter !== "all" ? employeeFilter : null,
-        search: searchTerm || null,
-      });
-      showToast(
-        `PDF report generated successfully! (${exportData.length} records)`,
-        "success",
-      );
+      showToast(result.payload || "Failed to export report", "error");
     }
   };
 
@@ -275,7 +220,7 @@ const AttendanceReport = () => {
     return `${h} hr${h > 1 ? "s" : ""} ${m} min${m > 1 ? "s" : ""}`;
   };
 
-  // ✅ Updated status badge with overtime indicator
+  // Status badge with overtime indicator
   const getStatusBadge = (status, overtime = 0) => {
     const statusLower = String(status || "").toLowerCase();
     const hasOvertime = overtime > 0;
@@ -432,7 +377,7 @@ const AttendanceReport = () => {
           </p>
         </div>
 
-        {/* Stats Cards - Added Overtime Card */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
@@ -498,7 +443,6 @@ const AttendanceReport = () => {
             </div>
           </div>
 
-          {/* NEW Overtime Stats Card */}
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-md">
             <div className="flex items-center justify-between">
               <div>
@@ -574,7 +518,7 @@ const AttendanceReport = () => {
           </div>
         </div>
 
-        {/* Additional Filters - Company and Employee */}
+        {/* Additional Filters */}
         <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
           <select
             value={companyFilter}
@@ -638,9 +582,14 @@ const AttendanceReport = () => {
 
             <button
               onClick={() => setShowExportModal(true)}
-              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+              disabled={exportLoading}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <i className="fas fa-download"></i> Export Report
+              {exportLoading ? (
+                <><i className="fas fa-spinner fa-spin"></i> Exporting...</>
+              ) : (
+                <><i className="fas fa-download"></i> Export Report</>
+              )}
             </button>
           </div>
         </div>
@@ -699,7 +648,7 @@ const AttendanceReport = () => {
                         return (
                           <tr
                             key={record.id || idx}
-                            className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors dark:bg-emerald-900/5`}
+                            className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${hasOvertime ? 'dark:bg-emerald-900/5' : ''}`}
                           >
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
                               {start + idx + 1}
@@ -848,12 +797,17 @@ const AttendanceReport = () => {
       {/* Export Modal */}
       <ExportModal
         isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
+        onClose={() => {
+          if (!exportLoading) {
+            setShowExportModal(false);
+          }
+        }}
         onExport={handleExport}
         title="Export Attendance Report"
         totalRecords={exportType === "all" ? totalCount : records.length}
         formats={["csv", "pdf"]}
         defaultFormat="csv"
+        loading={exportLoading}
         subtitle={
           exportType === "all"
             ? `Exporting all ${totalCount} records across all pages`
