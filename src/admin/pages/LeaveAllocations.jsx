@@ -7,13 +7,13 @@ import Pagination from "@admin/components/common/Paginations";
 import { fetchEmployees } from "@admin/store/slices/employeeSlice";
 import {
   fetchLeaveTypes,
-  fetchLeaveBalances,
+  fetchAllLeaveAllocations,
 } from "@admin/store/slices/LeaveSlice";
 
 const LeaveAllocations = () => {
   const dispatch = useDispatch();
   const { employees = [] } = useSelector((state) => state.employees || {});
-  const { leaveTypes = [] } = useSelector((state) => state.leaves || {});
+  const { leaveTypes = [], allAllocations = [] } = useSelector((state) => state.leaves || {});
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -23,45 +23,66 @@ const LeaveAllocations = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      await dispatch(fetchEmployees());
-      await dispatch(fetchLeaveTypes());
+      await Promise.all([
+        dispatch(fetchEmployees()),
+        dispatch(fetchLeaveTypes()),
+        dispatch(fetchAllLeaveAllocations()),
+      ]);
       setLoading(false);
     };
     fetchData();
   }, [dispatch]);
 
-  // Fetch leave balances for each employee
+  // Group allocations by employee_name or employee_id
   useEffect(() => {
-    const fetchAllBalances = async () => {
-      if (employees.length > 0 && leaveTypes.length > 0) {
-        setLoading(true);
-        const balances = {};
-        for (const employee of employees) {
-          try {
-            const result = await dispatch(fetchLeaveBalances({ employee_id: employee.id })).unwrap();
-            console.log(`Balances for employee ${employee.id}:`, result);
-            
-            if (result && result.allocations) {
-              const allocationsArray = Object.values(result.allocations);
-              balances[employee.id] = allocationsArray;
-            } else if (result && Array.isArray(result)) {
-              balances[employee.id] = result;
-            } else if (result && result.data && Array.isArray(result.data)) {
-              balances[employee.id] = result.data;
-            } else {
-              balances[employee.id] = [];
-            }
-          } catch (error) {
-            console.error(`Failed to fetch balances for employee ${employee.id}:`, error);
-            balances[employee.id] = [];
-          }
+    if (!allAllocations) {
+      setLeaveBalances({});
+      return;
+    }
+
+    const balances = {};
+
+    if (Array.isArray(allAllocations)) {
+      allAllocations.forEach((item) => {
+        // New API format: { employee_name: '...', leave_types: [...] }
+        if (item.employee_name && item.leave_types) {
+          balances[item.employee_name] = item.leave_types;
         }
-        setLeaveBalances(balances);
-        setLoading(false);
-      }
-    };
-    fetchAllBalances();
-  }, [dispatch, employees, leaveTypes]);
+        // If it's a flat array of allocations
+        else if (item.employee_id && item.leave_type_id) {
+          if (!balances[item.employee_id]) balances[item.employee_id] = [];
+          balances[item.employee_id].push(item);
+        } 
+        // If it's an array of employees with nested allocations
+        else if (item.id && item.allocations) {
+          balances[item.id] = Array.isArray(item.allocations) 
+            ? item.allocations 
+            : Object.values(item.allocations);
+        }
+        // If it's an array of employees with nested leave_balances
+        else if (item.id && item.leave_balances) {
+          balances[item.id] = Array.isArray(item.leave_balances) 
+            ? item.leave_balances 
+            : Object.values(item.leave_balances);
+        }
+      });
+    } else if (typeof allAllocations === 'object') {
+      // If it's an object with employee_id keys
+      Object.entries(allAllocations).forEach(([empId, allocs]) => {
+        if (allocs && allocs.allocations) {
+           balances[empId] = Array.isArray(allocs.allocations) ? allocs.allocations : Object.values(allocs.allocations);
+        } else if (Array.isArray(allocs)) {
+           balances[empId] = allocs;
+        } else if (typeof allocs === 'object') {
+           balances[empId] = Object.values(allocs);
+        } else {
+           balances[empId] = [];
+        }
+      });
+    }
+
+    setLeaveBalances(balances);
+  }, [allAllocations]);
 
   const getFilteredEmployees = () => {
     let filtered = [...employees];
@@ -88,14 +109,30 @@ const LeaveAllocations = () => {
     return leaveType?.id;
   };
 
-  const getAllocationValue = (employeeId, leaveTypeName, field) => {
+  const getAllocationValue = (employeeId, employeeName, leaveTypeName, field) => {
+    // Try to get balances by name (new API) or by ID (old API format)
+    const balances = leaveBalances[employeeName] || leaveBalances[employeeId];
+    
+    if (!balances || !Array.isArray(balances)) return 0;
+    
+    // Check new API format first (it has leave_type string)
+    const newFormatAllocation = balances.find(a => a.leave_type === leaveTypeName);
+    
+    if (newFormatAllocation) {
+      const allocatedDays = parseFloat(newFormatAllocation.allocated) || 0;
+      const usedDays = parseFloat(newFormatAllocation.used) || 0;
+      
+      if (field === "alloc") return allocatedDays;
+      if (field === "used") return usedDays;
+      if (field === "bal") return parseFloat(newFormatAllocation.balance) || (allocatedDays - usedDays);
+      return 0;
+    }
+
+    // Fallback to old format (it has leave_type_id)
     const leaveTypeId = getLeaveTypeId(leaveTypeName);
-    const balances = leaveBalances[employeeId];
-    
-    if (!balances || !Array.isArray(balances) || !leaveTypeId) return 0;
-    
+    if (!leaveTypeId) return 0;
+
     const allocation = balances.find(a => a.leave_type_id === leaveTypeId);
-    
     if (!allocation) return 0;
     
     const allocatedDays = parseFloat(allocation.allocated_days) || 0;
@@ -239,15 +276,22 @@ const LeaveAllocations = () => {
 
                   const annualAlloc = getAllocationValue(
                     employee.id,
+                    employee.name,
                     "Annual Leave",
                     "alloc",
                   );
                   const annualUsed = getAllocationValue(
                     employee.id,
+                    employee.name,
                     "Annual Leave",
                     "used",
                   );
-                  const annualBal = annualAlloc - annualUsed;
+                  const annualBal = getAllocationValue(
+                    employee.id,
+                    employee.name,
+                    "Annual Leave",
+                    "bal",
+                  );
 
                   return (
                     <tr
@@ -278,7 +322,7 @@ const LeaveAllocations = () => {
                           >
                             {employee.name?.charAt(0) || "?"}
                           </div>
-                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate max-w-[120px]">
+                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
                             {employee.name}
                           </span>
                         </div>
