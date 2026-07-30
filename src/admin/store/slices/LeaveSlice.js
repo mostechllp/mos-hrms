@@ -117,6 +117,58 @@ export const updateLeaveStatus = createAsyncThunk(
   },
 );
 
+export const addLeave = createAsyncThunk(
+  "leaves/addLeave",
+  async (formData, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post("/employee/leaves", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error("Add leave error:", error);
+      if (error.response?.data?.errors) {
+        const errorMessages = Object.values(error.response.data.errors)
+          .flat()
+          .join(", ");
+        return rejectWithValue(errorMessages);
+      }
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to add leave request",
+      );
+    }
+  }
+);
+
+export const updateLeave = createAsyncThunk(
+  "leaves/updateLeave",
+  async ({ id, formData }, { rejectWithValue }) => {
+    try {
+      // If we use FormData with files, standard practice in Laravel is to send POST with _method=PUT
+      formData.append("_method", "PUT");
+      const response = await apiClient.post(`/employee/leaves/${id}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error("Update leave error:", error);
+      if (error.response?.data?.errors) {
+        const errorMessages = Object.values(error.response.data.errors)
+          .flat()
+          .join(", ");
+        return rejectWithValue(errorMessages);
+      }
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update leave request",
+      );
+    }
+  }
+);
+
 export const fetchLeaveBalances = createAsyncThunk(
   "leaves/fetchBalances",
   async ({ employee_id }, { rejectWithValue }) => {
@@ -128,6 +180,25 @@ export const fetchLeaveBalances = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch leave balances",
+      );
+    }
+  },
+);
+
+export const fetchAllLeaveAllocations = createAsyncThunk(
+  "leaves/fetchAllAllocations",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get("/admin/leave-allocations");
+      console.log("fetchAllLeaveAllocations raw response:", response.data);
+      let data = response.data?.data;
+      if (data && data.data && Array.isArray(data.data)) {
+        data = data.data; // Handle Laravel pagination
+      }
+      return data || response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch all leave allocations",
       );
     }
   },
@@ -264,6 +335,7 @@ const leaveSlice = createSlice({
     leaves: [],
     currentLeave: null,
     leaveTypes: [],
+    allAllocations: [],
     loading: false,
     error: null,
     totalCount: 0,
@@ -292,6 +364,20 @@ const leaveSlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
+      
+      // Fetch all leave allocations
+      .addCase(fetchAllLeaveAllocations.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchAllLeaveAllocations.fulfilled, (state, action) => {
+        state.loading = false;
+        state.allAllocations = action.payload;
+      })
+      .addCase(fetchAllLeaveAllocations.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
 
       // Fetch leave by ID
       .addCase(fetchLeaveById.pending, (state) => {
@@ -303,6 +389,46 @@ const leaveSlice = createSlice({
         state.currentLeave = action.payload;
       })
       .addCase(fetchLeaveById.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+
+      // Add leave
+      .addCase(addLeave.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(addLeave.fulfilled, (state, action) => {
+        state.loading = false;
+        if (action.payload) {
+            state.leaves.unshift(transformAdminLeaveData(action.payload));
+            state.totalCount += 1;
+        }
+      })
+      .addCase(addLeave.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+
+      // Update leave
+      .addCase(updateLeave.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateLeave.fulfilled, (state, action) => {
+        state.loading = false;
+        if (action.payload) {
+          const updatedLeave = transformAdminLeaveData(action.payload);
+          const index = state.leaves.findIndex((l) => l.id === updatedLeave.id);
+          if (index !== -1) {
+            state.leaves[index] = updatedLeave;
+          }
+          if (state.currentLeave?.id === updatedLeave.id) {
+            state.currentLeave = updatedLeave;
+          }
+        }
+      })
+      .addCase(updateLeave.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
       })

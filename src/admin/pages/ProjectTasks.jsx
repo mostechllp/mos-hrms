@@ -11,10 +11,10 @@ import {
   deleteTask,
   updateTaskStatus,
   clearError,
+  fetchTaskEmployees,
 } from "../store/slices/tasksSlice";
 import { fetchProjects } from "../store/slices/projectsSlice";
-import { fetchEmployees } from "../store/slices/employeeSlice";
-import { fetchDepartments } from "../store/slices/departmentSlice"; // Add this import
+import { fetchDepartments } from "../store/slices/departmentSlice";
 
 const Tasks = () => {
   const dispatch = useDispatch();
@@ -26,10 +26,11 @@ const Tasks = () => {
     currentPage,
     lastPage,
     perPage,
+    taskEmployees = [],
   } = useSelector((state) => state.tasks || {});
   const { projects = [] } = useSelector((state) => state.projects || {});
   const { employees = [] } = useSelector((state) => state.employees || {});
-  const { departments = [] } = useSelector((state) => state.departments || {}); // Add this
+  const { departments = [] } = useSelector((state) => state.departments || {});
   const { user: authUser } = useSelector((state) => state.auth);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -51,8 +52,8 @@ const Tasks = () => {
   // Fetch initial data
   useEffect(() => {
     dispatch(fetchProjects());
-    dispatch(fetchEmployees());
-    dispatch(fetchDepartments()); // Add this
+    dispatch(fetchTaskEmployees());
+    dispatch(fetchDepartments());
   }, [dispatch]);
 
   // Fetch tasks with filters
@@ -163,6 +164,11 @@ const Tasks = () => {
 
   const getStatusBadge = (status) => {
     const statusMap = {
+      assigned: {
+        label: "Assigned",
+        class:
+          "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+      },
       in_progress: {
         label: "In Progress",
         class:
@@ -186,11 +192,6 @@ const Tasks = () => {
       pending: {
         label: "Pending",
         class: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-      },
-      assigned: {
-        label: "Assigned",
-        class:
-          "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
       },
     };
     const s = statusMap[status] || {
@@ -283,6 +284,10 @@ const Tasks = () => {
       const status = getTaskStatus(t);
       return status === "on_hold";
     }).length,
+    assigned: tasks.filter((t) => {
+      const status = getTaskStatus(t);
+      return status === "assigned";
+    }).length,
     pending: tasks.filter((t) => {
       const status = getTaskStatus(t);
       return status === "pending" || status === "assigned";
@@ -292,7 +297,7 @@ const Tasks = () => {
   return (
     <div className="w-full overflow-x-hidden">
       {/* Stats Cards */}
-      <div className="stats-grid grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 mb-6">
+      <div className="stats-grid grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4 mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200">
           <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-100 rounded-xl flex items-center justify-center mb-1">
             <i className="fas fa-tasks text-purple-600"></i>
@@ -305,13 +310,13 @@ const Tasks = () => {
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200">
-          <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 rounded-xl flex items-center justify-center mb-1">
-            <i className="fas fa-check-circle text-green-600"></i>
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-100 rounded-xl flex items-center justify-center mb-1">
+            <i className="fas fa-user-plus text-purple-600"></i>
           </div>
-          <div className="text-xl md:text-2xl font-bold text-green-600">
-            {stats.completed}
+          <div className="text-xl md:text-2xl font-bold text-purple-600">
+            {stats.assigned}
           </div>
-          <div className="text-[10px] md:text-xs text-gray-500">Completed</div>
+          <div className="text-[10px] md:text-xs text-gray-500">Assigned</div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200">
           <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-xl flex items-center justify-center mb-1">
@@ -325,10 +330,19 @@ const Tasks = () => {
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200">
-          <div className="w-8 h-8 md:w-10 md:h-10 bg-yellow-100 rounded-xl flex items-center justify-center mb-1">
-            <i className="fas fa-pause-circle text-yellow-600"></i>
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 rounded-xl flex items-center justify-center mb-1">
+            <i className="fas fa-check-circle text-green-600"></i>
           </div>
-          <div className="text-xl md:text-2xl font-bold text-yellow-600">
+          <div className="text-xl md:text-2xl font-bold text-green-600">
+            {stats.completed}
+          </div>
+          <div className="text-[10px] md:text-xs text-gray-500">Completed</div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200">
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-100 rounded-xl flex items-center justify-center mb-1">
+            <i className="fas fa-pause-circle text-amber-600"></i>
+          </div>
+          <div className="text-xl md:text-2xl font-bold text-amber-600">
             {stats.onHold}
           </div>
           <div className="text-[10px] md:text-xs text-gray-500">On Hold</div>
@@ -340,7 +354,7 @@ const Tasks = () => {
           <div className="text-xl md:text-2xl font-bold text-gray-600">
             {stats.pending}
           </div>
-          <div className="text-[10px] md:text-xs text-gray-500">Pending</div>
+          <div className="text-[10px] md:text-xs text-gray-500">Assigned</div>
         </div>
       </div>
 
@@ -363,11 +377,10 @@ const Tasks = () => {
           className="px-3 md:px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 rounded-full text-xs md:text-sm"
         >
           <option value="all">All Status</option>
+          <option value="assigned">Assigned</option>
           <option value="in_progress">In Progress</option>
           <option value="completed">Completed</option>
           <option value="on_hold">On Hold</option>
-          <option value="pending">Pending</option>
-          <option value="assigned">Assigned</option>
         </select>
 
         <select
@@ -640,7 +653,7 @@ const Tasks = () => {
                           </td>
                         </tr>
 
-                        {/* Expanded dropdown row - compact like second image */}
+                        {/* Expanded dropdown row */}
                         {isStatusExpanded && hasMultipleEmployees && (
                           <tr className="bg-gray-50/50 dark:bg-gray-800/30">
                             <td colSpan="9" className="px-4 py-2">

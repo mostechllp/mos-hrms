@@ -316,7 +316,7 @@ function App() {
           />
           <Route path="payroll/add" element={<AddPayroll />} />
           <Route path="wfh" element={<AdminWFH />} />
-          <Route path="attendance-requests" element={<AttendanceRequests />} /> 
+          <Route path="attendance-requests" element={<AttendanceRequests isAdmin={true} />} /> 
           <Route path="wfh-requests" element={<AdminWFH />} />  
           <Route path="settings" element={<Settings />} />
           <Route path="role-management" element={<RoleManagement />} />

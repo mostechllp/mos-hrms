@@ -1,4 +1,3 @@
-// TaskModal.jsx - Updated with DateInput component
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { createTask, updateTask } from "../../store/slices/tasksSlice";
@@ -19,6 +18,12 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
   // Fetch departments from Redux store
   const { departments: deptList } = useSelector((state) => state.departments || {});
   
+  // Get taskEmployees from tasks slice
+  const { taskEmployees = [] } = useSelector((state) => state.tasks || {});
+  
+  // Use taskEmployees if provided, otherwise fallback to employees prop
+  const availableEmployees = taskEmployees.length > 0 ? taskEmployees : employees;
+
   const [formData, setFormData] = useState({
     name: "",
     project_id: "",
@@ -69,52 +74,37 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Helper function to get department ID from employee
-  const getEmployeeDepartmentId = (emp) => {
-    if (!emp) return null;
-    
-    // Check all possible locations for department_id
-    if (emp.raw?.user?.department_id !== undefined && emp.raw?.user?.department_id !== null) {
-      return emp.raw.user.department_id;
-    }
-    if (emp.raw?.user?.department?.id !== undefined && emp.raw?.user?.department?.id !== null) {
-      return emp.raw.user.department.id;
-    }
-    if (emp.raw?.department_id !== undefined && emp.raw?.department_id !== null) {
-      return emp.raw.department_id;
-    }
-    if (emp.user?.department_id !== undefined && emp.user?.department_id !== null) {
-      return emp.user.department_id;
-    }
-    if (emp.department_id !== undefined && emp.department_id !== null) {
-      return emp.department_id;
-    }
-    if (emp.user?.department?.id !== undefined && emp.user?.department?.id !== null) {
-      return emp.user.department.id;
-    }
-    if (emp.department?.id !== undefined && emp.department?.id !== null) {
-      return emp.department.id;
-    }
-    return null;
-  };
-
   // Helper function to get employee name
   const getEmployeeName = (emp) => {
     if (emp.name) return emp.name;
     if (emp.first_name && emp.last_name) return `${emp.first_name} ${emp.last_name}`;
     if (emp.first_name) return emp.first_name;
-    if (emp.raw?.first_name && emp.raw?.last_name) return `${emp.raw.first_name} ${emp.raw.last_name}`;
-    if (emp.raw?.first_name) return emp.raw.first_name;
+    if (emp.employee_name) return emp.employee_name;
     return 'Unknown';
+  };
+
+  // Helper function to get employee department ID
+  const getEmployeeDepartmentId = (emp) => {
+    if (emp.department?.id) return emp.department.id;
+    if (emp.department_id) return emp.department_id;
+    if (emp.raw?.department?.id) return emp.raw.department.id;
+    if (emp.raw?.department_id) return emp.raw.department_id;
+    return null;
   };
 
   // Helper function to get employee department name
   const getEmployeeDepartmentName = (emp) => {
-    if (emp.department) return emp.department;
-    if (emp.raw?.user?.department?.name) return emp.raw.user.department.name;
-    if (emp.raw?.department?.name) return emp.raw.department.name;
-    if (emp.user?.department?.name) return emp.user.department.name;
     if (emp.department?.name) return emp.department.name;
+    if (emp.department) return emp.department;
+    if (emp.raw?.department?.name) return emp.raw.department.name;
+    if (emp.raw?.department) return emp.raw.department;
+    return null;
+  };
+
+  // Helper function to get employee designation
+  const getEmployeeDesignation = (emp) => {
+    if (emp.designation) return emp.designation;
+    if (emp.raw?.designation) return emp.raw.designation;
     return null;
   };
 
@@ -124,18 +114,19 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
       const selectedProject = projects.find(p => p.id === parseInt(formData.project_id));
       
       if (selectedProject?.department_id) {
-        const filtered = employees.filter(emp => {
+        // Filter employees by department ID
+        const filtered = availableEmployees.filter(emp => {
           const empDeptId = getEmployeeDepartmentId(emp);
           return empDeptId === selectedProject.department_id;
         });
-        setFilteredEmployeesByDepartment(filtered);
+        setFilteredEmployeesByDepartment(filtered.length > 0 ? filtered : availableEmployees);
       } else {
-        setFilteredEmployeesByDepartment(employees);
+        setFilteredEmployeesByDepartment(availableEmployees);
       }
     } else {
-      setFilteredEmployeesByDepartment(employees);
+      setFilteredEmployeesByDepartment(availableEmployees);
     }
-  }, [formData.project_id, employees, projects]);
+  }, [formData.project_id, availableEmployees, projects]);
 
   useEffect(() => {
     if (task) {
@@ -195,16 +186,16 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
     }));
   };
 
-  // Filter employees based on search
+  // Filter employees based on search (by name or designation)
   const filteredEmployees = filteredEmployeesByDepartment?.filter(emp => {
     const searchLower = searchEmployee.toLowerCase();
     const empName = getEmployeeName(emp).toLowerCase();
-    const empEmail = (emp.raw?.company_email || emp.raw?.personal_email || emp.email || '').toLowerCase();
-    const empId = (emp.raw?.employee_id || emp.employee_id || '').toLowerCase();
+    const empDesignation = (getEmployeeDesignation(emp) || '').toLowerCase();
+    const empDepartment = (getEmployeeDepartmentName(emp) || '').toLowerCase();
     
-    return empName.includes(searchLower) ||
-           empEmail.includes(searchLower) ||
-           empId.includes(searchLower);
+    return empName.includes(searchLower) || 
+           empDesignation.includes(searchLower) ||
+           empDepartment.includes(searchLower);
   });
 
   // Select/Deselect all
@@ -374,15 +365,18 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                   )}
                 </label>
                 
-                {/* Selected Employees Tags */}
+                {/* Selected Employees Tags - FIXED: Use availableEmployees instead of employees */}
                 {formData.assigned_to_ids.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {formData.assigned_to_ids.map(id => {
-                      const emp = employees?.find(e => e.id === id);
+                      const emp = availableEmployees?.find(e => e.id === id);
                       return emp ? (
                         <span key={id} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm">
                           <i className="fas fa-user text-xs"></i>
                           {getEmployeeName(emp)}
+                          {getEmployeeDesignation(emp) && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">({getEmployeeDesignation(emp)})</span>
+                          )}
                           <button
                             type="button"
                             onClick={() => removeEmployee(id)}
@@ -410,7 +404,7 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                       onFocus={() => setShowEmployeeDropdown(true)}
                       placeholder={departmentName ? 
                         `Search employees in ${departmentName} department...` : 
-                        "Search employees by name, ID or email..."}
+                        "Search employees by name or designation..."}
                       className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
@@ -444,7 +438,8 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                         filteredEmployees.map(emp => {
                           const isSelected = formData.assigned_to_ids.includes(emp.id);
                           const empName = getEmployeeName(emp);
-                          const empDeptName = getEmployeeDepartmentName(emp);
+                          const empDesignation = getEmployeeDesignation(emp);
+                          const empDepartment = getEmployeeDepartmentName(emp);
                           return (
                             <label
                               key={emp.id}
@@ -463,8 +458,11 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                               </div>
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{empName}</p>
-                                {empDeptName && (
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">{empDeptName}</p>
+                                
+                                {empDepartment && empDepartment !== empDesignation && (
+                                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                                    {empDepartment}
+                                  </p>
                                 )}
                               </div>
                               {isSelected && (

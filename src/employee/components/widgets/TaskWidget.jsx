@@ -4,7 +4,10 @@ import { addTask, toggleTask, deleteTask, clearCompletedTasks } from '../../stor
 
 const TaskWidget = () => {
   const dispatch = useAppDispatch();
-  const { tasks } = useAppSelector((state) => state.tasks);
+  const tasks = useAppSelector((state) => {
+  console.log('State:', state.myTasks);
+  return state.myTasks.tasks;
+});
   const [isOpen, setIsOpen] = useState(false);
   const [newTask, setNewTask] = useState('');
   const [iconPosition, setIconPosition] = useState({ x: 0, y: 0 });
