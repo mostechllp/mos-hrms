@@ -602,14 +602,19 @@ export const exportReport = createAsyncThunk(
     try {
       // Build query parameters
       const queryParams = new URLSearchParams();
-      
+
       // Always include report_type and format
       queryParams.append("report_type", reportType);
       queryParams.append("format", format || "csv");
-      
+
       // Add all other params as query parameters (skip 'format' if present)
-      Object.keys(params || {}).forEach(key => {
-        if (key !== 'format' && params[key] !== undefined && params[key] !== null && params[key] !== "") {
+      Object.keys(params || {}).forEach((key) => {
+        if (
+          key !== "format" &&
+          params[key] !== undefined &&
+          params[key] !== null &&
+          params[key] !== ""
+        ) {
           queryParams.append(key, params[key]);
         }
       });
@@ -621,8 +626,8 @@ export const exportReport = createAsyncThunk(
       const response = await apiClient.post(url, null, {
         responseType: "blob",
         headers: {
-          'Accept': format === 'pdf' ? 'application/pdf' : 'text/csv',
-        }
+          Accept: format === "pdf" ? "application/pdf" : "text/csv",
+        },
       });
 
       // Determine content type and extension
@@ -633,17 +638,19 @@ export const exportReport = createAsyncThunk(
       if (response.data instanceof Blob) {
         // Check if it's a JSON error response disguised as blob
         const text = await response.data.text();
-        if (text.startsWith('{') || text.startsWith('<!DOCTYPE')) {
+        if (text.startsWith("{") || text.startsWith("<!DOCTYPE")) {
           try {
             const parsed = JSON.parse(text);
             if (parsed.message || parsed.error) {
-              return rejectWithValue(parsed.message || parsed.error || "Export failed");
+              return rejectWithValue(
+                parsed.message || parsed.error || "Export failed",
+              );
             }
           } catch {
             // Not JSON, continue
           }
         }
-        
+
         // Create a new blob with the correct content type
         const blob = new Blob([response.data], { type: contentType });
         const urlBlob = window.URL.createObjectURL(blob);
@@ -659,9 +666,9 @@ export const exportReport = createAsyncThunk(
       }
     } catch (error) {
       console.error("Export error:", error);
-      
+
       let errorMessage = "Failed to export report";
-      
+
       // Handle error response
       if (error.response) {
         // If it's a blob response, try to parse it as text
@@ -674,18 +681,19 @@ export const exportReport = createAsyncThunk(
             errorMessage = error.response.statusText || errorMessage;
           }
         } else if (error.response.data) {
-          errorMessage = error.response.data.message || 
-                         error.response.data.error || 
-                         error.response.statusText || 
-                         errorMessage;
+          errorMessage =
+            error.response.data.message ||
+            error.response.data.error ||
+            error.response.statusText ||
+            errorMessage;
         }
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       return rejectWithValue(errorMessage);
     }
-  }
+  },
 );
 
 // ==================== Export Attendance Report ====================
@@ -695,14 +703,18 @@ export const exportAttendanceReport = createAsyncThunk(
     try {
       // Build query parameters
       const queryParams = new URLSearchParams();
-      
+
       queryParams.append("report_type", "attendance");
       queryParams.append("format", params.format || "csv");
-      
+
       // Add all other params as query parameters
       const { format, ...restParams } = params;
-      Object.keys(restParams).forEach(key => {
-        if (restParams[key] !== undefined && restParams[key] !== null && restParams[key] !== "") {
+      Object.keys(restParams).forEach((key) => {
+        if (
+          restParams[key] !== undefined &&
+          restParams[key] !== null &&
+          restParams[key] !== ""
+        ) {
           queryParams.append(key, restParams[key]);
         }
       });
@@ -715,7 +727,8 @@ export const exportAttendanceReport = createAsyncThunk(
         responseType: "blob",
       });
 
-      const contentType = params.format === "pdf" ? "application/pdf" : "text/csv";
+      const contentType =
+        params.format === "pdf" ? "application/pdf" : "text/csv";
       const extension = params.format === "pdf" ? "pdf" : "csv";
 
       const blob = new Blob([response.data], { type: contentType });
@@ -727,7 +740,7 @@ export const exportAttendanceReport = createAsyncThunk(
       return { url: urlBlob, filename, blob };
     } catch (error) {
       console.error("Export attendance error:", error);
-      
+
       let errorMessage = "Failed to export attendance report";
       if (error.response && error.response.data) {
         try {
@@ -738,10 +751,10 @@ export const exportAttendanceReport = createAsyncThunk(
           errorMessage = error.response.statusText || errorMessage;
         }
       }
-      
+
       return rejectWithValue(errorMessage);
     }
-  }
+  },
 );
 
 // ==================== Export Leaves Report ====================
@@ -751,14 +764,18 @@ export const exportLeavesReport = createAsyncThunk(
     try {
       // Build query parameters
       const queryParams = new URLSearchParams();
-      
+
       queryParams.append("report_type", "leaves");
       queryParams.append("format", params.format || "csv");
-      
+
       // Add all other params as query parameters
       const { format, ...restParams } = params;
-      Object.keys(restParams).forEach(key => {
-        if (restParams[key] !== undefined && restParams[key] !== null && restParams[key] !== "") {
+      Object.keys(restParams).forEach((key) => {
+        if (
+          restParams[key] !== undefined &&
+          restParams[key] !== null &&
+          restParams[key] !== ""
+        ) {
           queryParams.append(key, restParams[key]);
         }
       });
@@ -771,7 +788,8 @@ export const exportLeavesReport = createAsyncThunk(
         responseType: "blob",
       });
 
-      const contentType = params.format === "pdf" ? "application/pdf" : "text/csv";
+      const contentType =
+        params.format === "pdf" ? "application/pdf" : "text/csv";
       const extension = params.format === "pdf" ? "pdf" : "csv";
 
       const blob = new Blob([response.data], { type: contentType });
@@ -783,7 +801,7 @@ export const exportLeavesReport = createAsyncThunk(
       return { url: urlBlob, filename, blob };
     } catch (error) {
       console.error("Export leaves error:", error);
-      
+
       let errorMessage = "Failed to export leaves report";
       if (error.response && error.response.data) {
         try {
@@ -794,10 +812,10 @@ export const exportLeavesReport = createAsyncThunk(
           errorMessage = error.response.statusText || errorMessage;
         }
       }
-      
+
       return rejectWithValue(errorMessage);
     }
-  }
+  },
 );
 
 // ==================== Export Tasks Report ====================
@@ -806,13 +824,17 @@ export const exportTasksReport = createAsyncThunk(
   async (params, { rejectWithValue }) => {
     try {
       const queryParams = new URLSearchParams();
-      
+
       queryParams.append("report_type", "tasks");
       queryParams.append("format", params.format || "csv");
-      
+
       const { format, ...restParams } = params;
-      Object.keys(restParams).forEach(key => {
-        if (restParams[key] !== undefined && restParams[key] !== null && restParams[key] !== "") {
+      Object.keys(restParams).forEach((key) => {
+        if (
+          restParams[key] !== undefined &&
+          restParams[key] !== null &&
+          restParams[key] !== ""
+        ) {
           queryParams.append(key, restParams[key]);
         }
       });
@@ -825,7 +847,8 @@ export const exportTasksReport = createAsyncThunk(
         responseType: "blob",
       });
 
-      const contentType = params.format === "pdf" ? "application/pdf" : "text/csv";
+      const contentType =
+        params.format === "pdf" ? "application/pdf" : "text/csv";
       const extension = params.format === "pdf" ? "pdf" : "csv";
 
       const blob = new Blob([response.data], { type: contentType });
@@ -837,7 +860,7 @@ export const exportTasksReport = createAsyncThunk(
       return { url: urlBlob, filename, blob };
     } catch (error) {
       console.error("Export tasks error:", error);
-      
+
       let errorMessage = "Failed to export tasks report";
       if (error.response && error.response.data) {
         try {
@@ -848,10 +871,10 @@ export const exportTasksReport = createAsyncThunk(
           errorMessage = error.response.statusText || errorMessage;
         }
       }
-      
+
       return rejectWithValue(errorMessage);
     }
-  }
+  },
 );
 
 // ==================== Export Employees Report ====================
@@ -860,13 +883,17 @@ export const exportEmployeesReport = createAsyncThunk(
   async (params, { rejectWithValue }) => {
     try {
       const queryParams = new URLSearchParams();
-      
+
       queryParams.append("report_type", "employees");
       queryParams.append("format", params.format || "csv");
-      
+
       const { format, ...restParams } = params;
-      Object.keys(restParams).forEach(key => {
-        if (restParams[key] !== undefined && restParams[key] !== null && restParams[key] !== "") {
+      Object.keys(restParams).forEach((key) => {
+        if (
+          restParams[key] !== undefined &&
+          restParams[key] !== null &&
+          restParams[key] !== ""
+        ) {
           queryParams.append(key, restParams[key]);
         }
       });
@@ -879,7 +906,8 @@ export const exportEmployeesReport = createAsyncThunk(
         responseType: "blob",
       });
 
-      const contentType = params.format === "pdf" ? "application/pdf" : "text/csv";
+      const contentType =
+        params.format === "pdf" ? "application/pdf" : "text/csv";
       const extension = params.format === "pdf" ? "pdf" : "csv";
 
       const blob = new Blob([response.data], { type: contentType });
@@ -891,7 +919,7 @@ export const exportEmployeesReport = createAsyncThunk(
       return { url: urlBlob, filename, blob };
     } catch (error) {
       console.error("Export employees error:", error);
-      
+
       let errorMessage = "Failed to export employees report";
       if (error.response && error.response.data) {
         try {
@@ -902,10 +930,10 @@ export const exportEmployeesReport = createAsyncThunk(
           errorMessage = error.response.statusText || errorMessage;
         }
       }
-      
+
       return rejectWithValue(errorMessage);
     }
-  }
+  },
 );
 
 // ==================== Initial State ====================
@@ -1160,8 +1188,14 @@ const reportSlice = createSlice({
       .addCase(fetchEmployeeNearestExpiryReport.fulfilled, (state, action) => {
         state.employeeNearestExpiryLoading = false;
         const responseData = action.payload?.data || action.payload;
-        state.employeeNearestExpiry = responseData?.data || responseData || [];
-        state.employeeNearestExpiryTotalCount = responseData?.total || 0;
+        // Extract employees from nested structure
+        state.employeeNearestExpiry =
+          responseData?.employees ||
+          responseData?.data?.employees ||
+          responseData ||
+          [];
+        state.employeeNearestExpiryTotalCount =
+          responseData?.total || state.employeeNearestExpiry.length || 0;
         state.employeeNearestExpiryCurrentPage =
           responseData?.current_page || 1;
         state.employeeNearestExpiryPerPage = responseData?.per_page || 10;
@@ -1183,8 +1217,12 @@ const reportSlice = createSlice({
           state.employeeUpcomingRenewalsLoading = false;
           const responseData = action.payload?.data || action.payload;
           state.employeeUpcomingRenewals =
-            responseData?.data || responseData || [];
-          state.employeeUpcomingRenewalsTotalCount = responseData?.total || 0;
+            responseData?.employees ||
+            responseData?.data?.employees ||
+            responseData ||
+            [];
+          state.employeeUpcomingRenewalsTotalCount =
+            responseData?.total || state.employeeUpcomingRenewals.length || 0;
           state.employeeUpcomingRenewalsCurrentPage =
             responseData?.current_page || 1;
           state.employeeUpcomingRenewalsPerPage = responseData?.per_page || 10;
@@ -1207,8 +1245,13 @@ const reportSlice = createSlice({
       .addCase(fetchCompanyNearestExpiryReport.fulfilled, (state, action) => {
         state.companyNearestExpiryLoading = false;
         const responseData = action.payload?.data || action.payload;
-        state.companyNearestExpiry = responseData?.data || responseData || [];
-        state.companyNearestExpiryTotalCount = responseData?.total || 0;
+        state.companyNearestExpiry =
+          responseData?.companies ||
+          responseData?.data?.companies ||
+          responseData ||
+          [];
+        state.companyNearestExpiryTotalCount =
+          responseData?.total || state.companyNearestExpiry.length || 0;
         state.companyNearestExpiryCurrentPage = responseData?.current_page || 1;
         state.companyNearestExpiryPerPage = responseData?.per_page || 10;
         state.companyNearestExpiryLastPage = responseData?.last_page || 1;
@@ -1229,8 +1272,12 @@ const reportSlice = createSlice({
           state.companyUpcomingRenewalsLoading = false;
           const responseData = action.payload?.data || action.payload;
           state.companyUpcomingRenewals =
-            responseData?.data || responseData || [];
-          state.companyUpcomingRenewalsTotalCount = responseData?.total || 0;
+            responseData?.companies ||
+            responseData?.data?.companies ||
+            responseData ||
+            [];
+          state.companyUpcomingRenewalsTotalCount =
+            responseData?.total || state.companyUpcomingRenewals.length || 0;
           state.companyUpcomingRenewalsCurrentPage =
             responseData?.current_page || 1;
           state.companyUpcomingRenewalsPerPage = responseData?.per_page || 10;
@@ -1249,9 +1296,17 @@ const reportSlice = createSlice({
       })
       .addCase(fetchPendingLeavesReport.fulfilled, (state, action) => {
         state.pendingLeavesLoading = false;
+        // The API returns: { status, message, data: { leaves: [...], title, subtitle } }
         const responseData = action.payload?.data || action.payload;
-        state.pendingLeaves = responseData?.data || responseData || [];
-        state.pendingLeavesTotalCount = responseData?.total || 0;
+        // Extract leaves from nested structure
+        state.pendingLeaves =
+          responseData?.leaves ||
+          responseData?.data?.leaves ||
+          responseData ||
+          [];
+        // Get total count from the response
+        state.pendingLeavesTotalCount =
+          responseData?.total || state.pendingLeaves.length || 0;
         state.pendingLeavesCurrentPage = responseData?.current_page || 1;
         state.pendingLeavesPerPage = responseData?.per_page || 10;
         state.pendingLeavesLastPage = responseData?.last_page || 1;

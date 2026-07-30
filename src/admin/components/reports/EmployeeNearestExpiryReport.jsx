@@ -15,7 +15,7 @@ import { formatDate } from "../../../utils/reportUtils";
 const EmployeeNearestExpiryReport = () => {
   const dispatch = useDispatch();
   const {
-    employeeNearestExpiry: employeesData = {},
+    employeeNearestExpiry: employees = [],
     employeeNearestExpiryLoading: loading = false,
     employeeNearestExpiryError: error = null,
     employeeNearestExpiryTotalCount: totalCount = 0,
@@ -24,9 +24,8 @@ const EmployeeNearestExpiryReport = () => {
   } = useSelector((state) => state.reports || {});
 
   // Extract employees from the nested structure
-  const employees = employeesData?.data?.employees || employeesData?.employees || [];
-  const title = employeesData?.data?.title || employeesData?.title || "Employee Nearest Expiry Details";
-  const subtitle = employeesData?.data?.subtitle || employeesData?.subtitle || "";
+  const title = "Employee Nearest Expiry Details";
+  const subtitle = employees?.subtitle;
 
   // Local state
   const [currentPage, setCurrentPage] = useState(1);

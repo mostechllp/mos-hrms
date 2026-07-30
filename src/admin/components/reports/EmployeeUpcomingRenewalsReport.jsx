@@ -15,7 +15,7 @@ import { formatDate, getDaysDifference } from "../../../utils/reportUtils";
 const EmployeeUpcomingRenewalsReport = () => {
   const dispatch = useDispatch();
   const {
-    employeeUpcomingRenewals: employeesData = {},
+    employeeUpcomingRenewals: employees = [],
     employeeUpcomingRenewalsLoading: loading = false,
     employeeUpcomingRenewalsError: error = null,
     employeeUpcomingRenewalsTotalCount: totalCount = 0,
@@ -23,10 +23,8 @@ const EmployeeUpcomingRenewalsReport = () => {
     exportLoading = false,
   } = useSelector((state) => state.reports || {});
 
-  // Extract employees from the nested structure
-  const employees = employeesData?.data?.employees || employeesData?.employees || [];
-  const title = employeesData?.data?.title || employeesData?.title || "Employee Upcoming Renewals";
-  const subtitle = employeesData?.data?.subtitle || employeesData?.subtitle || "";
+  const title = "Employee Upcoming Renewals";
+  const subtitle = employees.subtitle || "";
 
   // Local state
   const [currentPage, setCurrentPage] = useState(1);
