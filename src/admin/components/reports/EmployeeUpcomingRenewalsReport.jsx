@@ -14,13 +14,19 @@ import { formatDate, getDaysDifference } from "../../../utils/reportUtils";
 
 const EmployeeUpcomingRenewalsReport = () => {
   const dispatch = useDispatch();
-  const { 
-    employeeUpcomingRenewals: employees = [],
+  const {
+    employeeUpcomingRenewals: employeesData = {},
     employeeUpcomingRenewalsLoading: loading = false,
+    employeeUpcomingRenewalsError: error = null,
     employeeUpcomingRenewalsTotalCount: totalCount = 0,
     employeeUpcomingRenewalsLastPage: lastPage = 1,
     exportLoading = false,
   } = useSelector((state) => state.reports || {});
+
+  // Extract employees from the nested structure
+  const employees = employeesData?.data?.employees || employeesData?.employees || [];
+  const title = employeesData?.data?.title || employeesData?.title || "Employee Upcoming Renewals";
+  const subtitle = employeesData?.data?.subtitle || employeesData?.subtitle || "";
 
   // Local state
   const [currentPage, setCurrentPage] = useState(1);
@@ -59,9 +65,9 @@ const EmployeeUpcomingRenewalsReport = () => {
     return {
       id: emp.id || emp.employee_id,
       emp_id: emp.employee_id || emp.emp_id || "-",
-      name: emp.name || emp.employee_name || `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || "-",
-      company_name: emp.company || emp.company_name || emp.organization || "-",
-      department_name: emp.department || emp.department_name || "-",
+      name: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.name || emp.employee_name || "-",
+      company_name: emp.company_name || emp.company || emp.organization || "-",
+      department_name: emp.department_name || emp.department || "-",
       passport_expiry: emp.passport_expiry_date || emp.passport_expiry,
       visa_expiry: emp.visa_expiry_date || emp.visa_expiry,
       labor_expiry: emp.labor_expiry_date || emp.labor_expiry,
@@ -153,29 +159,6 @@ const EmployeeUpcomingRenewalsReport = () => {
     return filtered;
   };
 
-  // Transform data for export
-  const getExportData = () => {
-    const filteredEmployees = getEmployeesWithUpcomingRenewals();
-    return filteredEmployees.map((emp) => {
-      const earliest = getEarliestUpcomingExpiry(emp);
-      return {
-        emp_id: emp.emp_id,
-        name: emp.name,
-        company_name: emp.company_name,
-        department_name: emp.department_name,
-        passport_expiry: formatDate(emp.passport_expiry),
-        visa_expiry: formatDate(emp.visa_expiry),
-        labor_expiry: formatDate(emp.labor_expiry),
-        eid_expiry: formatDate(emp.eid_expiry),
-        earliest_document: earliest ? earliest.name : "-",
-        days_left: earliest ? `${earliest.days} days` : "-",
-        email: emp.email,
-        phone: emp.phone,
-        renewal_range: `${minDays}-${maxDays} days`,
-      };
-    });
-  };
-
   const filteredEmployees = getEmployeesWithUpcomingRenewals();
   const totalFiltered = totalCount || filteredEmployees.length;
   const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
@@ -194,9 +177,8 @@ const EmployeeUpcomingRenewalsReport = () => {
 
   // Handle export using the exportReport thunk
   const handleExport = async (format) => {
-    // Build export parameters
+    // Build export parameters - DO NOT include format here
     const params = {
-      format: format,
       min_days: minDays,
       max_days: maxDays,
     };
@@ -214,9 +196,9 @@ const EmployeeUpcomingRenewalsReport = () => {
 
     // Dispatch the export thunk with report_type: "employee-upcoming-renewals"
     const result = await dispatch(exportReport({
-      reportType: "employee-upcoming-renewals", // This is the report_type for employee upcoming renewals
-      params: params,
-      format: format,
+      reportType: "employee-upcoming-renewals",
+      params: params, // Don't include format here
+      format: format, // Format is passed separately
     }));
     
     if (exportReport.fulfilled.match(result)) {
@@ -334,7 +316,7 @@ const EmployeeUpcomingRenewalsReport = () => {
             Employee Upcoming Renewals Report
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Employees with documents expiring within {minDays}-{maxDays} days
+            {title} - {subtitle || `Employees with documents expiring within ${minDays}-${maxDays} days`}
           </p>
         </div>
 

@@ -607,9 +607,9 @@ export const exportReport = createAsyncThunk(
       queryParams.append("report_type", reportType);
       queryParams.append("format", format || "csv");
       
-      // Add all other params as query parameters
+      // Add all other params as query parameters (skip 'format' if present)
       Object.keys(params || {}).forEach(key => {
-        if (params[key] !== undefined && params[key] !== null && params[key] !== "") {
+        if (key !== 'format' && params[key] !== undefined && params[key] !== null && params[key] !== "") {
           queryParams.append(key, params[key]);
         }
       });
@@ -617,35 +617,67 @@ export const exportReport = createAsyncThunk(
       const url = `/admin/reports/export?${queryParams.toString()}`;
       console.log("Exporting report with URL:", url);
 
-      // POST request with query params
+      // Use POST request with responseType blob in config
       const response = await apiClient.post(url, null, {
-        responseType: "blob", // Important for file download
+        responseType: "blob",
+        headers: {
+          'Accept': format === 'pdf' ? 'application/pdf' : 'text/csv',
+        }
       });
 
       // Determine content type and extension
       const contentType = format === "pdf" ? "application/pdf" : "text/csv";
       const extension = format === "pdf" ? "pdf" : "csv";
 
-      // Create a blob URL for the file
-      const blob = new Blob([response.data], { type: contentType });
-      const urlBlob = window.URL.createObjectURL(blob);
+      // Check if response is actually a blob or if it's an error HTML
+      if (response.data instanceof Blob) {
+        // Check if it's a JSON error response disguised as blob
+        const text = await response.data.text();
+        if (text.startsWith('{') || text.startsWith('<!DOCTYPE')) {
+          try {
+            const parsed = JSON.parse(text);
+            if (parsed.message || parsed.error) {
+              return rejectWithValue(parsed.message || parsed.error || "Export failed");
+            }
+          } catch {
+            // Not JSON, continue
+          }
+        }
+        
+        // Create a new blob with the correct content type
+        const blob = new Blob([response.data], { type: contentType });
+        const urlBlob = window.URL.createObjectURL(blob);
 
-      // Generate filename
-      const dateStr = new Date().toISOString().split("T")[0];
-      const filename = `${reportType}_report_${dateStr}.${extension}`;
+        // Generate filename
+        const dateStr = new Date().toISOString().split("T")[0];
+        const filename = `${reportType}_report_${dateStr}.${extension}`;
 
-      return { url: urlBlob, filename, blob };
+        return { url: urlBlob, filename, blob };
+      } else {
+        // If response data is not a blob, it might be an error
+        return rejectWithValue("Invalid response format");
+      }
     } catch (error) {
       console.error("Export error:", error);
       
       let errorMessage = "Failed to export report";
-      if (error.response && error.response.data) {
-        try {
-          const text = await new Response(error.response.data).text();
-          const parsed = JSON.parse(text);
-          errorMessage = parsed.message || parsed.error || errorMessage;
-        } catch {
-          errorMessage = error.response.statusText || errorMessage;
+      
+      // Handle error response
+      if (error.response) {
+        // If it's a blob response, try to parse it as text
+        if (error.response.data instanceof Blob) {
+          try {
+            const text = await new Response(error.response.data).text();
+            const parsed = JSON.parse(text);
+            errorMessage = parsed.message || parsed.error || errorMessage;
+          } catch {
+            errorMessage = error.response.statusText || errorMessage;
+          }
+        } else if (error.response.data) {
+          errorMessage = error.response.data.message || 
+                         error.response.data.error || 
+                         error.response.statusText || 
+                         errorMessage;
         }
       } else if (error.message) {
         errorMessage = error.message;

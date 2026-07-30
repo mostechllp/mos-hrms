@@ -14,13 +14,19 @@ import { formatDate } from "../../../utils/reportUtils";
 
 const EmployeeNearestExpiryReport = () => {
   const dispatch = useDispatch();
-  const { 
-    employeeNearestExpiry: employees = [],
+  const {
+    employeeNearestExpiry: employeesData = {},
     employeeNearestExpiryLoading: loading = false,
+    employeeNearestExpiryError: error = null,
     employeeNearestExpiryTotalCount: totalCount = 0,
     employeeNearestExpiryLastPage: lastPage = 1,
     exportLoading = false,
   } = useSelector((state) => state.reports || {});
+
+  // Extract employees from the nested structure
+  const employees = employeesData?.data?.employees || employeesData?.employees || [];
+  const title = employeesData?.data?.title || employeesData?.title || "Employee Nearest Expiry Details";
+  const subtitle = employeesData?.data?.subtitle || employeesData?.subtitle || "";
 
   // Local state
   const [currentPage, setCurrentPage] = useState(1);
@@ -57,9 +63,9 @@ const EmployeeNearestExpiryReport = () => {
     return {
       id: emp.id || emp.employee_id,
       emp_id: emp.employee_id || emp.emp_id || "-",
-      name: emp.name || emp.employee_name || `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || "-",
-      company_name: emp.company || emp.company_name || emp.organization || "-",
-      department_name: emp.department || emp.department_name || "-",
+      name: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.name || emp.employee_name || "-",
+      company_name: emp.company_name || emp.company || emp.organization || "-",
+      department_name: emp.department_name || emp.department || "-",
       passport_expiry: emp.passport_expiry_date || emp.passport_expiry,
       visa_expiry: emp.visa_expiry_date || emp.visa_expiry,
       labor_expiry: emp.labor_expiry_date || emp.labor_expiry,
@@ -155,28 +161,6 @@ const EmployeeNearestExpiryReport = () => {
     return filtered;
   };
 
-  // Transform data for export
-  const getExportData = () => {
-    const filteredEmployees = getEmployeesWithNearestExpiry();
-    return filteredEmployees.map((emp) => {
-      const earliest = getEarliestExpiry(emp);
-      return {
-        emp_id: emp.emp_id,
-        name: emp.name,
-        company_name: emp.company_name,
-        department_name: emp.department_name,
-        passport_expiry: formatDate(emp.passport_expiry),
-        visa_expiry: formatDate(emp.visa_expiry),
-        labor_expiry: formatDate(emp.labor_expiry),
-        eid_expiry: formatDate(emp.eid_expiry),
-        days_left: earliest ? `${earliest.daysLeft} days` : "-",
-        email: emp.email,
-        phone: emp.phone,
-        expiry_period: `${expiryDays} days`,
-      };
-    });
-  };
-
   const filteredEmployees = getEmployeesWithNearestExpiry();
   const totalFiltered = totalCount || filteredEmployees.length;
   const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
@@ -194,9 +178,8 @@ const EmployeeNearestExpiryReport = () => {
 
   // Handle export using the exportReport thunk
   const handleExport = async (format) => {
-    // Build export parameters
+    // Build export parameters - DO NOT include format here
     const params = {
-      format: format,
       expiry_days: expiryDays,
     };
 
@@ -213,9 +196,9 @@ const EmployeeNearestExpiryReport = () => {
 
     // Dispatch the export thunk with report_type: "employee-nearest-expiry"
     const result = await dispatch(exportReport({
-      reportType: "employee-nearest-expiry", // This is the report_type for employee nearest expiry
-      params: params,
-      format: format,
+      reportType: "employee-nearest-expiry",
+      params: params, // Don't include format here
+      format: format, // Format is passed separately
     }));
     
     if (exportReport.fulfilled.match(result)) {
@@ -333,7 +316,7 @@ const EmployeeNearestExpiryReport = () => {
             Employee Nearest Expiry Report
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Employees with documents expiring within {expiryDays} days
+            {title} - {subtitle || `Employees with documents expiring within ${expiryDays} days`}
           </p>
         </div>
 

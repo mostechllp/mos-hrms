@@ -5,16 +5,16 @@ import SearchBar from "../common/SearchBar";
 import EntriesSelector from "../common/EntriesSelector";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
-import { 
+import {
   fetchEmployeeDetailsReport,
-  exportReport
+  exportReport,
 } from "../../store/slices/reportSlice";
 import ExportModal from "../../../components/common/ExportModal";
 import { formatDate } from "../../../utils/reportUtils";
 
 const EmployeeDetailsReport = () => {
   const dispatch = useDispatch();
-  const { 
+  const {
     employeeDetails: employees = [],
     employeeDetailsLoading: loading = false,
     employeeDetailsTotalCount: totalCount = 0,
@@ -43,38 +43,59 @@ const EmployeeDetailsReport = () => {
         department: selectedDepartment || undefined,
         status: selectedStatus !== "all" ? selectedStatus : undefined,
         search: searchTerm || undefined,
-      })
+      }),
     );
-  }, [dispatch, currentPage, perPage, selectedCompany, selectedDepartment, selectedStatus, searchTerm]);
+  }, [
+    dispatch,
+    currentPage,
+    perPage,
+    selectedCompany,
+    selectedDepartment,
+    selectedStatus,
+    searchTerm,
+  ]);
 
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedCompany, selectedDepartment, selectedStatus, perPage]);
+  }, [
+    searchTerm,
+    selectedCompany,
+    selectedDepartment,
+    selectedStatus,
+    perPage,
+  ]);
 
   // Transform employee data
+  // Transform employee data - Only keep the required fields
   const transformEmployee = (emp) => {
+    // Get company name from user.company or fallback
+    const companyName =
+      emp.user?.company?.company_name || emp.company_name || "-";
+
+    // Get department name from user.department or fallback
+    const departmentName =
+      emp.user?.department?.name || emp.department_name || "-";
+
+    // Get designation name from user.designation or fallback
+    const designationName =
+      emp.user?.designation?.name || emp.designation_name || "-";
+
     return {
       id: emp.id || emp.employee_id,
-      emp_id: emp.employee_id || emp.emp_id || "-",
-      name: emp.name || emp.employee_name || `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || "-",
-      company_name: emp.company || emp.company_name || emp.organization || "-",
-      department_name: emp.department || emp.department_name || "-",
-      designation_name: emp.designation || emp.designation_name || "-",
-      passport_no: emp.passport_number || emp.passport_no || "-",
-      passport_expiry: emp.passport_expiry_date || emp.passport_expiry,
-      visa_no: emp.visa_number || emp.visa_no || "-",
-      visa_expiry: emp.visa_expiry_date || emp.visa_expiry,
-      labor_no: emp.labor_number || emp.labor_no || "-",
-      labor_expiry: emp.labor_expiry_date || emp.labor_expiry,
-      eid_no: emp.eid_number || emp.eid_no || "-",
-      eid_expiry: emp.eid_expiry_date || emp.eid_expiry,
-      joining_date: emp.joining_date,
-      email: emp.email || emp.company_email || emp.personal_email || "-",
-      phone: emp.phone || emp.company_mobile_number || emp.personal_number || "-",
-      status: emp.status || emp.employee_status || "Active",
-      dob: emp.dob,
-      gender: emp.gender,
+      employee_id: emp.employee_id || emp.emp_id || "-",
+      full_name: `${emp.first_name || ""} ${emp.last_name || ""}`.trim() || "-",
+      department: departmentName,
+      designation: designationName,
+      company: companyName,
+      joining_date: emp.joining_date || "-",
+      dob: emp.dob || "-",
+      aadhar_number: emp.aadhar_number || "-",
+      pan_number: emp.pan_number || "-",
+      company_email: emp.company_email || emp.user?.email || "-",
+      personal_email: emp.personal_email || "-",
+      phone: emp.company_mobile_number || emp.personal_number || "-",
+      status: emp.user?.status || emp.status || "Active",
     };
   };
 
@@ -97,49 +118,6 @@ const EmployeeDetailsReport = () => {
         .filter((d) => d !== "-"),
     ),
   ];
-
-  // Filter employees (client-side for display)
-  const getFilteredEmployees = () => {
-    let filtered = [...transformedEmployees];
-
-    if (selectedCompany) {
-      filtered = filtered.filter((emp) => emp.company_name === selectedCompany);
-    }
-
-    if (selectedDepartment) {
-      filtered = filtered.filter(
-        (emp) => emp.department_name === selectedDepartment,
-      );
-    }
-
-    if (selectedStatus !== "all") {
-      filtered = filtered.filter((emp) => emp.status === selectedStatus);
-    }
-
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (emp) =>
-          (emp.emp_id || "").toLowerCase().includes(searchLower) ||
-          (emp.name || "").toLowerCase().includes(searchLower) ||
-          (emp.company_name || "").toLowerCase().includes(searchLower) ||
-          (emp.department_name || "").toLowerCase().includes(searchLower) ||
-          (emp.designation_name || "").toLowerCase().includes(searchLower) ||
-          (emp.passport_no || "").toLowerCase().includes(searchLower) ||
-          (emp.visa_no || "").toLowerCase().includes(searchLower) ||
-          (emp.email || "").toLowerCase().includes(searchLower) ||
-          (emp.phone || "").toLowerCase().includes(searchLower),
-      );
-    }
-
-    return filtered;
-  };
-
-  const filteredEmployees = getFilteredEmployees();
-  const totalFiltered = totalCount || filteredEmployees.length;
-  const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
-  const start = (currentPage - 1) * perPage;
-  const pageEmployees = filteredEmployees.slice(start, start + perPage);
 
   const handleResetFilters = () => {
     setSelectedCompany("");
@@ -172,15 +150,17 @@ const EmployeeDetailsReport = () => {
     }
 
     // Dispatch the export thunk with report_type: "employee-details"
-    const result = await dispatch(exportReport({
-      reportType: "employee-details", // This is the report_type for employee details
-      params: params,
-      format: format,
-    }));
-    
+    const result = await dispatch(
+      exportReport({
+        reportType: "employee-details", // This is the report_type for employee details
+        params: params,
+        format: format,
+      }),
+    );
+
     if (exportReport.fulfilled.match(result)) {
       const { url, filename } = result.payload;
-      
+
       // Create a download link
       const link = document.createElement("a");
       link.href = url;
@@ -188,12 +168,12 @@ const EmployeeDetailsReport = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Revoke the URL after download
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 100);
-      
+
       showToast(`Employee details report exported successfully!`, "success");
     } else {
       showToast(result.payload || "Failed to export report", "error");
@@ -212,12 +192,59 @@ const EmployeeDetailsReport = () => {
     return "";
   };
 
+  // Update the stats cards section
   const activeCount = transformedEmployees.filter(
-    (e) => e.status === "Active",
+    (e) => e.status === "active" || e.status === "Active",
   ).length;
   const inactiveCount = transformedEmployees.filter(
-    (e) => e.status === "Inactive",
+    (e) => e.status === "inactive" || e.status === "Inactive",
   ).length;
+
+  // Update the filter functions to use the new field names
+  const getFilteredEmployees = () => {
+    let filtered = [...transformedEmployees];
+
+    if (selectedCompany) {
+      filtered = filtered.filter((emp) => emp.company === selectedCompany);
+    }
+
+    if (selectedDepartment) {
+      filtered = filtered.filter(
+        (emp) => emp.department === selectedDepartment,
+      );
+    }
+
+    if (selectedStatus !== "all") {
+      filtered = filtered.filter(
+        (emp) => emp.status.toLowerCase() === selectedStatus.toLowerCase(),
+      );
+    }
+
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (emp) =>
+          (emp.employee_id || "").toLowerCase().includes(searchLower) ||
+          (emp.full_name || "").toLowerCase().includes(searchLower) ||
+          (emp.company || "").toLowerCase().includes(searchLower) ||
+          (emp.department || "").toLowerCase().includes(searchLower) ||
+          (emp.designation || "").toLowerCase().includes(searchLower) ||
+          (emp.company_email || "").toLowerCase().includes(searchLower) ||
+          (emp.personal_email || "").toLowerCase().includes(searchLower) ||
+          (emp.phone || "").toLowerCase().includes(searchLower) ||
+          (emp.aadhar_number || "").toLowerCase().includes(searchLower) ||
+          (emp.pan_number || "").toLowerCase().includes(searchLower),
+      );
+    }
+
+    return filtered;
+  };
+
+  const filteredEmployees = getFilteredEmployees();
+  const totalFiltered = totalCount || filteredEmployees.length;
+  const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
+  const start = (currentPage - 1) * perPage;
+  const pageEmployees = filteredEmployees.slice(start, start + perPage);
 
   return (
     <div className="w-full overflow-x-hidden">
@@ -388,14 +415,19 @@ const EmployeeDetailsReport = () => {
               className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {exportLoading ? (
-                <><i className="fas fa-spinner fa-spin"></i> Exporting...</>
+                <>
+                  <i className="fas fa-spinner fa-spin"></i> Exporting...
+                </>
               ) : (
-                <><i className="fas fa-download"></i> Export Report</>
+                <>
+                  <i className="fas fa-download"></i> Export Report
+                </>
               )}
             </button>
           </div>
         </div>
 
+        {/* Employees Table */}
         {/* Employees Table */}
         {loading && pageEmployees.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
@@ -414,13 +446,10 @@ const EmployeeDetailsReport = () => {
                       S.No
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Emp ID
+                      Employee ID
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Name
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Company
+                      Full Name
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
                       Department
@@ -429,34 +458,25 @@ const EmployeeDetailsReport = () => {
                       Designation
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Passport No
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Passport Expiry
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Visa No
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Visa Expiry
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Labor No
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Labor Expiry
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      EID No
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      EID Expiry
+                      Company
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
                       Joining Date
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Email
+                      Date of Birth
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Aadhar Number
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      PAN Number
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Company Email
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Personal Email
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
                       Phone
@@ -477,57 +497,37 @@ const EmployeeDetailsReport = () => {
                           {start + idx + 1}
                         </td>
                         <td className="px-3 py-3 text-sm font-mono text-gray-700 dark:text-gray-300">
-                          {emp.emp_id}
+                          {emp.employee_id}
                         </td>
                         <td className="px-3 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                          {emp.name}
+                          {emp.full_name}
                         </td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {emp.company_name}
+                          {emp.department}
                         </td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {emp.department_name}
+                          {emp.designation}
                         </td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {emp.designation_name}
-                        </td>
-                        <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
-                          {emp.passport_no}
-                        </td>
-                        <td
-                          className={`px-3 py-3 text-sm ${getExpiryClass(emp.passport_expiry)}`}
-                        >
-                          {formatDate(emp.passport_expiry)}
-                        </td>
-                        <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
-                          {emp.visa_no}
-                        </td>
-                        <td
-                          className={`px-3 py-3 text-sm ${getExpiryClass(emp.visa_expiry)}`}
-                        >
-                          {formatDate(emp.visa_expiry)}
-                        </td>
-                        <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
-                          {emp.labor_no}
-                        </td>
-                        <td
-                          className={`px-3 py-3 text-sm ${getExpiryClass(emp.labor_expiry)}`}
-                        >
-                          {formatDate(emp.labor_expiry)}
-                        </td>
-                        <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
-                          {emp.eid_no}
-                        </td>
-                        <td
-                          className={`px-3 py-3 text-sm ${getExpiryClass(emp.eid_expiry)}`}
-                        >
-                          {formatDate(emp.eid_expiry)}
+                          {emp.company}
                         </td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
                           {formatDate(emp.joining_date)}
                         </td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {emp.email}
+                          {formatDate(emp.dob)}
+                        </td>
+                        <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                          {emp.aadhar_number}
+                        </td>
+                        <td className="px-3 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                          {emp.pan_number}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
+                          {emp.company_email}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
+                          {emp.personal_email}
                         </td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
                           {emp.phone}
@@ -535,11 +535,12 @@ const EmployeeDetailsReport = () => {
                         <td className="px-3 py-3">
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                              emp.status === "Active"
+                              emp.status === "active" || emp.status === "Active"
                                 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                : emp.status === "Onboarding"
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                : emp.status === "inactive" ||
+                                    emp.status === "Inactive"
+                                  ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                             }`}
                           >
                             {emp.status}
@@ -550,7 +551,7 @@ const EmployeeDetailsReport = () => {
                   ) : (
                     <tr>
                       <td
-                        colSpan="18"
+                        colSpan="14"
                         className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                       >
                         No employees found

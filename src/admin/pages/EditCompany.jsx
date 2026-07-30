@@ -11,6 +11,7 @@ import {
 } from "../store/slices/companySlice";
 import { fetchOrganizations } from "../store/slices/organizationSlice";
 import CountrySelect from "../components/common/CountrySelect";
+import DateInput from "../components/common/DateInput";
 
 const EditCompany = () => {
   const navigate = useNavigate();
@@ -36,9 +37,11 @@ const EditCompany = () => {
     phone: "",
     email: "",
     address: "",
-    country: "", // Added country field
+    country: "",
     trade_license: "",
     company_type: "",
+    trade_license_expiry: "",
+    establishment_card_expiry: "",
     organization_id: "",
   });
 
@@ -82,6 +85,13 @@ const EditCompany = () => {
     });
   };
 
+  const handleDateChange = (name, value) => {
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
+
   const getBaseUrl = () => {
     const apiUrl = import.meta.env.VITE_API_URL;
     if (apiUrl) {
@@ -120,13 +130,21 @@ const EditCompany = () => {
         phone: currentCompany.phone || "",
         email: currentCompany.email || "",
         address: currentCompany.address || "",
-        country: currentCompany.country || currentCompany.raw?.country || "", // Added country
+        country: currentCompany.country || currentCompany.raw?.country || "",
         trade_license:
           currentCompany.trade_license ||
           currentCompany.raw?.trade_license ||
           "",
         company_type:
           currentCompany.company_type || currentCompany.raw?.company_type || "",
+        trade_license_expiry:
+          currentCompany.trade_license_expiry ||
+          currentCompany.raw?.trade_license_expiry ||
+          "",
+        establishment_card_expiry:
+          currentCompany.establishment_card_expiry ||
+          currentCompany.raw?.establishment_card_expiry ||
+          "",
         organization_id: currentCompany.organization_id || organizationId,
       });
 
@@ -194,7 +212,9 @@ const EditCompany = () => {
       address: formData.address,
       country: formData.country || null,
       trade_license: formData.trade_license || null,
-      company_type: formData.company_type || null, // Added
+      company_type: formData.company_type || null,
+      trade_license_expiry: formData.trade_license_expiry || null,
+      establishment_card_expiry: formData.establishment_card_expiry || null,
       organization_id: parseInt(organizationId),
     };
 
@@ -330,7 +350,7 @@ const EditCompany = () => {
                 />
               </div>
 
-              {/* Country - NEW FIELD */}
+              {/* Country */}
               <div>
                 <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                   <i className="fas fa-globe text-green-500 mr-1"></i> Country
@@ -346,6 +366,7 @@ const EditCompany = () => {
                 </p>
               </div>
 
+              {/* Company Type */}
               <div>
                 <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                   <i className="fas fa-building text-green-500 mr-1"></i>{" "}
@@ -387,6 +408,40 @@ const EditCompany = () => {
                 </select>
                 <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Select the type of trade license (Freezone or Mainland)
+                </p>
+              </div>
+
+              {/* Trade License Expiry */}
+              <div>
+                <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                  <i className="fas fa-calendar-alt text-green-500 mr-1"></i>{" "}
+                  Trade License Expiry
+                </label>
+                <DateInput
+                  value={formData.trade_license_expiry}
+                  onChange={(value) => handleDateChange("trade_license_expiry", value)}
+                  placeholder="dd/mm/yyyy"
+                  className="w-full"
+                />
+                <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Enter the expiry date of the trade license
+                </p>
+              </div>
+
+              {/* Establishment Card Expiry */}
+              <div>
+                <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                  <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
+                  Establishment Card Expiry
+                </label>
+                <DateInput
+                  value={formData.establishment_card_expiry}
+                  onChange={(value) => handleDateChange("establishment_card_expiry", value)}
+                  placeholder="dd/mm/yyyy"
+                  className="w-full"
+                />
+                <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Enter the expiry date of the establishment card
                 </p>
               </div>
 

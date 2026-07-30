@@ -17,13 +17,17 @@ import { formatDate } from "../../../utils/reportUtils";
 const PendingLeavesReport = () => {
   const dispatch = useDispatch();
   const {
-    pendingLeaves: leaves = [],
+    pendingLeaves: leavesData = {},
     pendingLeavesLoading: loading = false,
     pendingLeavesError: error = null,
     pendingLeavesTotalCount: totalCount = 0,
     pendingLeavesLastPage: lastPage = 1,
     exportLoading = false,
   } = useSelector((state) => state.reports || {});
+
+  // Extract leaves from the nested structure
+  const leaves = leavesData?.data?.leaves || leavesData?.leaves || [];
+  const title = leavesData?.data?.title || leavesData?.title || "Pending Leave Requests";
 
   // Local state
   const [currentPage, setCurrentPage] = useState(1);
@@ -100,10 +104,9 @@ const PendingLeavesReport = () => {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (leave) => {
-          const employeeName = leave.employee_name ||
-            leave.employee?.name ||
-            leave.employee?.first_name ||
-            "";
+          const employeeName = leave.employee?.first_name || 
+            leave.employee_name ||
+            leave.employee?.name || "";
           const leaveType = leave.leave_type?.name || leave.type || leave.leave_type || "";
           return employeeName.toLowerCase().includes(searchLower) ||
                  leaveType.toLowerCase().includes(searchLower);
@@ -187,53 +190,54 @@ const PendingLeavesReport = () => {
   };
 
   // Handle export using the exportReport thunk
-  const handleExport = async (format) => {
-    // Build export parameters
-    const params = {
-      format: format,
-      status: "pending", // Only pending leaves
-    };
-
-    // Add filters
-    if (selectedLeaveType !== "all") {
-      params.leave_type = selectedLeaveType;
-    }
-    if (dateRange === "custom") {
-      if (startDate) params.start_date = startDate;
-      if (endDate) params.end_date = endDate;
-    }
-    if (searchTerm) {
-      params.search = searchTerm;
-    }
-
-    // Dispatch the export thunk with report_type: "pending-leaves"
-    const result = await dispatch(exportReport({
-      reportType: "pending-leaves", // This is the report_type for pending leaves
-      params: params,
-      format: format,
-    }));
-    
-    if (exportReport.fulfilled.match(result)) {
-      const { url, filename } = result.payload;
-      
-      // Create a download link
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Revoke the URL after download
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-      }, 100);
-      
-      showToast(`Pending leaves report exported successfully!`, "success");
-    } else {
-      showToast(result.payload || "Failed to export report", "error");
-    }
+  // Handle export using the exportReport thunk
+const handleExport = async (format) => {
+  // Build export parameters - DO NOT include format here
+  const params = {
+    status: "pending", // Only pending leaves
   };
+
+  // Add filters
+  if (selectedLeaveType !== "all") {
+    params.leave_type = selectedLeaveType;
+  }
+  if (dateRange === "custom") {
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+  }
+  if (searchTerm) {
+    params.search = searchTerm;
+  }
+
+  // Dispatch the export thunk with report_type: "pending-leaves"
+  // The format is passed separately and will be appended by the thunk
+  const result = await dispatch(exportReport({
+    reportType: "pending-leaves",
+    params: params, // Don't include format here
+    format: format, // Format is passed separately
+  }));
+  
+  if (exportReport.fulfilled.match(result)) {
+    const { url, filename } = result.payload;
+    
+    // Create a download link
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Revoke the URL after download
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+    }, 100);
+    
+    showToast(`Pending leaves report exported successfully!`, "success");
+  } else {
+    showToast(result.payload || "Failed to export report", "error");
+  }
+};
 
   const getStatusBadge = () => {
     return (
@@ -274,7 +278,7 @@ const PendingLeavesReport = () => {
             Pending Leave Request Report
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            View and manage leave requests awaiting approval
+            {title} - View and manage leave requests awaiting approval
           </p>
         </div>
 
@@ -488,58 +492,62 @@ const PendingLeavesReport = () => {
                   </thead>
                   <tbody>
                     {pageLeaves.length > 0 ? (
-                      pageLeaves.map((leave, idx) => (
-                        <tr
-                          key={leave.id}
-                          className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                        >
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
-                            {start + idx + 1}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {formatDate(leave.created_at || leave.request_date || leave.date)}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
-                            {leave.employee_name ||
-                              leave.employee?.name ||
-                              leave.employee?.first_name ||
-                              "-"}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {leave.leave_type?.name || leave.type || leave.leave_type || "-"}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {formatDate(leave.from_date || leave.fromDate || leave.start_date)}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {formatDate(leave.to_date || leave.toDate || leave.end_date)}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
-                            {leave.number_of_days || leave.days || leave.duration_days || "-"}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3">
-                            {getStatusBadge()}
-                          </td>
-                          <td className="px-3 md:px-4 py-2 md:py-3">
-                            <div className="flex gap-1 md:gap-2">
-                              <button
-                                onClick={() => handleApproveClick(leave)}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-green-500 transition-colors"
-                                title="Approve"
-                              >
-                                <i className="fas fa-check-circle text-xs md:text-sm"></i>
-                              </button>
-                              <button
-                                onClick={() => handleRejectClick(leave)}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
-                                title="Reject"
-                              >
-                                <i className="fas fa-times-circle text-xs md:text-sm"></i>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                      pageLeaves.map((leave, idx) => {
+                        // Get employee name from nested employee object
+                        const employeeName = leave.employee 
+                          ? `${leave.employee.first_name || ''} ${leave.employee.last_name || ''}`.trim() 
+                          : leave.employee_name || '-';
+                        
+                        return (
+                          <tr
+                            key={leave.id}
+                            className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                          >
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
+                              {start + idx + 1}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                              {formatDate(leave.created_at || leave.request_date)}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                              {employeeName}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                              {leave.leave_type?.name || leave.type || leave.leave_type || "-"}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                              {formatDate(leave.start_date || leave.from_date)}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                              {formatDate(leave.end_date || leave.to_date)}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
+                              {leave.duration_days || leave.number_of_days || "-"}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3">
+                              {getStatusBadge()}
+                            </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3">
+                              <div className="flex gap-1 md:gap-2">
+                                <button
+                                  onClick={() => handleApproveClick(leave)}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-green-500 transition-colors"
+                                  title="Approve"
+                                >
+                                  <i className="fas fa-check-circle text-xs md:text-sm"></i>
+                                </button>
+                                <button
+                                  onClick={() => handleRejectClick(leave)}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
+                                  title="Reject"
+                                >
+                                  <i className="fas fa-times-circle text-xs md:text-sm"></i>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td
@@ -609,8 +617,8 @@ const PendingLeavesReport = () => {
         }
         message={
           actionType === "approve"
-            ? `Are you sure you want to approve ${selectedLeave?.employee_name || selectedLeave?.employee?.name || "this"} leave request?`
-            : `Are you sure you want to reject ${selectedLeave?.employee_name || selectedLeave?.employee?.name || "this"} leave request?`
+            ? `Are you sure you want to approve ${selectedLeave?.employee?.first_name || selectedLeave?.employee_name || "this"} leave request?`
+            : `Are you sure you want to reject ${selectedLeave?.employee?.first_name || selectedLeave?.employee_name || "this"} leave request?`
         }
         confirmText={actionType === "approve" ? "Approve" : "Reject"}
         confirmButtonClass={
