@@ -1,5 +1,3 @@
-// src/admin/pages/AddCompany.js
-
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, Link, useParams } from "react-router-dom";
@@ -7,6 +5,7 @@ import { addCompany, clearError } from "../store/slices/companySlice";
 import { fetchOrganizations } from "../store/slices/organizationSlice";
 import { showToast } from "../../components/common/Toast";
 import CountrySelect from "../components/common/CountrySelect";
+import DateInput from "../components/common/DateInput";
 
 const AddCompany = () => {
   const dispatch = useDispatch();
@@ -27,7 +26,9 @@ const AddCompany = () => {
     address: "",
     country: "",
     trade_license: "",
-    company_type: "", // Added company_type
+    company_type: "",
+    trade_license_expiry: "",
+    establishment_card_expiry: "",
     logo: null,
   });
   const [previewLogo, setPreviewLogo] = useState(null);
@@ -80,6 +81,13 @@ const AddCompany = () => {
         [name]: value,
       });
     }
+  };
+
+  const handleDateChange = (name, value) => {
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
   };
 
   const handleCountryChange = (countryCode) => {
@@ -144,7 +152,9 @@ const AddCompany = () => {
       if (formData.address) submitData.append("address", formData.address);
       if (formData.country) submitData.append("country", formData.country);
       if (formData.trade_license) submitData.append("trade_license", formData.trade_license);
-      if (formData.company_type) submitData.append("company_type", formData.company_type); // Added company_type
+      if (formData.company_type) submitData.append("company_type", formData.company_type);
+      if (formData.trade_license_expiry) submitData.append("trade_license_expiry", formData.trade_license_expiry);
+      if (formData.establishment_card_expiry) submitData.append("establishment_card_expiry", formData.establishment_card_expiry);
 
       if (formData.logo) {
         submitData.append("logo", formData.logo);
@@ -252,7 +262,7 @@ const AddCompany = () => {
         onSubmit={handleSubmit}
         className="bg-white dark:bg-gray-800 rounded-xl shadow-soft border border-gray-200 dark:border-gray-700 p-4 md:p-6"
       >
-        {/* Organization */}
+        {/* Organization - Full Width */}
         <div className="mb-5">
           <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
             Organization *
@@ -280,7 +290,7 @@ const AddCompany = () => {
           </p>
         </div>
 
-        {/* Company Name */}
+        {/* Company Name - Full Width */}
         <div className="mb-5">
           <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
             Company Name *
@@ -296,40 +306,118 @@ const AddCompany = () => {
           />
         </div>
 
-        {/* Phone */}
-        <div className="mb-5">
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            Phone
-          </label>
-          <input
-            type="tel"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-            placeholder="Enter phone number"
-          />
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+          {/* Phone */}
+          <div className="mb-5 md:mb-0">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <i className="fas fa-phone text-green-500 mr-1"></i> Phone
+            </label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              placeholder="Enter phone number"
+            />
+          </div>
+
+          {/* Email */}
+          <div className="mb-5 md:mb-0">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <i className="fas fa-envelope text-green-500 mr-1"></i> Email
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              placeholder="Enter email address"
+            />
+          </div>
+
+          {/* Country */}
+          <div className="mb-5 md:mb-0">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <i className="fas fa-globe text-green-500 mr-1"></i> Country
+            </label>
+            <CountrySelect
+              value={formData.country}
+              onChange={handleCountryChange}
+              placeholder="Search and select a country..."
+            />
+          </div>
+
+          {/* Company Type */}
+          <div className="mb-5 md:mb-0">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <i className="fas fa-building text-green-500 mr-1"></i> Company Type
+            </label>
+            <select
+              name="company_type"
+              value={formData.company_type}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+            >
+              <option value="">Select Company Type</option>
+              {companyTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Trade License */}
+          <div className="mb-5 md:mb-0">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <i className="fas fa-certificate text-green-500 mr-1"></i> Trade License
+            </label>
+            <select
+              name="trade_license"
+              value={formData.trade_license}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+            >
+              <option value="">Select License Type</option>
+              <option value="freezone">Freezone</option>
+              <option value="mainland">Mainland</option>
+            </select>
+          </div>
+
+          {/* Trade License Expiry */}
+          <div className="mb-5 md:mb-0">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <i className="fas fa-calendar-alt text-green-500 mr-1"></i> Trade License Expiry
+            </label>
+            <DateInput
+              value={formData.trade_license_expiry}
+              onChange={(value) => handleDateChange("trade_license_expiry", value)}
+              placeholder="dd/mm/yyyy"
+              className="w-full"
+            />
+          </div>
+
+          {/* Establishment Card Expiry */}
+          <div className="mb-5 md:mb-0">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <i className="fas fa-id-card text-green-500 mr-1"></i> Establishment Card Expiry
+            </label>
+            <DateInput
+              value={formData.establishment_card_expiry}
+              onChange={(value) => handleDateChange("establishment_card_expiry", value)}
+              placeholder="dd/mm/yyyy"
+              className="w-full"
+            />
+          </div>
         </div>
 
-        {/* Email */}
-        <div className="mb-5">
+        {/* Address - Full Width */}
+        <div className="mt-5">
           <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            Email
-          </label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-            placeholder="Enter email address"
-          />
-        </div>
-
-        {/* Address */}
-        <div className="mb-5">
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            Address
+            <i className="fas fa-map-marker-alt text-green-500 mr-1"></i> Address
           </label>
           <textarea
             name="address"
@@ -341,68 +429,10 @@ const AddCompany = () => {
           />
         </div>
 
-        {/* Country */}
-        <div className="mb-5">
+        {/* Company Logo - Full Width */}
+        <div className="mt-5 mb-6">
           <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            <i className="fas fa-globe text-green-500 mr-1"></i> Country
-          </label>
-          <CountrySelect
-            value={formData.country}
-            onChange={handleCountryChange}
-            placeholder="Search and select a country..."
-          />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Select the country where the company is registered
-          </p>
-        </div>
-
-        {/* Company Type - NEW FIELD */}
-        <div className="mb-5">
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            <i className="fas fa-building text-green-500 mr-1"></i> Company Type
-          </label>
-          <select
-            name="company_type"
-            value={formData.company_type}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-          >
-            <option value="">Select Company Type</option>
-            {companyTypeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Select the legal structure of the company
-          </p>
-        </div>
-
-        {/* Trade License */}
-        <div className="mb-5">
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            Trade License
-          </label>
-          <select
-            name="trade_license"
-            value={formData.trade_license}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-          >
-            <option value="">Select License Type</option>
-            <option value="freezone">Freezone</option>
-            <option value="mainland">Mainland</option>
-          </select>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Select the type of trade license (Freezone or Mainland)
-          </p>
-        </div>
-
-        {/* Company Logo */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            Company Logo (Optional)
+            <i className="fas fa-image text-green-500 mr-1"></i> Company Logo (Optional)
           </label>
           <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg hover:border-green-500 transition-colors">
             <div className="space-y-1 text-center">

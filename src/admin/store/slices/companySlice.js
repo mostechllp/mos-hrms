@@ -34,20 +34,22 @@ export const addCompany = createAsyncThunk(
       return response.data.data;
     } catch (error) {
       console.error("Company add error:", error.response?.data);
-      
+
       if (error.response?.data?.errors) {
         return rejectWithValue({
           message: error.response.data.message,
-          errors: error.response.data.errors
+          errors: error.response.data.errors,
         });
       }
-      
-      const errorMessage = error.response?.data?.message || "Failed to add company";
+
+      const errorMessage =
+        error.response?.data?.message || "Failed to add company";
       return rejectWithValue(errorMessage);
     }
   },
 );
 
+// Update company
 // Update company
 export const updateCompany = createAsyncThunk(
   "companies/update",
@@ -61,7 +63,9 @@ export const updateCompany = createAsyncThunk(
         address: data.address || "",
         country: data.country || "",
         trade_license: data.trade_license || null,
-        company_type: data.company_type || null, // Added company_type
+        company_type: data.company_type || null,
+        trade_license_expiry: data.trade_license_expiry || null,
+        establishment_card_expiry: data.establishment_card_expiry || null,
       };
 
       const response = await apiClient.put(`/admin/companies/${id}`, payload);
@@ -157,7 +161,9 @@ const companySlice = createSlice({
           address: company.address || "-",
           country: company.country || "-",
           trade_license: company.trade_license || "-",
-          company_type: company.company_type || "-", // Added company_type
+          company_type: company.company_type || "-",
+          trade_license_expiry: company.trade_license_expiry || "-",
+          establishment_card_expiry: company.establishment_card_expiry || "-",
           logo: company.logo || null,
           organization_id: company.organization_id,
           createdAt: company.created_at
@@ -216,7 +222,10 @@ const companySlice = createSlice({
           address: action.payload.address || "-",
           country: action.payload.country || "-",
           trade_license: action.payload.trade_license || "-",
-          company_type: action.payload.company_type || "-", // Added company_type
+          company_type: action.payload.company_type || "-",
+          trade_license_expiry: action.payload.trade_license_expiry || "-",
+          establishment_card_expiry:
+            action.payload.establishment_card_expiry || "-",
           logo: action.payload.logo || null,
           organization_id: action.payload.organization_id,
           createdAt: action.payload.created_at
@@ -258,7 +267,10 @@ const companySlice = createSlice({
             address: action.payload.address || "-",
             country: action.payload.country || "-",
             trade_license: action.payload.trade_license || "-",
-            company_type: action.payload.company_type || "-", // Added company_type
+            company_type: action.payload.company_type || "-",
+            trade_license_expiry: action.payload.trade_license_expiry || "-",
+            establishment_card_expiry:
+              action.payload.establishment_card_expiry || "-",
             logo: action.payload.logo || state.companies[index].logo,
             raw: action.payload,
           };
