@@ -1,11 +1,18 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useLocation } from "react-router-dom";
 import { fetchEmployees } from "../store/slices/employeeSlice";
 import { fetchOrganizations } from "../store/slices/organizationSlice";
 import { fetchAttendanceRecords } from "../store/slices/attendanceSlice";
 import { fetchLeaves } from "../store/slices/LeaveSlice";
-import { fetchTaskReports } from "../store/slices/reportSlice";
+import { 
+  fetchTaskReports, 
+  fetchPendingLeavesReport,
+  fetchEmployeeNearestExpiryReport,
+  fetchEmployeeUpcomingRenewalsReport,
+  fetchCompanyNearestExpiryReport,
+  fetchCompanyUpcomingRenewalsReport
+} from "../store/slices/reportSlice";
 
 const Reports = () => {
   const dispatch = useDispatch();
@@ -20,9 +27,20 @@ const Reports = () => {
   const { leaves: leaveRecords = [] } = useSelector(
     (state) => state.leaves || {},
   );
-  const { taskReports = [], taskReportsTotalCount = 0 } = useSelector(
-    (state) => state.reports || {},
-  );
+  const { 
+    taskReports = [], 
+    taskReportsTotalCount = 0,
+    pendingLeaves = [],
+    pendingLeavesTotalCount = 0,
+    employeeNearestExpiry = [],
+    employeeNearestExpiryTotalCount = 0,
+    employeeUpcomingRenewals = [],
+    employeeUpcomingRenewalsTotalCount = 0,
+    companyNearestExpiry = [],
+    companyNearestExpiryTotalCount = 0,
+    companyUpcomingRenewals = [],
+    companyUpcomingRenewalsTotalCount = 0,
+  } = useSelector((state) => state.reports || {});
 
   // Get user role from auth
   const { user } = useSelector((state) => state.auth);
@@ -31,67 +49,94 @@ const Reports = () => {
   // Determine the base path based on user role
   const basePath = userRole === "admin" ? "/admin" : "/employee";
 
+  // State to track if data is loaded
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Fetch all data
   useEffect(() => {
-    dispatch(fetchOrganizations());
-    dispatch(fetchEmployees());
-    dispatch(fetchAttendanceRecords());
-    dispatch(fetchLeaves());
-    // Fetch task reports to get count
-    dispatch(
-      fetchTaskReports({
-        page: 1,
-        per_page: 1, // Only fetch 1 record to get the total count
-        date_range: "custom",
-        from_date: new Date(new Date().setDate(1)).toISOString().split("T")[0],
-        to_date: new Date().toISOString().split("T")[0],
-      })
-    );
+    const fetchAllData = async () => {
+      // Fetch basic data
+      await Promise.all([
+        dispatch(fetchOrganizations()),
+        dispatch(fetchEmployees()),
+        dispatch(fetchAttendanceRecords()),
+        dispatch(fetchLeaves()),
+      ]);
+
+      // Fetch report data with specific parameters
+      await Promise.all([
+        // Task reports - fetch current month
+        dispatch(fetchTaskReports({
+          page: 1,
+          per_page: 1,
+          date_range: "custom",
+          from_date: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0],
+          to_date: new Date().toISOString().split("T")[0],
+        })),
+        
+        // Pending leaves - fetch all pending
+        dispatch(fetchPendingLeavesReport({
+          page: 1,
+          per_page: 100,
+        })),
+        
+        // Employee nearest expiry (within 30 days)
+        dispatch(fetchEmployeeNearestExpiryReport({
+          page: 1,
+          per_page: 100,
+          expiry_days: 30,
+        })),
+        
+        // Employee upcoming renewals (31-90 days)
+        dispatch(fetchEmployeeUpcomingRenewalsReport({
+          page: 1,
+          per_page: 100,
+          min_days: 31,
+          max_days: 90,
+        })),
+        
+        // Company nearest expiry (within 30 days)
+        dispatch(fetchCompanyNearestExpiryReport({
+          page: 1,
+          per_page: 100,
+          expiry_days: 30,
+        })),
+        
+        // Company upcoming renewals (31-90 days)
+        dispatch(fetchCompanyUpcomingRenewalsReport({
+          page: 1,
+          per_page: 100,
+          min_days: 31,
+          max_days: 90,
+        })),
+      ]);
+
+      setDataLoaded(true);
+    };
+
+    fetchAllData();
   }, [dispatch]);
 
-  // Calculate statistics for cards
+  // Calculate statistics
   const totalEmployees = employees.length;
-  const pendingLeaves = leaveRecords.filter(
-    (leave) => leave.status === "Pending",
-  ).length;
+  
+  // Pending leaves - use API count
+  const pendingLeavesCount = pendingLeavesTotalCount || pendingLeaves.length;
+  
+  // Total task reports
   const totalTaskReports = taskReportsTotalCount || taskReports.length;
-
-  // Calculate expiry statistics
-  const today = new Date();
-  const thirtyDaysFromNow = new Date();
-  thirtyDaysFromNow.setDate(today.getDate() + 30);
-
-  let employeeNearExpiry = 0;
-  let employeeUpcomingRenewals = 0;
-  let orgNearExpiry = 0;
-  let orgUpcomingRenewals = 0;
-
-  // Check employee document expiries (assuming employees have document expiry dates)
-  employees.forEach((emp) => {
-    if (emp.document_expiry_date) {
-      const expiryDate = new Date(emp.document_expiry_date);
-      if (expiryDate < today) {
-        // Expired - don't count in near expiry
-      } else if (expiryDate <= thirtyDaysFromNow) {
-        employeeNearExpiry++;
-      } else if (expiryDate <= new Date(today.setMonth(today.getMonth() + 3))) {
-        employeeUpcomingRenewals++;
-      }
-    }
-  });
-
-  // Check organization document expiries
-  organizations.forEach((org) => {
-    if (org.document_expiry_date) {
-      const expiryDate = new Date(org.document_expiry_date);
-      if (expiryDate < today) {
-        // Expired
-      } else if (expiryDate <= thirtyDaysFromNow) {
-        orgNearExpiry++;
-      } else if (expiryDate <= new Date(today.setMonth(today.getMonth() + 3))) {
-        orgUpcomingRenewals++;
-      }
-    }
-  });
+  
+  // Employee nearest expiry - use API count
+  const employeeNearExpiryCount = employeeNearestExpiryTotalCount || employeeNearestExpiry.length;
+  
+  // Employee upcoming renewals - use API count
+  const employeeUpcomingRenewalsCount = employeeUpcomingRenewalsTotalCount || employeeUpcomingRenewals.length;
+  
+  // Company nearest expiry - use API count
+  const companyNearExpiryCount = companyNearestExpiryTotalCount || companyNearestExpiry.length;
+  
+  // Company upcoming renewals - use API count
+  const companyUpcomingRenewalsCount = companyUpcomingRenewalsTotalCount || companyUpcomingRenewals.length;
 
   const reportCards = [
     {
@@ -142,8 +187,8 @@ const Reports = () => {
       iconBg: "bg-amber-100 dark:bg-amber-900/30",
       iconColor: "text-amber-600 dark:text-amber-400",
       link: `${basePath}/reports/pending-leaves-reports`,
-      count: pendingLeaves,
-      highlight: pendingLeaves > 0,
+      count: pendingLeavesCount,
+      highlight: pendingLeavesCount > 0,
     },
     {
       id: "emp-near-expiry",
@@ -153,8 +198,8 @@ const Reports = () => {
       iconBg: "bg-red-100 dark:bg-red-900/30",
       iconColor: "text-red-600 dark:text-red-400",
       link: `${basePath}/reports/employee-near-expiry`,
-      count: employeeNearExpiry,
-      highlight: employeeNearExpiry > 0,
+      count: employeeNearExpiryCount,
+      highlight: employeeNearExpiryCount > 0,
     },
     {
       id: "emp-upcoming-renewals",
@@ -164,7 +209,7 @@ const Reports = () => {
       iconBg: "bg-cyan-100 dark:bg-cyan-900/30",
       iconColor: "text-cyan-600 dark:text-cyan-400",
       link: `${basePath}/reports/employee-upcoming-renewals`,
-      count: employeeUpcomingRenewals,
+      count: employeeUpcomingRenewalsCount,
     },
     {
       id: "org-near-expiry",
@@ -174,8 +219,8 @@ const Reports = () => {
       iconBg: "bg-rose-100 dark:bg-rose-900/30",
       iconColor: "text-rose-600 dark:text-rose-400",
       link: `${basePath}/reports/organization-near-expiry`,
-      count: orgNearExpiry,
-      highlight: orgNearExpiry > 0,
+      count: companyNearExpiryCount,
+      highlight: companyNearExpiryCount > 0,
     },
     {
       id: "org-upcoming-renewals",
@@ -185,9 +230,22 @@ const Reports = () => {
       iconBg: "bg-indigo-100 dark:bg-indigo-900/30",
       iconColor: "text-indigo-600 dark:text-indigo-400",
       link: `${basePath}/reports/organization-upcoming-renewals`,
-      count: orgUpcomingRenewals,
+      count: companyUpcomingRenewalsCount,
     },
   ];
+
+  // Show loading state
+  if (!dataLoaded) {
+    return (
+      <div className="w-full overflow-x-hidden">
+        <main className="content px-4 py-4 md:px-6 md:py-6 w-full overflow-x-hidden">
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full overflow-x-hidden">

@@ -7,9 +7,9 @@ import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
 import ConfirmModal from "../common/ConfirmModal";
 import { clearError, updateLeaveStatus } from "../../store/slices/LeaveSlice";
-import { 
+import {
   fetchPendingLeavesReport,
-  exportReport
+  exportReport,
 } from "../../store/slices/reportSlice";
 import ExportModal from "../../../components/common/ExportModal";
 import { formatDate } from "../../../utils/reportUtils";
@@ -17,7 +17,7 @@ import { formatDate } from "../../../utils/reportUtils";
 const PendingLeavesReport = () => {
   const dispatch = useDispatch();
   const {
-    pendingLeaves: leavesData = {},
+    pendingLeaves: leaves = [],
     pendingLeavesLoading: loading = false,
     pendingLeavesError: error = null,
     pendingLeavesTotalCount: totalCount = 0,
@@ -25,9 +25,7 @@ const PendingLeavesReport = () => {
     exportLoading = false,
   } = useSelector((state) => state.reports || {});
 
-  // Extract leaves from the nested structure
-  const leaves = leavesData?.data?.leaves || leavesData?.leaves || [];
-  const title = leavesData?.data?.title || leavesData?.title || "Pending Leave Requests";
+   const title = "Pending Leave Requests"; 
 
   // Local state
   const [currentPage, setCurrentPage] = useState(1);
@@ -58,9 +56,18 @@ const PendingLeavesReport = () => {
         start_date: dateRange === "custom" ? startDate : undefined,
         end_date: dateRange === "custom" ? endDate : undefined,
         search: searchTerm || undefined,
-      })
+      }),
     );
-  }, [dispatch, currentPage, perPage, selectedLeaveType, dateRange, startDate, endDate, searchTerm]);
+  }, [
+    dispatch,
+    currentPage,
+    perPage,
+    selectedLeaveType,
+    dateRange,
+    startDate,
+    endDate,
+    searchTerm,
+  ]);
 
   // Handle errors
   useEffect(() => {
@@ -81,7 +88,9 @@ const PendingLeavesReport = () => {
     ...new Set(
       leavesArray
         .filter((leave) => (leave.status || "").toLowerCase() === "pending")
-        .map((leave) => leave.leave_type?.name || leave.type || leave.leave_type)
+        .map(
+          (leave) => leave.leave_type?.name || leave.type || leave.leave_type,
+        )
         .filter(Boolean),
     ),
   ];
@@ -95,23 +104,28 @@ const PendingLeavesReport = () => {
     // Apply leave type filter (client-side)
     if (selectedLeaveType !== "all") {
       filtered = filtered.filter(
-        (leave) => (leave.leave_type?.name || leave.type || leave.leave_type) === selectedLeaveType,
+        (leave) =>
+          (leave.leave_type?.name || leave.type || leave.leave_type) ===
+          selectedLeaveType,
       );
     }
 
     // Apply search term (client-side)
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (leave) => {
-          const employeeName = leave.employee?.first_name || 
-            leave.employee_name ||
-            leave.employee?.name || "";
-          const leaveType = leave.leave_type?.name || leave.type || leave.leave_type || "";
-          return employeeName.toLowerCase().includes(searchLower) ||
-                 leaveType.toLowerCase().includes(searchLower);
-        }
-      );
+      filtered = filtered.filter((leave) => {
+        const employeeName =
+          leave.employee?.first_name ||
+          leave.employee_name ||
+          leave.employee?.name ||
+          "";
+        const leaveType =
+          leave.leave_type?.name || leave.type || leave.leave_type || "";
+        return (
+          employeeName.toLowerCase().includes(searchLower) ||
+          leaveType.toLowerCase().includes(searchLower)
+        );
+      });
     }
 
     return filtered;
@@ -156,13 +170,13 @@ const PendingLeavesReport = () => {
         status: actionType === "approve" ? "approved" : "rejected",
         processedBy: "HR Admin",
         rejection_reason: actionType === "reject" ? rejectionReason : null,
-      })
+      }),
     );
 
     if (updateLeaveStatus.fulfilled.match(result)) {
       showToast(
         `Leave request ${actionType === "approve" ? "approved" : "rejected"} successfully`,
-        "success"
+        "success",
       );
       setConfirmOpen(false);
       setSelectedLeave(null);
@@ -173,16 +187,17 @@ const PendingLeavesReport = () => {
         fetchPendingLeavesReport({
           page: currentPage,
           per_page: perPage,
-          leave_type: selectedLeaveType !== "all" ? selectedLeaveType : undefined,
+          leave_type:
+            selectedLeaveType !== "all" ? selectedLeaveType : undefined,
           start_date: dateRange === "custom" ? startDate : undefined,
           end_date: dateRange === "custom" ? endDate : undefined,
           search: searchTerm || undefined,
-        })
+        }),
       );
     } else {
       showToast(
         result.payload || `Failed to ${actionType} leave request`,
-        "error"
+        "error",
       );
     }
 
@@ -191,53 +206,55 @@ const PendingLeavesReport = () => {
 
   // Handle export using the exportReport thunk
   // Handle export using the exportReport thunk
-const handleExport = async (format) => {
-  // Build export parameters - DO NOT include format here
-  const params = {
-    status: "pending", // Only pending leaves
+  const handleExport = async (format) => {
+    // Build export parameters - DO NOT include format here
+    const params = {
+      status: "pending", // Only pending leaves
+    };
+
+    // Add filters
+    if (selectedLeaveType !== "all") {
+      params.leave_type = selectedLeaveType;
+    }
+    if (dateRange === "custom") {
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+    }
+    if (searchTerm) {
+      params.search = searchTerm;
+    }
+
+    // Dispatch the export thunk with report_type: "pending-leaves"
+    // The format is passed separately and will be appended by the thunk
+    const result = await dispatch(
+      exportReport({
+        reportType: "pending-leaves",
+        params: params, // Don't include format here
+        format: format, // Format is passed separately
+      }),
+    );
+
+    if (exportReport.fulfilled.match(result)) {
+      const { url, filename } = result.payload;
+
+      // Create a download link
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Revoke the URL after download
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 100);
+
+      showToast(`Pending leaves report exported successfully!`, "success");
+    } else {
+      showToast(result.payload || "Failed to export report", "error");
+    }
   };
-
-  // Add filters
-  if (selectedLeaveType !== "all") {
-    params.leave_type = selectedLeaveType;
-  }
-  if (dateRange === "custom") {
-    if (startDate) params.start_date = startDate;
-    if (endDate) params.end_date = endDate;
-  }
-  if (searchTerm) {
-    params.search = searchTerm;
-  }
-
-  // Dispatch the export thunk with report_type: "pending-leaves"
-  // The format is passed separately and will be appended by the thunk
-  const result = await dispatch(exportReport({
-    reportType: "pending-leaves",
-    params: params, // Don't include format here
-    format: format, // Format is passed separately
-  }));
-  
-  if (exportReport.fulfilled.match(result)) {
-    const { url, filename } = result.payload;
-    
-    // Create a download link
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Revoke the URL after download
-    setTimeout(() => {
-      window.URL.revokeObjectURL(url);
-    }, 100);
-    
-    showToast(`Pending leaves report exported successfully!`, "success");
-  } else {
-    showToast(result.payload || "Failed to export report", "error");
-  }
-};
 
   const getStatusBadge = () => {
     return (
@@ -437,9 +454,13 @@ const handleExport = async (format) => {
               className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {exportLoading ? (
-                <><i className="fas fa-spinner fa-spin"></i> Exporting...</>
+                <>
+                  <i className="fas fa-spinner fa-spin"></i> Exporting...
+                </>
               ) : (
-                <><i className="fas fa-download"></i> Export Report</>
+                <>
+                  <i className="fas fa-download"></i> Export Report
+                </>
               )}
             </button>
           </div>
@@ -494,10 +515,10 @@ const handleExport = async (format) => {
                     {pageLeaves.length > 0 ? (
                       pageLeaves.map((leave, idx) => {
                         // Get employee name from nested employee object
-                        const employeeName = leave.employee 
-                          ? `${leave.employee.first_name || ''} ${leave.employee.last_name || ''}`.trim() 
-                          : leave.employee_name || '-';
-                        
+                        const employeeName = leave.employee
+                          ? `${leave.employee.first_name || ""} ${leave.employee.last_name || ""}`.trim()
+                          : leave.employee_name || "-";
+
                         return (
                           <tr
                             key={leave.id}
@@ -507,13 +528,18 @@ const handleExport = async (format) => {
                               {start + idx + 1}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                              {formatDate(leave.created_at || leave.request_date)}
+                              {formatDate(
+                                leave.created_at || leave.request_date,
+                              )}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
                               {employeeName}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                              {leave.leave_type?.name || leave.type || leave.leave_type || "-"}
+                              {leave.leave_type?.name ||
+                                leave.type ||
+                                leave.leave_type ||
+                                "-"}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                               {formatDate(leave.start_date || leave.from_date)}
@@ -522,7 +548,9 @@ const handleExport = async (format) => {
                               {formatDate(leave.end_date || leave.to_date)}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
-                              {leave.duration_days || leave.number_of_days || "-"}
+                              {leave.duration_days ||
+                                leave.number_of_days ||
+                                "-"}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3">
                               {getStatusBadge()}
@@ -627,11 +655,7 @@ const handleExport = async (format) => {
             : "bg-red-500 hover:bg-red-600"
         }
         loading={actionLoading}
-        variant={
-          actionType === "approve"
-          ? "success"
-          : "danger"
-        }
+        variant={actionType === "approve" ? "success" : "danger"}
       >
         {actionType === "reject" && (
           <div className="mt-4">

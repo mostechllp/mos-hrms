@@ -14,13 +14,17 @@ import { formatDate, getDaysDifference } from "../../../utils/reportUtils";
 
 const CompanyUpcomingRenewalsReport = () => {
   const dispatch = useDispatch();
-  const { 
+  const {
     companyUpcomingRenewals: companies = [],
     companyUpcomingRenewalsLoading: loading = false,
+    companyUpcomingRenewalsError: error = null,
     companyUpcomingRenewalsTotalCount: totalCount = 0,
     companyUpcomingRenewalsLastPage: lastPage = 1,
     exportLoading = false,
   } = useSelector((state) => state.reports || {});
+
+  const title = "Company Upcoming Renewals";
+  const subtitle = companies.subtitle || "";
 
   // Local state
   const [currentPage, setCurrentPage] = useState(1);
@@ -50,6 +54,76 @@ const CompanyUpcomingRenewalsReport = () => {
     setCurrentPage(1);
   }, [searchTerm, minDays, maxDays, perPage]);
 
+  // Transform company data
+  const transformCompany = (company) => {
+    return {
+      id: company.id,
+      name: company.company_name || company.name || "-",
+      company_name: company.company_name || company.name || "-",
+      trade_license: company.trade_license || "-",
+      trade_license_number: company.trade_license_number || "-",
+      trade_license_expiry: company.trade_license_expiry || null,
+      establishment_card_expiry: company.establishment_card_expiry || null,
+      establishment_card_number: company.establishment_card_number || "-",
+      phone: company.phone || "-",
+      email: company.email || "-",
+      country: company.country || "-",
+      company_type: company.company_type || "-",
+    };
+  };
+
+  // Filter and sort companies
+  const getFilteredCompanies = () => {
+    const transformedCompanies = Array.isArray(companies)
+      ? companies.map(transformCompany)
+      : [];
+
+    let filtered = transformedCompanies.filter((company) => {
+      const tlDays = getDaysDifference(company.trade_license_expiry);
+      const ecDays = getDaysDifference(company.establishment_card_expiry);
+      
+      return (
+        (tlDays !== null && tlDays >= minDays && tlDays <= maxDays) ||
+        (ecDays !== null && ecDays >= minDays && ecDays <= maxDays)
+      );
+    });
+
+    // Apply search term
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (company) =>
+          (company.name || "").toLowerCase().includes(searchLower) ||
+          (company.company_name || "").toLowerCase().includes(searchLower) ||
+          (company.trade_license || "").toLowerCase().includes(searchLower) ||
+          (company.phone || "").toLowerCase().includes(searchLower) ||
+          (company.email || "").toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Sort by earliest upcoming expiry date
+    filtered.sort((a, b) => {
+      const expiryA = Math.min(
+        getDaysDifference(a.trade_license_expiry) || Infinity,
+        getDaysDifference(a.establishment_card_expiry) || Infinity
+      );
+      const expiryB = Math.min(
+        getDaysDifference(b.trade_license_expiry) || Infinity,
+        getDaysDifference(b.establishment_card_expiry) || Infinity
+      );
+      
+      return expiryA - expiryB;
+    });
+
+    return filtered;
+  };
+
+  const filteredCompanies = getFilteredCompanies();
+  const totalFiltered = totalCount || filteredCompanies.length;
+  const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
+  const start = (currentPage - 1) * perPage;
+  const pageCompanies = filteredCompanies.slice(start, start + perPage);
+
   const handleResetFilters = () => {
     setMinDays(31);
     setMaxDays(90);
@@ -60,9 +134,8 @@ const CompanyUpcomingRenewalsReport = () => {
 
   // Handle export using the exportReport thunk
   const handleExport = async (format) => {
-    // Build export parameters
+    // Build export parameters - DO NOT include format here
     const params = {
-      format: format,
       min_days: minDays,
       max_days: maxDays,
     };
@@ -74,9 +147,9 @@ const CompanyUpcomingRenewalsReport = () => {
 
     // Dispatch the export thunk with report_type: "company-upcoming-renewals"
     const result = await dispatch(exportReport({
-      reportType: "company-upcoming-renewals", // This is the report_type for company upcoming renewals
-      params: params,
-      format: format,
+      reportType: "company-upcoming-renewals",
+      params: params, // Don't include format here
+      format: format, // Format is passed separately
     }));
     
     if (exportReport.fulfilled.match(result)) {
@@ -103,7 +176,7 @@ const CompanyUpcomingRenewalsReport = () => {
 
   const getUpcomingClass = (expiryDate) => {
     const daysLeft = getDaysDifference(expiryDate);
-    if (!daysLeft) return "";
+    if (daysLeft === null || daysLeft < minDays || daysLeft > maxDays) return "";
 
     if (daysLeft >= 31 && daysLeft <= 45) {
       return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
@@ -117,33 +190,10 @@ const CompanyUpcomingRenewalsReport = () => {
     return "";
   };
 
-  // Transform data for export
-  const getExportData = () => {
-    const companiesArray = Array.isArray(companies) ? companies : [];
-    return companiesArray.map((company) => ({
-      company_name: company.name || company.company_name || "-",
-      trade_license_number: company.trade_license_number || "-",
-      trade_license_expiry: formatDate(company.trade_license_expiry),
-      trade_license_days_left: getDaysDifference(company.trade_license_expiry) || "-",
-      establishment_card_number: company.establishment_card_number || "-",
-      establishment_card_expiry: formatDate(company.establishment_card_expiry),
-      establishment_card_days_left: getDaysDifference(company.establishment_card_expiry) || "-",
-      phone: company.phone || "-",
-      email: company.email || "-",
-      renewal_range: `${minDays}-${maxDays} days`,
-    }));
-  };
-
-  // Calculate stats from API data
-  const companiesArray = Array.isArray(companies) ? companies : [];
-  const totalFiltered = totalCount || companiesArray.length;
-  const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
-  const start = (currentPage - 1) * perPage;
-
-  // Calculate counts for different ranges
+  // Calculate counts for different ranges from filtered data
   const getCountForRange = (start, end) => {
     let count = 0;
-    companiesArray.forEach((company) => {
+    filteredCompanies.forEach((company) => {
       const tlDays = getDaysDifference(company.trade_license_expiry);
       const ecDays = getDaysDifference(company.establishment_card_expiry);
 
@@ -161,12 +211,12 @@ const CompanyUpcomingRenewalsReport = () => {
   const renewing46to60Days = getCountForRange(46, 60);
   const renewing61to90Days = getCountForRange(61, 90);
 
-  // Get document type stats
+  // Get document type stats from filtered data
   const getDocumentStats = () => {
     let tradeLicenseUpcoming = 0;
     let establishmentCardUpcoming = 0;
 
-    companiesArray.forEach((company) => {
+    filteredCompanies.forEach((company) => {
       const tlDays = getDaysDifference(company.trade_license_expiry);
       const ecDays = getDaysDifference(company.establishment_card_expiry);
       
@@ -202,7 +252,7 @@ const CompanyUpcomingRenewalsReport = () => {
             Company Upcoming Renewal Report
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Companies with documents expiring within {minDays}-{maxDays} days
+            {title} - {subtitle || `Companies with documents expiring within ${minDays}-${maxDays} days`}
           </p>
         </div>
 
@@ -355,7 +405,7 @@ const CompanyUpcomingRenewalsReport = () => {
                 setSearchTerm(val);
                 setCurrentPage(1);
               }}
-              placeholder="Search by company name, trade license, establishment card..."
+              placeholder="Search by company name, trade license..."
             />
             <button
               onClick={() => setShowExportModal(true)}
@@ -372,7 +422,7 @@ const CompanyUpcomingRenewalsReport = () => {
         </div>
 
         {/* Loading State */}
-        {loading && companiesArray.length === 0 ? (
+        {loading && filteredCompanies.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
             <i className="fas fa-spinner fa-spin text-3xl text-green-500 mb-3"></i>
             <p className="text-gray-500 dark:text-gray-400">
@@ -403,10 +453,7 @@ const CompanyUpcomingRenewalsReport = () => {
                         DAYS LEFT
                       </th>
                       <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        EST. CARD
-                      </th>
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        EC EXPIRY
+                        EST. CARD EXPIRY
                       </th>
                       <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
                         DAYS LEFT
@@ -414,8 +461,8 @@ const CompanyUpcomingRenewalsReport = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {companiesArray.length > 0 ? (
-                      companiesArray.map((company, idx) => {
+                    {pageCompanies.length > 0 ? (
+                      pageCompanies.map((company, idx) => {
                         const tlDays = getDaysDifference(
                           company.trade_license_expiry,
                         );
@@ -441,10 +488,10 @@ const CompanyUpcomingRenewalsReport = () => {
                               {start + idx + 1}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
-                              {company.name || company.company_name || "-"}
+                              {company.company_name}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-mono text-gray-600 dark:text-gray-400">
-                              {company.trade_license_number || "-"}
+                              {company.trade_license || "-"}
                             </td>
                             <td
                               className={`px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm ${showTradeLicense ? getUpcomingClass(company.trade_license_expiry) : ""}`}
@@ -468,9 +515,6 @@ const CompanyUpcomingRenewalsReport = () => {
                               ) : (
                                 "-"
                               )}
-                            </td>
-                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-mono text-gray-600 dark:text-gray-400">
-                              {company.establishment_card_number || "-"}
                             </td>
                             <td
                               className={`px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm ${showEstablishmentCard ? getUpcomingClass(company.establishment_card_expiry) : ""}`}
@@ -501,7 +545,7 @@ const CompanyUpcomingRenewalsReport = () => {
                     ) : (
                       <tr>
                         <td
-                          colSpan="8"
+                          colSpan="7"
                           className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                         >
                           <div className="flex flex-col items-center justify-center gap-2">
@@ -543,7 +587,7 @@ const CompanyUpcomingRenewalsReport = () => {
         }}
         onExport={handleExport}
         title="Export Company Upcoming Renewals"
-        totalRecords={totalCount || companiesArray.length}
+        totalRecords={totalCount || filteredCompanies.length}
         formats={["csv", "pdf"]}
         defaultFormat="csv"
         loading={exportLoading}
