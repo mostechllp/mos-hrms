@@ -637,6 +637,107 @@ const EmployeeDetails = () => {
                   </div>
                 </div>
 
+                {/* Employment Timeline & Dates Section */}
+                <h3 className="text-lg font-semibold text-[var(--text)] mt-6 mb-4 flex items-center gap-2">
+                  <FiCalendar className="text-green-500" /> Employment Timeline & Dates
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
+                        <FiCalendar /> Probation Start Date
+                      </label>
+                      <p className="text-[var(--text)] font-medium mt-1">
+                        {currentEmployee.probation_start_date
+                          ? formatDate(currentEmployee.probation_start_date)
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
+                        <FiCalendar /> Probation End Date
+                      </label>
+                      <p className="text-[var(--text)] font-medium mt-1">
+                        {currentEmployee.probation_end_date
+                          ? formatDate(currentEmployee.probation_end_date)
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
+                        <FiCalendar /> Confirmation Date
+                      </label>
+                      <p className="text-[var(--text)] font-medium mt-1">
+                        {currentEmployee.confirmation_date
+                          ? formatDate(currentEmployee.confirmation_date)
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
+                        <FiCalendar /> Contract Start Date
+                      </label>
+                      <p className="text-[var(--text)] font-medium mt-1">
+                        {currentEmployee.contract_start_date
+                          ? formatDate(currentEmployee.contract_start_date)
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
+                        <FiCalendar /> Contract End Date
+                      </label>
+                      <p className="text-[var(--text)] font-medium mt-1">
+                        {currentEmployee.contract_end_date
+                          ? formatDate(currentEmployee.contract_end_date)
+                          : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
+                        <FiCalendar /> Resignation Date
+                      </label>
+                      <p className="text-[var(--text)] font-medium mt-1">
+                        {currentEmployee.resignation_date
+                          ? formatDate(currentEmployee.resignation_date)
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
+                        <FiCalendar /> Notice Period Start Date
+                      </label>
+                      <p className="text-[var(--text)] font-medium mt-1">
+                        {currentEmployee.notice_period_start_date
+                          ? formatDate(currentEmployee.notice_period_start_date)
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
+                        <FiCalendar /> Last Working Day (LWD)
+                      </label>
+                      <p className="text-[var(--text)] font-medium mt-1">
+                        {currentEmployee.last_working_day
+                          ? formatDate(currentEmployee.last_working_day)
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="border-b border-[var(--border)] pb-3">
+                      <label className="text-xs text-[var(--muted)] uppercase tracking-wide flex items-center gap-1">
+                        <FiCalendar /> Relieving Date
+                      </label>
+                      <p className="text-[var(--text)] font-medium mt-1">
+                        {currentEmployee.relieving_date
+                          ? formatDate(currentEmployee.relieving_date)
+                          : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Special Days Section */}
                 <h3 className="text-lg font-semibold text-[var(--text)] mt-6 mb-4 flex items-center gap-2">
                   <FiHeart className="text-green-500" /> Special Days
