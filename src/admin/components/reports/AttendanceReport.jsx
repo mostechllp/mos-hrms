@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import SearchBar from "../common/SearchBar";
@@ -9,8 +9,11 @@ import {
   fetchAllAttendanceReport,
   fetchAttendanceReport,
   exportAttendanceReport,
+  fetchEmployeesForFilter,
 } from "../../store/slices/reportSlice";
 import ExportModal from "../../../components/common/ExportModal";
+import DateInput from "../common/DateInput";
+import { debounce } from 'lodash';
 
 const AttendanceReport = () => {
   const dispatch = useDispatch();
@@ -20,9 +23,10 @@ const AttendanceReport = () => {
     attendanceTotalCount: totalCount = 0,
     attendanceLastPage: lastPage = 1,
     exportLoading = false,
+    employeesList = [],
   } = useSelector((state) => state.reports || {});
 
-  // Local state
+  // Local state (UI filters - what the user sees/selects)
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
@@ -31,6 +35,22 @@ const AttendanceReport = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [datePreset, setDatePreset] = useState("custom");
   const [exportType, setExportType] = useState("current");
+
+  // Applied filters - these are the ones actually used in the API call
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
+  const [appliedEmployeeFilter, setAppliedEmployeeFilter] = useState("all");
+  const [appliedStartDate, setAppliedStartDate] = useState("");
+  const [appliedEndDate, setAppliedEndDate] = useState("");
+
+  const [tableKey, setTableKey] = useState(0);
+
+  const debouncedSearch = useCallback(
+    debounce((value) => {
+      setSearchTerm(value);
+      setCurrentPage(1);
+    }, 500),
+    []
+  );
 
   // Date range state
   const [startDate, setStartDate] = useState(() => {
@@ -42,11 +62,15 @@ const AttendanceReport = () => {
     return new Date().toISOString().split("T")[0];
   });
 
+  useEffect(() => {
+    dispatch(fetchEmployeesForFilter());
+  }, [dispatch]);
+
   // Get unique employees and companies for filters
   const uniqueCompanies = [
     ...new Set(records.map((record) => record.company).filter(Boolean)),
   ];
-  
+
   const uniqueEmployees = [
     ...new Set(
       records
@@ -54,24 +78,25 @@ const AttendanceReport = () => {
           id: record.employeeId || record.employee_id || record.id,
           name: record.employeeName || record.name || record.employee_name,
         }))
-        .filter((emp) => emp.id && emp.name)
+        .filter((emp) => emp.id && emp.name),
     ),
   ];
 
-  // Fetch attendance data with filters
+  // ✅ Fetch attendance data with APPLIED filters (not the UI filters)
   useEffect(() => {
     const fetchData = async () => {
-      await dispatch(
-        fetchAttendanceReport({
-          page: currentPage,
-          per_page: perPage,
-          company: companyFilter !== "all" ? companyFilter : undefined,
-          employee_id: employeeFilter !== "all" ? employeeFilter : undefined,
-          search: searchTerm || undefined,
-          start_date: startDate,
-          end_date: endDate,
-        }),
-      );
+      const params = {
+        page: currentPage,
+        per_page: perPage,
+        company: companyFilter !== "all" ? companyFilter : undefined,
+        employee_id: appliedEmployeeFilter !== "all" ? appliedEmployeeFilter : undefined,
+        search: appliedSearchTerm || undefined,
+        start_date: appliedStartDate || startDate,
+        end_date: appliedEndDate || endDate,
+      };
+      
+      console.log("Fetching with applied filters:", params);
+      await dispatch(fetchAttendanceReport(params));
     };
     fetchData();
   }, [
@@ -79,16 +104,16 @@ const AttendanceReport = () => {
     currentPage,
     perPage,
     companyFilter,
-    employeeFilter,
-    searchTerm,
-    startDate,
-    endDate,
+    appliedEmployeeFilter,
+    appliedSearchTerm,
+    appliedStartDate,
+    appliedEndDate,
   ]);
 
-  // Reset to first page when filters change
+  // Reset to first page when applied filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [companyFilter, employeeFilter, searchTerm, perPage, startDate, endDate]);
+  }, [appliedEmployeeFilter, appliedSearchTerm, perPage, appliedStartDate, appliedEndDate]);
 
   const handleDatePresetChange = (preset) => {
     setDatePreset(preset);
@@ -137,26 +162,45 @@ const AttendanceReport = () => {
     return false;
   };
 
+  // ✅ Handle Apply Filters - updates the applied state
   const handleApplyFilters = () => {
+    setAppliedEmployeeFilter(employeeFilter);
+    setAppliedSearchTerm(searchTerm);
+    setAppliedStartDate(startDate);
+    setAppliedEndDate(endDate);
     setCurrentPage(1);
+    setTableKey(prev => prev + 1);
     showToast("Filters applied successfully", "success");
   };
 
+  // ✅ Handle Reset Filters - resets both UI and applied filters
   const handleResetFilters = () => {
     const firstDayOfMonth = new Date();
     firstDayOfMonth.setDate(1);
-    setStartDate(firstDayOfMonth.toISOString().split("T")[0]);
-    setEndDate(new Date().toISOString().split("T")[0]);
+    const newStartDate = firstDayOfMonth.toISOString().split("T")[0];
+    const newEndDate = new Date().toISOString().split("T")[0];
+    
+    setStartDate(newStartDate);
+    setEndDate(newEndDate);
     setCompanyFilter("all");
     setEmployeeFilter("all");
     setSearchTerm("");
+    setDatePreset("custom");
     setCurrentPage(1);
+    setTableKey(prev => prev + 1);
+    
+    // Reset applied filters
+    setAppliedEmployeeFilter("all");
+    setAppliedSearchTerm("");
+    setAppliedStartDate(newStartDate);
+    setAppliedEndDate(newEndDate);
+    
     showToast("Filters reset successfully", "success");
   };
 
   // Updated handleExport using the export thunk
   const handleExport = async (format) => {
-    // Build export parameters
+    // Build export parameters using applied filters
     const params = {
       format: format,
       date_range: datePreset,
@@ -164,27 +208,27 @@ const AttendanceReport = () => {
 
     // Add date range for custom
     if (datePreset === "custom") {
-      params.from_date = startDate;
-      params.to_date = endDate;
+      params.from_date = appliedStartDate || startDate;
+      params.to_date = appliedEndDate || endDate;
     }
 
-    // Add filters
+    // Add filters using applied values
     if (companyFilter && companyFilter !== "all") {
       params.company_id = companyFilter;
     }
-    if (employeeFilter && employeeFilter !== "all") {
-      params.employee_id = employeeFilter;
+    if (appliedEmployeeFilter && appliedEmployeeFilter !== "all") {
+      params.employee_id = appliedEmployeeFilter;
     }
-    if (searchTerm) {
-      params.search = searchTerm;
+    if (appliedSearchTerm) {
+      params.search = appliedSearchTerm;
     }
 
     // Dispatch the export thunk
     const result = await dispatch(exportAttendanceReport(params));
-    
+
     if (exportAttendanceReport.fulfilled.match(result)) {
       const { url, filename } = result.payload;
-      
+
       // Create a download link
       const link = document.createElement("a");
       link.href = url;
@@ -192,12 +236,12 @@ const AttendanceReport = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Revoke the URL after download
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 100);
-      
+
       showToast(`Attendance report exported successfully!`, "success");
     } else {
       showToast(result.payload || "Failed to export report", "error");
@@ -348,7 +392,7 @@ const AttendanceReport = () => {
     return false;
   }).length;
 
-  const filteredRecords = allRecords;
+  const filteredRecords = records || [];
   const totalFiltered = totalCount || filteredRecords.length;
   const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
   const start = (currentPage - 1) * perPage;
@@ -379,7 +423,7 @@ const AttendanceReport = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <div key={tableKey} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -460,10 +504,10 @@ const AttendanceReport = () => {
           </div>
         </div>
 
-        {/* Date Range Filter */}
+        {/* Date Range Filter - All in One Row */}
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[120px]">
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
                 <i className="fas fa-clock mr-1"></i> DATE RANGE
               </label>
@@ -479,28 +523,50 @@ const AttendanceReport = () => {
                 <option value="this_month">This Month</option>
               </select>
             </div>
-            <div>
+
+            <div className="flex-1 min-w-[130px]">
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                <i className="fas fa-calendar-alt mr-1"></i> START DATE
+                <i className="fas fa-calendar-alt mr-1"></i> START
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+                onChange={(date) => setStartDate(date)}
+                placeholder="dd/mm/yyyy"
+                type="general"
               />
             </div>
-            <div>
+
+            <div className="flex-1 min-w-[130px]">
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                <i className="fas fa-calendar-alt mr-1"></i> END DATE
+                <i className="fas fa-calendar-alt mr-1"></i> END
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+                onChange={(date) => setEndDate(date)}
+                placeholder="dd/mm/yyyy"
+                type="general"
               />
             </div>
+
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                <i className="fas fa-user mr-1"></i> EMPLOYEE
+              </label>
+              <select
+                value={employeeFilter}
+                onChange={(e) => setEmployeeFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+              >
+                <option value="all">All Employees</option>
+                {Array.isArray(employeesList) &&
+                  employeesList.map((employee) => (
+                    <option key={employee.id} value={String(employee.id)}>
+                      {employee.name || `Employee ${employee.id}`}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
             <div className="flex gap-2">
               <button
                 onClick={handleApplyFilters}
@@ -518,41 +584,6 @@ const AttendanceReport = () => {
           </div>
         </div>
 
-        {/* Additional Filters */}
-        <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
-          <select
-            value={companyFilter}
-            onChange={(e) => {
-              setCompanyFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-3 md:px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs md:text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
-          >
-            <option value="all">All Companies</option>
-            {uniqueCompanies.map((company) => (
-              <option key={company} value={company}>
-                {company}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={employeeFilter}
-            onChange={(e) => {
-              setEmployeeFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-3 md:px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs md:text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500 min-w-[150px]"
-          >
-            <option value="all">All Employees</option>
-            {uniqueEmployees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
         {/* Actions Bar */}
         <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-5">
           <EntriesSelector
@@ -563,14 +594,7 @@ const AttendanceReport = () => {
             }}
           />
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <SearchBar
-              value={searchTerm}
-              onChange={(val) => {
-                setSearchTerm(val);
-                setCurrentPage(1);
-              }}
-              placeholder="Search by employee name..."
-            />
+            
             <select
               value={exportType}
               onChange={(e) => setExportType(e.target.value)}
@@ -586,9 +610,13 @@ const AttendanceReport = () => {
               className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {exportLoading ? (
-                <><i className="fas fa-spinner fa-spin"></i> Exporting...</>
+                <>
+                  <i className="fas fa-spinner fa-spin"></i> Exporting...
+                </>
               ) : (
-                <><i className="fas fa-download"></i> Export Report</>
+                <>
+                  <i className="fas fa-download"></i> Export Report
+                </>
               )}
             </button>
           </div>
@@ -648,7 +676,7 @@ const AttendanceReport = () => {
                         return (
                           <tr
                             key={record.id || idx}
-                            className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${hasOvertime ? 'dark:bg-emerald-900/5' : ''}`}
+                            className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${hasOvertime ? "dark:bg-emerald-900/5" : ""}`}
                           >
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
                               {start + idx + 1}

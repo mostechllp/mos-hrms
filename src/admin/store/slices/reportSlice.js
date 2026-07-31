@@ -17,6 +17,10 @@ export const fetchAttendanceReport = createAsyncThunk(
       to_date: params.end_date,
     };
 
+    if (params.employee_id && params.employee_id !== "all") {
+      apiParams.employee_id = params.employee_id;
+    }
+
     // Only add optional params if they exist
     if (params.company && params.company !== "all") {
       apiParams.company = params.company;
@@ -715,7 +719,11 @@ export const exportAttendanceReport = createAsyncThunk(
           restParams[key] !== null &&
           restParams[key] !== ""
         ) {
-          queryParams.append(key, restParams[key]);
+          if (key === "employee_id" && restParams[key] !== "all") {
+            queryParams.append(key, restParams[key]);
+          } else if (key !== "employee_id") {
+            queryParams.append(key, restParams[key]);
+          }
         }
       });
 
@@ -936,6 +944,43 @@ export const exportEmployeesReport = createAsyncThunk(
   },
 );
 
+// ==================== Fetch Employees for Filter ====================
+export const fetchEmployeesForFilter = createAsyncThunk(
+  "reports/fetchEmployeesForFilter",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get("/admin/employees", {
+        params: {
+          per_page: 1000,
+          status: "active",
+        },
+      });
+
+      const employees = response.data?.data?.data || response.data?.data || [];
+
+      console.log("Employees data:", employees);
+
+      return employees.map((emp) => ({
+        // Use user_id (which is the actual user ID) for filtering
+        id: emp.user_id || emp.id,
+        name:
+          `${emp.first_name || ""} ${emp.last_name || ""}`.trim() ||
+          emp.name ||
+          emp.employee_id,
+        employee_id: emp.employee_id,
+        user_id: emp.user_id || emp.id,
+        first_name: emp.first_name,
+        last_name: emp.last_name,
+      }));
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch employees",
+      );
+    }
+  },
+);
+
 // ==================== Initial State ====================
 const initialState = {
   // Attendance Report
@@ -1029,6 +1074,10 @@ const initialState = {
   pendingLeavesPerPage: 10,
   pendingLeavesLastPage: 1,
 
+  employeesList: [],
+  employeesLoading: false,
+  employeesError: null,
+
   exportLoading: false,
   exportError: null,
 };
@@ -1075,6 +1124,10 @@ const reportSlice = createSlice({
       .addCase(fetchAttendanceReport.pending, (state) => {
         state.attendanceLoading = true;
         state.attendanceError = null;
+        state.attendanceRecords = [];
+        state.attendanceTotalCount = 0;
+        state.attendanceCurrentPage = 1;
+        state.attendanceLastPage = 1;
       })
       .addCase(fetchAttendanceReport.fulfilled, (state, action) => {
         state.attendanceLoading = false;
@@ -1089,6 +1142,8 @@ const reportSlice = createSlice({
       .addCase(fetchAttendanceReport.rejected, (state, action) => {
         state.attendanceLoading = false;
         state.attendanceError = action.payload;
+        state.attendanceRecords = [];
+        state.attendanceTotalCount = 0;
       })
 
       // ==================== Task Reports ====================
@@ -1366,6 +1421,20 @@ const reportSlice = createSlice({
       .addCase(exportAttendanceReport.rejected, (state, action) => {
         state.exportLoading = false;
         state.exportError = action.payload;
+      })
+
+      // ==================== Fetch Employees for Filter ====================
+      .addCase(fetchEmployeesForFilter.pending, (state) => {
+        state.employeesLoading = true;
+        state.employeesError = null;
+      })
+      .addCase(fetchEmployeesForFilter.fulfilled, (state, action) => {
+        state.employeesLoading = false;
+        state.employeesList = action.payload || [];
+      })
+      .addCase(fetchEmployeesForFilter.rejected, (state, action) => {
+        state.employeesLoading = false;
+        state.employeesError = action.payload;
       })
 
       // ==================== Export Leaves Report ====================

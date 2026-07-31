@@ -361,17 +361,17 @@ const Login = () => {
               className="w-20 h-20 object-contain rounded-lg bg-white p-2 mx-auto shadow-lg"
             />
           </div>
-          <h1 className="text-4xl font-bold mb-4">Task & Workload Manager</h1>
+          <h1 className="text-4xl font-bold mb-4">Human Resource Management</h1>
           <p className="text-lg opacity-90 mb-10">
-            Centralized dashboard for task tracking, workload distribution, and
-            team productivity management.
+            Unified portal for administrators and employees. Seamlessly manage
+            attendance, leaves, reports, and more in one place.
           </p>
           <div className="space-y-3 text-left">
             {[
-              "Task Assignment & Tracking",
-              "Workload Distribution & Analytics",
-              "Team Productivity Reports",
-              "Leave & Resource Management",
+              "Employee Directory & Profiles",
+              "Smart Attendance Tracking",
+              "Real-time Analytics & Reports",
+              "Leave Management System",
             ].map((feature, i) => (
               <div
                 key={i}
