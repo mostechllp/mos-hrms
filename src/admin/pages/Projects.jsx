@@ -9,6 +9,7 @@ import { showToast } from "../../components/common/Toast";
 import { FolderKanban } from "lucide-react";
 import {
   fetchProjects,
+  fetchProjectStatuses,
   deleteProject,
   updateProjectStatus,
   clearError,
@@ -17,7 +18,7 @@ import {
 
 const Projects = () => {
   const dispatch = useDispatch();
-  const { projects, loading, error, totalCount, currentPage, lastPage, perPage, stats } =
+  const { projects, statuses, loading, error, totalCount, currentPage, lastPage, perPage, stats } =
     useSelector((state) => state.projects || {});
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,6 +31,10 @@ const Projects = () => {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [refreshLoading, setRefreshLoading] = useState(false);
+
+  useEffect(() => {
+    dispatch(fetchProjectStatuses());
+  }, [dispatch]);
 
   useEffect(() => {
     const params = {
@@ -210,24 +215,20 @@ const Projects = () => {
               className="w-full appearance-none pl-4 pr-10 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:border-green-500 transition-all cursor-pointer shadow-md"
             >
               <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="on_hold">On Hold</option>
-              <option value="Proposal Created">Proposal Created</option>
-              <option value="Proposal Sent">Proposal Sent</option>
-              <option value="Proposal Approved">Proposal Approved</option>
-              <option value="Quotation Created">Quotation Created</option>
-              <option value="Quotation Sent">Quotation Sent</option>
-              <option value="Quotation Approved">Quotation Approved</option>
-              <option value="Invoice Created">Invoice Created</option>
-              <option value="Invoice Sent">Invoice Sent</option>
-              <option value="Invoice Received">Invoice Received</option>
-              <option value="Payment Pending">Payment Pending</option>
-              <option value="Payment Received">Payment Received</option>
-              <option value="Project Started">Project Started</option>
-              <option value="Project In Progress">Project In Progress</option>
-              <option value="Project Completed">Project Completed</option>
+              {statuses && statuses.length > 0 ? (
+                statuses.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                  <option value="On-hold">On-hold</option>
+                  <option value="In-progress">In-progress</option>
+                </>
+              )}
             </select>
             <i className="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
           </div>
