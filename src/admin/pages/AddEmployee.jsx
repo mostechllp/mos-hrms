@@ -2486,6 +2486,25 @@ const AddEmployee = () => {
                         10-digit alphanumeric (e.g., ABCDE1234F)
                       </p>
                     </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                        <i className="fas fa-map-marker-alt text-green-500 mr-1"></i>{" "}
+                        Address
+                      </label>
+                      <Controller
+                        name="address"
+                        control={control}
+                        render={({ field }) => (
+                          <textarea
+                            {...field}
+                            rows="2"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            placeholder="Enter full address"
+                          ></textarea>
+                        )}
+                      />
+                    </div>
                   </div>
 
                   {/* Document uploads for India - Aadhaar and PAN photos */}

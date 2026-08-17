@@ -2626,6 +2626,25 @@ useEffect(() => {
                           10-digit alphanumeric (e.g., ABCDE1234F)
                         </p>
                       </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
+                          <i className="fas fa-map-marker-alt text-green-500 mr-1"></i>{" "}
+                          Address
+                        </label>
+                        <Controller
+                          name="address"
+                          control={control}
+                          render={({ field }) => (
+                            <textarea
+                              {...field}
+                              rows="2"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)]"
+                              placeholder="Enter full address"
+                            ></textarea>
+                          )}
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
