@@ -56,9 +56,21 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
         domain_expiry_date: project.domain_expiry_date?.split("T")[0] || "",
         domain_purchased_from: project.domain_purchased_from || "",
         is_email_purchased: Boolean(project.is_email_purchased),
-        purchased_emails: project.purchased_emails?.length
-          ? project.purchased_emails
-          : (project.email_name ? [{ email_name: project.email_name, email_purchase_date: project.email_purchase_date?.split("T")[0] || "", email_expiry_date: project.email_expiry_date?.split("T")[0] || "" }] : [{ email_name: "", email_purchase_date: "", email_expiry_date: "" }]),
+        purchased_emails: (project.emails && Array.isArray(project.emails) && project.emails.length > 0)
+          ? project.emails.map(e => ({
+              email_name: e.email_name || "",
+              email_purchase_date: (e.purchase_date || e.email_purchase_date || "")?.split("T")[0] || "",
+              email_expiry_date: (e.expiry_date || e.email_expiry_date || "")?.split("T")[0] || ""
+            }))
+          : (project.purchased_emails?.length
+              ? project.purchased_emails.map(e => ({
+                  email_name: e.email_name || "",
+                  email_purchase_date: (e.purchase_date || e.email_purchase_date || "")?.split("T")[0] || "",
+                  email_expiry_date: (e.expiry_date || e.email_expiry_date || "")?.split("T")[0] || ""
+                }))
+              : (project.email_name 
+                  ? [{ email_name: project.email_name, email_purchase_date: project.email_purchase_date?.split("T")[0] || "", email_expiry_date: project.email_expiry_date?.split("T")[0] || "" }] 
+                  : [{ email_name: "", email_purchase_date: "", email_expiry_date: "" }])),
       });
 
       let existingDates = [];

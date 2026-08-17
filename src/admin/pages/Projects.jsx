@@ -114,7 +114,7 @@ const Projects = () => {
   const totalPages = lastPage || Math.ceil((searchTerm || statusFilter !== "all" ? projects.length : totalCount) / perPageState);
 
   return (
-    <div className="w-full overflow-x-hidden space-y-5 pb-8 font-sans">
+    <div className="w-full overflow-x-hidden space-y-5 pb-8">
 
       {/* Stat Cards Row - Standardized Text & Card Sizes */}
       <div className="stats-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
