@@ -47,8 +47,8 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
         domain_expiry_date: project.domain_expiry_date?.split("T")[0] || "",
         domain_purchased_from: project.domain_purchased_from || "",
         is_email_purchased: project.is_email_purchased || false,
-        purchased_emails: project.purchased_emails?.length 
-          ? project.purchased_emails 
+        purchased_emails: project.purchased_emails?.length
+          ? project.purchased_emails
           : (project.email_name ? [{ email_name: project.email_name, email_purchase_date: project.email_purchase_date?.split("T")[0] || "", email_expiry_date: project.email_expiry_date?.split("T")[0] || "" }] : [{ email_name: "", email_purchase_date: "", email_expiry_date: "" }]),
       });
     } else {
@@ -120,7 +120,7 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       showToast("Project name is required", "error");
       return;
@@ -148,10 +148,10 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
       description: formData.description || null,
       start_date: formData.start_date || null,
       end_date: formData.end_date || null,
-      status: formData.status === "active" ? "Active" : 
-              formData.status === "completed" ? "Completed" : 
-              formData.status === "in_progress" ? "In Progress" : 
-              formData.status === "on_hold" ? "On Hold" : formData.status,
+      status: formData.status === "active" ? "Active" :
+        formData.status === "completed" ? "Completed" :
+          formData.status === "in_progress" ? "In Progress" :
+            formData.status === "on_hold" ? "On Hold" : formData.status,
       department_id: formData.department_id ? parseInt(formData.department_id) : null,
       website_live_date: formData.website_live_date || null,
       client_contacted_date: formData.client_contacted_date || null,
@@ -198,8 +198,8 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
             <i className="fas fa-project-diagram text-green-500"></i>
             {project ? "Edit Project" : "Create New Project"}
           </h3>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="text-gray-400 hover:text-red-500 transition-colors text-2xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             &times;
@@ -308,6 +308,20 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
                   <option value="in_progress">In Progress</option>
                   <option value="completed">Completed</option>
                   <option value="on_hold">On Hold</option>
+                  <option value="Proposal Created">Proposal Created</option>
+                  <option value="Proposal Sent">Proposal Sent</option>
+                  <option value="Proposal Approved">Proposal Approved</option>
+                  <option value="Quotation Created">Quotation Created</option>
+                  <option value="Quotation Sent">Quotation Sent</option>
+                  <option value="Quotation Approved">Quotation Approved</option>
+                  <option value="Invoice Created">Invoice Created</option>
+                  <option value="Invoice Sent">Invoice Sent</option>
+                  <option value="Invoice Received">Invoice Received</option>
+                  <option value="Payment Pending">Payment Pending</option>
+                  <option value="Payment Received">Payment Received</option>
+                  <option value="Project Started">Project Started</option>
+                  <option value="Project In Progress">Project In Progress</option>
+                  <option value="Project Completed">Project Completed</option>
                 </select>
               </div>
 
@@ -475,7 +489,7 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
                       </div>
                     </div>
                   ))}
-                  
+
                   <button
                     type="button"
                     onClick={addEmailField}
