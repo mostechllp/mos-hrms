@@ -99,8 +99,10 @@ const Projects = () => {
       active: { label: "Active", class: "bg-[#eafaf1] text-[#10b981] dark:bg-green-900/30 dark:text-green-400" },
       completed: { label: "Completed", class: "bg-[#f0f4ff] text-[#3b82f6] dark:bg-blue-900/30 dark:text-blue-400" },
       on_hold: { label: "On Hold", class: "bg-[#fff8e6] text-[#f59e0b] dark:bg-amber-900/30 dark:text-amber-400" },
+      in_progress: { label: "In Progress", class: "bg-[#f0f4ff] text-[#3b82f6] dark:bg-blue-900/30 dark:text-blue-400" },
     };
-    const s = statusMap[status] || statusMap.active;
+    const normalized = String(status || "").toLowerCase().replace("-", "_").replace(" ", "_");
+    const s = statusMap[normalized] || { label: status || "Active", class: "bg-[#eafaf1] text-[#10b981] dark:bg-green-900/30 dark:text-green-400" };
     return <span className={`px-2.5 py-1 rounded-full text-[10px] md:text-xs font-semibold ${s.class}`}>{s.label}</span>;
   };
 
