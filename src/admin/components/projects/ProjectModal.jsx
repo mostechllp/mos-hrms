@@ -3,6 +3,7 @@ import { useDispatch } from "react-redux";
 import { createProject, updateProject } from "../../store/slices/projectsSlice";
 import { showToast } from "../../../components/common/Toast";
 import apiClient from "../../../utils/apiClient";
+import { FolderKanban } from "lucide-react";
 
 const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
   const dispatch = useDispatch();
@@ -195,7 +196,7 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
         {/* Header - Fixed */}
         <div className="flex justify-between items-center p-5 md:p-6 pb-4 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 rounded-t-2xl z-10">
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-            <i className="fas fa-project-diagram text-green-500"></i>
+            <FolderKanban className="text-green-500 w-6 h-6" />
             {project ? "Edit Project" : "Create New Project"}
           </h3>
           <button

@@ -6,6 +6,7 @@ import Pagination from "../components/common/Paginations";
 import ProjectModal from "../components/projects/ProjectModal";
 import ConfirmModal from "../components/common/ConfirmModal";
 import { showToast } from "../../components/common/Toast";
+import { FolderKanban } from "lucide-react";
 import {
   fetchProjects,
   deleteProject,
@@ -115,8 +116,8 @@ const Projects = () => {
 
         {/* Total Projects Card */}
         <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 shadow-xs flex items-center gap-3 md:gap-4">
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-[#f4f0fd] dark:bg-purple-900/30 text-[#7c5cfc] dark:text-purple-400 flex items-center justify-center flex-shrink-0 text-sm md:text-lg">
-            <i className="fas fa-network-wired"></i>
+          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-[#f4f0fd] dark:bg-purple-900/30 text-[#7c5cfc] dark:text-purple-400 flex items-center justify-center flex-shrink-0">
+            <FolderKanban className="w-5 h-5 md:w-6 md:h-6" />
           </div>
           <div>
             <div className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white leading-tight">{stats?.total || totalCount}</div>
@@ -166,7 +167,7 @@ const Projects = () => {
       {/* Standardized Page Heading & View Switcher */}
       <div className="flex justify-between items-center my-2">
         <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent flex items-center gap-2">
-          <i className="fas fa-project-diagram text-[#10b981]"></i>
+          <FolderKanban className="text-[#10b981] w-5 h-5 md:w-6 md:h-6" />
           Projects
         </h2>
 
@@ -270,8 +271,8 @@ const Projects = () => {
           </div>
         ) : projects.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
-            <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-50 dark:bg-gray-700 text-gray-400 rounded-2xl flex items-center justify-center mx-auto mb-4 text-xl md:text-2xl">
-              <i className="far fa-folder"></i>
+            <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-50 dark:bg-gray-700 text-gray-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <FolderKanban className="w-8 h-8 md:w-10 md:h-10" />
             </div>
             <h3 className="text-sm md:text-base font-bold text-gray-800 dark:text-white mb-1">No projects found</h3>
             <p className="text-[10px] md:text-xs text-gray-400 mb-4">Try clearing filters or search terms.</p>
@@ -287,8 +288,8 @@ const Projects = () => {
                   {/* Top Row: Folder Icon + Title & Client + Status Badge */}
                   <div className="flex justify-between items-start mb-3 gap-2">
                     <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-[#eafaf1] dark:bg-green-900/20 text-[#10b981] dark:text-green-400 flex items-center justify-center flex-shrink-0 text-base md:text-lg">
-                        <i className="far fa-folder"></i>
+                      <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-[#eafaf1] dark:bg-green-900/20 text-[#10b981] dark:text-green-400 flex items-center justify-center flex-shrink-0">
+                        <FolderKanban className="w-5 h-5 md:w-6 md:h-6" />
                       </div>
                       <div className="overflow-hidden">
                         <h3 className="font-bold text-gray-800 dark:text-gray-200 text-sm md:text-base leading-tight truncate" title={project.project_name || project.name}>
@@ -373,8 +374,8 @@ const Projects = () => {
                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-[#eafaf1] dark:bg-green-900/20 text-[#10b981] dark:text-green-400 flex items-center justify-center text-sm flex-shrink-0">
-                            <i className="far fa-folder"></i>
+                          <div className="w-8 h-8 rounded-xl bg-[#eafaf1] dark:bg-green-900/20 text-[#10b981] dark:text-green-400 flex items-center justify-center flex-shrink-0">
+                            <FolderKanban className="w-4 h-4 md:w-5 md:h-5" />
                           </div>
                           <div>
                             <p className="font-bold text-gray-800 dark:text-gray-200 text-xs md:text-sm">{project.project_name || project.name}</p>
