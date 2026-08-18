@@ -132,14 +132,16 @@ export const punchIn = createAsyncThunk(
 export const punchOut = createAsyncThunk(
   "attendance/punchOut",
   async (
-    { tasks_completed, plan_tomorrow, pending_works, location },
+    { tasks_completed, plan_tomorrow, pending_works, pending_tasks, location, is_overtime, overtime_hours },
     { rejectWithValue },
   ) => {
     try {
       const requestBody = {
         tasks_completed,
         plan_tomorrow,
-        pending_works,
+        pending_works: pending_works || pending_tasks,
+        is_overtime,
+        overtime_hours,
       };
 
       if (location) {
@@ -199,6 +201,8 @@ export const pendingPunchOut = createAsyncThunk(
       punch_out_time,
       date,
       location,
+      is_overtime,
+      overtime_hours,
     },
     { rejectWithValue },
   ) => {
@@ -211,6 +215,8 @@ export const pendingPunchOut = createAsyncThunk(
         pending_works,
         punch_out_time: punchOutDateTime,
         log_date: date,
+        is_overtime,
+        overtime_hours,
       };
 
       if (location) {

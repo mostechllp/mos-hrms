@@ -31,6 +31,7 @@ import {
 } from "../store/slices/taskSlice";
 import LocationModal from "../components/modals/LocationModal";
 import MapView from "../components/common/MapView";
+import { fetchWorkingHours } from "../../admin/store/slices/settingsSlice";
 
 // Status tab mapping - assigned goes to its own tab now
 const STATUS_TAB_MAP = {
@@ -62,6 +63,9 @@ const Dashboard = () => {
     (state) => state.EmpAttendance,
   );
   const { primaryColor, primaryDark } = useAppTheme();
+
+  // Working hours from settings (for dynamic overtime calculation)
+  const { workingHours: workingHoursData } = useSelector((state) => state.settings || {});
 
   const [activeTaskTab, setActiveTaskTab] = useState("today_assigned_tasks");
 
@@ -188,6 +192,8 @@ const Dashboard = () => {
   useEffect(() => {
     dispatch(fetchDashboardData());
     dispatch(fetchEmployeeBreaks());
+    // Fetch working hours for dynamic overtime calculation (only if not already loaded)
+    dispatch(fetchWorkingHours());
   }, [dispatch]);
 
   // Add to Dashboard component
@@ -1951,6 +1957,11 @@ const Dashboard = () => {
         onClose={() => setShowPunchOutModal(false)}
         onSubmit={handlePunchOutSubmit}
         loading={isSubmitting}
+        punchInTime={displayPunchTime}
+        totalBreakMs={totalBreakMs}
+        isOnBreak={isOnBreak}
+        breakStartTime={breakStartTime}
+        workingHours={workingHoursData}
       />
 
       {/* Location Modal */}
