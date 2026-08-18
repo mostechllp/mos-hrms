@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { createProject, updateProject } from "../../store/slices/projectsSlice";
 import { showToast } from "../../../components/common/Toast";
 import apiClient from "../../../utils/apiClient";
+import { FolderKanban } from "lucide-react";
 
 const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
   const dispatch = useDispatch();
+  const { statuses } = useSelector((state) => state.projects || {});
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [customDates, setCustomDates] = useState([]);
   const [formData, setFormData] = useState({
     name: "",
     client_name: "",
@@ -16,8 +20,10 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
     description: "",
     start_date: new Date().toISOString().split("T")[0],
     end_date: "",
-    status: "active",
+    status: "Active",
     department_id: "",
+    project_manager_id: "",
+    team_lead_id: "",
     website_live_date: "",
     client_contacted_date: "",
     domain_name: "",
@@ -30,6 +36,7 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
 
   useEffect(() => {
     if (project) {
+      console.log("🚀 ProjectModal received project data:", project);
       setFormData({
         name: project.project_name || project.name || "",
         client_name: project.client_name || "",
@@ -38,19 +45,66 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
         description: project.description || "",
         start_date: project.start_date?.split("T")[0] || new Date().toISOString().split("T")[0],
         end_date: project.end_date?.split("T")[0] || "",
-        status: project.status ? project.status.toLowerCase() : "active",
+        status: project.status || "Active",
         department_id: project.department_id || "",
+        project_manager_id: project.project_manager_id || "",
+        team_lead_id: project.team_lead_id || "",
         website_live_date: project.website_live_date?.split("T")[0] || "",
         client_contacted_date: project.client_contacted_date?.split("T")[0] || "",
         domain_name: project.domain_name || "",
         domain_purchased_date: project.domain_purchased_date?.split("T")[0] || "",
         domain_expiry_date: project.domain_expiry_date?.split("T")[0] || "",
         domain_purchased_from: project.domain_purchased_from || "",
-        is_email_purchased: project.is_email_purchased || false,
-        purchased_emails: project.purchased_emails?.length 
-          ? project.purchased_emails 
-          : (project.email_name ? [{ email_name: project.email_name, email_purchase_date: project.email_purchase_date?.split("T")[0] || "", email_expiry_date: project.email_expiry_date?.split("T")[0] || "" }] : [{ email_name: "", email_purchase_date: "", email_expiry_date: "" }]),
+        is_email_purchased: Boolean(project.is_email_purchased),
+        purchased_emails: (project.emails && Array.isArray(project.emails) && project.emails.length > 0)
+          ? project.emails.map(e => ({
+              email_name: e.email_name || "",
+              email_purchase_date: (e.purchase_date || e.email_purchase_date || "")?.split("T")[0] || "",
+              email_expiry_date: (e.expiry_date || e.email_expiry_date || "")?.split("T")[0] || ""
+            }))
+          : (project.purchased_emails?.length
+              ? project.purchased_emails.map(e => ({
+                  email_name: e.email_name || "",
+                  email_purchase_date: (e.purchase_date || e.email_purchase_date || "")?.split("T")[0] || "",
+                  email_expiry_date: (e.expiry_date || e.email_expiry_date || "")?.split("T")[0] || ""
+                }))
+              : (project.email_name 
+                  ? [{ email_name: project.email_name, email_purchase_date: project.email_purchase_date?.split("T")[0] || "", email_expiry_date: project.email_expiry_date?.split("T")[0] || "" }] 
+                  : [{ email_name: "", email_purchase_date: "", email_expiry_date: "" }])),
       });
+
+      let existingDates = [];
+      let parsedSpecialDates = null;
+      if (project.special_dates) {
+        if (typeof project.special_dates === "string") {
+          try {
+            parsedSpecialDates = JSON.parse(project.special_dates);
+          } catch (e) {
+            console.error("Failed to parse special_dates string", e);
+          }
+        } else if (Array.isArray(project.special_dates)) {
+          parsedSpecialDates = project.special_dates;
+        }
+      }
+
+      if (parsedSpecialDates && Array.isArray(parsedSpecialDates)) {
+        existingDates = parsedSpecialDates.map(d => ({
+          label: d.name || d.label || d.title || "",
+          date: d.date ? d.date.split("T")[0] : ""
+        }));
+      } else if (project.special_dates_name && Array.isArray(project.special_dates_name)) {
+        existingDates = project.special_dates_name.map((name, i) => ({
+          label: name || "",
+          date: project.special_dates_date?.[i] ? project.special_dates_date[i].split("T")[0] : ""
+        }));
+      } else if (project.otherImportantDates || project.other_important_dates) {
+        const dates = project.otherImportantDates || project.other_important_dates || [];
+        existingDates = dates.map(d => ({
+          label: d.label || d.title || d.name || "",
+          date: d.date ? d.date.split("T")[0] : ""
+        }));
+      }
+      setCustomDates(existingDates);
     } else {
       setFormData({
         name: "",
@@ -60,8 +114,10 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
         description: "",
         start_date: new Date().toISOString().split("T")[0],
         end_date: "",
-        status: "active",
+        status: "Active",
         department_id: "",
+        project_manager_id: "",
+        team_lead_id: "",
         website_live_date: "",
         client_contacted_date: "",
         domain_name: "",
@@ -71,6 +127,7 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
         is_email_purchased: false,
         purchased_emails: [{ email_name: "", email_purchase_date: "", email_expiry_date: "" }],
       });
+      setCustomDates([]);
     }
   }, [project]);
 
@@ -84,7 +141,16 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
           console.error("Failed to fetch departments", error);
         }
       };
+      const loadEmployees = async () => {
+        try {
+          const response = await apiClient.get("/admin/employees");
+          setEmployees(response.data.data?.data || response.data.data || response.data || []);
+        } catch (error) {
+          console.error("Failed to fetch employees", error);
+        }
+      };
       loadDepartments();
+      loadEmployees();
     }
   }, [isOpen]);
 
@@ -118,15 +184,27 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
     }));
   };
 
+  const addCustomDate = () => {
+    setCustomDates((prev) => [...prev, { label: "", date: "" }]);
+  };
+
+  const removeCustomDate = (index) => {
+    setCustomDates((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCustomDateChange = (index, field, value) => {
+    setCustomDates((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       showToast("Project name is required", "error");
-      return;
-    }
-    if (!formData.client_name.trim()) {
-      showToast("Client name is required", "error");
       return;
     }
 
@@ -141,33 +219,45 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
       }
     }
 
+    const validSpecialDates = customDates.filter(d => d.label && d.label.trim() !== "");
+
     const submitData = {
-      project_name: formData.name,
-      client_name: formData.client_name,
-      website_url: formData.website_url || null,
+      project_name: formData.name.trim(),
       description: formData.description || null,
+      client_name: formData.client_name || null,
+      client_contact: formData.client_contact || null,
+      department_id: formData.department_id ? parseInt(formData.department_id) : null,
+      project_manager_id: formData.project_manager_id ? parseInt(formData.project_manager_id) : null,
+      team_lead_id: formData.team_lead_id ? parseInt(formData.team_lead_id) : null,
       start_date: formData.start_date || null,
       end_date: formData.end_date || null,
-      status: formData.status === "active" ? "Active" : 
-              formData.status === "completed" ? "Completed" : 
-              formData.status === "in_progress" ? "In Progress" : 
-              formData.status === "on_hold" ? "On Hold" : formData.status,
-      department_id: formData.department_id ? parseInt(formData.department_id) : null,
       website_live_date: formData.website_live_date || null,
       client_contacted_date: formData.client_contacted_date || null,
       domain_name: formData.domain_name || null,
       domain_purchased_date: formData.domain_purchased_date || null,
+      website_url: formData.website_url || null,
       domain_expiry_date: formData.domain_expiry_date || null,
       domain_purchased_from: formData.domain_purchased_from || null,
-      is_email_purchased: formData.is_email_purchased,
+      is_email_purchased: formData.is_email_purchased ? true : false,
+      status: formData.status || null,
       emails: formData.is_email_purchased ? formData.purchased_emails
         .filter(e => e.email_name && e.email_name.trim() !== "")
         .map(e => ({
           email_name: e.email_name.trim(),
           purchase_date: e.email_purchase_date || null,
           expiry_date: e.email_expiry_date || null
-        })) : []
+        })) : [],
+      // 1. Array of objects (for backend models that accept JSON array of objects)
+      special_dates: validSpecialDates.map(d => ({
+        name: d.label.trim(),
+        date: d.date || null
+      })),
+      // 2. Parallel arrays (required by Laravel validation rules: special_dates_name.* & special_dates_date.*)
+      special_dates_name: validSpecialDates.map(d => d.label.trim()),
+      special_dates_date: validSpecialDates.map(d => d.date || null)
     };
+
+    console.log("📤 Submitting Project Form Payload (submitData):", submitData);
 
     let result;
     if (project) {
@@ -175,6 +265,8 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
     } else {
       result = await dispatch(createProject(submitData));
     }
+
+    console.log("📥 Project Dispatch Result:", result);
 
     if ((project && updateProject.fulfilled.match(result)) || (!project && createProject.fulfilled.match(result))) {
       showToast(project ? "Project updated successfully!" : "Project created successfully!", "success");
@@ -195,11 +287,11 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
         {/* Header - Fixed */}
         <div className="flex justify-between items-center p-5 md:p-6 pb-4 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 rounded-t-2xl z-10">
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-            <i className="fas fa-project-diagram text-green-500"></i>
+            <FolderKanban className="text-green-500 w-6 h-6" />
             {project ? "Edit Project" : "Create New Project"}
           </h3>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="text-gray-400 hover:text-red-500 transition-colors text-2xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             &times;
@@ -304,10 +396,20 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
                 >
-                  <option value="active">Active</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                  <option value="on_hold">On Hold</option>
+                  {statuses && statuses.length > 0 ? (
+                    statuses.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="Active">Active</option>
+                      <option value="Completed">Completed</option>
+                      <option value="On-hold">On-hold</option>
+                      <option value="In-progress">In-progress</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -325,6 +427,44 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
                   {departments.map((dept) => (
                     <option key={dept.id} value={dept.id}>
                       {dept.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Project Manager
+                </label>
+                <select
+                  name="project_manager_id"
+                  value={formData.project_manager_id}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Select Project Manager</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.first_name ? `${emp.first_name} ${emp.last_name || ""}` : emp.name || `Employee #${emp.id}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Team Lead
+                </label>
+                <select
+                  name="team_lead_id"
+                  value={formData.team_lead_id}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Select Team Lead</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.first_name ? `${emp.first_name} ${emp.last_name || ""}` : emp.name || `Employee #${emp.id}`}
                     </option>
                   ))}
                 </select>
@@ -475,7 +615,7 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
                       </div>
                     </div>
                   ))}
-                  
+
                   <button
                     type="button"
                     onClick={addEmailField}
@@ -485,6 +625,58 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
                   </button>
                 </div>
               )}
+
+              <div className="md:col-span-2 space-y-4">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Other Important Dates
+                </label>
+                <div className="space-y-3">
+                  {customDates.map((item, index) => (
+                    <div key={index} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg relative bg-gray-50 dark:bg-gray-800/50">
+                      <button
+                        type="button"
+                        onClick={() => removeCustomDate(index)}
+                        className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <i className="fas fa-times"></i>
+                      </button>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Field Name
+                          </label>
+                          <input
+                            type="text"
+                            value={item.label}
+                            onChange={(e) => handleCustomDateChange(index, "label", e.target.value)}
+                            placeholder="Field Name, e.g., Invoice Generated Date"
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Date
+                          </label>
+                          <input
+                            type="date"
+                            value={item.date}
+                            onChange={(e) => handleCustomDateChange(index, "date", e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={addCustomDate}
+                  className="text-sm font-semibold text-green-600 dark:text-green-400 hover:text-green-700 flex items-center gap-1"
+                >
+                  <i className="fas fa-plus-circle"></i> Add Custom Date
+                </button>
+              </div>
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
