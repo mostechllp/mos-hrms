@@ -16,14 +16,13 @@ export const PunchOutModal = ({
   totalBreakMs,
   isOnBreak,
   breakStartTime,
+  workingHours, // Object from Redux: { monday: { enabled, start, end }, ... }
 }) => {
   const [tasksCompleted, setTasksCompleted] = useState("");
   const [planTomorrow, setPlanTomorrow] = useState("");
   const [pendingWorks, setPendingWorks] = useState("");
   const [isOvertimeConfirmed, setIsOvertimeConfirmed] = useState(false);
   const [workingMs, setWorkingMs] = useState(0);
-
-  const LIMIT_MS = 9 * 3600000; // 9 hours in milliseconds
 
   // Format duration helper (Xh Ym)
   const formatDuration = (ms) => {
@@ -100,6 +99,47 @@ export const PunchOutModal = ({
       return null;
     }
   };
+
+  // Default fallback limits per JS day index (0=Sun, 1=Mon, ..., 6=Sat)
+  const DEFAULT_LIMIT_HOURS = [0, 9, 5, 9, 9, 9, 4]; // Sun=0 (non-working), Tue=5h, Sat=4h
+
+  const DAY_KEYS = [
+    "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
+  ];
+
+  const getLimitMs = () => {
+    if (!punchInTime) return 9 * 3600000;
+    const date = parsePunchTime(punchInTime);
+    if (!date || isNaN(date.getTime())) return 9 * 3600000;
+
+    const dayIndex = date.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    const dayKey = DAY_KEYS[dayIndex];
+
+    // Use working hours from Redux (object format: { monday: { enabled, start, end }, ... })
+    if (workingHours && typeof workingHours === "object" && !Array.isArray(workingHours)) {
+      const daySchedule = workingHours[dayKey];
+
+      if (daySchedule) {
+        // Non-working day — all worked time is overtime
+        if (!daySchedule.enabled) return 0;
+
+        // Compute duration from start and end ("HH:MM" format)
+        if (daySchedule.start && daySchedule.end) {
+          const parseHM = (t) => {
+            const [h, m] = t.split(":").map(Number);
+            return (h * 3600 + m * 60) * 1000;
+          };
+          const limitMs = parseHM(daySchedule.end) - parseHM(daySchedule.start);
+          return limitMs > 0 ? limitMs : 0;
+        }
+      }
+    }
+
+    // Fallback to default schedule if API data not available
+    return DEFAULT_LIMIT_HOURS[dayIndex] * 3600000;
+  };
+
+  const LIMIT_MS = getLimitMs();
 
   const getWorkingDurationMs = () => {
     if (!punchInTime) return 0;
@@ -198,7 +238,7 @@ export const PunchOutModal = ({
                 <div className="grid grid-cols-3 gap-2 text-center text-xs mb-3 text-[var(--text)]">
                   <div className="p-2 bg-[var(--surface2)] rounded-lg">
                     <span className="text-[var(--muted)] block mb-0.5">Working Hours</span>
-                    <span className="font-semibold text-gray-400">9h 00m</span>
+                    <span className="font-semibold text-gray-400">{formatDuration(LIMIT_MS)}</span>
                   </div>
                   <div className="p-2 bg-[var(--surface2)] rounded-lg">
                     <span className="text-[var(--muted)] block mb-0.5">Worked Hours</span>
