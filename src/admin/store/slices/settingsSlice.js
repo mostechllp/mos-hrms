@@ -80,7 +80,9 @@ const convertArrayToObject = (workingHoursArray) => {
   const workingHoursObject = { ...defaultHours };
   
   workingHoursArray.forEach(item => {
-    const dayKey = daysMap[item.day];
+    if (!item || !item.day) return;
+    const normalizedDay = item.day.toLowerCase();
+    const dayKey = Object.keys(defaultHours).find(d => d === normalizedDay);
     if (dayKey) {
       workingHoursObject[dayKey] = {
         enabled: item.is_enabled === true || item.is_enabled === 1,

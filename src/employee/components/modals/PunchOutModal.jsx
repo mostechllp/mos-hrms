@@ -101,7 +101,7 @@ export const PunchOutModal = ({
   };
 
   // Default fallback limits per JS day index (0=Sun, 1=Mon, ..., 6=Sat)
-  const DEFAULT_LIMIT_HOURS = [0, 9, 5, 9, 9, 9, 4]; // Sun=0 (non-working), Tue=5h, Sat=4h
+  const DEFAULT_LIMIT_HOURS = [0, 9, 9, 9, 9, 9, 4]; // Sun=0 (non-working), Mon-Fri=9h, Sat=4h
 
   const DAY_KEYS = [
     "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
@@ -115,27 +115,54 @@ export const PunchOutModal = ({
     const dayIndex = date.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
     const dayKey = DAY_KEYS[dayIndex];
 
-    // Use working hours from Redux (object format: { monday: { enabled, start, end }, ... })
-    if (workingHours && typeof workingHours === "object" && !Array.isArray(workingHours)) {
-      const daySchedule = workingHours[dayKey];
+    const parseHM = (t) => {
+      if (!t) return 0;
+      const parts = t.split(":");
+      const h = parseInt(parts[0], 10) || 0;
+      const m = parseInt(parts[1], 10) || 0;
+      return (h * 3600 + m * 60) * 1000;
+    };
 
-      if (daySchedule) {
-        // Non-working day — all worked time is overtime
-        if (!daySchedule.enabled) return 0;
+    if (workingHours) {
+      // 1. Array format directly from API response
+      if (Array.isArray(workingHours)) {
+        const daySchedule = workingHours.find(
+          (item) => item && item.day && item.day.toLowerCase() === dayKey
+        );
 
-        // Compute duration from start and end ("HH:MM" format)
-        if (daySchedule.start && daySchedule.end) {
-          const parseHM = (t) => {
-            const [h, m] = t.split(":").map(Number);
-            return (h * 3600 + m * 60) * 1000;
-          };
-          const limitMs = parseHM(daySchedule.end) - parseHM(daySchedule.start);
-          return limitMs > 0 ? limitMs : 0;
+        if (daySchedule) {
+          const isEnabled =
+            daySchedule.is_enabled === true ||
+            daySchedule.is_enabled === 1 ||
+            daySchedule.is_enabled === "1";
+          if (!isEnabled) return 0;
+
+          if (daySchedule.start_time && daySchedule.end_time) {
+            const limitMs =
+              parseHM(daySchedule.end_time) - parseHM(daySchedule.start_time);
+            return limitMs > 0 ? limitMs : 0;
+          }
+        }
+      }
+      // 2. Object format from Redux state
+      else if (typeof workingHours === "object") {
+        const daySchedule = workingHours[dayKey];
+
+        if (daySchedule) {
+          const isEnabled =
+            daySchedule.enabled === true || daySchedule.enabled === 1;
+          if (!isEnabled) return 0;
+
+          if (daySchedule.start && daySchedule.end) {
+            const limitMs =
+              parseHM(daySchedule.end) - parseHM(daySchedule.start);
+            return limitMs > 0 ? limitMs : 0;
+          }
         }
       }
     }
 
-    // Fallback to default schedule if API data not available
+    // Fallback to default schedule if API data is not available
     return DEFAULT_LIMIT_HOURS[dayIndex] * 3600000;
   };
 
