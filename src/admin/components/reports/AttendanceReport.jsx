@@ -662,6 +662,9 @@ const AttendanceReport = () => {
                       <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                         OVERTIME
                       </th>
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                        IS OVERTIME
+                      </th>
                       <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
                         STATUS
                       </th>
@@ -778,6 +781,17 @@ const AttendanceReport = () => {
                                 </span>
                               )}
                             </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                              {hasOvertime || record.is_overtime ? (
+                                <span className="inline-flex items-center gap-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-semibold px-2 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+                                  Yes
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-semibold px-2 py-1 rounded-full border border-gray-200 dark:border-gray-700">
+                                  No
+                                </span>
+                              )}
+                            </td>
                             <td className="px-3 md:px-4 py-2 md:py-3">
                               {getStatusBadge(
                                 record.attendance_status || record.status,
@@ -790,7 +804,7 @@ const AttendanceReport = () => {
                     ) : (
                       <tr>
                         <td
-                          colSpan="9"
+                          colSpan="10"
                           className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                         >
                           <div className="flex flex-col items-center justify-center gap-2">

@@ -1,15 +1,139 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   FiX,
   FiCheckCircle,
+  FiClock,
 } from "react-icons/fi";
 import { showToast } from "../common/Toast";
 
 // Punch Out Modal Component
-export const PunchOutModal = ({ isOpen, onClose, onSubmit, loading }) => {
+export const PunchOutModal = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  loading,
+  punchInTime,
+  totalBreakMs,
+  isOnBreak,
+  breakStartTime,
+}) => {
   const [tasksCompleted, setTasksCompleted] = useState("");
   const [planTomorrow, setPlanTomorrow] = useState("");
   const [pendingWorks, setPendingWorks] = useState("");
+  const [isOvertimeConfirmed, setIsOvertimeConfirmed] = useState(false);
+  const [workingMs, setWorkingMs] = useState(0);
+
+  const LIMIT_MS = 9 * 3600000; // 9 hours in milliseconds
+
+  // Format duration helper (Xh Ym)
+  const formatDuration = (ms) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    return `${h}h ${m}m`;
+  };
+
+  // Helper function to parse punch time with proper timezone handling
+  const parsePunchTime = (time) => {
+    if (!time) return null;
+    try {
+      // Handle "HH:MM AM/PM" format (e.g., "08:59 AM")
+      if (typeof time === "string" && time.match(/(\d{1,2}:\d{2})\s*(AM|PM)/i)) {
+        const match = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+        if (match) {
+          let hours = parseInt(match[1], 10);
+          const minutes = parseInt(match[2], 10);
+          const ampm = match[3].toUpperCase();
+
+          if (ampm === "PM" && hours !== 12) hours += 12;
+          if (ampm === "AM" && hours === 12) hours = 0;
+
+          const now = new Date();
+          return new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            hours,
+            minutes,
+            0
+          );
+        }
+      }
+
+      // Handle "HH:MM:SS" format (24-hour)
+      if (typeof time === "string" && time.match(/^\d{2}:\d{2}:\d{2}$/)) {
+        const now = new Date();
+        const [hours, minutes, seconds] = time.split(":");
+        return new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          parseInt(hours, 10),
+          parseInt(minutes, 10),
+          parseInt(seconds, 10)
+        );
+      }
+
+      // Handle ISO string with T
+      if (typeof time === "string" && time.includes("T")) {
+        if (!time.match(/(Z|[+-]\d{2}:\d{2})$/)) {
+          return new Date(`${time}Z`);
+        }
+        return new Date(time);
+      }
+
+      // Handle date with space
+      if (typeof time === "string" && time.includes(" ")) {
+        const isoTime = time.replace(" ", "T");
+        if (!isoTime.match(/(Z|[+-]\d{2}:\d{2})$/)) {
+          return new Date(`${isoTime}Z`);
+        }
+        return new Date(isoTime);
+      }
+
+      if (time instanceof Date) {
+        return time;
+      }
+      return new Date(time);
+    } catch (e) {
+      console.error("Error parsing time:", time, e);
+      return null;
+    }
+  };
+
+  const getWorkingDurationMs = () => {
+    if (!punchInTime) return 0;
+
+    const startTime = parsePunchTime(punchInTime);
+    if (!startTime || isNaN(startTime.getTime())) return 0;
+
+    let endTime;
+    if (isOnBreak && breakStartTime) {
+      endTime = new Date(breakStartTime);
+    } else {
+      endTime = new Date();
+    }
+
+    let diff = Math.max(0, endTime - startTime);
+    diff -= totalBreakMs || 0;
+    return Math.max(0, diff);
+  };
+
+  useEffect(() => {
+    if (isOpen && punchInTime) {
+      const updateWorkingTime = () => {
+        setWorkingMs(getWorkingDurationMs());
+      };
+      updateWorkingTime();
+      const interval = setInterval(updateWorkingTime, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setWorkingMs(0);
+      setIsOvertimeConfirmed(false);
+    }
+  }, [isOpen, punchInTime, totalBreakMs, isOnBreak, breakStartTime]);
+
+  const isOvertimeThresholdExceeded = workingMs > LIMIT_MS;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -20,11 +144,16 @@ export const PunchOutModal = ({ isOpen, onClose, onSubmit, loading }) => {
       return;
     }
     
+    const finalOvertime = isOvertimeThresholdExceeded && isOvertimeConfirmed;
+    const finalOvertimeHours = finalOvertime ? formatDuration(workingMs - LIMIT_MS) : null;
+
     console.group("🔍 PUNCH OUT MODAL DEBUG");
     console.log("📤 Submitting with data:", {
       tasks_completed: tasksCompleted,
       plan_tomorrow: planTomorrow || null,
-      pending_tasks: pendingWorks || null
+      pending_tasks: pendingWorks || null,
+      is_overtime: finalOvertime,
+      overtime_hours: finalOvertimeHours,
     });
     console.groupEnd();
     
@@ -32,19 +161,22 @@ export const PunchOutModal = ({ isOpen, onClose, onSubmit, loading }) => {
       tasks_completed: tasksCompleted,
       plan_tomorrow: planTomorrow || null,
       pending_tasks: pendingWorks || null,
+      is_overtime: finalOvertime,
+      overtime_hours: finalOvertimeHours,
     });
     
     // Clear form after submit
     setTasksCompleted("");
     setPlanTomorrow("");
     setPendingWorks("");
+    setIsOvertimeConfirmed(false);
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in p-4">
-      <div className="bg-[var(--surface)] rounded-xl w-full max-w-md shadow-2xl animate-slide-up flex flex-col max-h-[90vh]">
+      <div className="bg-[var(--surface)] rounded-xl w-full max-w-lg shadow-2xl animate-slide-up flex flex-col max-h-[90vh]">
         <div className="flex justify-between items-center p-5 border-b border-[var(--border)] flex-shrink-0">
           <h3 className="text-xl font-bold text-[var(--text)]">Punch Out</h3>
           <button
@@ -57,6 +189,42 @@ export const PunchOutModal = ({ isOpen, onClose, onSubmit, loading }) => {
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-5">
+            {/* Overtime Info Display */}
+            {isOvertimeThresholdExceeded && (
+              <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                <h4 className="text-sm font-bold text-amber-500 mb-2.5 flex items-center gap-1.5">
+                  <FiClock size={16} /> Overtime Detected
+                </h4>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs mb-3 text-[var(--text)]">
+                  <div className="p-2 bg-[var(--surface2)] rounded-lg">
+                    <span className="text-[var(--muted)] block mb-0.5">Working Hours</span>
+                    <span className="font-semibold text-gray-400">9h 00m</span>
+                  </div>
+                  <div className="p-2 bg-[var(--surface2)] rounded-lg">
+                    <span className="text-[var(--muted)] block mb-0.5">Worked Hours</span>
+                    <span className="font-semibold">{formatDuration(workingMs)}</span>
+                  </div>
+                  <div className="p-2 bg-amber-500/20 rounded-lg text-amber-600 dark:text-amber-400 font-bold">
+                    <span className="block mb-0.5">Extra Time</span>
+                    <span>{formatDuration(workingMs - LIMIT_MS)}</span>
+                  </div>
+                </div>
+                
+                <label className="flex items-start gap-2.5 cursor-pointer select-none mt-2 p-1.5 hover:bg-amber-500/5 rounded-lg transition-colors">
+                  <input
+                    type="checkbox"
+                    name="is_overtime"
+                    checked={isOvertimeConfirmed}
+                    onChange={(e) => setIsOvertimeConfirmed(e.target.checked)}
+                    className="mt-0.5 rounded text-amber-500 focus:ring-amber-500/20 border-[var(--border)] bg-[var(--surface2)] cursor-pointer h-4 w-4"
+                  />
+                  <span className="text-xs font-semibold text-[var(--text)] leading-tight">
+                    Is this extra {formatDuration(workingMs - LIMIT_MS)} actually to be counted as Overtime?
+                  </span>
+                </label>
+              </div>
+            )}
+
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[var(--text)] mb-2">
                 Tasks Completed Today <span className="text-red-500">*</span>

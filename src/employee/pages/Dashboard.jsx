@@ -1951,6 +1951,10 @@ const Dashboard = () => {
         onClose={() => setShowPunchOutModal(false)}
         onSubmit={handlePunchOutSubmit}
         loading={isSubmitting}
+        punchInTime={displayPunchTime}
+        totalBreakMs={totalBreakMs}
+        isOnBreak={isOnBreak}
+        breakStartTime={breakStartTime}
       />
 
       {/* Location Modal */}
