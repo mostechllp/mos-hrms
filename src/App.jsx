@@ -76,6 +76,7 @@ const AdminWFH = lazy(() => import("./admin/pages/WFH"));
 const Settings = lazy(() => import("./admin/pages/Settings"));
 const RoleManagement = lazy(() => import("./admin/pages/RoleManagement"));
 const ModuleManagement = lazy(() => import("./admin/pages/ModuleManagement"));
+const PayrollDashboard = lazy(() => import("./admin/pages/PayrollDashboard"));
 const AddPayroll = lazy(() => import("./admin/pages/AddPayroll"));
 const OnboardingInitalize = lazy(
   () => import("./admin/components/onboarding/Onboarding"),
@@ -109,6 +110,15 @@ const FinalSettlement = lazy(
 );
 const LettersAndClearance = lazy(
   () => import("./admin/components/offboarding/LettersAndClearance"),
+);
+const Handover = lazy(
+  () => import("./admin/components/offboarding/Handover"),
+);
+const LeaveCheck = lazy(
+  () => import("./admin/components/offboarding/LeaveCheck"),
+);
+const AccessRemoval = lazy(
+  () => import("./admin/components/offboarding/AccessRemoval"),
 );
 const ChecklistCategories = lazy(
   () => import("./admin/pages/ChecklistCategoriesManagement"),
@@ -235,6 +245,9 @@ function App() {
             path="employees/letters-and-clearance"
             element={<LettersAndClearance />}
           />
+          <Route path="employees/offboarding/handover" element={<Handover />} />
+          <Route path="employees/offboarding/leave-check" element={<LeaveCheck />} />
+          <Route path="employees/offboarding/access-removal" element={<AccessRemoval />} />
           <Route path="employees/edit/:id" element={<EditEmployee />} />
           <Route path="employees/:id" element={<EmployeeDetails />} />
           <Route path="organizations" element={<Organizations />} />
@@ -314,6 +327,7 @@ function App() {
             path="leaves/allocations/:id"
             element={<EditLeaveAllocation />}
           />
+          <Route path="payroll" element={<PayrollDashboard />} />
           <Route path="payroll/add" element={<AddPayroll />} />
           <Route path="wfh" element={<AdminWFH />} />
           <Route path="attendance-requests" element={<AttendanceRequests isAdmin={true} />} /> 

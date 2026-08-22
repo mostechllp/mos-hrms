@@ -34,32 +34,47 @@ import apiClient from "../../../utils/apiClient";
 // ----------------------------------------------------
 // Update the Zod schema to accept both string and number
 const offboardingSchema = z.object({
-  employeeId: z
-    .union([z.string(), z.number()])
-    .transform((val) => String(val))
-    .pipe(z.string().min(1, "Employee ID is required")),
-  backendEmployeeId: z
-    .union([z.string(), z.number()])
-    .optional()
-    .transform((val) => (val ? String(val) : "")),
+  employeeId: z.union([z.string(), z.number()]).transform((val) => String(val)).pipe(z.string().min(1, "Employee ID is required")),
+  backendEmployeeId: z.union([z.string(), z.number()]).optional().transform((val) => (val ? String(val) : "")),
   employeeName: z.string().min(1, "Employee name is required"),
   department: z.string().min(1, "Department is required"),
   designation: z.string().min(1, "Designation is required"),
   reportingManager: z.string().min(1, "Reporting manager is required"),
-  reportingManagerId: z
-    .union([z.string(), z.number()])
-    .optional(),
-  resignationDate: z.string().min(1, "Resignation date is required"),
-  noticeStartDate: z.string().min(1, "Notice start date is required"),
-  noticePeriodDays: z.coerce.number().min(0, "Notice period must be 0 or more"),
-  lastWorkingDay: z.string().min(1, "Last working day is required"),
-  separationType: z.string().min(1, "Separation type is required"),
-  visaSponsorship: z.string().min(1, "Visa sponsorship is required"),
-  nationality: z.string().min(1, "Nationality is required"),
+  reportingManagerId: z.union([z.string(), z.number()]).optional(),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
-  reasonForLeaving: z
-    .string()
-    .min(5, "Please enter a reason for leaving (min 5 chars)"),
+  joiningDate: z.string().optional(),
+  
+  exitType: z.string().min(1, "Exit Type is required"),
+  exitInitiationDate: z.string().min(1, "Exit initiation date is required"),
+  lastWorkingDay: z.string().min(1, "Last working day is required"),
+  noticePeriodDays: z.coerce.number().optional(),
+  reasonForLeaving: z.string().min(5, "Please enter a reason for leaving (min 5 chars)"),
+
+  resignationSubmissionDate: z.string().optional(),
+  resignationAcceptanceStatus: z.string().optional(),
+  resignationReason: z.string().optional(),
+
+  terminationDiscussionDate: z.string().optional(),
+  discussionCompleted: z.string().optional(),
+  terminationReason: z.string().optional(),
+  managementRemarks: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.exitType === "Resignation") {
+    if (!data.resignationSubmissionDate) {
+      ctx.addIssue({ path: ["resignationSubmissionDate"], message: "Required for resignation", code: z.ZodIssueCode.custom });
+    }
+    if (!data.resignationReason) {
+      ctx.addIssue({ path: ["resignationReason"], message: "Required for resignation", code: z.ZodIssueCode.custom });
+    }
+  }
+  if (data.exitType === "Termination") {
+    if (!data.terminationDiscussionDate) {
+      ctx.addIssue({ path: ["terminationDiscussionDate"], message: "Required for termination", code: z.ZodIssueCode.custom });
+    }
+    if (!data.terminationReason) {
+      ctx.addIssue({ path: ["terminationReason"], message: "Required for termination", code: z.ZodIssueCode.custom });
+    }
+  }
 });
 
 const OffboardingInitiation = () => {
@@ -119,15 +134,23 @@ const OffboardingInitiation = () => {
       designation: "",
       reportingManager: "",
       reportingManagerId: "",
-      resignationDate: "",
-      noticeStartDate: "",
-      noticePeriodDays: 30,
-      lastWorkingDay: "",
-      separationType: "Resignation",
-      visaSponsorship: "",
-      nationality: "",
       email: "",
+      joiningDate: "",
+      
+      exitType: "Resignation",
+      exitInitiationDate: new Date().toISOString().split('T')[0],
+      lastWorkingDay: "",
+      noticePeriodDays: 30,
       reasonForLeaving: "",
+
+      resignationSubmissionDate: "",
+      resignationAcceptanceStatus: "Pending",
+      resignationReason: "",
+
+      terminationDiscussionDate: "",
+      discussionCompleted: "Yes",
+      terminationReason: "",
+      managementRemarks: "",
     },
   });
 
@@ -285,17 +308,19 @@ const OffboardingInitiation = () => {
     setValue("designation", finalDesignation, { shouldValidate: true });
 
     // Email from employee or direct
-    const emailAddress =
-      employeeData.company_email || employeeData.email || data.email || "";
+    const emailAddress = employeeData.company_email || employeeData.email || data.email || "";
     setValue("email", emailAddress, { shouldValidate: true });
 
-    // Reporting manager (might not be in this response, keep from data or leave empty)
+    // Joining Date
+    const joiningDate = employeeData.joining_date || employeeData.hire_date || "";
+    setValue("joiningDate", joiningDate, { shouldValidate: true });
+
+    // Reporting manager
     let reportingManagerName = data.reporting_manager?.name || data.reporting_manager?.full_name || data.reporting_manager?.first_name ? `${data.reporting_manager.first_name} ${data.reporting_manager.last_name || ''}`.trim() : data.reporting_manager || data.reportingManager?.name || data.reportingManager || employeeData.reporting_manager?.name || employeeData.reporting_manager || employeeData.reportingManager?.name || employeeData.reportingManager || "";
     if (typeof reportingManagerName === 'object') {
       reportingManagerName = reportingManagerName?.name || reportingManagerName?.full_name || reportingManagerName?.first_name ? `${reportingManagerName.first_name} ${reportingManagerName.last_name || ''}`.trim() : "";
     }
     
-    // If the backend only returned the ID (e.g., reporting_manager_id: 41) but no object, look it up in the employees list!
     if (!reportingManagerName && (data.reporting_manager_id || employeeData.reporting_manager_id)) {
       const managerId = data.reporting_manager_id || employeeData.reporting_manager_id;
       if (currentEmployees && currentEmployees.length > 0) {
@@ -305,61 +330,29 @@ const OffboardingInitiation = () => {
         }
       }
     }
-    setValue(
-      "reportingManager",
-      reportingManagerName,
-      { shouldValidate: true },
-    );
-    setValue(
-      "reportingManagerId",
-      data.reporting_manager_id || data.reportingManagerId || "",
-      { shouldValidate: true },
-    );
+    setValue("reportingManager", reportingManagerName, { shouldValidate: true });
+    setValue("reportingManagerId", data.reporting_manager_id || data.reportingManagerId || "", { shouldValidate: true });
 
-    // Dates
-    setValue(
-      "resignationDate",
-      data.resignation_date || data.resignationDate || "",
-      { shouldValidate: true },
-    );
-    setValue(
-      "noticeStartDate",
-      data.notice_start_date || data.noticeStartDate || "",
-      { shouldValidate: true },
-    );
-    setValue(
-      "noticePeriodDays",
-      data.notice_period_days || data.noticePeriodDays || 30,
-      { shouldValidate: true },
-    );
-    setValue(
-      "lastWorkingDay",
-      data.last_working_day || data.lastWorkingDay || "",
-      { shouldValidate: true },
-    );
+    // Exit Info
+    const exitType = data.separation_type
+        ? data.separation_type.charAt(0).toUpperCase() + data.separation_type.slice(1)
+        : data.exitType || data.separationType || "Resignation";
+    setValue("exitType", exitType, { shouldValidate: true });
+    setValue("exitInitiationDate", data.exit_initiation_date || data.created_at?.split('T')[0] || new Date().toISOString().split('T')[0], { shouldValidate: true });
+    setValue("lastWorkingDay", data.last_working_day || data.lastWorkingDay || "", { shouldValidate: true });
+    setValue("noticePeriodDays", data.notice_period_days || data.noticePeriodDays || 30, { shouldValidate: true });
+    setValue("reasonForLeaving", data.reason_for_leaving || data.reasonForLeaving || "", { shouldValidate: true });
 
-    // Other fields
-    setValue(
-      "separationType",
-      data.separation_type
-        ? data.separation_type.charAt(0).toUpperCase() +
-            data.separation_type.slice(1)
-        : data.separationType || "Resignation",
-      { shouldValidate: true },
-    );
-    setValue(
-      "visaSponsorship",
-      data.visa_sponsorship || data.visaSponsorship || "",
-    );
-    setValue(
-      "nationality",
-      data.nationality || employeeData.nationality || "",
-    );
-    setValue(
-      "reasonForLeaving",
-      data.reason_for_leaving || data.reasonForLeaving || "",
-      { shouldValidate: true },
-    );
+    // Resignation specific
+    setValue("resignationSubmissionDate", data.resignation_date || data.resignationSubmissionDate || "", { shouldValidate: true });
+    setValue("resignationAcceptanceStatus", data.resignation_acceptance_status || data.resignationAcceptanceStatus || "Pending", { shouldValidate: true });
+    setValue("resignationReason", data.resignation_reason || data.resignationReason || data.reason_for_leaving || "", { shouldValidate: true });
+
+    // Termination specific
+    setValue("terminationDiscussionDate", data.termination_discussion_date || data.terminationDiscussionDate || "", { shouldValidate: true });
+    setValue("discussionCompleted", data.discussion_completed || data.discussionCompleted || "Yes", { shouldValidate: true });
+    setValue("terminationReason", data.termination_reason || data.terminationReason || data.reason_for_leaving || "", { shouldValidate: true });
+    setValue("managementRemarks", data.management_remarks || data.managementRemarks || "", { shouldValidate: true });
 
     // Set search query values for display
     if (employeeName) setSearchQuery(employeeName);
@@ -380,7 +373,7 @@ const OffboardingInitiation = () => {
     if (currentProgress && currentProgress.offboarding_id && showProgress) {
       const timer = setTimeout(() => {
         navigate(
-          `/admin/employees/asset-return?id=${currentProgress.offboarding_id}`,
+          `/admin/employees/offboarding/handover?id=${currentProgress.offboarding_id}`,
         );
         setShowProgress(false);
       }, 2000);
@@ -394,7 +387,7 @@ const OffboardingInitiation = () => {
       fallbackTimer = setTimeout(() => {
         const storedId = localStorage.getItem("offboarding_id");
         if (storedId) {
-          navigate(`/admin/employees/asset-return?id=${storedId}`);
+          navigate(`/admin/employees/offboarding/handover?id=${storedId}`);
           setShowProgress(false);
         }
       }, 3000);
@@ -428,19 +421,19 @@ const OffboardingInitiation = () => {
   const watchedNoticeStartDate = watch("noticeStartDate");
   const watchedNoticePeriodDays = watch("noticePeriodDays");
 
-  // Calculate last working day automatically when notice start date or notice period changes
+  // Calculate last working day automatically when exit initiation date or notice period changes
   useEffect(() => {
+    const exitDate = watch("exitInitiationDate");
     if (
-      watchedNoticeStartDate &&
+      exitDate &&
       watchedNoticePeriodDays !== undefined &&
       watchedNoticePeriodDays !== null &&
       watchedNoticePeriodDays >= 0
     ) {
-      const [year, month, day] = watchedNoticeStartDate.split("-").map(Number);
+      const [year, month, day] = exitDate.split("-").map(Number);
       const startDate = new Date(year, month - 1, day);
 
       if (isNaN(startDate.getTime())) {
-        console.error("Invalid date:", watchedNoticeStartDate);
         return;
       }
 
@@ -454,7 +447,7 @@ const OffboardingInitiation = () => {
 
       setValue("lastWorkingDay", formattedEndDate, { shouldValidate: true });
     }
-  }, [watchedNoticeStartDate, watchedNoticePeriodDays, setValue]);
+  }, [watch("exitInitiationDate"), watchedNoticePeriodDays, setValue]);
 
   // Filter employees based on search query
   const filteredEmployees = offboardingEmployees.filter((emp) => {
@@ -496,11 +489,8 @@ const OffboardingInitiation = () => {
     setValue("department", emp.department || "", { shouldValidate: true });
     setValue("designation", emp.designation || "", { shouldValidate: true });
     setValue("email", emp.email || "", { shouldValidate: true });
+    setValue("joiningDate", emp.joining_date || emp.hire_date || "", { shouldValidate: true });
     setValue("backendEmployeeId", String(emp.id), { shouldValidate: true });
-
-    // Handle missing fields from new API (these might not be provided, so clear or keep empty to avoid validation errors if they are not strictly tied to API)
-    setValue("nationality", emp.nationality || "", { shouldValidate: true });
-    setValue("visaSponsorship", emp.visa_sponsorship || emp.visa_status || "", { shouldValidate: true });
 
     showToast(`Employee ${emp.full_name} loaded successfully!`, "success");
   };
@@ -518,7 +508,7 @@ const OffboardingInitiation = () => {
   // Handle validation errors when form submit is attempted
   const onError = (errors) => {
     console.error("Form validation errors:", errors);
-    showToast("Please fill all required fields. Ensure you select Employee and Manager from the dropdowns.", "error");
+    showToast("Please fill all required fields correctly.", "error");
   };
 
   const onSubmit = async (data) => {
@@ -528,14 +518,22 @@ const OffboardingInitiation = () => {
       const payload = {
         employee_id: data.backendEmployeeId ? parseInt(data.backendEmployeeId, 10) : null,
         reporting_manager_id: data.reportingManagerId ? parseInt(data.reportingManagerId, 10) : null,
-        last_working_day: data.lastWorkingDay,
-        separation_type: data.separationType.toLowerCase(),
-        resignation_date: data.resignationDate,
+        last_working_day: data.lastWorkingDay || null,
+        separation_type: data.exitType?.toLowerCase() || null,
+        exit_initiation_date: data.exitInitiationDate || null,
         notice_period_days: data.noticePeriodDays ? parseInt(data.noticePeriodDays, 10) : 0,
-        notice_start_date: data.noticeStartDate,
-        visa_sponsorship: data.visaSponsorship,
-        nationality: data.nationality,
         reason_for_leaving: data.reasonForLeaving,
+        // Conditional fields based on type
+        ...(data.exitType === "Resignation" ? {
+          resignation_date: data.resignationSubmissionDate || null,
+          resignation_acceptance_status: data.resignationAcceptanceStatus,
+          resignation_reason: data.resignationReason,
+        } : {
+          termination_discussion_date: data.terminationDiscussionDate || null,
+          discussion_completed: data.discussionCompleted,
+          termination_reason: data.terminationReason,
+          management_remarks: data.managementRemarks,
+        }),
         is_draft: 0,
       };
 
@@ -596,11 +594,11 @@ const OffboardingInitiation = () => {
       setSearchQuery("");
       setManagerSearchQuery("");
 
-      // Redirect to asset return for both create and update
+      // Redirect to handover for both create and update
       setTimeout(() => {
         const targetId = (result && result.id) || offboardingId;
         if (targetId) {
-          navigate(`/admin/employees/asset-return?id=${targetId}`);
+          navigate(`/admin/employees/offboarding/handover?id=${targetId}`);
         }
       }, 1000);
     } catch (error) {
@@ -627,14 +625,21 @@ const OffboardingInitiation = () => {
       const payload = {
         employee_id: data.backendEmployeeId ? parseInt(data.backendEmployeeId, 10) : null,
         reporting_manager_id: data.reportingManagerId ? parseInt(data.reportingManagerId, 10) : null,
-        last_working_day: data.lastWorkingDay,
-        separation_type: data.separationType ? data.separationType.toLowerCase() : null,
-        resignation_date: data.resignationDate,
+        last_working_day: data.lastWorkingDay || null,
+        separation_type: data.exitType ? data.exitType.toLowerCase() : null,
+        exit_initiation_date: data.exitInitiationDate || null,
         notice_period_days: data.noticePeriodDays ? parseInt(data.noticePeriodDays, 10) : 0,
-        notice_start_date: data.noticeStartDate,
-        visa_sponsorship: data.visaSponsorship,
-        nationality: data.nationality,
         reason_for_leaving: data.reasonForLeaving,
+        ...(data.exitType === "Resignation" ? {
+          resignation_date: data.resignationSubmissionDate || null,
+          resignation_acceptance_status: data.resignationAcceptanceStatus,
+          resignation_reason: data.resignationReason,
+        } : {
+          termination_discussion_date: data.terminationDiscussionDate || null,
+          discussion_completed: data.discussionCompleted,
+          termination_reason: data.terminationReason,
+          management_remarks: data.managementRemarks,
+        }),
         is_draft: 1,
       };
 
@@ -816,7 +821,11 @@ const OffboardingInitiation = () => {
               )}
             </div>
 
-            {/* Form Fields Grid - Two columns */}
+            {/* Section 1: Employee Information */}
+            <div className="mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
+              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">Employee Information</h2>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
               {/* Employee Name (Searchable Select Input) */}
               <div className="space-y-1.5 relative" ref={dropdownRef}>
@@ -1072,54 +1081,70 @@ const OffboardingInitiation = () => {
                 )}
               </div>
 
-              {/* NOTICE START DATE */}
+              {/* Joining Date */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Notice start date <span className="text-red-500">*</span>
+                  Joining Date
+                </label>
+                <input
+                  type="text"
+                  placeholder="Auto-populated"
+                  {...register("joiningDate")}
+                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none"
+                  readOnly
+                />
+              </div>
+            </div>
+
+            {/* Section 2: Exit Information */}
+            <div className="mt-8 mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
+              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">Exit Information</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+              {/* Exit Type */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Exit Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  {...register("exitType")}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 outline-none transition-all focus:border-green-500 focus:ring-2 focus:ring-green-500/20 font-semibold"
+                >
+                  <option value="Resignation">Resignation</option>
+                  <option value="Termination">Termination</option>
+                </select>
+                {errors.exitType && (
+                  <p className="text-xxs font-bold text-red-500 mt-1">{errors.exitType.message}</p>
+                )}
+              </div>
+
+              {/* Exit Initiation Date */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Exit Initiation Date <span className="text-red-500">*</span>
                 </label>
                 <Controller
-                  name="noticeStartDate"
+                  name="exitInitiationDate"
                   control={control}
                   render={({ field }) => (
                     <DateInput
                       {...field}
-                      placeholder="Select notice start date"
-                      error={!!errors.noticeStartDate}
+                      placeholder="Select date"
+                      error={!!errors.exitInitiationDate}
                       className="w-full bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700"
                     />
                   )}
                 />
-                {errors.noticeStartDate && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">
-                    {errors.noticeStartDate.message}
-                  </p>
+                {errors.exitInitiationDate && (
+                  <p className="text-xxs font-bold text-red-500 mt-1">{errors.exitInitiationDate.message}</p>
                 )}
               </div>
-              {/* NOTICE PERIOD DAYS */}
+
+              {/* Last Working Day */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Notice period (days) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  placeholder="30"
-                  {...register("noticePeriodDays")}
-                  className={`w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none focus:ring-2 focus:ring-green-500/20 ${
-                    errors.noticePeriodDays
-                      ? "border-red-500"
-                      : "border-gray-200 dark:border-gray-700 focus:border-green-500"
-                  }`}
-                />
-                {errors.noticePeriodDays && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">
-                    {errors.noticePeriodDays.message}
-                  </p>
-                )}
-              </div>
-              {/* LAST WORKING DAY (Auto-calculated) */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Last working day <span className="text-red-500">*</span>
+                  Last Working Day <span className="text-red-500">*</span>
                 </label>
                 <Controller
                   name="lastWorkingDay"
@@ -1127,137 +1152,182 @@ const OffboardingInitiation = () => {
                   render={({ field }) => (
                     <DateInput
                       {...field}
-                      placeholder="Auto-calculated from notice period"
+                      placeholder="Select or auto-calculated"
                       error={!!errors.lastWorkingDay}
                       className="w-full bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700"
-                      disabled={true}
                     />
                   )}
                 />
                 {errors.lastWorkingDay && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">
-                    {errors.lastWorkingDay.message}
-                  </p>
+                  <p className="text-xxs font-bold text-red-500 mt-1">{errors.lastWorkingDay.message}</p>
                 )}
               </div>
-              {/* Separation Type */}
+
+              {/* Notice Period Days */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Separation type <span className="text-red-500">*</span>
+                  Notice Period (Days)
                 </label>
-                <select
-                  {...register("separationType")}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 outline-none transition-all focus:border-green-500 focus:ring-2 focus:ring-green-500/20 font-semibold"
-                >
-                  <option value="Resignation">Resignation</option>
-                  <option value="Termination">Termination</option>
-                  <option value="Retirement">Retirement</option>
-                  <option value="Contract End">Contract End</option>
-                </select>
-                  {errors.separationType && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">
-                    {errors.separationType.message}
-                  </p>
-                )}
-              </div>
-              {/* DYNAMIC DATE BASED ON SEPARATION TYPE */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  {watch("separationType") ? `${watch("separationType")} Date` : "Date"} <span className="text-red-500">*</span>
-                </label>
-                <Controller
-                  name="resignationDate"
-                  control={control}
-                  render={({ field }) => (
-                    <DateInput
-                      {...field}
-                      placeholder={`Select ${watch("separationType")?.toLowerCase() || "resignation"} date`}
-                      error={!!errors.resignationDate}
-                      className="w-full bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700"
-                    />
-                  )}
+                <input
+                  type="number"
+                  placeholder="30"
+                  {...register("noticePeriodDays")}
+                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                 />
-                {errors.resignationDate && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">
-                    {errors.resignationDate.message}
-                  </p>
-                )}
               </div>
-              {/* Visa Sponsorship */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Visa sponsorship <span className="text-red-500">*</span>
-                </label>
-                <Controller
-                  name="visaSponsorship"
-                  control={control}
-                  render={({ field }) => (
-                    <select
-                      {...field}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 outline-none transition-all focus:border-green-500 focus:ring-2 focus:ring-green-500/20 font-semibold"
-                    >
-                      <option value="">Select Sponsorship</option>
-                      <option value="Company sponsored">Company sponsored</option>
-                      <option value="Self sponsored">Self sponsored</option>
-                      <option value="Golden Visa">Golden Visa</option>
-                      <option value="Family sponsored">Family sponsored</option>
-                      <option value="Not Applicable">
-                        Not Applicable (No visa required)
-                      </option>
-                    </select>
-                  )}
-                />
-                {errors.visaSponsorship && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">
-                    {errors.visaSponsorship.message}
-                  </p>
-                )}
-              </div>
-              {/* Nationality */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Nationality <span className="text-red-500">*</span>
-                </label>
-                <Controller
-                  name="nationality"
-                  control={control}
-                  render={({ field }) => (
-                    <input
-                      {...field}
-                      type="text"
-                      placeholder="e.g. Indian"
-                      className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none"
-                    />
-                  )}
-                />
-                {errors.nationality && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">
-                    {errors.nationality.message}
-                  </p>
-                )}
-              </div>
-              {/* Reason for Leaving - Full width spans both columns */}
+
+              {/* Reason for Leaving */}
               <div className="space-y-1.5 md:col-span-2">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Reason for leaving <span className="text-red-500">*</span>
+                  Reason for Leaving / Exit Reason <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  rows={4}
-                  placeholder="Please provide the reason for employee's departure..."
+                  rows={3}
+                  placeholder="Brief reason for the exit..."
                   {...register("reasonForLeaving")}
                   className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 outline-none transition-all focus:ring-2 focus:ring-green-500/20 focus:border-green-500 font-semibold ${
-                    errors.reasonForLeaving
-                      ? "border-red-500"
-                      : "border-gray-200 dark:border-gray-700"
+                    errors.reasonForLeaving ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                   }`}
                 ></textarea>
                 {errors.reasonForLeaving && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">
-                    {errors.reasonForLeaving.message}
-                  </p>
+                  <p className="text-xxs font-bold text-red-500 mt-1">{errors.reasonForLeaving.message}</p>
                 )}
               </div>
             </div>
+
+            {/* Conditional Section: Resignation */}
+            {watch("exitType") === "Resignation" && (
+              <>
+                <div className="mt-8 mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">Resignation Details</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Resignation Submission Date <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="resignationSubmissionDate"
+                      control={control}
+                      render={({ field }) => (
+                        <DateInput
+                          {...field}
+                          placeholder="Select date"
+                          error={!!errors.resignationSubmissionDate}
+                          className="w-full bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                        />
+                      )}
+                    />
+                    {errors.resignationSubmissionDate && (
+                      <p className="text-xxs font-bold text-red-500 mt-1">{errors.resignationSubmissionDate.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Acceptance Status
+                    </label>
+                    <select
+                      {...register("resignationAcceptanceStatus")}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 outline-none transition-all focus:border-green-500 focus:ring-2 focus:ring-green-500/20 font-semibold"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Accepted">Accepted</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Resignation Reason <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Detailed resignation reason..."
+                      {...register("resignationReason")}
+                      className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 outline-none transition-all focus:ring-2 focus:ring-green-500/20 focus:border-green-500 font-semibold ${
+                        errors.resignationReason ? "border-red-500" : "border-gray-200 dark:border-gray-700"
+                      }`}
+                    ></textarea>
+                    {errors.resignationReason && (
+                      <p className="text-xxs font-bold text-red-500 mt-1">{errors.resignationReason.message}</p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Conditional Section: Termination */}
+            {watch("exitType") === "Termination" && (
+              <>
+                <div className="mt-8 mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">Termination Details</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Termination Discussion Date <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="terminationDiscussionDate"
+                      control={control}
+                      render={({ field }) => (
+                        <DateInput
+                          {...field}
+                          placeholder="Select date"
+                          error={!!errors.terminationDiscussionDate}
+                          className="w-full bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                        />
+                      )}
+                    />
+                    {errors.terminationDiscussionDate && (
+                      <p className="text-xxs font-bold text-red-500 mt-1">{errors.terminationDiscussionDate.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Discussion Completed?
+                    </label>
+                    <select
+                      {...register("discussionCompleted")}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 outline-none transition-all focus:border-green-500 focus:ring-2 focus:ring-green-500/20 font-semibold"
+                    >
+                      <option value="Yes">Yes</option>
+                      <option value="No">No</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Termination Reason <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Detailed termination reason..."
+                      {...register("terminationReason")}
+                      className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 outline-none transition-all focus:ring-2 focus:ring-green-500/20 focus:border-green-500 font-semibold ${
+                        errors.terminationReason ? "border-red-500" : "border-gray-200 dark:border-gray-700"
+                      }`}
+                    ></textarea>
+                    {errors.terminationReason && (
+                      <p className="text-xxs font-bold text-red-500 mt-1">{errors.terminationReason.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      HR / Management Remarks
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Any additional remarks..."
+                      {...register("managementRemarks")}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 outline-none transition-all focus:ring-2 focus:ring-green-500/20 focus:border-green-500 font-semibold"
+                    ></textarea>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Form Actions */}
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -1286,7 +1356,7 @@ const OffboardingInitiation = () => {
                 ) : (
                   <>
                     <ArrowRight size={16} />
-                    {isEditMode ? "Update Offboarding" : "Initiate offboarding"}
+                    {isEditMode ? "Update Offboarding" : "Save & Continue"}
                   </>
                 )}
               </button>
