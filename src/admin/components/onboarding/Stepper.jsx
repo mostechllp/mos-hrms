@@ -9,13 +9,15 @@ const Stepper = ({ currentStep }) => {
   const steps = [
     { id: 1, title: "Resume Upload", subtitle: "AI Parsing" },
     { id: 2, title: "Employee Details", subtitle: "Verify Info" },
-    { id: 3, title: "Salary & Bank", subtitle: "Financials" },
-    { id: 4, title: "Offer Letter", subtitle: "Generation" },
-    { id: 5, title: "Review & Submit", subtitle: "Finalization" },
+    { id: 3, title: "Professional Verification", subtitle: "Background" },
+    { id: 4, title: "Salary & Bank", subtitle: "Financials" },
+    { id: 5, title: "Offer Letter", subtitle: "Generation" },
+    { id: 6, title: "Pre-Onboarding", subtitle: "Checklist" },
+    { id: 7, title: "Review & Submit", subtitle: "Finalization" },
   ];
 
   return (
-    <div className="flex items-center justify-between w-full max-w-4xl mx-auto">
+    <div className="flex items-start justify-between w-full max-w-4xl mx-auto">
       {steps.map((step, index) => (
         <React.Fragment key={step.id}>
           {/* Step Item */}
@@ -53,7 +55,7 @@ const Stepper = ({ currentStep }) => {
 
           {/* Connector Line */}
           {index < steps.length - 1 && (
-            <div className="flex-1 h-0.5 mx-4 -mt-10 bg-gray-100 dark:bg-gray-700">
+            <div className="flex-1 h-0.5 mx-2 md:mx-4 mt-5 bg-gray-100 dark:bg-gray-700">
               <div 
                 className="h-full bg-green-600 transition-all duration-500 ease-in-out" 
                 style={{ width: currentStep > step.id ? "100%" : "0%" }}

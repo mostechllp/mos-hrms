@@ -56,6 +56,59 @@ const initialState = {
     template: "standard",
     generated: false
   },
+  preOnboardingChecklist: {
+    hrTasks: {
+      infoCompleted: false,
+      idVerified: false,
+      academicVerified: false,
+      referenceVerified: false,
+      documentsVerified: false,
+      offerGenerated: false,
+      offerSent: false,
+      offerAccepted: false,
+    },
+    itTasks: {
+      emailCreated: false,
+      hrmsCreated: false,
+      systemAccess: false,
+      softwareConfigured: false,
+    },
+    whatsappGroups: {
+      personal: {
+        added: false,
+        addedDate: "",
+        addedBy: "",
+      },
+      team: {
+        added: false,
+        addedDate: "",
+        addedBy: "",
+      }
+    },
+    welcomeAnnouncement: {
+      published: false,
+      publishedDate: "",
+      publishedBy: "",
+    },
+    googleMeet: {
+      meetingDate: "",
+      meetingTime: "",
+      meetLink: "",
+      calendarInviteSent: false,
+      meetingCompleted: false,
+      completedDate: "",
+    }
+  },
+  professionalVerification: {
+    linkedInUrl: "",
+    githubUrl: "",
+    portfolioUrl: "",
+    otherUrl: "",
+    identityVerified: false,
+    credentialsVerified: false,
+    employmentInfoVerified: false,
+    verificationNotes: ""
+  },
   onboardingComplete: false
 };
 
@@ -71,6 +124,17 @@ const onboardingSlice = createSlice({
     },
     updateOfferLetter: (state, action) => {
       state.offerLetter = { ...state.offerLetter, ...action.payload };
+    },
+    updatePreOnboardingChecklist: (state, action) => {
+      const { section, data } = action.payload;
+      if (section) {
+        state.preOnboardingChecklist[section] = { ...state.preOnboardingChecklist[section], ...data };
+      } else {
+        state.preOnboardingChecklist = { ...state.preOnboardingChecklist, ...action.payload };
+      }
+    },
+    updateProfessionalVerification: (state, action) => {
+      state.professionalVerification = { ...state.professionalVerification, ...action.payload };
     },
     resetOnboarding: () => {
       return initialState;
@@ -105,6 +169,8 @@ export const {
   setStep,
   updateEmployeeDetails,
   updateOfferLetter,
+  updatePreOnboardingChecklist,
+  updateProfessionalVerification,
   resetOnboarding,
   completeOnboarding,
   restoreDraft
