@@ -77,6 +77,7 @@ const Settings = lazy(() => import("./admin/pages/Settings"));
 const RoleManagement = lazy(() => import("./admin/pages/RoleManagement"));
 const ModuleManagement = lazy(() => import("./admin/pages/ModuleManagement"));
 const PayrollDashboard = lazy(() => import("./admin/pages/PayrollDashboard"));
+const PayrollList = lazy(() => import("./admin/pages/PayrollList"));
 const AddPayroll = lazy(() => import("./admin/pages/AddPayroll"));
 const OnboardingInitalize = lazy(
   () => import("./admin/components/onboarding/Onboarding"),
@@ -328,6 +329,7 @@ function App() {
             element={<EditLeaveAllocation />}
           />
           <Route path="payroll" element={<PayrollDashboard />} />
+          <Route path="payroll/:year/:month" element={<PayrollList />} />
           <Route path="payroll/add" element={<AddPayroll />} />
           <Route path="wfh" element={<AdminWFH />} />
           <Route path="attendance-requests" element={<AttendanceRequests isAdmin={true} />} /> 
