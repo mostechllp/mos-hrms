@@ -38,7 +38,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { path: "/admin/reports", icon: "fas fa-chart-line", label: "Reports", module: "reports" },
     { path: "/admin/projects", icon: "fas fa-file", label: "Projects", module: "projects" },
     { path: "/admin/tasks", icon: "fas fa-tasks", label: "Tasks", module: "projects" }, // Grouped under projects
-    { path: "/admin/payroll/add", icon: "fas fa-file-invoice-dollar", label: "Payroll", module: "payroll" },
+    { path: "/admin/payroll", icon: "fas fa-file-invoice-dollar", label: "Payroll", module: "payroll" },
     { path: "/admin/role-management", icon: "fas fa-user-shield", label: "Roles", module: "roles" },
     { path: "/admin/settings", icon: "fas fa-gear", label: "Settings", module: "settings" },
   ];

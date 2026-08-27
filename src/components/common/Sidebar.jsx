@@ -17,7 +17,7 @@ const ADMIN_ROUTE_MAP = {
   reports: "/admin/reports",
   projects: "/admin/projects",
   "project-tasks": "/admin/project-tasks", // NEW: Project Tasks route
-  payroll: "/admin/payroll/add",
+  payroll: "/admin/payroll",
   roles: "/admin/role-management",
   settings: "/admin/settings",
   "my-tasks": "/admin/my-tasks",

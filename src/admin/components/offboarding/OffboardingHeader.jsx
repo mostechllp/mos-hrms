@@ -1,26 +1,23 @@
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 
 const STEPS = [
-  { id: 1, label: "Initiation", subtitle: "Start Process", path: "/admin/employees/offboarding-initiation" },
-  { id: 2, label: "Assets", subtitle: "Asset Return", path: "/admin/employees/asset-return" },
-  { id: 3, label: "Settlement", subtitle: "Final Payment", path: "/admin/employees/final-settlement" },
-  { id: 4, label: "Visa Cancel", subtitle: "Visa Processing", path: "/admin/employees/visa-cancellation" },
-  { id: 5, label: "Interview", subtitle: "Exit Session", path: "/admin/employees/exit-interview" },
-  { id: 6, label: "Letters", subtitle: "Clearance", path: "/admin/employees/letters-and-clearance" },
-  { id: 7, label: "Final Clearance", subtitle: "Verification", path: "/admin/employees/offboarding-checklist" },
+  { id: 1, label: "Exit Initiation", subtitle: "Start Process", path: "/admin/employees/offboarding-initiation" },
+  { id: 2, label: "Handover", subtitle: "Responsibilities", path: "/admin/employees/offboarding/handover" },
+  { id: 3, label: "Leave Check", subtitle: "Encashment", path: "/admin/employees/offboarding/leave-check" },
+  { id: 4, label: "Access Removal", subtitle: "Revoke Access", path: "/admin/employees/offboarding/access-removal" },
+  { id: 5, label: "FnF Settlement", subtitle: "Final Payment", path: "/admin/employees/final-settlement" },
+  { id: 6, label: "Documentation", subtitle: "Letters & Exit", path: "/admin/employees/letters-and-clearance" },
 ];
 
 const OffboardingHeader = ({ currentStep }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentProgress, currentOffboarding } = useSelector((state) => state.offboarding);
-  const [isVisaRequired, setIsVisaRequired] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Handle window resize for mobile detection
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -29,95 +26,41 @@ const OffboardingHeader = ({ currentStep }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Get offboarding ID from URL or localStorage
   const getOffboardingId = () => {
     const urlParams = new URLSearchParams(location.search);
     return location.state?.id || urlParams.get('id') || localStorage.getItem("offboarding_id");
-  };
-  
-  // Check visa sponsorship status from localStorage or session
-  useEffect(() => {
-    const savedVisaSponsorship = localStorage.getItem("offboarding_visa_sponsorship");
-    const offboardingId = getOffboardingId();
-    
-    if (savedVisaSponsorship) {
-      setIsVisaRequired(savedVisaSponsorship !== "Not Applicable");
-    } else if (offboardingId) {
-      const sessionVisaStatus = sessionStorage.getItem(`visa_required_${offboardingId}`);
-      if (sessionVisaStatus) {
-        setIsVisaRequired(sessionVisaStatus === "true");
-      }
-    }
-  }, [location.search]);
-
-  // Filter steps based on visa requirement
-  const getFilteredSteps = () => {
-    if (isVisaRequired) {
-      return STEPS;
-    } else {
-      return STEPS.filter(step => step.id !== 4);
-    }
-  };
-  
-  const filteredSteps = getFilteredSteps();
-  
-  const getAdjustedStepId = (originalStepId) => {
-    if (!isVisaRequired) {
-      if (originalStepId > 4) {
-        return originalStepId - 1;
-      }
-    }
-    return originalStepId;
   };
   
   const combinedStatus = currentProgress?.status ?? currentOffboarding?.status;
   
   let apiCalculatedStep = null;
   if (combinedStatus) {
-     if (combinedStatus === "completed" || currentProgress?.progress_percentage === 100) apiCalculatedStep = 8;
-     else if (combinedStatus.includes("visa")) apiCalculatedStep = 4;
-     else if (combinedStatus.includes("checklist") || combinedStatus.includes("final") || combinedStatus.includes("clearance")) apiCalculatedStep = 7;
-     else if (combinedStatus.includes("asset")) apiCalculatedStep = 2;
-     else if (combinedStatus.includes("interview")) apiCalculatedStep = 5;
-     else if (combinedStatus.includes("settlement")) apiCalculatedStep = 3;
-     else if (combinedStatus.includes("letter")) apiCalculatedStep = 6;
+     if (combinedStatus === "completed" || currentProgress?.progress_percentage === 100) apiCalculatedStep = 7;
+     else if (combinedStatus.includes("initiation")) apiCalculatedStep = 1;
+     else if (combinedStatus.includes("handover")) apiCalculatedStep = 2;
+     else if (combinedStatus.includes("leave")) apiCalculatedStep = 3;
+     else if (combinedStatus.includes("access")) apiCalculatedStep = 4;
+     else if (combinedStatus.includes("settlement")) apiCalculatedStep = 5;
+     else if (combinedStatus.includes("documentation") || combinedStatus.includes("letter")) apiCalculatedStep = 6;
   }
 
-  const maxAllowedStep = apiCalculatedStep ? getAdjustedStepId(apiCalculatedStep) : getAdjustedStepId(currentStep);
+  const maxAllowedStep = apiCalculatedStep ? apiCalculatedStep : currentStep;
 
-  const canNavigateToStep = (stepId, originalStepId) => {
-    const adjustedStepId = getAdjustedStepId(originalStepId);
-    return adjustedStepId <= maxAllowedStep;
+  // Allow clicking any step so users can view fields without filling out the previous step
+  const canNavigateToStep = (stepId) => {
+    return true; // Used to be: return stepId <= maxAllowedStep;
   };
   
-  const handleStepClick = (step, originalStepId) => {
-    if (canNavigateToStep(step.id, originalStepId)) {
-      navigate(step.path);
+  const handleStepClick = (step) => {
+    if (canNavigateToStep(step.id)) {
+      const id = getOffboardingId();
+      navigate(`${step.path}${id ? `?id=${id}` : ''}`);
     }
   };
 
-  // Save visa requirement status
-  const saveVisaRequirement = (visaSponsorship, offboardingId) => {
-    const isRequired = visaSponsorship !== "Not Applicable";
-    setIsVisaRequired(isRequired);
-    localStorage.setItem("offboarding_visa_sponsorship", visaSponsorship);
-    if (offboardingId) {
-      sessionStorage.setItem(`visa_required_${offboardingId}`, isRequired.toString());
-    }
-  };
-  
-  React.useEffect(() => {
-    window.saveVisaRequirement = saveVisaRequirement;
-    return () => {
-      delete window.saveVisaRequirement;
-    };
-  }, []);
-
-  // ─── Desktop View ──────────────────────────────────────────────────────────
   if (!isMobile) {
     return (
       <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 px-6 py-6 sm:px-8 rounded-2xl shadow-soft">
-        {/* Top Bar: Back Button */}
         <div className="flex items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
             <button 
@@ -130,32 +73,19 @@ const OffboardingHeader = ({ currentStep }) => {
               Offboarding Process
             </h2>
           </div>
-          
-          {!isVisaRequired && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-full">
-              <EyeOff size={14} className="text-gray-500" />
-              <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                Visa step skipped
-              </span>
-            </div>
-          )}
         </div>
 
-        {/* Stepper */}
         <div className="flex items-center justify-between w-full">
-          {filteredSteps.map((step, index) => {
-            const displayStepNumber = !isVisaRequired && step.id > 4 ? step.id - 1 : step.id;
-            const viewedStep = getAdjustedStepId(currentStep);
-            const adjustedStep = getAdjustedStepId(step.id);
-            const isCompleted = adjustedStep < maxAllowedStep && adjustedStep !== viewedStep;
-            const isActive = adjustedStep === viewedStep;
-            const isClickable = canNavigateToStep(step.id, step.id);
+          {STEPS.map((step, index) => {
+            const isCompleted = step.id < maxAllowedStep && step.id !== currentStep;
+            const isActive = step.id === currentStep;
+            const isClickable = canNavigateToStep(step.id);
             
             return (
               <React.Fragment key={step.id}>
                 <div 
                   className="flex flex-col items-center relative z-10"
-                  onClick={() => handleStepClick(step, step.id)}
+                  onClick={() => handleStepClick(step)}
                   style={{ cursor: isClickable ? 'pointer' : 'not-allowed' }}
                 >
                   <div
@@ -170,13 +100,13 @@ const OffboardingHeader = ({ currentStep }) => {
                     {isCompleted ? (
                       <CheckCircle2 size={20} strokeWidth={2} />
                     ) : (
-                      <span className="font-bold">{displayStepNumber}</span>
+                      <span className="font-bold">{step.id}</span>
                     )}
                   </div>
                   
                   <div className="mt-3 text-center">
                     <p className={`text-sm font-semibold transition-colors ${
-                      maxAllowedStep >= adjustedStep
+                      maxAllowedStep >= step.id
                         ? "text-gray-900 dark:text-white" 
                         : "text-gray-400"
                     }`}>
@@ -188,12 +118,12 @@ const OffboardingHeader = ({ currentStep }) => {
                   </div>
                 </div>
 
-                {index < filteredSteps.length - 1 && (
+                {index < STEPS.length - 1 && (
                   <div className="flex-1 h-0.5 mx-4 -mt-10 bg-gray-100 dark:bg-gray-700">
                     <div 
                       className="h-full bg-green-600 transition-all duration-500 ease-in-out" 
                       style={{ 
-                        width: maxAllowedStep > adjustedStep ? "100%" : "0%" 
+                        width: maxAllowedStep > step.id ? "100%" : "0%" 
                       }}
                     />
                   </div>
@@ -206,10 +136,8 @@ const OffboardingHeader = ({ currentStep }) => {
     );
   }
 
-  // ─── Mobile View ──────────────────────────────────────────────────────────
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 px-3 py-3 rounded-2xl shadow-soft">
-      {/* Top Bar: Back Button & Title */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2 min-w-0">
           <button 
@@ -224,48 +152,33 @@ const OffboardingHeader = ({ currentStep }) => {
         </div>
         
         <div className="flex items-center gap-2 flex-shrink-0">
-          {!isVisaRequired && (
-            <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-full">
-              <EyeOff size={12} className="text-gray-500" />
-              <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">
-                No Visa
-              </span>
-            </div>
-          )}
-          
           <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-            {getAdjustedStepId(currentStep)}/{filteredSteps.length}
+            {currentStep}/{STEPS.length}
           </span>
         </div>
       </div>
 
-      {/* Mobile Stepper - Compact with all steps */}
       <div className="relative">
-        {/* Progress bar background */}
         <div className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-full mb-2.5">
           <div 
             className="h-full bg-green-600 rounded-full transition-all duration-500 ease-in-out"
             style={{ 
-              width: `${((Math.max(getAdjustedStepId(currentStep), maxAllowedStep) - 1) / (filteredSteps.length - 1)) * 100}%` 
+              width: `${((Math.max(currentStep, maxAllowedStep) - 1) / (STEPS.length - 1)) * 100}%` 
             }}
           />
         </div>
 
-        {/* Step circles - All steps visible */}
         <div className="flex items-center justify-between">
-          {filteredSteps.map((step) => {
-            const displayStepNumber = !isVisaRequired && step.id > 4 ? step.id - 1 : step.id;
-            const viewedStep = getAdjustedStepId(currentStep);
-            const adjustedStep = getAdjustedStepId(step.id);
-            const isCompleted = adjustedStep < maxAllowedStep && adjustedStep !== viewedStep;
-            const isActive = adjustedStep === viewedStep;
-            const isClickable = canNavigateToStep(step.id, step.id);
+          {STEPS.map((step) => {
+            const isCompleted = step.id < maxAllowedStep && step.id !== currentStep;
+            const isActive = step.id === currentStep;
+            const isClickable = canNavigateToStep(step.id);
 
             return (
               <div 
                 key={step.id}
                 className="flex flex-col items-center relative"
-                onClick={() => handleStepClick(step, step.id)}
+                onClick={() => handleStepClick(step)}
                 style={{ cursor: isClickable ? 'pointer' : 'not-allowed' }}
               >
                 <div
@@ -280,12 +193,12 @@ const OffboardingHeader = ({ currentStep }) => {
                   {isCompleted ? (
                     <CheckCircle2 size={12} strokeWidth={2} />
                   ) : (
-                    <span className="font-bold text-[10px]">{displayStepNumber}</span>
+                    <span className="font-bold text-[10px]">{step.id}</span>
                   )}
                 </div>
                 
                 <p className={`text-[7px] font-semibold mt-1 text-center leading-tight max-w-[40px] ${
-                  maxAllowedStep >= adjustedStep
+                  maxAllowedStep >= step.id
                     ? "text-gray-900 dark:text-white" 
                     : "text-gray-400"
                 }`}>
@@ -297,14 +210,13 @@ const OffboardingHeader = ({ currentStep }) => {
         </div>
       </div>
 
-      {/* Current step info - Mobile */}
       <div className="mt-2.5 pt-2.5 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex-shrink-0">
-            Step {getAdjustedStepId(currentStep)}
+            Step {currentStep}
           </span>
           <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">
-            {filteredSteps.find(s => getAdjustedStepId(s.id) === getAdjustedStepId(currentStep))?.label || ''}
+            {STEPS.find(s => s.id === currentStep)?.label || ''}
           </span>
         </div>
       </div>

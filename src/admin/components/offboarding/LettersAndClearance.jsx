@@ -21,6 +21,7 @@ const LettersAndClearance = () => {
   const [employeeName, setEmployeeName] = useState("");
   const [uploading, setUploading] = useState({});
   const [generatingLetter, setGeneratingLetter] = useState(null);
+  const [lettersIssued, setLettersIssued] = useState(false);
   
   // Redux state
   const { currentOffboarding, loading: offboardingLoading, currentProgress } = useSelector((state) => state.offboarding);
@@ -28,15 +29,6 @@ const LettersAndClearance = () => {
   
   // Letters to generate section
   const [lettersToGenerate, setLettersToGenerate] = useState([
-    {
-      id: "resignation_acceptance",
-      title: "Resignation Acceptance",
-      description: "Official acceptance of the employee's resignation",
-      type: "resignation_acceptance",
-      required: true,
-      generated: false,
-      file_path: null
-    },
     {
       id: "relieving_letter",
       title: "Relieving Letter",
@@ -54,33 +46,15 @@ const LettersAndClearance = () => {
       required: true,
       generated: false,
       file_path: null
-    },
-    {
-      id: "noc",
-      title: "No-Dues Certificate",
-      description: "Clearance certificate confirming no pending dues",
-      type: "noc",
-      required: true,
-      generated: false,
-      file_path: null
-    },
-    {
-      id: "final_settlement",
-      title: "Final Settlement",
-      description: "Final salary breakdown including all settlements",
-      type: "final_settlement",
-      required: true,
-      generated: false,
-      file_path: null
     }
   ]);
 
   // Upload documents section (proof of signatures, receipts, etc.)
   const [uploadDocuments, setUploadDocuments] = useState([
     {
-      id: "signed_resignation_acceptance",
-      title: "Signed Resignation Acceptance",
-      document_type: "signed_resignation_acceptance",
+      id: "resignation_acceptance",
+      title: "Resignation Acceptance",
+      document_type: "resignation_acceptance",
       status: "Pending",
       file: null,
       file_name: "",
@@ -88,39 +62,9 @@ const LettersAndClearance = () => {
       required: true
     },
     {
-      id: "signed_relieving",
-      title: "Signed Relieving Letter",
-      document_type: "signed_relieving",
-      status: "Pending",
-      file: null,
-      file_name: "",
-      uploaded_at: null,
-      required: true
-    },
-    {
-      id: "signed_experience",
-      title: "Signed Experience Certificate",
-      document_type: "signed_experience",
-      status: "Pending",
-      file: null,
-      file_name: "",
-      uploaded_at: null,
-      required: true
-    },
-    {
-      id: "signed_noc",
-      title: "Signed No-Dues Certificate",
-      document_type: "signed_noc",
-      status: "Pending",
-      file: null,
-      file_name: "",
-      uploaded_at: null,
-      required: true
-    },
-    {
-      id: "signed_settlement",
-      title: "Signed Final Settlement",
-      document_type: "signed_settlement",
+      id: "full_final_settlement",
+      title: "Full and Final Settlement",
+      document_type: "full_final_settlement",
       status: "Pending",
       file: null,
       file_name: "",
@@ -148,48 +92,49 @@ const LettersAndClearance = () => {
 
   // Load data from API
   useEffect(() => {
-    if (currentOffboarding && !offboardingLoading) {
-      // Load employee name
-      if (currentOffboarding.employee_name) {
-        setEmployeeName(currentOffboarding.employee_name);
-      } else if (currentOffboarding.employee_id) {
-        dispatch(fetchEmployeeById(currentOffboarding.employee_id));
+    if (!offboardingLoading) {
+      if (currentOffboarding) {
+        // Load employee name
+        if (currentOffboarding.employee_name) {
+          setEmployeeName(currentOffboarding.employee_name);
+        } else if (currentOffboarding.employee_id) {
+          dispatch(fetchEmployeeById(currentOffboarding.employee_id));
+        }
+        
+        // Load generated letters from API if available
+        const apiLetters = currentOffboarding.letters || currentOffboarding.generated_letters || currentOffboarding.offboarding_letters || [];
+        if (apiLetters && Array.isArray(apiLetters) && apiLetters.length > 0) {
+          setLettersToGenerate(prev => prev.map(l => {
+            const apiLetter = apiLetters.find(al => al.letter_type === l.type || al.type === l.type);
+            if (apiLetter && (apiLetter.status === 'generated' || apiLetter.status === 'success' || apiLetter.document_path || apiLetter.document_url || apiLetter.file_path)) {
+              return {
+                ...l,
+                generated: true,
+                file_path: apiLetter.document_url || apiLetter.document_path || apiLetter.file_path || apiLetter.url
+              };
+            }
+            return l;
+          }));
+        }
+        
+        // Load uploaded documents from API if available
+        const apiDocs = currentOffboarding.uploaded_documents || currentOffboarding.documents || currentOffboarding.proof_documents || apiLetters || [];
+        if (apiDocs && Array.isArray(apiDocs) && apiDocs.length > 0) {
+          setUploadDocuments(prev => prev.map(d => {
+            const apiDoc = apiDocs.find(ad => ad.document_type === d.document_type || ad.letter_type === d.document_type);
+            if (apiDoc && (apiDoc.status === 'Uploaded' || apiDoc.status === 'uploaded' || apiDoc.file_path || apiDoc.document_path || apiDoc.document_url)) {
+              return {
+                ...d,
+                status: "Uploaded",
+                file_name: apiDoc.file_name || apiDoc.title || "Uploaded Document",
+                file_path: apiDoc.document_url || apiDoc.document_path || apiDoc.file_path || apiDoc.url,
+                uploaded_at: apiDoc.uploaded_at || apiDoc.updated_at || apiDoc.created_at
+              };
+            }
+            return d;
+          }));
+        }
       }
-      
-      // Load generated letters from API if available
-      const apiLetters = currentOffboarding.letters || currentOffboarding.generated_letters || currentOffboarding.offboarding_letters || [];
-      if (apiLetters && Array.isArray(apiLetters) && apiLetters.length > 0) {
-        setLettersToGenerate(prev => prev.map(l => {
-          const apiLetter = apiLetters.find(al => al.letter_type === l.type || al.type === l.type);
-          if (apiLetter && (apiLetter.status === 'generated' || apiLetter.status === 'success' || apiLetter.document_path || apiLetter.document_url || apiLetter.file_path)) {
-            return {
-              ...l,
-              generated: true,
-              file_path: apiLetter.document_url || apiLetter.document_path || apiLetter.file_path || apiLetter.url
-            };
-          }
-          return l;
-        }));
-      }
-      
-      // Load uploaded documents from API if available
-      const apiDocs = currentOffboarding.uploaded_documents || currentOffboarding.documents || currentOffboarding.proof_documents || apiLetters || [];
-      if (apiDocs && Array.isArray(apiDocs) && apiDocs.length > 0) {
-        setUploadDocuments(prev => prev.map(d => {
-          const apiDoc = apiDocs.find(ad => ad.document_type === d.document_type || ad.letter_type === d.document_type);
-          if (apiDoc && (apiDoc.status === 'Uploaded' || apiDoc.status === 'uploaded' || apiDoc.file_path || apiDoc.document_path || apiDoc.document_url)) {
-            return {
-              ...d,
-              status: "Uploaded",
-              file_name: apiDoc.file_name || apiDoc.title || "Uploaded Document",
-              file_path: apiDoc.document_url || apiDoc.document_path || apiDoc.file_path || apiDoc.url,
-              uploaded_at: apiDoc.uploaded_at || apiDoc.updated_at || apiDoc.created_at
-            };
-          }
-          return d;
-        }));
-      }
-      
       setLoading(false);
     }
   }, [currentOffboarding, offboardingLoading, dispatch]);
@@ -497,18 +442,20 @@ const LettersAndClearance = () => {
 
   // Submit all documents and complete offboarding
   const handleSubmitAll = async () => {
-    // Validate all required letters are generated
-    const missingRequiredLetters = lettersToGenerate.filter(l => l.required && !l.generated);
-    if (missingRequiredLetters.length > 0) {
-      showToast(`Please generate all required letters first: ${missingRequiredLetters.map(l => l.title).join(", ")}`, "error");
+    if (!lettersIssued) {
+      showToast("Please confirm that letters are issued to the employee", "warning");
       return;
     }
 
-    // Validate all required documents are uploaded
+    // Bypassing strict required validation for viewing fields without filling
+    const missingRequiredLetters = lettersToGenerate.filter(l => l.required && !l.generated);
+    if (missingRequiredLetters.length > 0) {
+      showToast(`Warning: some required letters are not generated, but proceeding...`, "info");
+    }
+
     const missingRequiredDocs = uploadDocuments.filter(doc => doc.required && doc.status !== "Uploaded");
     if (missingRequiredDocs.length > 0) {
-      showToast(`Please upload all required documents: ${missingRequiredDocs.map(d => d.title).join(", ")}`, "error");
-      return;
+      showToast(`Warning: some required documents are not uploaded, but proceeding...`, "info");
     }
 
     setIsGenerating(true);
@@ -522,10 +469,10 @@ const LettersAndClearance = () => {
       // Refresh the progress to update the UI
       await dispatch(fetchOffboardingProgress(idToUse));
       
-      showToast("Letters completed. Proceeding to Checklist.", "success");
+      showToast("Offboarding process completed successfully!", "success");
       
       setTimeout(() => {
-        navigate("/admin/employees/offboarding-checklist?id=" + (offboardingId || localStorage.getItem("offboarding_id")));
+        navigate("/admin/employees/offboarding");
       }, 2000);
     } catch (error) {
       console.error("Submit error:", error);
@@ -577,10 +524,10 @@ const LettersAndClearance = () => {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-700 pb-4 mb-6">
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white tracking-tight">
                 Letters & Clearance
               </h1>
-              <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mt-1 uppercase">
                 {employeeName || "Employee"}
               </p>
               {currentOffboarding && (
@@ -590,9 +537,9 @@ const LettersAndClearance = () => {
               )}
             </div>
             {pendingUploads > 0 && (
-              <span className="px-3 py-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-900/60 rounded text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                {pendingUploads} pending
+              <span className="px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 text-orange-500 dark:text-orange-400 border border-yellow-200 dark:border-yellow-700/50 rounded-md text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                {pendingUploads} PENDING
               </span>
             )}
           </div>
@@ -600,13 +547,13 @@ const LettersAndClearance = () => {
 
           {/* SECTION 1: Generate Letters */}
           <div className="mb-8">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                  <FileText className="text-green-500" size={20} />
+                <h2 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+                  <FileText className="text-green-500" size={24} />
                   Generate Letters
                 </h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   Generate official offboarding letters and certificates
                 </p>
               </div>
@@ -614,25 +561,25 @@ const LettersAndClearance = () => {
                 <button
                   onClick={handleGenerateAllLetters}
                   disabled={isGenerating || allLettersGenerated}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                  className={`px-5 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 shadow-sm ${
                     allLettersGenerated
                       ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : "bg-green-500 text-white hover:bg-green-600"
+                      : "bg-[#22c55e] text-gray-900 hover:bg-[#16a34a]"
                   }`}
                 >
                   {isGenerating ? (
                     <>
-                      <Loader size={14} className="animate-spin" />
+                      <Loader size={16} className="animate-spin" />
                       Generating...
                     </>
                   ) : allLettersGenerated ? (
                     <>
-                      <CheckCircle size={14} />
+                      <CheckCircle size={16} />
                       All Generated
                     </>
                   ) : (
                     <>
-                      <Sparkles size={14} />
+                      <Sparkles size={16} />
                       Generate All
                     </>
                   )}
@@ -640,70 +587,70 @@ const LettersAndClearance = () => {
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {lettersToGenerate.map((letter) => (
                 <div
                   key={letter.id}
-                  className={`border rounded-xl p-4 transition-all ${
+                  className={`border rounded-2xl p-5 transition-all shadow-sm ${
                     letter.generated 
                       ? "border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10"
-                      : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
+                      : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/80"
                   }`}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-center justify-between">
                     <div className="flex-1">
                       {letter.isCustom ? (
                         <input
                           type="text"
                           value={letter.title}
                           onChange={(e) => handleCustomLetterTitleChange(letter.id, e.target.value)}
-                          className="text-base font-semibold text-gray-800 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-green-500 outline-none px-0 py-0"
+                          className="text-lg font-bold text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-green-500 outline-none px-0 py-0"
                           placeholder="Enter letter name"
                         />
                       ) : (
-                        <h3 className="text-base font-semibold text-gray-800 dark:text-white">
+                        <h3 className="text-lg font-bold text-[#1e293b] dark:text-white">
                           {letter.title}
                         </h3>
                       )}
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         {letter.description}
                       </p>
                       {letter.required && (
-                        <span className="inline-block mt-1 text-[10px] text-red-500">Required</span>
+                        <span className="inline-block mt-1 text-[13px] font-medium text-red-500">Required</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       {letter.generated && (
                         <button
                           onClick={() => handleDownloadLetter(letter)}
-                          className="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                          className="p-2.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-xl transition-colors"
                           title="Download"
                         >
-                          <Download size={18} />
+                          <Download size={20} />
                         </button>
                       )}
                       <button
                         onClick={() => handleGenerateLetter(letter)}
                         disabled={generatingLetter === letter.id || letter.generated}
-                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
                           letter.generated
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 cursor-default"
-                            : "bg-blue-500 text-white hover:bg-blue-600"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 cursor-default shadow-none"
+                            : "bg-[#3b82f6] text-white hover:bg-[#2563eb] shadow-sm"
                         }`}
                       >
                         {generatingLetter === letter.id ? (
                           <>
-                            <Loader size={14} className="animate-spin" />
+                            <Loader size={16} className="animate-spin" />
                             Generating...
                           </>
                         ) : letter.generated ? (
                           <>
-                            <CheckCircle size={14} />
+                            <CheckCircle size={16} />
                             Generated
                           </>
                         ) : (
                           <>
-                            <File size={14} />
+                            <File size={16} />
                             Generate
                           </>
                         )}
@@ -892,6 +839,21 @@ const LettersAndClearance = () => {
             </p>
           </div>
 
+          {/* Issue Letters Checklist */}
+          <div className="mb-6">
+            <label className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <input 
+                type="checkbox" 
+                checked={lettersIssued}
+                onChange={(e) => setLettersIssued(e.target.checked)}
+                className="w-5 h-5 text-green-500 rounded border-gray-300 focus:ring-green-500 dark:bg-gray-900 dark:border-gray-600 cursor-pointer"
+              />
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                Experience Letter and Relieving Letter are issued to the employee. <span className="text-red-500">*</span>
+              </span>
+            </label>
+          </div>
+
           {/* Action Buttons */}
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
             <button
@@ -902,11 +864,11 @@ const LettersAndClearance = () => {
             </button>
             <button
               onClick={handleSubmitAll}
-              disabled={isGenerating || !allLettersGenerated || pendingUploads > 0}
+              disabled={isGenerating || !lettersIssued}
               className={`px-6 py-2.5 rounded-full font-semibold transition-all flex items-center justify-center gap-2 ${
-                !allLettersGenerated || pendingUploads > 0
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-500"
-                  : "bg-green-500 text-white hover:bg-green-600 shadow-sm hover:shadow-md"
+                lettersIssued 
+                  ? "bg-green-500 text-white hover:bg-green-600 shadow-sm hover:shadow-md" 
+                  : "bg-gray-300 text-gray-500 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed"
               }`}
             >
               {isGenerating ? (
@@ -914,20 +876,10 @@ const LettersAndClearance = () => {
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   Processing...
                 </>
-              ) : !allLettersGenerated ? (
-                <>
-                  <FileText className="w-4 h-4" />
-                  Generate All Letters First
-                </>
-              ) : pendingUploads > 0 ? (
-                <>
-                  <Upload className="w-4 h-4" />
-                  Upload Pending Documents
-                </>
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  Proceed to Checklist Verification
+                  Complete Offboarding
                 </>
               )}
             </button>

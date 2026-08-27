@@ -24,6 +24,7 @@ import taskReducer from "../admin/store/slices/tasksSlice";
 import projectReducer from "../admin/store/slices/projectsSlice";
 import moduleReducer from "../admin/store/slices/moduleSlice";
 import reportReducer from "../admin/store/slices/reportSlice";
+import payrollReducer from "../admin/store/slices/payrollSlice";
 
 
 // Employee reducers
@@ -65,6 +66,7 @@ export const store = configureStore({
     projects: projectReducer,
     settings: settingsReducer,
     reports: reportReducer,
+    payroll: payrollReducer,
 
     // Employee
     EmpLeaves: leavesReducer,
