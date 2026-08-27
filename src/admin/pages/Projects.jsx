@@ -7,6 +7,7 @@ import ProjectModal from "../components/projects/ProjectModal";
 import ConfirmModal from "../components/common/ConfirmModal";
 import { showToast } from "../../components/common/Toast";
 import { FolderKanban } from "lucide-react";
+import StatusDropdown from "../components/common/StatusDropdown";
 import {
   fetchProjects,
   fetchProjectStatuses,
@@ -100,6 +101,7 @@ const Projects = () => {
       completed: { label: "Completed", class: "bg-[#f0f4ff] text-[#3b82f6] dark:bg-blue-900/30 dark:text-blue-400" },
       on_hold: { label: "On Hold", class: "bg-[#fff8e6] text-[#f59e0b] dark:bg-amber-900/30 dark:text-amber-400" },
       in_progress: { label: "In Progress", class: "bg-[#f0f4ff] text-[#3b82f6] dark:bg-blue-900/30 dark:text-blue-400" },
+      not_started: { label: "Not Started", class: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
     };
     const normalized = String(status || "").toLowerCase().replace("-", "_").replace(" ", "_");
     const s = statusMap[normalized] || { label: status || "Active", class: "bg-[#eafaf1] text-[#10b981] dark:bg-green-900/30 dark:text-green-400" };
@@ -210,29 +212,14 @@ const Projects = () => {
 
         {/* Left: Status Filter Dropdown & Search */}
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto flex-1">
-          <div className="relative w-full sm:w-44 flex-shrink-0">
-            <select
+          <div className="relative w-full sm:w-60 flex-shrink-0 z-50">
+            <StatusDropdown
+              name="status"
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setCurrentPageState(1); }}
-              className="w-full appearance-none pl-4 pr-10 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:border-green-500 transition-all cursor-pointer shadow-md"
-            >
-              <option value="all">All Status</option>
-              {statuses && statuses.length > 0 ? (
-                statuses.map((st) => (
-                  <option key={st} value={st}>
-                    {st}
-                  </option>
-                ))
-              ) : (
-                <>
-                  <option value="Active">Active</option>
-                  <option value="Completed">Completed</option>
-                  <option value="On-hold">On-hold</option>
-                  <option value="In-progress">In-progress</option>
-                </>
-              )}
-            </select>
-            <i className="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
+              statuses={statuses}
+              includeAll={true}
+            />
           </div>
 
           <div className="w-full sm:w-72">
