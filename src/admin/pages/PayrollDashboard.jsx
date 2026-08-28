@@ -39,7 +39,7 @@ const PayrollDashboard = () => {
           </div>
           <button 
             onClick={() => navigate('/admin/payroll/add')}
-            className="flex items-center gap-2 bg-green-400 hover:bg-green-500 text-green-950 px-5 py-2.5 rounded-full font-bold shadow-sm transition-all"
+            className="flex items-center gap-2 btn-primary-custom px-5 py-2.5 rounded-full font-bold shadow-sm transition-all"
           >
             <Plus size={18} strokeWidth={3} />
             Add Payroll
@@ -72,10 +72,11 @@ const PayrollDashboard = () => {
             return (
               <div 
                 key={month.id}
-                className={`flex flex-col items-center justify-center p-6 rounded-2xl border transition-all ${
+                onClick={() => navigate(`/admin/payroll/${currentYear}/${month.name.toLowerCase()}`)}
+                className={`flex flex-col items-center justify-center p-6 rounded-2xl border transition-all cursor-pointer hover:shadow-md hover:-translate-y-1 ${
                   hasPayroll 
                     ? "bg-green-50/50 dark:bg-green-900/20 border-green-400 dark:border-green-600" 
-                    : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                    : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-500"
                 }`}
               >
                 <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
