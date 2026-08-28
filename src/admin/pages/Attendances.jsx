@@ -277,26 +277,29 @@ const Attendances = () => {
   };
 
   // Handle location view
-  const handleViewLocation = (record) => {
-    const locationData = {
-      punch_in: {
-        latitude: record.punch_in_latitude,
-        longitude: record.punch_in_longitude,
-        address: record.punch_in_address,
-        time: record.punchIn,
-      },
-      punch_out: {
-        latitude: record.punch_out_latitude,
-        longitude: record.punch_out_longitude,
-        address: record.punch_out_address,
-        time: record.punchOut,
-      },
-      employeeName: record.employeeName,
-      date: record.date,
-    };
-    setSelectedLocation(locationData);
-    setShowLocationModal(true);
+  // In Attendances.jsx - Updated handleViewLocation
+const handleViewLocation = (record) => {
+  const locationData = {
+    punch_in: {
+      latitude: record.punch_in_latitude,
+      longitude: record.punch_in_longitude,
+      address: record.punch_in_address || null,
+      time: record.punchIn || record.punch_in,
+    },
+    punch_out: {
+      latitude: record.punch_out_latitude,
+      longitude: record.punch_out_longitude,
+      address: record.punch_out_address || null,
+      time: record.punchOut || record.punch_out,
+    },
+    employeeName: record.employeeName,
+    date: record.date,
   };
+  
+  
+  setSelectedLocation(locationData);
+  setShowLocationModal(true);
+};
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -561,7 +564,11 @@ const Attendances = () => {
                 <tbody>
                   {records.map((record, idx) => {
                     const hasLocation =
-                      record.punch_in_latitude && record.punch_in_longitude;
+                      (record.punch_in_latitude && record.punch_in_longitude) ||
+                      (record.punch_out_latitude &&
+                        record.punch_out_longitude) ||
+                      record.punch_in_address ||
+                      record.punch_out_address;
                     return (
                       <tr
                         key={`${record.employee_id}-${record.date}-${idx}`}
@@ -682,7 +689,7 @@ const Attendances = () => {
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={handlePageChange}
-           totalItems={totalCount}
+            totalItems={totalCount}
             itemsPerPage={perPage}
           />
         </>

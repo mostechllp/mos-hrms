@@ -1,10 +1,11 @@
-// LocationModal.jsx - FIXED VERSION WITH EDIT BUTTON ALWAYS VISIBLE
+// LocationModal.jsx - COMPLETE FIXED VERSION
 import { useState, useEffect, useRef } from "react";
 import {
   getLocationWithTimezone,
   getAddressFromCoordinates,
 } from "../../services/locationServise";
 import { getCountryFromTimezone } from "../../utils/timezoneCountryMap";
+import { getTimezoneFromCountry } from "../../utils/countryTimezoneMap";
 
 // Simple Map Component using Leaflet (or you can use Google Maps)
 import MapPicker from "./MapPicker";
@@ -18,6 +19,7 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
   const [countrySource, setCountrySource] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [rawAddressData, setRawAddressData] = useState(null);
 
   // Manual edit fields
   const [manualAddress, setManualAddress] = useState("");
@@ -26,8 +28,34 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
   const [manualCountry, setManualCountry] = useState("");
   const [manualTimezone, setManualTimezone] = useState("");
 
-  // Get current timezone from browser
+  // Get current timezone from browser (only as fallback)
   const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  // Helper function to get timezone from country
+  const getTimezoneForCountry = (countryName) => {
+    if (!countryName) return null;
+    const timezone = getTimezoneFromCountry(countryName);
+    console.log(`🌐 Country "${countryName}" -> Timezone: "${timezone}"`);
+    return timezone;
+  };
+
+  // Helper to extract country from address data with multiple fallbacks
+  const extractCountryFromAddress = (addressData) => {
+    if (!addressData) return null;
+
+    console.log("🔍 Extracting country from address data:", addressData);
+
+    // Try multiple ways to extract country
+    const possibleCountry = 
+      addressData.address?.country ||
+      addressData.address?.country_name ||
+      addressData.country ||
+      addressData.country_name ||
+      addressData.display_name?.split(",").pop()?.trim();
+
+    console.log(`📍 Extracted country: "${possibleCountry}"`);
+    return possibleCountry || null;
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -38,6 +66,7 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
   const fetchLocation = async () => {
     setLoading(true);
     setError(null);
+    setRawAddressData(null);
 
     try {
       // Get location with timezone
@@ -47,89 +76,78 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
       // Populate manual fields with detected data
       setManualLatitude(locationData.latitude?.toString() || "");
       setManualLongitude(locationData.longitude?.toString() || "");
-      setManualTimezone(locationData.timezone || browserTimezone);
 
-      // Get country from timezone
-      const countryFromTimezone = getCountryFromTimezone(locationData.timezone);
-      console.log("🌍 Country from timezone:", countryFromTimezone);
-
-      // Try to get address
+      // Try to get address and country from coordinates
       let countryFromAddress = null;
       let addressData = null;
 
       if (locationData.latitude && locationData.longitude) {
         try {
+          console.log(`📍 Fetching address for: ${locationData.latitude}, ${locationData.longitude}`);
           addressData = await getAddressFromCoordinates(
             locationData.latitude,
             locationData.longitude,
           );
+          
+          console.log("📦 Raw address data from API:", addressData);
+          setRawAddressData(addressData);
           setAddress(addressData);
           setManualAddress(addressData?.display_name || "");
 
-          if (addressData) {
-            countryFromAddress =
-              addressData.address?.country ||
-              addressData.address?.country_name ||
-              addressData.country ||
-              addressData.display_name?.split(",").pop()?.trim() ||
-              null;
+          // Extract country using the helper
+          countryFromAddress = extractCountryFromAddress(addressData);
+          console.log(`📍 Country from address: "${countryFromAddress}"`);
 
-            console.log("📍 Country from address:", countryFromAddress);
-          }
         } catch (err) {
-          console.warn(
-            "Could not fetch address, falling back to timezone:",
-            err,
-          );
+          console.warn("Could not fetch address:", err);
         }
       }
 
-      // Determine final country
-      let finalCountry = countryFromAddress || countryFromTimezone || "Unknown";
-      let source = countryFromAddress
-        ? "address"
-        : countryFromTimezone
-          ? "timezone"
-          : "fallback";
+      // If country is still not found, try to get it from timezone
+      let finalCountry = countryFromAddress;
+      let source = "address";
 
-      if (
-        finalCountry === "Unknown" &&
-        countryFromTimezone &&
-        countryFromTimezone !== "Unknown"
-      ) {
-        finalCountry = countryFromTimezone;
-        source = "timezone";
-      }
-
-      if (countryFromAddress && countryFromAddress !== "Unknown") {
-        finalCountry = countryFromAddress;
-        source = "address";
+      if (!finalCountry || finalCountry === "Unknown" || finalCountry === "") {
+        // Try to get country from timezone as fallback
+        const countryFromTimezone = getCountryFromTimezone(locationData.timezone || browserTimezone);
+        if (countryFromTimezone && countryFromTimezone !== "Unknown") {
+          finalCountry = countryFromTimezone;
+          source = "timezone-fallback";
+          console.log(`🔄 Fallback: Using timezone for country: "${finalCountry}"`);
+        } else {
+          finalCountry = "Unknown";
+          source = "fallback";
+        }
       }
 
       console.log(`✅ Final country: "${finalCountry}" (from ${source})`);
       setCountry(finalCountry);
       setCountrySource(source);
       setManualCountry(finalCountry);
+
+      // 🎯 CRITICAL FIX: Derive timezone from country, not from browser
+      let timezoneFromCountry = null;
+      if (finalCountry && finalCountry !== "Unknown") {
+        timezoneFromCountry = getTimezoneForCountry(finalCountry);
+      }
+
+      // If we got a timezone from country, use it; otherwise fallback to browser
+      const finalTimezone = timezoneFromCountry || browserTimezone;
+      console.log(`⏰ Final timezone: "${finalTimezone}" (source: ${timezoneFromCountry ? 'country' : 'browser-fallback'})`);
+
+      // Update location with correct timezone
+      setLocation((prev) => ({
+        ...prev,
+        timezone: finalTimezone,
+        timezone_offset: getTimezoneOffsetFormatted(finalTimezone),
+        timezone_offset_minutes: getTimezoneOffsetMinutes(finalTimezone),
+      }));
+
+      setManualTimezone(finalTimezone);
+
     } catch (err) {
       console.error("❌ Location fetch error:", err);
       setError(err.message || "Failed to get location");
-
-      // Fallback: try to get timezone
-      try {
-        const fallbackCountry = getCountryFromTimezone(browserTimezone);
-        if (fallbackCountry && fallbackCountry !== "Unknown") {
-          console.log(
-            "🔄 Fallback: Using timezone for country:",
-            fallbackCountry,
-          );
-          setCountry(fallbackCountry);
-          setCountrySource("timezone-fallback");
-          setManualCountry(fallbackCountry);
-          setManualTimezone(browserTimezone);
-        }
-      } catch (tzError) {
-        console.warn("Could not get timezone for fallback:", tzError);
-      }
     } finally {
       setLoading(false);
     }
@@ -142,18 +160,29 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
     setManualLatitude(selectedLocation.lat.toString());
     setManualLongitude(selectedLocation.lng.toString());
     setManualAddress(selectedLocation.address || "");
-    setManualCountry(selectedLocation.country || manualCountry);
-    setManualTimezone(
-      selectedLocation.timezone || manualTimezone || browserTimezone,
-    );
 
-    // Update the location object with selected coordinates
+    // 🎯 CRITICAL FIX: Derive timezone from the selected country
+    let timezoneFromCountry = null;
+    let selectedCountry = selectedLocation.country || selectedLocation.country_name;
+    
+    if (selectedCountry) {
+      timezoneFromCountry = getTimezoneForCountry(selectedCountry);
+    }
+
+    const finalTimezone = timezoneFromCountry || browserTimezone;
+    console.log(`⏰ Map selection timezone: "${finalTimezone}"`);
+
+    setManualCountry(selectedCountry || manualCountry);
+    setManualTimezone(finalTimezone);
+
+    // Update the location object with selected coordinates and timezone
     setLocation({
       ...location,
       latitude: parseFloat(selectedLocation.lat),
       longitude: parseFloat(selectedLocation.lng),
-      timezone:
-        selectedLocation.timezone || location?.timezone || browserTimezone,
+      timezone: finalTimezone,
+      timezone_offset: getTimezoneOffsetFormatted(finalTimezone),
+      timezone_offset_minutes: getTimezoneOffsetMinutes(finalTimezone),
     });
 
     // Update address
@@ -163,17 +192,13 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
     });
 
     // Update country
-    if (selectedLocation.country) {
-      setCountry(selectedLocation.country);
+    if (selectedCountry) {
+      setCountry(selectedCountry);
+      setCountrySource("map-selection");
     }
 
     setShowMapPicker(false);
     setIsEditing(true);
-
-    // Auto-fill the address field
-    if (selectedLocation.address) {
-      setManualAddress(selectedLocation.address);
-    }
   };
 
   // Toggle edit mode
@@ -207,6 +232,14 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
         break;
       case "country":
         setManualCountry(value);
+        // 🎯 When country is manually changed, update timezone accordingly
+        if (value && value !== "Unknown") {
+          const timezoneFromCountry = getTimezoneForCountry(value);
+          if (timezoneFromCountry) {
+            setManualTimezone(timezoneFromCountry);
+            console.log(`🔄 Manual country change: "${value}" -> timezone: "${timezoneFromCountry}"`);
+          }
+        }
         break;
       case "timezone":
         setManualTimezone(value);
@@ -239,19 +272,33 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
         return;
       }
 
+      // 🎯 CRITICAL FIX: Ensure timezone is derived from country if not manually set
+      let finalTimezone = manualTimezone;
+      if (!finalTimezone || finalTimezone === "") {
+        const timezoneFromCountry = getTimezoneForCountry(manualCountry);
+        finalTimezone = timezoneFromCountry || browserTimezone;
+        setManualTimezone(finalTimezone);
+      }
+
+      // If country is set but timezone doesn't match, update timezone to match country
+      if (manualCountry && manualCountry !== "Unknown") {
+        const correctTimezone = getTimezoneForCountry(manualCountry);
+        if (correctTimezone && correctTimezone !== finalTimezone) {
+          console.log(`🔄 Updating timezone from "${finalTimezone}" to "${correctTimezone}" to match country "${manualCountry}"`);
+          finalTimezone = correctTimezone;
+          setManualTimezone(finalTimezone);
+        }
+      }
+
       const locationPayload = {
         latitude: finalLat,
         longitude: finalLng,
         address: manualAddress || `${finalLat}, ${finalLng}`,
         accuracy: location?.accuracy || null,
         timestamp: new Date().toISOString(),
-        timezone: manualTimezone || browserTimezone,
-        timezone_offset: manualTimezone
-          ? getTimezoneOffset(manualTimezone)
-          : location?.timezone_offset,
-        timezone_offset_minutes: manualTimezone
-          ? getTimezoneOffsetMinutes(manualTimezone)
-          : location?.timezone_offset_minutes,
+        timezone: finalTimezone,
+        timezone_offset: getTimezoneOffsetFormatted(finalTimezone),
+        timezone_offset_minutes: getTimezoneOffsetMinutes(finalTimezone),
         work_location: manualCountry || "Unknown",
         country_source: "manual-edit",
       };
@@ -265,6 +312,19 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
         return;
       }
 
+      // 🎯 CRITICAL FIX: Ensure timezone is derived from country
+      let finalTimezone = location.timezone;
+      let finalCountry = country || "Unknown";
+      
+      // If country is set, try to get correct timezone
+      if (finalCountry && finalCountry !== "Unknown") {
+        const timezoneFromCountry = getTimezoneForCountry(finalCountry);
+        if (timezoneFromCountry) {
+          finalTimezone = timezoneFromCountry;
+          console.log(`🔄 Using timezone "${finalTimezone}" from country "${finalCountry}"`);
+        }
+      }
+
       const locationPayload = {
         latitude: location.latitude,
         longitude: location.longitude,
@@ -276,11 +336,11 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
           `${location.latitude}, ${location.longitude}`,
         accuracy: location.accuracy,
         timestamp: location.timestamp,
-        timezone: location.timezone,
-        timezone_offset: location.timezone_offset,
-        timezone_offset_minutes: location.timezone_offset_minutes,
-        work_location: country || "Unknown",
-        country_source: countrySource,
+        timezone: finalTimezone,
+        timezone_offset: getTimezoneOffsetFormatted(finalTimezone),
+        timezone_offset_minutes: getTimezoneOffsetMinutes(finalTimezone),
+        work_location: finalCountry,
+        country_source: countrySource || "detected",
       };
 
       console.log("📍 Confirming detected location:", locationPayload);
@@ -288,9 +348,10 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
     }
   };
 
-  // Helper to get timezone offset
-  const getTimezoneOffset = (timezone) => {
+  // Helper to get timezone offset formatted
+  const getTimezoneOffsetFormatted = (timezone) => {
     try {
+      if (!timezone) return "Unknown";
       const date = new Date();
       const formatter = new Intl.DateTimeFormat("en", {
         timeZone: timezone,
@@ -304,14 +365,11 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
     }
   };
 
+  // Helper to get timezone offset in minutes
   const getTimezoneOffsetMinutes = (timezone) => {
     try {
+      if (!timezone) return -new Date().getTimezoneOffset();
       const date = new Date();
-      const formatter = new Intl.DateTimeFormat("en", {
-        timeZone: timezone,
-        timeZoneName: "short",
-      });
-      // Simplified: get UTC offset in minutes
       const utcDate = new Date(
         date.toLocaleString("en-US", { timeZone: "UTC" }),
       );
@@ -340,7 +398,6 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
           <h3 className="text-xl font-bold">
             {isEditing ? "Edit Location" : "Verify Your Location"}
           </h3>
-          {/* ✅ EDIT BUTTON - Always visible when not loading */}
           {!loading && (
             <button
               onClick={toggleEditMode}
@@ -396,7 +453,6 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
 
         {!loading && !error && (
           <>
-            {/* ✅ Show Map Picker Button - Always visible when not loading */}
             <button
               onClick={() => setShowMapPicker(true)}
               className="w-full mb-3 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
@@ -405,7 +461,6 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
               {isEditing ? "Select Location on Map" : "View on Map"}
             </button>
 
-            {/* Location Display / Edit Fields */}
             <div className="bg-[var(--surface2)] rounded-lg p-4 my-4">
               <div className="flex items-start gap-3">
                 <i
@@ -413,7 +468,6 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
                 ></i>
                 <div className="flex-1 space-y-3">
                   {isEditing ? (
-                    // Edit Mode - Show input fields
                     <>
                       <div>
                         <label className="text-xs font-semibold text-[var(--muted)] block mb-1">
@@ -432,17 +486,13 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <label className="text-xs font-semibold text-[var(--muted)] block mb-1">
-                            <i className="fas fa-arrows-alt-h mr-1"></i>{" "}
-                            Latitude
+                            <i className="fas fa-arrows-alt-h mr-1"></i> Latitude
                           </label>
                           <input
                             type="text"
                             value={manualLatitude}
                             onChange={(e) =>
-                              handleManualFieldChange(
-                                "latitude",
-                                e.target.value,
-                              )
+                              handleManualFieldChange("latitude", e.target.value)
                             }
                             className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm"
                             placeholder="0.000000"
@@ -450,17 +500,13 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
                         </div>
                         <div>
                           <label className="text-xs font-semibold text-[var(--muted)] block mb-1">
-                            <i className="fas fa-arrows-alt-v mr-1"></i>{" "}
-                            Longitude
+                            <i className="fas fa-arrows-alt-v mr-1"></i> Longitude
                           </label>
                           <input
                             type="text"
                             value={manualLongitude}
                             onChange={(e) =>
-                              handleManualFieldChange(
-                                "longitude",
-                                e.target.value,
-                              )
+                              handleManualFieldChange("longitude", e.target.value)
                             }
                             className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm"
                             placeholder="0.000000"
@@ -490,19 +536,15 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
                             type="text"
                             value={manualTimezone}
                             onChange={(e) =>
-                              handleManualFieldChange(
-                                "timezone",
-                                e.target.value,
-                              )
+                              handleManualFieldChange("timezone", e.target.value)
                             }
                             className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm"
-                            placeholder="Asia/Kolkata"
+                            placeholder="Asia/Riyadh"
                           />
                         </div>
                       </div>
                     </>
                   ) : (
-                    // Display Mode - Show detected location
                     <>
                       <p className="text-sm font-semibold mb-1">
                         📍 Location Detected
@@ -531,18 +573,29 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
                             Accuracy: {Math.round(location.accuracy)}m
                           </p>
                         )}
+                        {/* 🎯 Display timezone derived from country/address */}
                         <p className="text-blue-500 flex items-center gap-1">
                           <i className="fas fa-clock text-xs"></i>
-                          Timezone: {location?.timezone || "Unknown"}
+                          Timezone: {location?.timezone || manualTimezone || "Detecting..."}
+                          {country && country !== "Unknown" && country !== "" && (
+                            <span className="text-xs text-green-500 ml-1">
+                              (from {country})
+                            </span>
+                          )}
                         </p>
                         <p className="text-purple-500 flex items-center gap-1">
                           <i className="fas fa-globe text-xs"></i>
                           UTC Offset: {location?.timezone_offset || "Unknown"}
                         </p>
-                        {country && (
+                        {country && country !== "Unknown" && country !== "" && (
                           <p className="text-green-500 flex items-center gap-1">
                             <i className="fas fa-flag text-xs"></i>
                             Country: {country}
+                            {countrySource && countrySource !== "fallback" && (
+                              <span className="text-xs text-gray-400 ml-1">
+                                (from {countrySource})
+                              </span>
+                            )}
                           </p>
                         )}
                       </div>
