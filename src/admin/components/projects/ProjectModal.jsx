@@ -4,6 +4,7 @@ import { createProject, updateProject } from "../../store/slices/projectsSlice";
 import { showToast } from "../../../components/common/Toast";
 import apiClient from "../../../utils/apiClient";
 import { FolderKanban } from "lucide-react";
+import StatusDropdown from "../common/StatusDropdown";
 
 const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
   const dispatch = useDispatch();
@@ -390,27 +391,13 @@ const ProjectModal = ({ isOpen, onClose, project, onSuccess }) => {
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Status
                 </label>
-                <select
+                <StatusDropdown
                   name="status"
                   value={formData.status}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
-                >
-                  {statuses && statuses.length > 0 ? (
-                    statuses.map((st) => (
-                      <option key={st} value={st}>
-                        {st}
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="Active">Active</option>
-                      <option value="Completed">Completed</option>
-                      <option value="On-hold">On-hold</option>
-                      <option value="In-progress">In-progress</option>
-                    </>
-                  )}
-                </select>
+                  statuses={statuses}
+                  includeAll={false}
+                />
               </div>
 
               <div>

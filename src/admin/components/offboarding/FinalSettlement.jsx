@@ -120,20 +120,7 @@ const FinalSettlement = () => {
       
       setTimeout(() => {
         const currentId = offboardingId || localStorage.getItem("offboarding_id");
-        const savedVisaSponsorship = localStorage.getItem("offboarding_visa_sponsorship");
-        let isVisaReq = true;
-        
-        if (savedVisaSponsorship) {
-          isVisaReq = savedVisaSponsorship !== "Not Applicable";
-        } else if (currentId) {
-          const sessionVisaStatus = sessionStorage.getItem(`visa_required_${currentId}`);
-          if (sessionVisaStatus) {
-            isVisaReq = sessionVisaStatus === "true";
-          }
-        }
-        
-        const targetRoute = isVisaReq ? "visa-cancellation" : "exit-interview";
-        navigate(`/admin/employees/${targetRoute}?id=${currentId}`);
+        navigate(`/admin/employees/letters-and-clearance?id=${currentId}`);
       }, 1500);
     } catch (error) {
       console.error("Update settlement error:", error);
@@ -148,11 +135,11 @@ const FinalSettlement = () => {
     return new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  if (loading || offboardingLoading || !calculatedData) {
+  if ((loading || offboardingLoading) && offboardingId) {
     return (
       <div className="min-h-screen bg-gray-50/30 dark:bg-gray-900/40 p-4 sm:p-6 lg:p-8">
         <div className="max-w-5xl mx-auto space-y-6">
-          <OffboardingHeader currentStep={6} />
+          <OffboardingHeader currentStep={5} />
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-soft p-12">
             <div className="flex flex-col items-center justify-center gap-4">
               <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
@@ -164,12 +151,28 @@ const FinalSettlement = () => {
     );
   }
 
+  // Provide dummy data if just viewing fields without an active session
+  const displayData = calculatedData || {
+    employee: { name: "Employee Name", employee_id: "EMP-XXXX", department: "Department", designation: "Designation", joining_date: "2020-01-01", last_working_day: "2024-01-01" },
+    service_period: { years: 4, months: 0, days: 0 },
+    notice_period: { notice_period_days: 30, notice_start_date: "2023-12-01", notice_end_date: "2024-01-01", shortfall_days: 0, days_served: 30 },
+    attendance: { days_worked: 30, working_days: 30 },
+    leave: { leave_taken: 5, leave_allocated: 20, unpaid_leave_days: 0, leave_balance_days: 15 },
+    salary: { per_day_salary: 100 },
+    leave_encashment: { leave_balance_days: 15, amount: 1500 },
+    gratuity: { gratuity_days: 84, amount: 8400 },
+    overtime: { amount: 0 },
+    total_payable: 9900,
+    total_deductions: 0,
+    salary_packages: [{ currency: "USD" }]
+  };
+
   const totalCustomDeductions = customDeductions.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-  const finalTotalPayable = calculatedData.total_payable;
-  const finalTotalDeductions = calculatedData.total_deductions + totalCustomDeductions;
+  const finalTotalPayable = displayData.total_payable;
+  const finalTotalDeductions = displayData.total_deductions + totalCustomDeductions;
   const finalNetPayable = finalTotalPayable - finalTotalDeductions;
-  const emp = calculatedData.employee;
-  const currency = calculatedData?.salary_packages?.[0]?.currency || "AED";
+  const emp = displayData.employee;
+  const currency = displayData?.salary_packages?.[0]?.currency || "AED";
 
   // Reusable ReadOnly Input Component
   const ReadOnlyInput = ({ label, value }) => (
@@ -190,8 +193,8 @@ const FinalSettlement = () => {
     <div className="min-h-screen bg-gray-50/30 dark:bg-gray-900/40 p-4 sm:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
 
-        <OffboardingHeader currentStep={3} />
-        <OffboardingProgressBox currentStep={3} />
+        <OffboardingHeader currentStep={5} />
+        <OffboardingProgressBox currentStep={5} />
 
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-soft p-6 sm:p-8">
           <div className="flex justify-between items-center mb-8">
@@ -216,10 +219,10 @@ const FinalSettlement = () => {
             {/* 2. Service & Notice Period */}
             <h2 className="text-sm font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-4">Service & Notice Period</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <ReadOnlyInput label="Service Completed" value={`${calculatedData.service_period.years} yr ${calculatedData.service_period.months} mo ${calculatedData.service_period.days} d`} />
-              <ReadOnlyInput label="Notice Period (Days)" value={calculatedData.notice_period.notice_period_days} />
-              <ReadOnlyInput label="Notice Window" value={`${formatDate(calculatedData.notice_period.notice_start_date)} to ${formatDate(calculatedData.notice_period.notice_end_date)}`} />
-              <ReadOnlyInput label="Shortfall / Days Served" value={`${calculatedData.notice_period.shortfall_days} shortfall / ${calculatedData.notice_period.days_served} served`} />
+              <ReadOnlyInput label="Service Completed" value={`${displayData.service_period.years} yr ${displayData.service_period.months} mo ${displayData.service_period.days} d`} />
+              <ReadOnlyInput label="Notice Period (Days)" value={displayData.notice_period.notice_period_days} />
+              <ReadOnlyInput label="Notice Window" value={`${formatDate(displayData.notice_period.notice_start_date)} to ${formatDate(displayData.notice_period.notice_end_date)}`} />
+              <ReadOnlyInput label="Shortfall / Days Served" value={`${displayData.notice_period.shortfall_days} shortfall / ${displayData.notice_period.days_served} served`} />
             </div>
 
             <div className="h-px bg-gray-100 dark:bg-gray-700 w-full my-8"></div>
@@ -227,11 +230,11 @@ const FinalSettlement = () => {
             {/* 3. Attendance & Leave */}
             <h2 className="text-sm font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-4">Attendance & Leave</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <ReadOnlyInput label="Days Worked / Working Days" value={`${calculatedData.attendance.days_worked} / ${calculatedData.attendance.working_days}`} />
-              <ReadOnlyInput label="Leave Taken / Allocated" value={`${calculatedData.leave.leave_taken} / ${calculatedData.leave.leave_allocated}`} />
-              <ReadOnlyInput label="Unpaid Leave Days" value={calculatedData.leave.unpaid_leave_days} />
-              <ReadOnlyInput label="Leave Balance" value={`${calculatedData.leave.leave_balance_days} days`} />
-              <ReadOnlyInput label="Per Day Salary" value={`${currency} ${calculatedData.salary.per_day_salary.toLocaleString(undefined, {minimumFractionDigits:2})}`} />
+              <ReadOnlyInput label="Days Worked / Working Days" value={`${displayData.attendance.days_worked} / ${displayData.attendance.working_days}`} />
+              <ReadOnlyInput label="Leave Taken / Allocated" value={`${displayData.leave.leave_taken} / ${displayData.leave.leave_allocated}`} />
+              <ReadOnlyInput label="Unpaid Leave Days" value={displayData.leave.unpaid_leave_days} />
+              <ReadOnlyInput label="Leave Balance" value={`${displayData.leave.leave_balance_days} days`} />
+              <ReadOnlyInput label="Per Day Salary" value={`${currency} ${displayData.salary.per_day_salary.toLocaleString(undefined, {minimumFractionDigits:2})}`} />
             </div>
 
             <div className="h-px bg-gray-100 dark:bg-gray-700 w-full my-8"></div>
@@ -239,9 +242,9 @@ const FinalSettlement = () => {
             {/* 4. Earnings */}
             <h2 className="text-sm font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-4">Earnings</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <ReadOnlyInput label={`Leave Encashment (${calculatedData.leave_encashment.leave_balance_days} days)`} value={`${currency} ${calculatedData.leave_encashment.amount.toLocaleString(undefined, {minimumFractionDigits:2})}`} />
-              <ReadOnlyInput label={`Gratuity (${calculatedData.gratuity.gratuity_days.toFixed(2)} days)`} value={`${currency} ${calculatedData.gratuity.amount.toLocaleString(undefined, {minimumFractionDigits:2})}`} />
-              <ReadOnlyInput label="Overtime" value={`${currency} ${calculatedData.overtime.amount.toLocaleString(undefined, {minimumFractionDigits:2})}`} />
+              <ReadOnlyInput label={`Leave Encashment (${displayData.leave_encashment.leave_balance_days} days)`} value={`${currency} ${displayData.leave_encashment.amount.toLocaleString(undefined, {minimumFractionDigits:2})}`} />
+              <ReadOnlyInput label={`Gratuity (${displayData.gratuity.gratuity_days.toFixed(2)} days)`} value={`${currency} ${displayData.gratuity.amount.toLocaleString(undefined, {minimumFractionDigits:2})}`} />
+              <ReadOnlyInput label="Overtime" value={`${currency} ${displayData.overtime.amount.toLocaleString(undefined, {minimumFractionDigits:2})}`} />
               <ReadOnlyInput label="Gross Final Payable" value={`${currency} ${finalTotalPayable.toLocaleString(undefined, {minimumFractionDigits:2})}`} />
             </div>
 
@@ -259,9 +262,9 @@ const FinalSettlement = () => {
             </div>
             
             <div className="space-y-4">
-              {calculatedData.total_deductions > 0 && (
+              {displayData.total_deductions > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <ReadOnlyInput label="Standard Deductions" value={`${currency} ${calculatedData.total_deductions.toLocaleString(undefined, {minimumFractionDigits:2})}`} />
+                  <ReadOnlyInput label="Standard Deductions" value={`${currency} ${displayData.total_deductions.toLocaleString(undefined, {minimumFractionDigits:2})}`} />
                 </div>
               )}
               
@@ -342,7 +345,7 @@ const FinalSettlement = () => {
             {/* Submit Button */}
             <div className="flex justify-end gap-4 pt-6">
               <button
-                onClick={() => navigate(`/admin/employees/exit-interview?id=${offboardingId}`)}
+                onClick={() => navigate(`/admin/employees/offboarding/access-removal?id=${offboardingId}`)}
                 className="px-6 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
