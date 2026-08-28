@@ -423,7 +423,7 @@ const Dashboard = () => {
           });
           localStorage.setItem("attendance-on-break", "true");
           localStorage.setItem("attendance-break-start-time", nowStr);
-          showToastMessage("⏸️ Break Started", "success");
+          showToastMessage("Break Started", "success");
           dispatch(fetchEmployeeBreaks());
         } else {
           showToastMessage(
@@ -465,7 +465,7 @@ const Dashboard = () => {
             newTotal.toString(),
           );
           localStorage.removeItem("attendance-break-start-time");
-          showToastMessage("▶️ Work Resumed", "success");
+          showToastMessage("Work Resumed", "success");
 
           // Refresh break table from backend
           dispatch(fetchEmployeeBreaks());
