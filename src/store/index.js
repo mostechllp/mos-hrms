@@ -37,6 +37,7 @@ import taskReportsReducer from "../employee/store/slices/taskReportsSlice";
 import EmpAttendanceReducer from "../employee/store/slices/attendanceSlice";
 import EmpAttendanceTypeReducer from "../employee/store/slices/attendanceTypeSlice";
 import employeeTasksReducer from "../employee/store/slices/taskSlice";
+import myPayrollReducer from "../employee/store/slices/myPayrollSlice";
 
 
 export const store = configureStore({
@@ -78,6 +79,7 @@ export const store = configureStore({
     EmpAttendance: EmpAttendanceReducer,
     EmpAttendanceType: EmpAttendanceTypeReducer,
     employeeTasks: employeeTasksReducer,
+    myPayroll: myPayrollReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

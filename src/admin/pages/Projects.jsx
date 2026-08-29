@@ -24,7 +24,7 @@ const Projects = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [viewMode, setViewMode] = useState("grid"); // "grid" | "list"
+  const [viewMode, setViewMode] = useState("grid");
   const [currentPageState, setCurrentPageState] = useState(1);
   const [perPageState, setPerPageState] = useState(15);
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -95,7 +95,61 @@ const Projects = () => {
     setShowProjectModal(true);
   };
 
-  const getStatusBadge = (status) => {
+  // Helper function to check if project is overdue
+  const isProjectOverdue = (endDate) => {
+    if (!endDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+    return end < today;
+  };
+
+  // Helper function to get days remaining or overdue
+  const getProjectDateStatus = (endDate) => {
+    if (!endDate) return { status: 'no_date', label: 'No end date', className: 'text-gray-400' };
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+    const diffTime = end - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      const overdueDays = Math.abs(diffDays);
+      return { 
+        status: 'overdue', 
+        label: `${overdueDays} day${overdueDays > 1 ? 's' : ''} overdue`, 
+        className: 'text-red-600 dark:text-red-400 font-semibold'
+      };
+    } else if (diffDays === 0) {
+      return { 
+        status: 'due_today', 
+        label: 'Due today', 
+        className: 'text-orange-600 dark:text-orange-400 font-semibold'
+      };
+    } else if (diffDays <= 7) {
+      return { 
+        status: 'ending_soon', 
+        label: `${diffDays} day${diffDays > 1 ? 's' : ''} left`, 
+        className: 'text-yellow-600 dark:text-yellow-400'
+      };
+    } else {
+      return { 
+        status: 'ok', 
+        label: `${diffDays} days left`, 
+        className: 'text-gray-500 dark:text-gray-400'
+      };
+    }
+  };
+
+  // Check if project should show as overdue (end date passed AND not completed)
+  const shouldShowOverdue = (project) => {
+    return isProjectOverdue(project.end_date) && project.status !== 'Completed';
+  };
+
+  const getStatusBadge = (status, endDate) => {
     const statusMap = {
       active: { label: "Active", class: "bg-[#eafaf1] text-[#10b981] dark:bg-green-900/30 dark:text-green-400" },
       completed: { label: "Completed", class: "bg-[#f0f4ff] text-[#3b82f6] dark:bg-blue-900/30 dark:text-blue-400" },
@@ -105,7 +159,22 @@ const Projects = () => {
     };
     const normalized = String(status || "").toLowerCase().replace("-", "_").replace(" ", "_");
     const s = statusMap[normalized] || { label: status || "Active", class: "bg-[#eafaf1] text-[#10b981] dark:bg-green-900/30 dark:text-green-400" };
-    return <span className={`px-2.5 py-1 rounded-full text-[10px] md:text-xs font-semibold ${s.class}`}>{s.label}</span>;
+    
+    // Check if overdue (only for non-completed projects)
+    const isOverdue = shouldShowOverdue({ status, end_date: endDate });
+    
+    return (
+      <div className="flex flex-col gap-1 items-end">
+        <span className={`px-2.5 py-1 rounded-full text-[10px] md:text-xs font-semibold ${s.class}`}>
+          {s.label}
+        </span>
+        {isOverdue && (
+          <span className="px-2 py-0.5 rounded-full text-[8px] md:text-[10px] font-bold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 animate-pulse">
+            Overdue
+          </span>
+        )}
+      </div>
+    );
   };
 
   const formatDate = (dateString) => {
@@ -117,10 +186,13 @@ const Projects = () => {
   const start = (currentPageState - 1) * perPageState;
   const totalPages = lastPage || Math.ceil((searchTerm || statusFilter !== "all" ? projects.length : totalCount) / perPageState);
 
+  // Calculate overdue count (only non-completed projects with passed end date)
+  const overdueCount = projects?.filter(p => shouldShowOverdue(p)).length || 0;
+
   return (
     <div className="w-full overflow-x-hidden space-y-5 pb-8">
 
-      {/* Stat Cards Row - Standardized Text & Card Sizes */}
+      {/* Stat Cards Row */}
       <div className="stats-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
 
         {/* Total Projects Card */}
@@ -159,21 +231,23 @@ const Projects = () => {
           <div className="absolute bottom-0 left-0 w-20 md:w-24 h-1 bg-[#3b82f6] rounded-r-full"></div>
         </div>
 
-        {/* On Hold Projects Card */}
+        {/* Overdue Projects Card */}
         <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 shadow-xs flex items-center gap-3 md:gap-4">
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-[#f3f4f6] dark:bg-gray-700 text-[#4b5563] dark:text-gray-300 flex items-center justify-center flex-shrink-0 text-sm md:text-lg">
-            <i className="far fa-pause-circle"></i>
+          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-[#fee2e2] dark:bg-red-900/30 text-[#ef4444] dark:text-red-400 flex items-center justify-center flex-shrink-0 text-sm md:text-lg">
+            <i className="fas fa-exclamation-triangle"></i>
           </div>
           <div>
-            <div className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white leading-tight">{stats?.onHold || 0}</div>
-            <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5">On Hold</div>
+            <div className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+              {overdueCount}
+            </div>
+            <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5">Overdue</div>
           </div>
-          <div className="absolute bottom-0 left-0 w-20 md:w-24 h-1 bg-[#4b5563] rounded-r-full"></div>
+          <div className="absolute bottom-0 left-0 w-20 md:w-24 h-1 bg-[#ef4444] rounded-r-full"></div>
         </div>
 
       </div>
 
-      {/* Standardized Page Heading & View Switcher */}
+      {/* Page Heading & View Switcher */}
       <div className="flex justify-between items-center my-2">
         <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent flex items-center gap-2">
           <FolderKanban className="text-[#10b981] w-5 h-5 md:w-6 md:h-6" />
@@ -207,10 +281,9 @@ const Projects = () => {
         </div>
       </div>
 
-      {/* Filter & Controls Toolbar - Standardized Button Text Sizes */}
+      {/* Filter & Controls Toolbar */}
       <div className="flex flex-col md:flex-row gap-3 md:gap-4 justify-between items-center mb-5">
 
-        {/* Left: Status Filter Dropdown & Search */}
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto flex-1">
           <div className="relative w-full sm:w-60 flex-shrink-0 z-50">
             <StatusDropdown
@@ -231,7 +304,6 @@ const Projects = () => {
           </div>
         </div>
 
-        {/* Right: Actions */}
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto justify-end">
           <button
             onClick={handleRefresh}
@@ -269,80 +341,112 @@ const Projects = () => {
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-            {projects.map((project) => (
-              <div
-                key={project.id}
-                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 md:p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between"
-              >
-                <div>
-                  {/* Top Row: Folder Icon + Title & Client + Status Badge */}
-                  <div className="flex justify-between items-start mb-3 gap-2">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-[#eafaf1] dark:bg-green-900/20 text-[#10b981] dark:text-green-400 flex items-center justify-center flex-shrink-0">
-                        <FolderKanban className="w-5 h-5 md:w-6 md:h-6" />
+            {projects.map((project) => {
+              const dateStatus = getProjectDateStatus(project.end_date);
+              const isOverdue = shouldShowOverdue(project);
+              
+              return (
+                <div
+                  key={project.id}
+                  className={`bg-white dark:bg-gray-800 rounded-xl border ${
+                    isOverdue 
+                      ? 'border-red-400 dark:border-red-600 shadow-red-100 dark:shadow-red-900/20 bg-red-50/10 dark:bg-red-900/5' 
+                      : 'border-gray-200 dark:border-gray-700'
+                  } p-4 md:p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between`}
+                >
+                  <div>
+                    {/* Top Row */}
+                    <div className="flex justify-between items-start mb-3 gap-2">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className={`w-9 h-9 md:w-10 md:h-10 rounded-xl ${
+                          isOverdue 
+                            ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' 
+                            : 'bg-[#eafaf1] dark:bg-green-900/20 text-[#10b981] dark:text-green-400'
+                        } flex items-center justify-center flex-shrink-0`}>
+                          <FolderKanban className="w-5 h-5 md:w-6 md:h-6" />
+                        </div>
+                        <div className="overflow-hidden">
+                          <h3 className="font-bold text-gray-800 dark:text-gray-200 text-sm md:text-base leading-tight truncate" title={project.project_name || project.name}>
+                            {project.project_name || project.name}
+                          </h3>
+                          <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5 truncate">
+                            {project.client_name || project.project_name || project.name}
+                          </p>
+                        </div>
                       </div>
-                      <div className="overflow-hidden">
-                        <h3 className="font-bold text-gray-800 dark:text-gray-200 text-sm md:text-base leading-tight truncate" title={project.project_name || project.name}>
-                          {project.project_name || project.name}
-                        </h3>
-                        <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5 truncate">
-                          {project.client_name || project.project_name || project.name}
-                        </p>
+                      <div className="flex-shrink-0 ml-2">
+                        {getStatusBadge(project.status, project.end_date)}
                       </div>
                     </div>
-                    <div className="flex-shrink-0 ml-2">
-                      {getStatusBadge(project.status)}
+
+
+                    {project.website_url && (
+                      <a
+                        href={project.website_url.startsWith('http') ? project.website_url : `https://${project.website_url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] md:text-xs text-blue-500 hover:underline block mb-2 truncate"
+                      >
+                        {project.website_url}
+                      </a>
+                    )}
+
+                    {project.description && (
+                      <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">
+                        {project.description || project.Project_descriptions}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Bottom Row */}
+                  <div className="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-gray-700/60 mt-2">
+                    <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <i className="far fa-calendar text-gray-400"></i>
+                        <span>{formatDate(project.start_date)}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <i className="far fa-calendar-check text-gray-400"></i>
+                        <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-bold' : dateStatus.className}>
+                          {formatDate(project.end_date)}
+                          {!isOverdue && dateStatus.status !== 'no_date' && dateStatus.status !== 'ok' && (
+                            <span className="ml-1 text-[8px] font-bold">
+                              ({dateStatus.label})
+                            </span>
+                          )}
+                          {isOverdue && (
+                            <span className="ml-1 text-[8px] font-bold text-red-600 dark:text-red-400">
+                              (Overdue)
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleEdit(project)}
+                        className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                        title="Edit"
+                      >
+                        <i className="fas fa-edit text-xs md:text-sm"></i>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(project)}
+                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                        title="Delete"
+                      >
+                        <i className="fas fa-trash text-xs md:text-sm"></i>
+                      </button>
                     </div>
                   </div>
 
-                  {project.website_url && (
-                    <a
-                      href={project.website_url.startsWith('http') ? project.website_url : `https://${project.website_url}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] md:text-xs text-blue-500 hover:underline block mb-2 truncate"
-                    >
-                      {project.website_url}
-                    </a>
-                  )}
-
-                  {project.description && (
-                    <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">
-                      {project.description || project.Project_descriptions}
-                    </p>
-                  )}
                 </div>
-
-                {/* Bottom Row: Calendar Date Range & Square Bordered Actions */}
-                <div className="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-gray-700/60 mt-2">
-                  <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1.5">
-                    <i className="far fa-calendar text-gray-400"></i>
-                    <span>{formatDate(project.start_date)} - {formatDate(project.end_date)}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleEdit(project)}
-                      className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
-                      title="Edit"
-                    >
-                      <i className="fas fa-edit text-xs md:text-sm"></i>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(project)}
-                      className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                      title="Delete"
-                    >
-                      <i className="fas fa-trash text-xs md:text-sm"></i>
-                    </button>
-                  </div>
-                </div>
-
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
-          /* List View Table - Standardized Table Sizes */
+          /* List View Table */
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-xs">
             <div className="min-w-[750px] md:min-w-0">
               <table className="w-full border-collapse">
@@ -357,55 +461,86 @@ const Projects = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                  {projects.map((project, index) => (
-                    <tr key={project.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                        {start + index + 1}
-                      </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-[#eafaf1] dark:bg-green-900/20 text-[#10b981] dark:text-green-400 flex items-center justify-center flex-shrink-0">
-                            <FolderKanban className="w-4 h-4 md:w-5 md:h-5" />
+                  {projects.map((project, index) => {
+                    const dateStatus = getProjectDateStatus(project.end_date);
+                    const isOverdue = shouldShowOverdue(project);
+                    
+                    return (
+                      <tr key={project.id} className={`hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors ${isOverdue ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                          {start + index + 1}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-8 h-8 rounded-xl ${
+                              isOverdue 
+                                ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' 
+                                : 'bg-[#eafaf1] dark:bg-green-900/20 text-[#10b981] dark:text-green-400'
+                            } flex items-center justify-center flex-shrink-0`}>
+                              <FolderKanban className="w-4 h-4 md:w-5 md:h-5" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-gray-800 dark:text-gray-200 text-xs md:text-sm">{project.project_name || project.name}</p>
+                              {isOverdue && (
+                                <span className="text-[8px] md:text-[10px] text-red-600 dark:text-red-400 font-semibold flex items-center gap-1">
+                                  <i className="fas fa-exclamation-circle"></i> Overdue
+                                </span>
+                              )}
+                              {project.website_url && (
+                                <a href={project.website_url.startsWith('http') ? project.website_url : `https://${project.website_url}`} target="_blank" rel="noopener noreferrer" className="text-[10px] md:text-xs text-blue-500 hover:underline">
+                                  {project.website_url}
+                                </a>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-bold text-gray-800 dark:text-gray-200 text-xs md:text-sm">{project.project_name || project.name}</p>
-                            {project.website_url && (
-                              <a href={project.website_url.startsWith('http') ? project.website_url : `https://${project.website_url}`} target="_blank" rel="noopener noreferrer" className="text-[10px] md:text-xs text-blue-500 hover:underline">
-                                {project.website_url}
-                              </a>
-                            )}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                          {project.client_name || "-"}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-gray-500 dark:text-gray-400 text-[10px] md:text-xs">
+                              Start: {formatDate(project.start_date)}
+                            </span>
+                            <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-bold' : dateStatus.className}>
+                              End: {formatDate(project.end_date)}
+                              {isOverdue && (
+                                <span className="ml-1 text-[8px] font-bold text-red-600 dark:text-red-400">
+                                  (Overdue)
+                                </span>
+                              )}
+                              {!isOverdue && dateStatus.status !== 'no_date' && dateStatus.status !== 'ok' && (
+                                <span className="ml-1 text-[8px] font-bold">
+                                  ({dateStatus.label})
+                                </span>
+                              )}
+                            </span>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                        {project.client_name || "-"}
-                      </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                        {formatDate(project.start_date)} - {formatDate(project.end_date)}
-                      </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3">
-                        {getStatusBadge(project.status)}
-                      </td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleEdit(project)}
-                            className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
-                            title="Edit"
-                          >
-                            <i className="fas fa-edit text-xs md:text-sm"></i>
-                          </button>
-                          <button
-                            onClick={() => handleDelete(project)}
-                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                            title="Delete"
-                          >
-                            <i className="fas fa-trash text-xs md:text-sm"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3">
+                          {getStatusBadge(project.status, project.end_date)}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleEdit(project)}
+                              className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                              title="Edit"
+                            >
+                              <i className="fas fa-edit text-xs md:text-sm"></i>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(project)}
+                              className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                              title="Delete"
+                            >
+                              <i className="fas fa-trash text-xs md:text-sm"></i>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
