@@ -142,6 +142,9 @@ const EmployeeTasks = lazy(() => import("./employee/pages/Tasks"));
 const AttendanceRequests = lazy(
   () => import("./employee/pages/AttendanceRequests"),
 );
+const MyPayroll = lazy(
+  () => import("./employee/pages/MyPayroll"),
+);
 
 // Custom wrapper for lazy-loaded components
 const LazyWrapper = ({ children }) => {
@@ -382,6 +385,7 @@ function App() {
           <Route path="attendance" element={<Attendances />} />
           <Route path="documents" element={<Agreements />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="my-payroll" element={<MyPayroll />} />
           <Route path="settings" element={<Settings />} />
           <Route path="projects" element={<Projects />} />
           <Route path="projects/:id/tasks" element={<ProjectTasks />} />

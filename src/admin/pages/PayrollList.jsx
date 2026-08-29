@@ -47,16 +47,6 @@ const PayrollList = () => {
 
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-6 flex flex-col justify-between">
             <div className="mb-4">
-              <p className="text-sm font-bold text-green-500">AED</p>
-            </div>
-            <div>
-              <h3 className="text-3xl font-black text-green-500 leading-none">AED 0.00</h3>
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 mt-2">AED Total Amount</p>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-6 flex flex-col justify-between">
-            <div className="mb-4">
               <p className="text-sm font-bold text-blue-600 dark:text-blue-400">INR</p>
             </div>
             <div>

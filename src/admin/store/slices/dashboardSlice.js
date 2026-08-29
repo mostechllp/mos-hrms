@@ -6,6 +6,7 @@ export const fetchDashboard = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const res = await apiClient.get("/admin/dashboard");
+      console.log('Dashboard API Response:', res.data);
       return res.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data || "Error fetching dashboard");
@@ -22,6 +23,7 @@ const dashboardSlice = createSlice({
     metadata: null,
     loading: false,
     error: null,
+    tasks: [],
   },
   reducers: {},
   extraReducers: (builder) => {
@@ -33,8 +35,10 @@ const dashboardSlice = createSlice({
         state.loading = false;
         state.stats = action.payload.stats;
         state.charts = action.payload.charts;
+         state.tasks = action.payload.tasks || [];
         state.recentData = action.payload.recent_data;
         state.metadata = action.payload.metadata;
+        
       })
       .addCase(fetchDashboard.rejected, (state, action) => {
         state.loading = false;

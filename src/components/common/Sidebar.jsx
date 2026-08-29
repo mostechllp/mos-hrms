@@ -22,6 +22,7 @@ const ADMIN_ROUTE_MAP = {
   settings: "/admin/settings",
   "my-tasks": "/admin/my-tasks",
   organizations: "/admin/organizations",
+  "my-payroll": "/employee/my-payroll",
 };
 
 const EMPLOYEE_ROUTE_MAP = {
@@ -43,6 +44,7 @@ const EMPLOYEE_ROUTE_MAP = {
   roles: "/employee/role-management",
   "my-tasks": "/employee/my-tasks",
   organizations: "/employee/organizations",
+   "my-payroll": "/employee/my-payroll",
 };
 
 const ICON_MAP = {
@@ -65,6 +67,7 @@ const ICON_MAP = {
   settings: "fas fa-gear",
   "my-tasks": "fas fa-user-check",
   organizations: "fas fa-building",
+  "my-payroll": "fas fa-file-invoice-dollar",
 };
 
 // Configuration for parent menus and their children
@@ -104,6 +107,7 @@ const MODULE_ORDER = {
   payroll: 12,
   leaves: 13,
   organization: 14,
+  "my-payroll": 15,
 };
 
 // Child modules that should be hidden for Admin/Super Admin

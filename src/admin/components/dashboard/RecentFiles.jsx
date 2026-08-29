@@ -145,13 +145,13 @@ const RecentFiles = () => {
         setIsFileModalOpen(true);
         break;
       case "all":
-        navigate("/admin/documents/add-document");
+        navigate("/admin/documents/add-agreement");
         break;
       case "documents":
         navigate("/admin/documents/add-agreement");
         break;
       case "hr":
-        navigate("/admin/documents/add-document");
+        navigate("/admin/documents/add-agreement");
         break;
       case "employees":
         navigate("/admin/employees/add-employee");
