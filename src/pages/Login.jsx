@@ -344,16 +344,16 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Branding */}
+      {/* Left Side - Branding with Footer inside */}
       <div
-        className="hidden lg:flex flex-1 relative overflow-hidden items-center justify-center p-10"
+        className="hidden lg:flex flex-1 relative overflow-hidden items-center justify-center p-10 flex-col"
         style={{
           background: `linear-gradient(135deg, ${primaryColor}, ${darkerColor})`,
           transition: "background 0.3s ease",
         }}
       >
         <div className="absolute inset-0 bg-black/20"></div>
-        <div className="relative z-10 text-center text-white max-w-md">
+        <div className="relative z-10 text-center text-white max-w-md flex-1 flex flex-col items-center justify-center">
           <div className="mb-8">
             <img
               src="https://violet-leopard-500489.hostingersite.com/hr/public/assets/images/hr-logo2.jpg"
@@ -366,7 +366,7 @@ const Login = () => {
             Unified portal for administrators and employees. Seamlessly manage
             attendance, leaves, reports, and more in one place.
           </p>
-          <div className="space-y-3 text-left">
+          <div className="space-y-3 text-left w-full max-w-sm">
             {[
               "Employee Directory & Profiles",
               "Smart Attendance Tracking",
@@ -382,6 +382,21 @@ const Login = () => {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Footer inside Left Side - One line */}
+        <div className="relative z-10 w-full text-center text-white/70 text-xs md:text-sm pt-2 pb-0 border-t border-white/20">
+          <p>
+            © {new Date().getFullYear()} All Rights Reserved &nbsp;|&nbsp; Developed by{" "}
+            <a
+              href="https://mostech.ae/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white hover:text-white/90 font-medium transition-colors hover:underline"
+            >
+              Mostech Business Solutions
+            </a>
+          </p>
         </div>
       </div>
 
