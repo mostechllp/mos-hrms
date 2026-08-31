@@ -65,7 +65,9 @@ const Dashboard = () => {
   const { primaryColor, primaryDark } = useAppTheme();
 
   // Working hours from settings (for dynamic overtime calculation)
-  const { workingHours: workingHoursData } = useSelector((state) => state.settings || {});
+  const { workingHours: workingHoursData } = useSelector(
+    (state) => state.settings || {},
+  );
 
   const [activeTaskTab, setActiveTaskTab] = useState("today_assigned_tasks");
 
@@ -1041,6 +1043,30 @@ const Dashboard = () => {
     breakStartTime,
   ]);
 
+  const getAvatarUrl = (avatarPath) => {
+    if (!avatarPath) return null;
+
+    if (avatarPath.startsWith("http://") || avatarPath.startsWith("https://")) {
+      return avatarPath;
+    }
+
+    const baseUrl =
+      import.meta.env.VITE_API_URL?.replace("/api", "") ||
+      window.location.origin;
+
+    if (avatarPath.startsWith("avatars/")) {
+      return `${baseUrl}/storage/${avatarPath}`;
+    }
+    if (avatarPath.startsWith("storage/")) {
+      return `${baseUrl}/${avatarPath}`;
+    }
+    if (avatarPath.startsWith("/storage/")) {
+      return `${baseUrl}${avatarPath}`;
+    }
+
+    return `${baseUrl}/storage/${avatarPath}`;
+  };
+
   const getDuration = () => {
     if (!displayPunchTime) return "00h 00m 00s";
 
@@ -1107,6 +1133,11 @@ const Dashboard = () => {
     }
   }, [displayPunchTime]);
 
+  const employeeAvatar = dashboardData?.employee?.avatar
+    ? getAvatarUrl(dashboardData.employee.avatar)
+    : user?.avatar
+      ? getAvatarUrl(user.avatar)
+      : null;
   return (
     <div>
       {/* Welcome Banner with Theme Support */}
@@ -1116,7 +1147,19 @@ const Dashboard = () => {
       >
         <div className="welcome-left flex items-center gap-5 flex-wrap">
           <div className="welcome-avatar w-16 h-16 rounded-xl overflow-hidden border-3 border-white shadow-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <i className="fas fa-user text-white text-3xl"></i>
+            {employeeAvatar ? (
+              <img
+                src={employeeAvatar}
+                alt={getEmployeeName()}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                  e.target.parentElement.innerHTML = `<i class="fas fa-user text-white text-3xl"></i>`;
+                }}
+              />
+            ) : (
+              <i className="fas fa-user text-white text-3xl"></i>
+            )}
           </div>
           <div className="welcome-text">
             <h2 className="text-xl md:text-2xl font-bold text-white">
