@@ -1,9 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  FiX,
-  FiCheckCircle,
-  FiClock,
-} from "react-icons/fi";
+import { FiX, FiCheckCircle, FiClock } from "react-icons/fi";
 import { showToast } from "../common/Toast";
 
 // Punch Out Modal Component
@@ -17,6 +13,7 @@ export const PunchOutModal = ({
   isOnBreak,
   breakStartTime,
   workingHours, // Object from Redux: { monday: { enabled, start, end }, ... }
+  workingHoursFromAPI, // "10 hrs" or "6 hrs 48 mins" from API
 }) => {
   const [tasksCompleted, setTasksCompleted] = useState("");
   const [planTomorrow, setPlanTomorrow] = useState("");
@@ -37,7 +34,10 @@ export const PunchOutModal = ({
     if (!time) return null;
     try {
       // Handle "HH:MM AM/PM" format (e.g., "08:59 AM")
-      if (typeof time === "string" && time.match(/(\d{1,2}:\d{2})\s*(AM|PM)/i)) {
+      if (
+        typeof time === "string" &&
+        time.match(/(\d{1,2}:\d{2})\s*(AM|PM)/i)
+      ) {
         const match = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
         if (match) {
           let hours = parseInt(match[1], 10);
@@ -54,7 +54,7 @@ export const PunchOutModal = ({
             now.getDate(),
             hours,
             minutes,
-            0
+            0,
           );
         }
       }
@@ -69,7 +69,7 @@ export const PunchOutModal = ({
           now.getDate(),
           parseInt(hours, 10),
           parseInt(minutes, 10),
-          parseInt(seconds, 10)
+          parseInt(seconds, 10),
         );
       }
 
@@ -100,11 +100,16 @@ export const PunchOutModal = ({
     }
   };
 
-  // Default fallback limits per JS day index (0=Sun, 1=Mon, ..., 6=Sat)
-  const DEFAULT_LIMIT_HOURS = [0, 9, 9, 9, 9, 9, 4]; // Sun=0 (non-working), Mon-Fri=9h, Sat=4h
+  const DEFAULT_LIMIT_HOURS = [0, 9, 9, 9, 9, 9, 4];
 
   const DAY_KEYS = [
-    "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
   ];
 
   const getLimitMs = () => {
@@ -112,7 +117,7 @@ export const PunchOutModal = ({
     const date = parsePunchTime(punchInTime);
     if (!date || isNaN(date.getTime())) return 9 * 3600000;
 
-    const dayIndex = date.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    const dayIndex = date.getDay();
     const dayKey = DAY_KEYS[dayIndex];
 
     const parseHM = (t) => {
@@ -124,10 +129,9 @@ export const PunchOutModal = ({
     };
 
     if (workingHours) {
-      // 1. Array format directly from API response
       if (Array.isArray(workingHours)) {
         const daySchedule = workingHours.find(
-          (item) => item && item.day && item.day.toLowerCase() === dayKey
+          (item) => item && item.day && item.day.toLowerCase() === dayKey,
         );
 
         if (daySchedule) {
@@ -143,9 +147,7 @@ export const PunchOutModal = ({
             return limitMs > 0 ? limitMs : 0;
           }
         }
-      }
-      // 2. Object format from Redux state
-      else if (typeof workingHours === "object") {
+      } else if (typeof workingHours === "object") {
         const daySchedule = workingHours[dayKey];
 
         if (daySchedule) {
@@ -162,12 +164,61 @@ export const PunchOutModal = ({
       }
     }
 
-    // Fallback to default schedule if API data is not available
     return DEFAULT_LIMIT_HOURS[dayIndex] * 3600000;
   };
 
-  const LIMIT_MS = getLimitMs();
+  // Parse API working hours string to milliseconds
+  const parseWorkingHoursFromAPI = (workingHoursStr) => {
+    if (!workingHoursStr) return null;
 
+    let totalMinutes = 0;
+
+    // Match "X hrs" pattern (handles "10 hrs", "10hrs", "10 h", "10h")
+    const hoursMatch = workingHoursStr.match(/(\d+)\s*(?:hrs?|h)/i);
+    if (hoursMatch) {
+      totalMinutes += parseInt(hoursMatch[1], 10) * 60;
+    }
+
+    // Match "X mins" pattern (handles "48 mins", "48mins", "48 m", "48m")
+    const minsMatch = workingHoursStr.match(/(\d+)\s*(?:mins?|m)/i);
+    if (minsMatch) {
+      totalMinutes += parseInt(minsMatch[1], 10);
+    }
+
+    // If no hours or minutes found, try to parse as a decimal hours
+    if (totalMinutes === 0) {
+      const decimalMatch = workingHoursStr.match(/(\d+\.?\d*)\s*(?:hrs?|h|hours?)/i);
+      if (decimalMatch) {
+        totalMinutes = Math.round(parseFloat(decimalMatch[1]) * 60);
+      }
+    }
+
+    console.log(`📊 Parsed "${workingHoursStr}" → ${totalMinutes} minutes → ${totalMinutes * 60 * 1000} ms`);
+    return totalMinutes > 0 ? totalMinutes * 60 * 1000 : null;
+  };
+
+  // NEW: Get the actual worked hours from API (in milliseconds)
+  const getActualWorkedMsFromAPI = () => {
+    if (!workingHoursFromAPI) return null;
+    return parseWorkingHoursFromAPI(workingHoursFromAPI);
+  };
+
+  // Get the working hours limit (daily limit from settings)
+  const getWorkingHoursLimit = () => {
+    // First try to use API data for the limit (if the API provides it)
+    // But in your case, workingHoursFromAPI is the actual hours worked, not the limit
+    // So we use settings for the limit
+    const settingsLimit = getLimitMs();
+    console.log("📋 Daily working hours limit (from settings):", settingsLimit, "ms");
+    return settingsLimit;
+  };
+
+  const LIMIT_MS = getWorkingHoursLimit();
+  
+  // Get actual worked hours from API
+  const actualWorkedMs = getActualWorkedMsFromAPI();
+
+  // We still keep workingMs for real-time display, but use actualWorkedMs for overtime check
   const getWorkingDurationMs = () => {
     if (!punchInTime) return 0;
 
@@ -200,30 +251,36 @@ export const PunchOutModal = ({
     }
   }, [isOpen, punchInTime, totalBreakMs, isOnBreak, breakStartTime]);
 
-  const isOvertimeThresholdExceeded = workingMs > LIMIT_MS;
+  // CRITICAL: Use API working hours for overtime check, fallback to frontend calculation
+  const effectiveWorkedMs = actualWorkedMs !== null ? actualWorkedMs : workingMs;
+  const isOvertimeThresholdExceeded = effectiveWorkedMs > LIMIT_MS;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // Only validate tasks completed
+
     if (!tasksCompleted.trim()) {
       showToast("Please fill in Tasks Completed Today", "error");
       return;
     }
-    
-    const finalOvertime = isOvertimeThresholdExceeded && isOvertimeConfirmed;
-    const finalOvertimeHours = finalOvertime ? formatDuration(workingMs - LIMIT_MS) : null;
 
-    console.group("🔍 PUNCH OUT MODAL DEBUG");
+    const finalOvertime = isOvertimeThresholdExceeded && isOvertimeConfirmed;
+    const finalOvertimeHours = finalOvertime
+      ? formatDuration(effectiveWorkedMs - LIMIT_MS)
+      : null;
+
+    console.group("🔍 PUNCH OUT SUBMIT");
     console.log("📤 Submitting with data:", {
       tasks_completed: tasksCompleted,
       plan_tomorrow: planTomorrow || null,
       pending_tasks: pendingWorks || null,
       is_overtime: finalOvertime,
       overtime_hours: finalOvertimeHours,
+      working_hours_from_api: workingHoursFromAPI,
+      actual_worked_ms: effectiveWorkedMs,
+      daily_limit_ms: LIMIT_MS,
     });
     console.groupEnd();
-    
+
     onSubmit({
       tasks_completed: tasksCompleted,
       plan_tomorrow: planTomorrow || null,
@@ -231,8 +288,7 @@ export const PunchOutModal = ({
       is_overtime: finalOvertime,
       overtime_hours: finalOvertimeHours,
     });
-    
-    // Clear form after submit
+
     setTasksCompleted("");
     setPlanTomorrow("");
     setPendingWorks("");
@@ -254,41 +310,75 @@ export const PunchOutModal = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col flex-1 overflow-hidden"
+        >
           <div className="flex-1 overflow-y-auto p-5">
-            {/* Overtime Info Display */}
-            {isOvertimeThresholdExceeded && (
-              <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                <h4 className="text-sm font-bold text-amber-500 mb-2.5 flex items-center gap-1.5">
-                  <FiClock size={16} /> Overtime Detected
+            {/* Overtime Info Display - Always show working hours info */}
+            {(effectiveWorkedMs > 0) && (
+              <div className={`mb-6 p-4 rounded-xl border ${
+                isOvertimeThresholdExceeded 
+                  ? "bg-amber-500/10 border-amber-500/20" 
+                  : "bg-blue-500/10 border-blue-500/20"
+              }`}>
+                <h4 className={`text-sm font-bold mb-2.5 flex items-center gap-1.5 ${
+                  isOvertimeThresholdExceeded ? "text-amber-500" : "text-blue-500"
+                }`}>
+                  <FiClock size={16} /> 
+                  {isOvertimeThresholdExceeded ? "⚠️ Overtime Detected" : "Working Hours Summary"}
                 </h4>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs mb-3 text-[var(--text)]">
                   <div className="p-2 bg-[var(--surface2)] rounded-lg">
-                    <span className="text-[var(--muted)] block mb-0.5">Working Hours</span>
-                    <span className="font-semibold text-gray-400">{formatDuration(LIMIT_MS)}</span>
+                    <span className="text-[var(--muted)] block mb-0.5">
+                      Daily Limit
+                    </span>
+                    <span className="font-semibold text-gray-400">
+                      {formatDuration(LIMIT_MS)}
+                    </span>
                   </div>
                   <div className="p-2 bg-[var(--surface2)] rounded-lg">
-                    <span className="text-[var(--muted)] block mb-0.5">Worked Hours</span>
-                    <span className="font-semibold">{formatDuration(workingMs)}</span>
+                    <span className="text-[var(--muted)] block mb-0.5">
+                      Worked Hours
+                    </span>
+                    <span className={`font-semibold ${
+                      isOvertimeThresholdExceeded ? "text-amber-500" : "text-green-500"
+                    }`}>
+                      {workingHoursFromAPI || formatDuration(effectiveWorkedMs)}
+                    </span>
                   </div>
-                  <div className="p-2 bg-amber-500/20 rounded-lg text-amber-600 dark:text-amber-400 font-bold">
-                    <span className="block mb-0.5">Extra Time</span>
-                    <span>{formatDuration(workingMs - LIMIT_MS)}</span>
+                  <div className={`p-2 rounded-lg font-bold ${
+                    isOvertimeThresholdExceeded 
+                      ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" 
+                      : "bg-green-500/20 text-green-600 dark:text-green-400"
+                  }`}>
+                    <span className="block mb-0.5">
+                      {isOvertimeThresholdExceeded ? "Overtime" : "Remaining"}
+                    </span>
+                    <span>
+                      {isOvertimeThresholdExceeded 
+                        ? formatDuration(effectiveWorkedMs - LIMIT_MS)
+                        : formatDuration(LIMIT_MS - effectiveWorkedMs)
+                      }
+                    </span>
                   </div>
                 </div>
-                
-                <label className="flex items-start gap-2.5 cursor-pointer select-none mt-2 p-1.5 hover:bg-amber-500/5 rounded-lg transition-colors">
-                  <input
-                    type="checkbox"
-                    name="is_overtime"
-                    checked={isOvertimeConfirmed}
-                    onChange={(e) => setIsOvertimeConfirmed(e.target.checked)}
-                    className="mt-0.5 rounded text-amber-500 focus:ring-amber-500/20 border-[var(--border)] bg-[var(--surface2)] cursor-pointer h-4 w-4"
-                  />
-                  <span className="text-xs font-semibold text-[var(--text)] leading-tight">
-                    Is this extra {formatDuration(workingMs - LIMIT_MS)} actually to be counted as Overtime?
-                  </span>
-                </label>
+
+                {/* Show overtime checkbox only when threshold is exceeded */}
+                {isOvertimeThresholdExceeded && (
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none mt-2 p-1.5 hover:bg-amber-500/5 rounded-lg transition-colors">
+                    <input
+                      type="checkbox"
+                      name="is_overtime"
+                      checked={isOvertimeConfirmed}
+                      onChange={(e) => setIsOvertimeConfirmed(e.target.checked)}
+                      className="mt-0.5 rounded text-amber-500 focus:ring-amber-500/20 border-[var(--border)] bg-[var(--surface2)] cursor-pointer h-4 w-4"
+                    />
+                    <span className="text-xs font-semibold text-[var(--text)] leading-tight">
+                      Is this extra {formatDuration(effectiveWorkedMs - LIMIT_MS)} actually to be counted as Overtime?
+                    </span>
+                  </label>
+                )}
               </div>
             )}
 
@@ -308,7 +398,10 @@ export const PunchOutModal = ({
 
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[var(--text)] mb-2">
-                Pending Works <span className="text-gray-400 text-xs font-normal">(Optional)</span>
+                Pending Works{" "}
+                <span className="text-gray-400 text-xs font-normal">
+                  (Optional)
+                </span>
               </label>
               <textarea
                 value={pendingWorks}
@@ -324,7 +417,10 @@ export const PunchOutModal = ({
 
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[var(--text)] mb-2">
-                Plan for Tomorrow <span className="text-gray-400 text-xs font-normal">(Optional)</span>
+                Plan for Tomorrow{" "}
+                <span className="text-gray-400 text-xs font-normal">
+                  (Optional)
+                </span>
               </label>
               <textarea
                 value={planTomorrow}

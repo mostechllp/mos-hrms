@@ -2005,6 +2005,7 @@ const Dashboard = () => {
         isOnBreak={isOnBreak}
         breakStartTime={breakStartTime}
         workingHours={workingHoursData}
+        workingHoursFromAPI={todayAttendance.working_hours}
       />
 
       {/* Location Modal */}
