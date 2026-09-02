@@ -25,6 +25,32 @@ import {
 } from "../store/slices/attendanceSlice";
 import LocationViewModal from "../components/attendance/LocationViewModal";
 import BreakDetailsModal from "../components/attendance/BreakDetailsModal";
+import { fetchEmployees } from "../store/slices/employeeSlice";
+
+// Helper function to get avatar URL
+const getAvatarUrl = (avatarPath) => {
+  if (!avatarPath) return null;
+
+  if (avatarPath.startsWith("http://") || avatarPath.startsWith("https://")) {
+    return avatarPath;
+  }
+
+  const baseUrl =
+    import.meta.env.VITE_API_URL?.replace("/api", "") ||
+    window.location.origin;
+
+  if (avatarPath.startsWith("avatars/")) {
+    return `${baseUrl}/storage/${avatarPath}`;
+  }
+  if (avatarPath.startsWith("storage/")) {
+    return `${baseUrl}/${avatarPath}`;
+  }
+  if (avatarPath.startsWith("/storage/")) {
+    return `${baseUrl}${avatarPath}`;
+  }
+
+  return `${baseUrl}/storage/${avatarPath}`;
+};
 
 const Attendances = () => {
   const dispatch = useDispatch();
@@ -41,6 +67,11 @@ const Attendances = () => {
     totalCount,
     lastPage,
   } = useSelector((state) => state.attendance);
+  
+  // Get employees from Redux state
+  const { employees, loading: employeesLoading } = useSelector(
+    (state) => state.employees || { employees: [], loading: false }
+  );
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
@@ -54,11 +85,13 @@ const Attendances = () => {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [companyFilter, setCompanyFilter] = useState("all");
-  const [nameFilter, setNameFilter] = useState("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(15);
   const [refreshLoading, setRefreshLoading] = useState(false);
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
 
   const pollingRef = useRef(null);
   const filtersRef = useRef({
@@ -66,7 +99,7 @@ const Attendances = () => {
     perPage,
     companyFilter,
     searchTerm,
-    nameFilter,
+    selectedEmployeeId,
   });
 
   useEffect(() => {
@@ -75,8 +108,21 @@ const Attendances = () => {
       perPage,
       companyFilter,
       searchTerm,
-      nameFilter,
+      selectedEmployeeId,
     };
+  });
+
+  // Fetch employees on mount
+  useEffect(() => {
+    dispatch(fetchEmployees());
+  }, [dispatch]);
+
+  // Filter employees based on search term
+  const filteredEmployees = employees.filter((emp) => {
+    const searchLower = employeeSearchTerm.toLowerCase().trim();
+    if (!searchLower) return true;
+    const empName = (emp.name || "").toLowerCase();
+    return empName.includes(searchLower);
   });
 
   const fetchAll = useCallback(() => {
@@ -88,7 +134,7 @@ const Attendances = () => {
           per_page: f.perPage,
           company: f.companyFilter !== "all" ? f.companyFilter : undefined,
           search: f.searchTerm || undefined,
-          name: f.nameFilter || undefined,
+          employee_id: f.selectedEmployeeId || undefined,
         }),
       ),
       dispatch(fetchPunchInToday()),
@@ -101,7 +147,7 @@ const Attendances = () => {
 
   useEffect(() => {
     fetchAll();
-  }, [currentPage, perPage, companyFilter, searchTerm, nameFilter]);
+  }, [currentPage, perPage, companyFilter, searchTerm, selectedEmployeeId]);
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -196,7 +242,7 @@ const Attendances = () => {
             per_page: f.perPage,
             company: f.companyFilter !== "all" ? f.companyFilter : undefined,
             search: f.searchTerm || undefined,
-            name: f.nameFilter || undefined,
+            employee_id: f.selectedEmployeeId || undefined,
           }),
         ),
         dispatch(fetchPunchInToday()),
@@ -277,46 +323,64 @@ const Attendances = () => {
   };
 
   // Handle location view
-  // In Attendances.jsx - Updated handleViewLocation
-const handleViewLocation = (record) => {
-  const locationData = {
-    punch_in: {
-      latitude: record.punch_in_latitude,
-      longitude: record.punch_in_longitude,
-      address: record.punch_in_address || null,
-      time: record.punchIn || record.punch_in,
-    },
-    punch_out: {
-      latitude: record.punch_out_latitude,
-      longitude: record.punch_out_longitude,
-      address: record.punch_out_address || null,
-      time: record.punchOut || record.punch_out,
-    },
-    employeeName: record.employeeName,
-    date: record.date,
+  const handleViewLocation = (record) => {
+    const locationData = {
+      punch_in: {
+        latitude: record.punch_in_latitude,
+        longitude: record.punch_in_longitude,
+        address: record.punch_in_address || null,
+        time: record.punchIn || record.punch_in,
+      },
+      punch_out: {
+        latitude: record.punch_out_latitude,
+        longitude: record.punch_out_longitude,
+        address: record.punch_out_address || null,
+        time: record.punchOut || record.punch_out,
+      },
+      employeeName: record.employeeName,
+      date: record.date,
+    };
+    
+    setSelectedLocation(locationData);
+    setShowLocationModal(true);
   };
-  
-  
-  setSelectedLocation(locationData);
-  setShowLocationModal(true);
-};
+
+  // Handle employee selection from dropdown
+  const handleEmployeeSelect = (employee) => {
+    if (employee) {
+      setSelectedEmployeeId(employee.id.toString());
+      setEmployeeSearchTerm(employee.name || "");
+    } else {
+      setSelectedEmployeeId("");
+      setEmployeeSearchTerm("");
+    }
+    setShowEmployeeDropdown(false);
+    setCurrentPage(1);
+  };
+
+  // Clear employee filter
+  const clearEmployeeFilter = () => {
+    setSelectedEmployeeId("");
+    setEmployeeSearchTerm("");
+    setShowEmployeeDropdown(false);
+    setCurrentPage(1);
+  };
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+  
   const handlePerPageChange = (value) => {
     setPerPage(value);
     setCurrentPage(1);
   };
+  
   const handleCompanyFilterChange = (e) => {
     setCompanyFilter(e.target.value);
     setCurrentPage(1);
   };
-  const handleNameFilterChange = (e) => {
-    setNameFilter(e.target.value);
-    setCurrentPage(1);
-  };
+  
   const handleSearchChange = (value) => {
     setSearchTerm(value);
     setCurrentPage(1);
@@ -383,7 +447,6 @@ const handleViewLocation = (record) => {
     <div className="w-full overflow-x-hidden">
       {/* Stats Cards */}
       <div className="stats-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-6">
-        {/* ... existing stats cards ... */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
           <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1 md:mb-2">
             <i className="fas fa-users text-green-600 dark:text-green-400 text-sm md:text-lg"></i>
@@ -474,13 +537,116 @@ const handleViewLocation = (record) => {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
-        <input
-          type="text"
-          value={nameFilter}
-          onChange={handleNameFilterChange}
-          placeholder="Employee Name..."
-          className="flex-1 sm:flex-none px-3 md:px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs md:text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500 w-full sm:w-48"
-        />
+        {/* Employee Name Dropdown */}
+        <div className="relative flex-1 sm:flex-none w-full sm:w-64">
+          <div className="relative">
+            <input
+              type="text"
+              value={employeeSearchTerm}
+              onChange={(e) => {
+                setEmployeeSearchTerm(e.target.value);
+                setShowEmployeeDropdown(true);
+                if (!e.target.value) {
+                  setSelectedEmployeeId("");
+                }
+              }}
+              onFocus={() => setShowEmployeeDropdown(true)}
+              placeholder="Search Employee..."
+              className="w-full px-3 md:px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs md:text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500 pr-8"
+            />
+            {selectedEmployeeId && (
+              <button
+                onClick={clearEmployeeFilter}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <i className="fas fa-times-circle"></i>
+              </button>
+            )}
+            {!selectedEmployeeId && (
+              <i className="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+            )}
+          </div>
+
+          {/* Dropdown */}
+          {showEmployeeDropdown && (
+            <div className="absolute z-20 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+              {employeesLoading ? (
+                <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  Loading employees...
+                </div>
+              ) : filteredEmployees.length > 0 ? (
+                <>
+                  {/* "All Employees" option */}
+                  <div
+                    className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center gap-2 border-b border-gray-100 dark:border-gray-700"
+                    onClick={() => {
+                      handleEmployeeSelect(null);
+                      setEmployeeSearchTerm("");
+                    }}
+                  >
+                    <i className="fas fa-users text-gray-400"></i>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      All Employees
+                    </span>
+                    {!selectedEmployeeId && (
+                      <i className="fas fa-check text-green-500 ml-auto text-xs"></i>
+                    )}
+                  </div>
+                  
+                  {filteredEmployees.map((emp) => {
+                    const avatarUrl = getAvatarUrl(emp.avatar);
+                    return (
+                      <div
+                        key={emp.id}
+                        className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center gap-3"
+                        onClick={() => handleEmployeeSelect(emp)}
+                      >
+                        {avatarUrl ? (
+                          <img
+                            src={avatarUrl}
+                            alt={emp.name}
+                            className="w-6 h-6 rounded-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                              const parent = e.target.parentElement;
+                              const fallback = parent.querySelector(".avatar-fallback");
+                              if (fallback) {
+                                fallback.style.display = "flex";
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className={`w-6 h-6 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600 dark:text-green-400 text-xs font-bold avatar-fallback ${
+                            avatarUrl ? "hidden" : "flex"
+                          }`}
+                        >
+                          {(emp.name || "?").charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm text-gray-700 dark:text-gray-300">
+                            {emp.name}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {emp.designation} • {emp.department}
+                          </div>
+                        </div>
+                        {selectedEmployeeId === emp.id.toString() && (
+                          <i className="fas fa-check text-green-500 text-xs"></i>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              ) : (
+                <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                  No employees found
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <button
           onClick={refreshAllData}
@@ -492,6 +658,7 @@ const handleViewLocation = (record) => {
           ></i>
           <span className="hidden sm:inline">Refresh</span>
         </button>
+        
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto ml-auto">
           <SearchBar
             value={searchTerm}
@@ -673,7 +840,7 @@ const handleViewLocation = (record) => {
                   {records.length === 0 && (
                     <tr>
                       <td
-                        colSpan="10"
+                        colSpan="11"
                         className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                       >
                         No attendance records found
@@ -742,7 +909,7 @@ const handleViewLocation = (record) => {
         initialBreaks={selectedBreakRecord?.breaks}
         employeeName={selectedBreakRecord?.employeeName}
         date={selectedBreakRecord?.date}
-        attendanceId={selectedBreakRecord?.id} // Pass the attendance record ID
+        attendanceId={selectedBreakRecord?.id}
       />
 
       {/* Location View Modal */}
