@@ -9,6 +9,7 @@ import {
   ListChecks,
   Archive,
   Loader2,
+  Users,
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -48,18 +49,23 @@ const PayrollList = () => {
     }
   }, [dispatch, year, month]);
 
-  // Prepare table data - combine employees with payroll entries or use employees as base
-  const tableData = payrollEntries.length > 0 ? payrollEntries : employees;
+  // ✅ FIX: Ensure we always have arrays
+  const safeEmployees = Array.isArray(employees) ? employees : [];
+  const safePayrollEntries = Array.isArray(payrollEntries) ? payrollEntries : [];
 
-  // Filter data based on search term and status
+  // Prepare table data - combine employees with payroll entries or use employees as base
+  const tableData = safePayrollEntries.length > 0 ? safePayrollEntries : safeEmployees;
+
+  // ✅ FIX: Filter data with safe array check
   const filteredData = tableData.filter((item) => {
+    if (!item) return false;
     const searchMatch =
       searchTerm === "" ||
-      item.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
+      (item.first_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (item.last_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (item.employee_id?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (item.name?.toLowerCase() || "").includes(searchTerm.toLowerCase());
 
-    // Status filter - you can adjust based on your actual data structure
     const statusMatch =
       statusFilter === "all" ||
       (statusFilter === "paid" && item.status === "paid") ||
@@ -71,7 +77,7 @@ const PayrollList = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.ceil(filteredData.length / entries);
+  const totalPages = Math.ceil(filteredData.length / entries) || 1;
   const startIndex = (currentPage - 1) * entries;
   const paginatedData = filteredData.slice(startIndex, startIndex + entries);
 
@@ -81,9 +87,8 @@ const PayrollList = () => {
     (item) => item.status === "pending" || !item.status,
   ).length;
 
-  // Calculate total amount (mock - you can adjust based on actual data)
+  // Calculate total amount
   const totalAmount = filteredData.reduce((acc, item) => {
-    // If you have salary data in your items, use it
     const salary = item.salary || item.gross_salary || 0;
     return acc + Number(salary);
   }, 0);
@@ -266,50 +271,46 @@ const PayrollList = () => {
 
           {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-gray-500 dark:text-gray-400">
-              <thead className="bg-[#fafbfc] dark:bg-gray-800/50 text-[10px] text-gray-400 dark:text-gray-500 uppercase font-black tracking-wider">
-                <tr>
-                  <th className="px-6 py-4 whitespace-nowrap">SL NO</th>
-                  <th className="px-6 py-4 whitespace-nowrap">EMPLOYEE</th>
-                  <th className="px-6 py-4 whitespace-nowrap">DEPARTMENT</th>
-                  <th className="px-6 py-4 whitespace-nowrap">DESIGNATION</th>
-                  <th className="px-6 py-4 whitespace-nowrap">MONTH / YEAR</th>
-                  <th className="px-6 py-4 whitespace-nowrap">GROSS SALARY</th>
-                  <th className="px-6 py-4 whitespace-nowrap">OVERTIME</th>
-                  <th className="px-6 py-4 whitespace-nowrap">DEDUCTIONS</th>
-                  <th className="px-6 py-4 whitespace-nowrap">NET PAY</th>
-                  <th className="px-6 py-4 whitespace-nowrap">CURRENCY</th>
-                  <th className="px-6 py-4 whitespace-nowrap">STATUS</th>
-                  <th className="px-6 py-4 whitespace-nowrap">PAYMENT DATE</th>
-                  <th className="px-6 py-4 whitespace-nowrap text-right">
-                    ACTIONS
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedData.length === 0 ? (
+            {paginatedData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 px-4">
+                <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center mb-4">
+                  <Users className="w-10 h-10 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
+                </div>
+                <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-1">
+                  No Payroll Records Found
+                </h3>
+              </div>
+            ) : (
+              <table className="w-full text-left text-sm text-gray-500 dark:text-gray-400">
+                <thead className="bg-[#fafbfc] dark:bg-gray-800/50 text-[10px] text-gray-400 dark:text-gray-500 uppercase font-black tracking-wider">
                   <tr>
-                    <td
-                      colSpan="13"
-                      className="px-6 py-24 text-center border-t border-gray-100 dark:border-gray-700/80"
-                    >
-                      <div className="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
-                        <Archive
-                          className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600"
-                          strokeWidth={1.5}
-                        />
-                        <p className="text-[13px] font-medium text-gray-500 dark:text-gray-400">
-                          No payroll records found for {displayTitle}
-                        </p>
-                      </div>
-                    </td>
+                    <th className="px-6 py-4 whitespace-nowrap">SL NO</th>
+                    <th className="px-6 py-4 whitespace-nowrap">EMPLOYEE</th>
+                    <th className="px-6 py-4 whitespace-nowrap">DEPARTMENT</th>
+                    <th className="px-6 py-4 whitespace-nowrap">DESIGNATION</th>
+                    <th className="px-6 py-4 whitespace-nowrap">MONTH / YEAR</th>
+                    <th className="px-6 py-4 whitespace-nowrap">GROSS SALARY</th>
+                    <th className="px-6 py-4 whitespace-nowrap">OVERTIME</th>
+                    <th className="px-6 py-4 whitespace-nowrap">DEDUCTIONS</th>
+                    <th className="px-6 py-4 whitespace-nowrap">NET PAY</th>
+                    <th className="px-6 py-4 whitespace-nowrap">CURRENCY</th>
+                    <th className="px-6 py-4 whitespace-nowrap">STATUS</th>
+                    <th className="px-6 py-4 whitespace-nowrap">PAYMENT DATE</th>
+                    <th className="px-6 py-4 whitespace-nowrap text-right">
+                      ACTIONS
+                    </th>
                   </tr>
-                ) : (
-                  paginatedData.map((item, index) => {
+                </thead>
+                <tbody>
+                  {paginatedData.map((item, index) => {
+                    // ✅ FIX: Safely get employee name
                     const employeeName =
-                      `${item.first_name || ""} ${item.last_name || ""}`.trim();
-                    const department = item.department?.name || "N/A";
-                    const designation = item.designation?.name || "N/A";
+                      item.first_name || item.last_name
+                        ? `${item.first_name || ""} ${item.last_name || ""}`.trim()
+                        : item.name || "Unnamed Employee";
+                    
+                    const department = item.department?.name || item.department || "N/A";
+                    const designation = item.designation?.name || item.designation || "N/A";
                     const employeeId = item.employee_id || "N/A";
                     const status = item.status || "pending";
                     const grossSalary = item.gross_salary || item.salary || 0;
@@ -382,10 +383,10 @@ const PayrollList = () => {
                         </td>
                       </tr>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {/* Pagination */}

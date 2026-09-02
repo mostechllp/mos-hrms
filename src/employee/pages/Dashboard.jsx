@@ -1068,47 +1068,45 @@ const Dashboard = () => {
   };
 
   const getDuration = () => {
-    if (!displayPunchTime) return "00h 00m 00s";
+  if (!displayPunchTime) return "00h 00m 00s";
 
-    const startTime = parsePunchTime(displayPunchTime);
-    if (!startTime || isNaN(startTime.getTime())) return "00h 00m 00s";
+  const startTime = parsePunchTime(displayPunchTime);
+  if (!startTime || isNaN(startTime.getTime())) return "00h 00m 00s";
 
-    let endTime;
-    if (isActuallyPunchedIn) {
-      if (isOnBreak && breakStartTime) {
-        endTime = new Date(breakStartTime);
-      } else {
-        endTime = new Date();
-      }
-    } else if (
-      todayAttendance.punched_out === true &&
-      todayAttendance.punch_out_time !== "--"
-    ) {
-      // Only consider punched out if there's an actual punch out time
-      const outTime =
-        todayAttendance.punch_out_time || todayAttendance.punch_out;
-      if (outTime && outTime !== "--") {
-        endTime = parsePunchTime(outTime);
-      } else {
-        // If no valid punch out time, treat as still punched in
-        endTime = new Date();
-      }
+  let endTime;
+  if (isActuallyPunchedIn) {
+    // Always use current time as end time, regardless of break status
+    endTime = new Date();
+  } else if (
+    todayAttendance.punched_out === true &&
+    todayAttendance.punch_out_time !== "--"
+  ) {
+    const outTime = todayAttendance.punch_out_time || todayAttendance.punch_out;
+    if (outTime && outTime !== "--") {
+      endTime = parsePunchTime(outTime);
     } else {
-      return "00h 00m 00s";
+      endTime = new Date();
     }
+  } else {
+    return "00h 00m 00s";
+  }
 
-    if (!endTime || isNaN(endTime.getTime())) return "00h 00m 00s";
+  if (!endTime || isNaN(endTime.getTime())) return "00h 00m 00s";
 
-    let diff = Math.max(0, endTime - startTime);
-    diff -= totalBreakMs;
-    diff = Math.max(0, diff);
+  // Calculate total time from punch-in to now (including breaks)
+  let diff = Math.max(0, endTime - startTime);
+  
+  // DO NOT subtract break time - we want total time including breaks
+  // diff -= totalBreakMs; // <-- REMOVED THIS LINE
+  
+  // Also don't pause during break - always count time
 
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
 
-    return `${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
-  };
+  return `${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
+};
 
   const formatBreakDuration = (ms) => {
     let currentTotalMs = ms;
@@ -1995,18 +1993,19 @@ const Dashboard = () => {
       </div>
 
       {/* Punch Out Modal */}
-      <PunchOutModal
-        isOpen={showPunchOutModal}
-        onClose={() => setShowPunchOutModal(false)}
-        onSubmit={handlePunchOutSubmit}
-        loading={isSubmitting}
-        punchInTime={displayPunchTime}
-        totalBreakMs={totalBreakMs}
-        isOnBreak={isOnBreak}
-        breakStartTime={breakStartTime}
-        workingHours={workingHoursData}
-        workingHoursFromAPI={todayAttendance.working_hours}
-      />
+     <PunchOutModal
+  isOpen={showPunchOutModal}
+  onClose={() => setShowPunchOutModal(false)}
+  onSubmit={handlePunchOutSubmit}
+  loading={isSubmitting}
+  punchInTime={displayPunchTime}
+  totalBreakMs={totalBreakMs}
+  isOnBreak={isOnBreak}
+  breakStartTime={breakStartTime}
+  workingHours={workingHoursData}
+  workingHoursFromAPI={todayAttendance.working_hours}
+  employeeBreaks={employeeBreaks || []} 
+/>
 
       {/* Location Modal */}
       <LocationModal

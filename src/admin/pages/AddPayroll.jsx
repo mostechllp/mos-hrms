@@ -1,9 +1,10 @@
-// src/admin/pages/AddPayroll.js - Simplified Version
+// src/admin/pages/AddPayroll.js - Updated with Salary Components & Overtime API
 
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { showToast } from "../components/common/Toast";
+import apiClient from "../../utils/apiClient";
 
 import {
   savePayrollStep,
@@ -99,36 +100,15 @@ function AddPayroll() {
   const [totalWorkingDays, setTotalWorkingDays] = useState("");
   const [daysPresent, setDaysPresent] = useState("");
 
-  // Step 2 - Salary Structure
-  const [countries, setCountries] = useState([]);
-  const [totalEarnings, setTotalEarnings] = useState(0);
-  const [totalDeductions, setTotalDeductions] = useState(0);
-  const [grossSalary, setGrossSalary] = useState(0);
-  const [netSalary, setNetSalary] = useState(0);
+  // Step 2 - Salary Components
+  const [salaryComponents, setSalaryComponents] = useState([]);
+  const [componentsLoading, setComponentsLoading] = useState(false);
+  const [editingComponentId, setEditingComponentId] = useState(null);
 
   // Step 3 - Overtime
-  const [overtimeRequests, setOvertimeRequests] = useState([
-    {
-      id: 1,
-      project: "Dubai Mall Expansion",
-      date: "2026-05-20",
-      hours: 4,
-      overtime_amount: 0,
-      currency: "INR",
-      status: "pending",
-      reason: "Client requested emergency revisions",
-    },
-    {
-      id: 2,
-      project: "Airport Terminal 3",
-      date: "2026-05-21",
-      hours: 2.5,
-      overtime_amount: 0,
-      currency: "INR",
-      status: "pending",
-      reason: "Project deadline approaching",
-    },
-  ]);
+  const [overtimeData, setOvertimeData] = useState(null);
+  const [overtimeLoading, setOvertimeLoading] = useState(false);
+  const [totalOvertimeAmount, setTotalOvertimeAmount] = useState(0);
 
   // Step 4 - Deductions
   const [deductions, setDeductions] = useState([
@@ -151,7 +131,7 @@ function AddPayroll() {
 
   const steps = [
     { id: 1, label: "Basic Info" },
-    { id: 2, label: "Salary Structure" },
+    { id: 2, label: "Salary Components" },
     { id: 3, label: "Overtime" },
     { id: 4, label: "Deductions" },
     { id: 5, label: "Summary" },
@@ -223,15 +203,151 @@ function AddPayroll() {
         if (result && result.user_id) {
           setSelectedUserId(result.user_id.toString());
         }
+        // Fetch salary components for this employee
+        await fetchSalaryComponents(result.user_id);
       } catch (error) {
         showToast("Failed to fetch employee details", error);
       }
     } else {
       clearEmployeeFields();
       setSelectedUserId("");
-      setCountries([]);
+      setSalaryComponents([]);
     }
   };
+
+  // Fetch salary components from API
+  const fetchSalaryComponents = async (userId) => {
+    if (!userId) return;
+    setComponentsLoading(true);
+    try {
+      const response = await apiClient.get('/admin/salary-components', {
+        params: { employee_id: userId }
+      });
+      
+      if (response.data?.status === 'success') {
+        const components = response.data.data || [];
+        setSalaryComponents(components);
+      } else {
+        setSalaryComponents([]);
+      }
+    } catch (error) {
+      console.error('Error fetching salary components:', error);
+      showToast('Failed to fetch salary components', 'error');
+      setSalaryComponents([]);
+    } finally {
+      setComponentsLoading(false);
+    }
+  };
+
+  // Handle component value change
+  const handleComponentChange = (componentId, field, value) => {
+    setSalaryComponents(prev =>
+      prev.map(comp =>
+        comp.id === componentId ? { ...comp, [field]: value } : comp
+      )
+    );
+  };
+
+  // Save component to API
+  const saveComponent = async (component) => {
+    try {
+      const payload = {
+        employee_id: selectedUserId,
+        component_name: component.component_name,
+        value: parseFloat(component.value) || 0,
+      };
+
+      let response;
+      if (component.id) {
+        // Update existing component
+        response = await apiClient.put(`/admin/salary-components/${component.id}`, payload);
+      } else {
+        // Create new component
+        response = await apiClient.post('/admin/salary-components', payload);
+      }
+
+      if (response.data?.status === 'success') {
+        showToast('Salary component saved successfully', 'success');
+        await fetchSalaryComponents(selectedUserId);
+        setEditingComponentId(null);
+      } else {
+        showToast(response.data?.message || 'Failed to save component', 'error');
+      }
+    } catch (error) {
+      console.error('Error saving component:', error);
+      showToast(error.response?.data?.message || 'Failed to save component', 'error');
+    }
+  };
+
+  // Delete component from API
+  const deleteComponent = async (componentId) => {
+    if (!window.confirm('Are you sure you want to delete this component?')) return;
+    
+    try {
+      const response = await apiClient.delete(`/admin/salary-components/${componentId}`);
+      if (response.data?.status === 'success') {
+        showToast('Component deleted successfully', 'success');
+        await fetchSalaryComponents(selectedUserId);
+      } else {
+        showToast(response.data?.message || 'Failed to delete component', 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting component:', error);
+      showToast(error.response?.data?.message || 'Failed to delete component', 'error');
+    }
+  };
+
+  // Add new component row
+  const addNewComponent = () => {
+    const newComponent = {
+      id: null,
+      component_name: '',
+      value: 0,
+      is_new: true
+    };
+    setSalaryComponents(prev => [...prev, newComponent]);
+    setEditingComponentId('new');
+  };
+
+  // Fetch overtime data
+  const fetchOvertimeData = async () => {
+    if (!selectedUserId) return;
+    
+    const monthNumber = monthNames[payPeriodMonth] || new Date().getMonth() + 1;
+    const year = parseInt(payPeriodYear) || new Date().getFullYear();
+    const monthStr = `${year}-${String(monthNumber).padStart(2, '0')}`;
+    
+    setOvertimeLoading(true);
+    try {
+      const response = await apiClient.get('/admin/payroll/overtime', {
+        params: {
+          employee_id: selectedUserId,
+          month: monthStr
+        }
+      });
+      
+      if (response.data?.success) {
+        setOvertimeData(response.data.data);
+        setTotalOvertimeAmount(response.data.data?.total_overtime_amount || 0);
+      } else {
+        setOvertimeData(null);
+        setTotalOvertimeAmount(0);
+      }
+    } catch (error) {
+      console.error('Error fetching overtime data:', error);
+      setOvertimeData(null);
+      setTotalOvertimeAmount(0);
+    } finally {
+      setOvertimeLoading(false);
+    }
+  };
+
+  // Fetch overtime when step 3 is active
+  useEffect(() => {
+    if (reduxCurrentStep === 3 && selectedUserId && payPeriodMonth && payPeriodYear) {
+      fetchOvertimeData();
+    }
+  }, [reduxCurrentStep, selectedUserId, payPeriodMonth, payPeriodYear]);
 
   // Clear employee fields
   const clearEmployeeFields = () => {
@@ -367,25 +483,15 @@ function AddPayroll() {
         data = {
           pay_period_month: monthNumber,
           pay_period_year: year,
-          location_breakdown: countries.map((c) => ({
-            location_name: c.name,
-            package: {
-              id: c.packageId,
-              name: c.name,
-              currency: c.currency,
-            },
-            worked_days: parseInt(c.daysWorked) || 0,
-            currency: {
-              code: c.currency,
-              symbol: c.currency,
-            },
-            salary_components: c.salary_components || [],
-            subtotal: c.subtotal || 0,
+          salary_components: salaryComponents.map(comp => ({
+            id: comp.id,
+            component_name: comp.component_name,
+            value: parseFloat(comp.value) || 0,
           })),
-          total_earnings: totalEarnings,
-          total_deductions: totalDeductions,
-          gross_salary: grossSalary,
-          net_salary: netSalary,
+          total_salary: salaryComponents.reduce(
+            (sum, comp) => sum + (parseFloat(comp.value) || 0),
+            0
+          ),
         };
         break;
 
@@ -393,18 +499,8 @@ function AddPayroll() {
         data = {
           pay_period_month: monthNumber,
           pay_period_year: year,
-          overtime_details: overtimeRequests.map((req) => ({
-            date: req.date,
-            overtime_hours: parseFloat(req.hours) || 0,
-            amount: parseFloat(req.overtime_amount) || 0,
-            currency: req.currency || "INR",
-            status: req.status || "pending",
-            projects: req.projects || [],
-          })),
-          total_overtime_amount: overtimeRequests.reduce(
-            (sum, req) => sum + parseFloat(req.overtime_amount || 0),
-            0,
-          ),
+          overtime_data: overtimeData,
+          total_overtime_amount: totalOvertimeAmount,
         };
         break;
 
@@ -430,42 +526,29 @@ function AddPayroll() {
           pay_period_month: monthNumber,
           pay_period_year: year,
           summary: {
-            gross_salary: grossSalary,
-            overtime_amount: overtimeRequests.reduce(
-              (sum, req) => sum + parseFloat(req.overtime_amount || 0),
-              0,
+            total_salary: salaryComponents.reduce(
+              (sum, comp) => sum + (parseFloat(comp.value) || 0),
+              0
             ),
+            overtime_amount: totalOvertimeAmount,
             deductions: deductions.reduce(
               (sum, d) => sum + parseFloat(d.amount || 0),
               0,
             ),
-            net_pay: netSalary,
+            net_pay: salaryComponents.reduce(
+              (sum, comp) => sum + (parseFloat(comp.value) || 0),
+              0
+            ) + totalOvertimeAmount - deductions.reduce(
+              (sum, d) => sum + parseFloat(d.amount || 0),
+              0,
+            ),
           },
-          gross_salary: grossSalary,
-          overtime: overtimeRequests.reduce(
-            (sum, req) => sum + parseFloat(req.overtime_amount || 0),
-            0,
-          ),
-          deductions: deductions.reduce(
-            (sum, d) => sum + parseFloat(d.amount || 0),
-            0,
-          ),
-          net_pay: netSalary,
-          currency: countries.length > 0 ? countries[0].currency : "INR",
-          location_breakdown: countries.map((c) => ({
-            location_name: c.name,
-            currency: c.currency,
-            subtotal: c.subtotal || 0,
-            worked_days: c.daysWorked || 0,
-            salary_components: c.salary_components || [],
+          salary_components: salaryComponents.map(comp => ({
+            id: comp.id,
+            component_name: comp.component_name,
+            value: parseFloat(comp.value) || 0,
           })),
-          overtime_details: overtimeRequests.map((req) => ({
-            date: req.date,
-            overtime_hours: req.overtime_hours || 0,
-            amount: parseFloat(req.overtime_amount) || 0,
-            currency: req.currency || "INR",
-            projects: req.projects || [],
-          })),
+          overtime_details: overtimeData?.overtime_details || [],
           deductions_details: deductions.map((d) => ({
             type: d.type,
             amount: parseFloat(d.amount) || 0,
@@ -518,40 +601,34 @@ function AddPayroll() {
         return;
       }
 
-      const monthNumber =
-        monthNames[payPeriodMonth] || new Date().getMonth() + 1;
+      const monthNumber = monthNames[payPeriodMonth] || new Date().getMonth() + 1;
       const year = parseInt(payPeriodYear) || new Date().getFullYear();
+
+      const totalSalary = salaryComponents.reduce(
+        (sum, comp) => sum + (parseFloat(comp.value) || 0),
+        0
+      );
+
+      const totalDeductions = deductions.reduce(
+        (sum, d) => sum + parseFloat(d.amount || 0),
+        0
+      );
 
       const payload = {
         user_id: parseInt(selectedUserId),
         pay_period_month: parseInt(monthNumber),
         pay_period_year: parseInt(year),
-        gross_salary: parseFloat(grossSalary),
-        overtime: parseFloat(
-          overtimeRequests.reduce(
-            (sum, req) => sum + parseFloat(req.overtime_amount || 0),
-            0,
-          ),
-        ),
-        deductions: parseFloat(
-          deductions.reduce((sum, d) => sum + parseFloat(d.amount || 0), 0),
-        ),
-        net_pay: parseFloat(netSalary),
-        currency: countries.length > 0 ? countries[0].currency : "INR",
-        location_breakdown: countries.map((c) => ({
-          location_name: c.name,
-          currency: c.currency,
-          subtotal: c.subtotal || 0,
-          worked_days: c.daysWorked || 0,
-          salary_components: c.salary_components || [],
+        gross_salary: parseFloat(totalSalary),
+        overtime: parseFloat(totalOvertimeAmount),
+        deductions: parseFloat(totalDeductions),
+        net_pay: parseFloat(totalSalary + totalOvertimeAmount - totalDeductions),
+        currency: "INR",
+        salary_components: salaryComponents.map(comp => ({
+          id: comp.id,
+          component_name: comp.component_name,
+          value: parseFloat(comp.value) || 0,
         })),
-        overtime_details: overtimeRequests.map((req) => ({
-          date: req.date,
-          overtime_hours: req.overtime_hours || 0,
-          amount: parseFloat(req.overtime_amount) || 0,
-          currency: req.currency || "INR",
-          projects: req.projects || [],
-        })),
+        overtime_details: overtimeData?.overtime_details || [],
         deductions_details: deductions.map((d) => ({
           type: d.type,
           amount: parseFloat(d.amount) || 0,
@@ -618,8 +695,7 @@ function AddPayroll() {
     }
 
     try {
-      const monthNumber =
-        monthNames[payPeriodMonth] || new Date().getMonth() + 1;
+      const monthNumber = monthNames[payPeriodMonth] || new Date().getMonth() + 1;
       const year = parseInt(payPeriodYear) || new Date().getFullYear();
 
       const enrichedData = {
@@ -639,7 +715,6 @@ function AddPayroll() {
       dispatch(updateStepData({ step, data: enrichedData }));
       dispatch(markStepCompleted(step));
 
-      showToast("Step data saved successfully", "success");
       return true;
     } catch (error) {
       console.error("Failed to save step:", error);
@@ -649,48 +724,6 @@ function AddPayroll() {
       );
       return false;
     }
-  };
-
-  // Overtime actions
-  const handleOvertimeChange = (id, field, value) => {
-    setOvertimeRequests((prev) =>
-      prev.map((req) => (req.id === id ? { ...req, [field]: value } : req)),
-    );
-  };
-
-  // Country actions
-  const handleCountryChange = (id, field, value) => {
-    setCountries((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
-    );
-  };
-
-  const handleAddCountry = () => {
-    const newId =
-      countries.length > 0 ? Math.max(...countries.map((c) => c.id)) + 1 : 1;
-    setCountries([
-      ...countries,
-      {
-        id: newId,
-        name: "",
-        currency: "INR",
-        dailyRate: "",
-        daysWorked: "",
-        fxRate: "",
-        packageId: null,
-        salary_components: [],
-        subtotal: 0,
-        is_saved: false,
-      },
-    ]);
-  };
-
-  const handleRemoveCountry = (id) => {
-    if (countries.length <= 1) {
-      showToast("At least one Salary Structure is required", "error");
-      return;
-    }
-    setCountries(countries.filter((c) => c.id !== id));
   };
 
   // Deduction actions
@@ -720,16 +753,15 @@ function AddPayroll() {
   };
 
   // Calculate totals for summary
-  const totalOvertimeAmount = overtimeRequests.reduce(
-    (sum, req) => sum + parseFloat(req.overtime_amount || 0),
-    0,
+  const totalSalaryAmount = salaryComponents.reduce(
+    (sum, comp) => sum + (parseFloat(comp.value) || 0),
+    0
   );
   const totalDeductionsAmount = deductions.reduce(
     (sum, d) => sum + parseFloat(d.amount || 0),
     0,
   );
-  const totalGrossSalary = grossSalary;
-  const totalNetPay = totalGrossSalary + totalOvertimeAmount - totalDeductionsAmount;
+  const totalNetPay = totalSalaryAmount + totalOvertimeAmount - totalDeductionsAmount;
 
   return (
     <div className="w-full overflow-x-hidden px-4 md:px-6">
@@ -1041,16 +1073,19 @@ function AddPayroll() {
             </>
           )}
 
-          {/* Step 2 - Salary Structure */}
+          {/* Step 2 - Salary Components */}
           {reduxCurrentStep === 2 && (
             <div>
               <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
                 <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-globe text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
+                  <i className="fas fa-coins text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
                 </div>
                 <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
-                  Salary Packages
+                  Salary Components
                 </h3>
+                <span className="ml-auto text-xs text-gray-400">
+                  {salaryComponents.length} components
+                </span>
               </div>
 
               {/* Employee Summary Card */}
@@ -1071,111 +1106,148 @@ function AddPayroll() {
                         </p>
                       </div>
                     </div>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        Total: {salaryComponents.reduce(
+                          (sum, comp) => sum + (parseFloat(comp.value) || 0),
+                          0
+                        ).toFixed(2)}
+                      </div>
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">
+                        Total Salary
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Salary Structure Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {countries.map((country) => (
-                  <div
-                    key={country.id}
-                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                      <div>
-                        <h4 className="font-semibold text-gray-800 dark:text-gray-200">
-                          {country.name || "Location"}
-                        </h4>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                          <span>{country.currency}</span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                          {country.daysWorked || 0}
-                        </div>
-                        <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">
-                          Worked Days
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4 space-y-3">
-                      {country.salary_components &&
-                      country.salary_components.length > 0 ? (
-                        <div className="space-y-2">
-                          {country.salary_components.map((comp, idx) => (
-                            <div key={idx} className="flex items-center gap-2">
-                              <span className="text-sm text-gray-600 dark:text-gray-400 w-32 flex-shrink-0">
-                                {comp.name}
-                              </span>
-                              <span className="text-xs text-gray-400">
-                                {country.currency}
-                              </span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={comp.amount}
-                                onChange={(e) => {
-                                  const newAmount =
-                                    parseFloat(e.target.value) || 0;
-                                  const updatedCountries = countries.map(
-                                    (c) => {
-                                      if (c.id === country.id) {
-                                        const updatedComponents =
-                                          c.salary_components.map((c2, i) =>
-                                            i === idx
-                                              ? { ...c2, amount: newAmount }
-                                              : c2,
-                                          );
-                                        const newSubtotal =
-                                          updatedComponents.reduce(
-                                            (sum, c2) => sum + c2.amount,
-                                            0,
-                                          );
-                                        return {
-                                          ...c,
-                                          salary_components: updatedComponents,
-                                          subtotal: newSubtotal,
-                                        };
-                                      }
-                                      return c;
-                                    },
-                                  );
-                                  setCountries(updatedCountries);
-                                }}
-                                className="flex-1 px-2 py-1 text-sm rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
-                              />
-                            </div>
-                          ))}
-                          <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700 flex justify-between font-semibold">
-                            <span className="text-gray-800 dark:text-gray-200">
-                              Subtotal
-                            </span>
-                            <span className="text-green-600 dark:text-green-400">
-                              {country.currency} {country.subtotal.toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center py-2 text-gray-400 text-sm">
-                          No salary components
-                        </div>
-                      )}
+              {componentsLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+                </div>
+              ) : (
+                <>
+                  {/* Salary Components Table */}
+                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-soft overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                            <th className="py-3 px-4 font-semibold">Component Name</th>
+                            <th className="py-3 px-4 font-semibold text-center">Amount</th>
+                            <th className="py-3 px-4 font-semibold text-center">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {salaryComponents.length > 0 ? (
+                            salaryComponents.map((comp) => (
+                              <tr
+                                key={comp.id || Math.random()}
+                                className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                              >
+                                <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                                  {editingComponentId === comp.id || (comp.is_new && editingComponentId === 'new') ? (
+                                    <input
+                                      type="text"
+                                      value={comp.component_name}
+                                      onChange={(e) => handleComponentChange(comp.id, 'component_name', e.target.value)}
+                                      className="w-full px-2 py-1 text-sm rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+                                      placeholder="Enter component name"
+                                    />
+                                  ) : (
+                                    <span className="font-medium">{comp.component_name}</span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-sm text-center">
+                                  {editingComponentId === comp.id || (comp.is_new && editingComponentId === 'new') ? (
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={comp.value}
+                                      onChange={(e) => handleComponentChange(comp.id, 'value', e.target.value)}
+                                      className="w-32 px-2 py-1 text-sm text-center rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+                                      placeholder="0.00"
+                                    />
+                                  ) : (
+                                    <span className="font-mono">{(parseFloat(comp.value) || 0).toFixed(2)}</span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  {editingComponentId === comp.id || (comp.is_new && editingComponentId === 'new') ? (
+                                    <div className="flex items-center justify-center gap-2">
+                                      <button
+                                        onClick={() => saveComponent(comp)}
+                                        className="text-green-500 hover:text-green-600 transition-colors"
+                                        title="Save"
+                                      >
+                                        <i className="fas fa-save"></i>
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          if (comp.is_new) {
+                                            setSalaryComponents(prev => prev.filter(c => c.id !== comp.id));
+                                          }
+                                          setEditingComponentId(null);
+                                        }}
+                                        className="text-red-500 hover:text-red-600 transition-colors"
+                                        title="Cancel"
+                                      >
+                                        <i className="fas fa-times"></i>
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-center gap-2">
+                                      <button
+                                        onClick={() => setEditingComponentId(comp.id)}
+                                        className="text-blue-500 hover:text-blue-600 transition-colors"
+                                        title="Edit"
+                                      >
+                                        <i className="fas fa-edit"></i>
+                                      </button>
+                                      <button
+                                        onClick={() => deleteComponent(comp.id)}
+                                        className="text-red-500 hover:text-red-600 transition-colors"
+                                        title="Delete"
+                                      >
+                                        <i className="fas fa-trash"></i>
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={3} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                                <i className="fas fa-coins text-4xl mb-3 block"></i>
+                                No salary components found. Click "Add Component" to create one.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                ))}
-              </div>
 
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={handleAddCountry}
-                  className="px-4 py-2 text-sm bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors border border-green-100 dark:border-green-800 flex items-center gap-2"
-                >
-                  <i className="fas fa-plus"></i> Add Location
-                </button>
-              </div>
+                  {/* Add Component Button */}
+                  <div className="mt-4 flex justify-between items-center">
+                    <button
+                      onClick={addNewComponent}
+                      className="px-4 py-2 text-sm bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors border border-green-100 dark:border-green-800 flex items-center gap-2"
+                    >
+                      <i className="fas fa-plus"></i> Add Component
+                    </button>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      Total: <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        {salaryComponents.reduce(
+                          (sum, comp) => sum + (parseFloat(comp.value) || 0),
+                          0
+                        ).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -1187,126 +1259,94 @@ function AddPayroll() {
                   <i className="fas fa-clock text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
                 </div>
                 <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
-                  Overtime
+                  Overtime Details
                 </h3>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-soft overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                        <th className="py-3 px-4 font-semibold">Date</th>
-                        <th className="py-3 px-4 font-semibold">Project</th>
-                        <th className="py-3 px-4 font-semibold text-center">
-                          Hours
-                        </th>
-                        <th className="py-3 px-4 font-semibold text-center">
-                          Amount
-                        </th>
-                        <th className="py-3 px-4 font-semibold text-center">
-                          Currency
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {overtimeRequests.length > 0 ? (
-                        overtimeRequests.map((req) => (
-                          <tr
-                            key={req.id}
-                            className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                          >
-                            <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
-                              {formatDate(req.date)}
-                            </td>
-                            <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
-                              {req.project || "-"}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-semibold text-yellow-600 dark:text-yellow-400 text-center">
-                              {req.hours || 0}h
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={req.overtime_amount || ""}
-                                onChange={(e) =>
-                                  handleOvertimeChange(
-                                    req.id,
-                                    "overtime_amount",
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-24 px-2 py-1 text-sm rounded border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/10 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-blue-500"
-                                placeholder="0.00"
-                              />
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <select
-                                value={req.currency || "INR"}
-                                onChange={(e) =>
-                                  handleOvertimeChange(
-                                    req.id,
-                                    "currency",
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-20 px-2 py-1 text-sm rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
-                              >
-                                {currencies.map((curr) => (
-                                  <option key={curr} value={curr}>
-                                    {curr}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td
-                            colSpan={5}
-                            className="py-8 text-center text-gray-500 dark:text-gray-400"
-                          >
-                            <i className="fas fa-clock text-4xl mb-3 block"></i>
-                            No overtime data available.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+              {overtimeLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
                 </div>
-              </div>
-
-              {overtimeRequests.length > 0 && (
-                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-300">
-                  <div className="flex gap-2">
-                    <i className="fas fa-info-circle mt-0.5"></i>
-                    <div>
-                      <p className="font-semibold mb-1">Overtime Details:</p>
-                      <ul className="list-disc list-inside space-y-1 text-xs">
-                        <li>
-                          <strong>Total Overtime Hours:</strong>{" "}
-                          {overtimeRequests.reduce(
-                            (sum, req) => sum + (req.hours || 0),
-                            0,
-                          )}{" "}
-                          hours
-                        </li>
-                        <li>
-                          <strong>Total Overtime Amount:</strong>{" "}
-                          {overtimeRequests
-                            .reduce(
-                              (sum, req) =>
-                                sum + (parseFloat(req.overtime_amount) || 0),
-                              0,
-                            )
-                            .toFixed(2)}{" "}
-                          {overtimeRequests[0]?.currency || "INR"}
-                        </li>
-                      </ul>
+              ) : overtimeData && overtimeData.overtime_details && overtimeData.overtime_details.length > 0 ? (
+                <>
+                  {/* Overtime Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                      <div className="text-sm text-blue-600 dark:text-blue-400">Total Overtime</div>
+                      <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                        {overtimeData.total_overtime_formatted || "00:00"}
+                      </div>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                      <div className="text-sm text-green-600 dark:text-green-400">Total Amount</div>
+                      <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                        {overtimeData.total_overtime_amount?.toFixed(2) || "0.00"}
+                      </div>
+                    </div>
+                    <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                      <div className="text-sm text-purple-600 dark:text-purple-400">Hourly Rate</div>
+                      <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                        {overtimeData.rates?.overtime_hourly_rate?.toFixed(2) || "0.00"}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Overtime Table */}
+                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-soft overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                            <th className="py-3 px-4 font-semibold">Date</th>
+                            <th className="py-3 px-4 font-semibold">Punch In</th>
+                            <th className="py-3 px-4 font-semibold">Punch Out</th>
+                            <th className="py-3 px-4 font-semibold text-center">Total Hours</th>
+                            <th className="py-3 px-4 font-semibold text-center">Overtime</th>
+                            <th className="py-3 px-4 font-semibold text-center">Amount</th>
+                            <th className="py-3 px-4 font-semibold text-center">Breaks</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {overtimeData.overtime_details.map((item, idx) => (
+                            <tr
+                              key={idx}
+                              className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                            >
+                              <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                                {formatDate(item.date)}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                                {item.punch_in ? new Date(item.punch_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                                {item.punch_out ? new Date(item.punch_out).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-semibold text-blue-600 dark:text-blue-400 text-center">
+                                {item.total_working_minutes ? (item.total_working_minutes / 60).toFixed(2) : '0'}h
+                              </td>
+                              <td className="py-3 px-4 text-sm font-semibold text-orange-600 dark:text-orange-400 text-center">
+                                {item.overtime_duration || '00:00'}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-semibold text-green-600 dark:text-green-400 text-center">
+                                {item.overtime_amount?.toFixed(2) || '0.00'}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 text-center">
+                                {item.breaks?.length || 0}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <i className="fas fa-clock text-4xl text-gray-300 dark:text-gray-600 mb-3 block"></i>
+                  <p className="text-gray-500 dark:text-gray-400">No overtime records found for this period.</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                    Make sure the employee has punched in/out during {payPeriodMonth} {payPeriodYear}
+                  </p>
                 </div>
               )}
             </div>
@@ -1496,44 +1536,29 @@ function AddPayroll() {
                 </div>
 
                 {/* Salary Breakdown */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Gross Salary */}
                   <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                     <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
                       <i className="fas fa-wallet mr-2"></i>
                       Gross Salary
                     </h4>
-                    {countries.map((country, idx) => {
-                      const subtotal = country.subtotal || 0;
-                      if (subtotal > 0) {
-                        return (
-                          <div
-                            key={idx}
-                            className="flex justify-between items-center text-sm py-1"
-                          >
-                            <span className="text-gray-600 dark:text-gray-400">
-                              {country.name}:
-                            </span>
-                            <span className="font-semibold text-gray-700 dark:text-gray-300">
-                              {country.currency} {subtotal.toFixed(2)}
-                            </span>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
+                    {salaryComponents.length > 0 ? (
+                      salaryComponents.map((comp, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-sm py-1">
+                          <span className="text-gray-600 dark:text-gray-400">{comp.component_name}:</span>
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">
+                            {(parseFloat(comp.value) || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-gray-400">No components</div>
+                    )}
                     <div className="border-t border-blue-200 dark:border-blue-700 mt-2 pt-2 flex justify-between items-center font-semibold">
-                      <span className="text-gray-700 dark:text-gray-300">
-                        Total Gross:
-                      </span>
+                      <span className="text-gray-700 dark:text-gray-300">Total:</span>
                       <span className="text-blue-600 dark:text-blue-400">
-                        {countries
-                          .filter((c) => (c.subtotal || 0) > 0)
-                          .map(
-                            (c) =>
-                              `${c.currency} ${(c.subtotal || 0).toFixed(2)}`,
-                          )
-                          .join(" + ")}
+                        {totalSalaryAmount.toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -1544,47 +1569,25 @@ function AddPayroll() {
                       <i className="fas fa-clock mr-2"></i>
                       Overtime
                     </h4>
-                    {overtimeRequests
-                      .filter((req) => parseFloat(req.overtime_amount || 0) > 0)
-                      .map((req, idx) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center text-sm py-1"
-                        >
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {formatDate(req.date)}:
-                          </span>
-                          <span className="font-semibold text-gray-700 dark:text-gray-300">
-                            {req.currency || "INR"}{" "}
-                            {(parseFloat(req.overtime_amount) || 0).toFixed(2)}
+                    {overtimeData && overtimeData.overtime_details && overtimeData.overtime_details.length > 0 ? (
+                      <>
+                        {overtimeData.overtime_details.map((item, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-sm py-1">
+                            <span className="text-gray-600 dark:text-gray-400">{formatDate(item.date)}:</span>
+                            <span className="font-semibold text-gray-700 dark:text-gray-300">
+                              {item.overtime_duration}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="border-t border-orange-200 dark:border-orange-700 mt-2 pt-2 flex justify-between items-center font-semibold">
+                          <span className="text-gray-700 dark:text-gray-300">Total:</span>
+                          <span className="text-orange-600 dark:text-orange-400">
+                            {totalOvertimeAmount.toFixed(2)}
                           </span>
                         </div>
-                      ))}
-                    {overtimeRequests.filter(
-                      (req) => parseFloat(req.overtime_amount || 0) > 0,
-                    ).length === 0 && (
+                      </>
+                    ) : (
                       <div className="text-sm text-gray-400">No overtime</div>
-                    )}
-                    {overtimeRequests.filter(
-                      (req) => parseFloat(req.overtime_amount || 0) > 0,
-                    ).length > 0 && (
-                      <div className="border-t border-orange-200 dark:border-orange-700 mt-2 pt-2 flex justify-between items-center font-semibold">
-                        <span className="text-gray-700 dark:text-gray-300">
-                          Total Overtime:
-                        </span>
-                        <span className="text-orange-600 dark:text-orange-400">
-                          {overtimeRequests
-                            .filter(
-                              (req) =>
-                                parseFloat(req.overtime_amount || 0) > 0,
-                            )
-                            .map(
-                              (req) =>
-                                `${req.currency || "INR"} ${(parseFloat(req.overtime_amount) || 0).toFixed(2)}`,
-                            )
-                            .join(" + ")}
-                        </span>
-                      </div>
                     )}
                   </div>
 
@@ -1594,145 +1597,53 @@ function AddPayroll() {
                       <i className="fas fa-minus-circle mr-2"></i>
                       Deductions
                     </h4>
-                    {deductions
-                      .filter((d) => parseFloat(d.amount || 0) > 0)
-                      .map((d, idx) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center text-sm py-1"
-                        >
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {d.type || "Unnamed"}:
-                          </span>
+                    {deductions.filter(d => parseFloat(d.amount || 0) > 0).length > 0 ? (
+                      deductions.filter(d => parseFloat(d.amount || 0) > 0).map((d, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-sm py-1">
+                          <span className="text-gray-600 dark:text-gray-400">{d.type || "Unnamed"}:</span>
                           <span className="font-semibold text-gray-700 dark:text-gray-300">
-                            {d.currency}{" "}
                             {(parseFloat(d.amount) || 0).toFixed(2)}
                           </span>
                         </div>
-                      ))}
-                    {deductions.filter((d) => parseFloat(d.amount || 0) > 0)
-                      .length === 0 && (
+                      ))
+                    ) : (
                       <div className="text-sm text-gray-400">No deductions</div>
                     )}
-                    {deductions.filter((d) => parseFloat(d.amount || 0) > 0)
-                      .length > 0 && (
+                    {deductions.filter(d => parseFloat(d.amount || 0) > 0).length > 0 && (
                       <div className="border-t border-red-200 dark:border-red-700 mt-2 pt-2 flex justify-between items-center font-semibold">
-                        <span className="text-gray-700 dark:text-gray-300">
-                          Total Deductions:
-                        </span>
+                        <span className="text-gray-700 dark:text-gray-300">Total:</span>
                         <span className="text-red-500">
-                          {deductions
-                            .filter((d) => parseFloat(d.amount || 0) > 0)
-                            .map(
-                              (d) =>
-                                `${d.currency} ${(parseFloat(d.amount) || 0).toFixed(2)}`,
-                            )
-                            .join(" + ")}
+                          {totalDeductionsAmount.toFixed(2)}
                         </span>
                       </div>
                     )}
                   </div>
+                </div>
 
-                  {/* Net Pay */}
-                  <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                    <h4 className="text-sm font-semibold text-green-700 dark:text-green-300 mb-2">
-                      <i className="fas fa-check-circle mr-2"></i>
-                      Net Pay
-                    </h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Gross Salary:</span>
-                        <span>
-                          {countries
-                            .filter((c) => (c.subtotal || 0) > 0)
-                            .map(
-                              (c) =>
-                                `${c.currency} ${(c.subtotal || 0).toFixed(2)}`,
-                            )
-                            .join(" + ")}
-                        </span>
-                      </div>
-                      {overtimeRequests.filter(
-                        (req) => parseFloat(req.overtime_amount || 0) > 0,
-                      ).length > 0 && (
-                        <div className="flex justify-between text-orange-600">
-                          <span>+ Overtime:</span>
-                          <span>
-                            {overtimeRequests
-                              .filter(
-                                (req) =>
-                                  parseFloat(req.overtime_amount || 0) > 0,
-                              )
-                              .map(
-                                (req) =>
-                                  `${req.currency || "INR"} ${(parseFloat(req.overtime_amount) || 0).toFixed(2)}`,
-                              )
-                              .join(" + ")}
-                          </span>
-                        </div>
-                      )}
-                      {deductions.filter((d) => parseFloat(d.amount || 0) > 0)
-                        .length > 0 && (
-                        <div className="flex justify-between text-red-500">
-                          <span>- Deductions:</span>
-                          <span>
-                            {deductions
-                              .filter((d) => parseFloat(d.amount || 0) > 0)
-                              .map(
-                                (d) =>
-                                  `${d.currency} ${(parseFloat(d.amount) || 0).toFixed(2)}`,
-                              )
-                              .join(" + ")}
-                          </span>
-                        </div>
-                      )}
-                      <div className="border-t border-green-200 dark:border-green-700 mt-2 pt-2 flex justify-between items-center font-bold text-lg">
-                        <span className="text-gray-800 dark:text-gray-200">
-                          Net Pay:
-                        </span>
-                        <span className="text-green-600 dark:text-green-400">
-                          {(() => {
-                            const netPayByCurrency = {};
-
-                            // Add gross amounts
-                            countries.forEach((c) => {
-                              const subtotal = c.subtotal || 0;
-                              if (subtotal > 0) {
-                                netPayByCurrency[c.currency] =
-                                  (netPayByCurrency[c.currency] || 0) + subtotal;
-                              }
-                            });
-
-                            // Add overtime
-                            overtimeRequests.forEach((req) => {
-                              const amount =
-                                parseFloat(req.overtime_amount) || 0;
-                              if (amount > 0) {
-                                const currency = req.currency || "INR";
-                                netPayByCurrency[currency] =
-                                  (netPayByCurrency[currency] || 0) + amount;
-                              }
-                            });
-
-                            // Subtract deductions
-                            deductions.forEach((d) => {
-                              const amount = parseFloat(d.amount) || 0;
-                              if (amount > 0) {
-                                netPayByCurrency[d.currency] =
-                                  (netPayByCurrency[d.currency] || 0) - amount;
-                              }
-                            });
-
-                            return Object.entries(netPayByCurrency)
-                              .filter(([_, amount]) => amount !== 0)
-                              .map(
-                                ([currency, amount]) =>
-                                  `${currency} ${amount.toFixed(2)}`,
-                              )
-                              .join(" + ");
-                          })()}
-                        </span>
-                      </div>
+                {/* Net Pay */}
+                <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                  <h4 className="text-sm font-semibold text-green-700 dark:text-green-300 mb-2">
+                    <i className="fas fa-check-circle mr-2"></i>
+                    Net Pay Summary
+                  </h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Gross Salary:</span>
+                      <span className="font-medium">{totalSalaryAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-orange-600">
+                      <span>+ Overtime:</span>
+                      <span>{totalOvertimeAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-red-500">
+                      <span>- Deductions:</span>
+                      <span>{totalDeductionsAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="border-t border-green-200 dark:border-green-700 mt-2 pt-2 flex justify-between items-center font-bold text-lg">
+                      <span className="text-gray-800 dark:text-gray-200">Net Pay:</span>
+                      <span className="text-green-600 dark:text-green-400">
+                        {totalNetPay.toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 </div>

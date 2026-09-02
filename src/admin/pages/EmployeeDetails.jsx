@@ -1,4 +1,4 @@
-// src/admin/pages/EmployeeDetails.js - Full code with dark theme support
+// src/admin/pages/EmployeeDetails.js - Full code with Salary Components & Bank Details (No Packages)
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -23,6 +23,13 @@ import {
   FiCalendar,
   FiAward,
   FiMapPin,
+  FiDollarSign,
+  FiSave,
+  FiTrash2,
+  FiPlus,
+  FiX,
+  FiCreditCard as FiCreditCardIcon,
+  FiGlobe as FiGlobeIcon,
 } from "react-icons/fi";
 import { FaIdCard, FaVenusMars, FaPassport, FaBuilding } from "react-icons/fa";
 import { fetchOrganizations } from "../store/slices/organizationSlice";
@@ -33,6 +40,8 @@ import {
   INDIA_EMPLOYEE_TYPES,
   UAE_EMPLOYEE_TYPES,
 } from "../utils/countryConfig";
+import apiClient from "../../utils/apiClient";
+import ConfirmModal from "../components/common/ConfirmModal";
 
 const EmployeeDetails = () => {
   const navigate = useNavigate();
@@ -42,6 +51,35 @@ const EmployeeDetails = () => {
   const [activeTab, setActiveTab] = useState("basic");
   const [selectedCountry, setSelectedCountry] = useState("UAE");
   const [countryConfig, setCountryConfig] = useState(getCountryConfig("UAE"));
+  
+  // ─── Salary Component State ────────────────────────────────────────────
+  const [editingComponent, setEditingComponent] = useState(null);
+  const [editingBankDetail, setEditingBankDetail] = useState(null);
+  const [showAddComponent, setShowAddComponent] = useState(false);
+  const [showAddBank, setShowAddBank] = useState(false);
+  const [newComponent, setNewComponent] = useState({
+    component_name: "",
+    value: "",
+  });
+  const [newBank, setNewBank] = useState({
+    bank_country: "India",
+    bank_name: "",
+    account_number: "",
+    ifsc_code: "",
+    branch_name: "",
+    iban_number: "",
+    swift_code: "",
+  });
+
+  // ─── Confirm Modal State ──────────────────────────────────────────────
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    type: null,
+    id: null,
+    title: "",
+    message: "",
+    loading: false,
+  });
 
   const { currentEmployee } = useSelector((state) => state.employees || {});
   const { organizations = [] } = useSelector(
@@ -104,6 +142,284 @@ const EmployeeDetails = () => {
       showToast("Failed to load employee details", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ─── Component Helpers ──────────────────────────────────────────────────
+  const getEmployeeComponents = () => {
+    return currentEmployee.salary_components || currentEmployee.components || [];
+  };
+
+  const getTotalSalary = () => {
+    const components = getEmployeeComponents();
+    return components.reduce((sum, comp) => sum + parseFloat(comp.value || 0), 0);
+  };
+
+  // ─── Delete Handlers ──────────────────────────────────────────────────
+  const handleDeleteComponentClick = (componentId, componentName) => {
+    setConfirmModal({
+      isOpen: true,
+      type: "component",
+      id: componentId,
+      title: "Delete Salary Component",
+      message: `Are you sure you want to delete "${componentName}"? This action cannot be undone.`,
+      loading: false,
+    });
+  };
+
+  const handleDeleteBankDetailClick = (bankId, bankName) => {
+    setConfirmModal({
+      isOpen: true,
+      type: "bank",
+      id: bankId,
+      title: "Delete Bank Account",
+      message: `Are you sure you want to delete "${bankName}" bank account? This action cannot be undone.`,
+      loading: false,
+    });
+  };
+
+  // ─── Execute Delete ──────────────────────────────────────────────────
+  const executeDelete = async () => {
+    const { type, id } = confirmModal;
+
+    setConfirmModal((prev) => ({ ...prev, loading: true }));
+
+    try {
+      if (type === "component") {
+        const response = await apiClient.delete(
+          `/admin/salary-components/${id}`,
+        );
+        if (response.data.status === "success") {
+          showToast("Salary component deleted successfully", "success");
+          fetchEmployeeData();
+          setConfirmModal({
+            isOpen: false,
+            type: null,
+            id: null,
+            title: "",
+            message: "",
+            loading: false,
+          });
+        } else {
+          showToast(
+            response.data.message || "Failed to delete salary component",
+            "error",
+          );
+          setConfirmModal((prev) => ({ ...prev, loading: false }));
+        }
+      } else if (type === "bank") {
+        const response = await apiClient.delete(`/admin/bank-details/${id}`);
+        if (response.data.status === "success") {
+          showToast("Bank details deleted successfully", "success");
+          fetchEmployeeData();
+          setConfirmModal({
+            isOpen: false,
+            type: null,
+            id: null,
+            title: "",
+            message: "",
+            loading: false,
+          });
+        } else {
+          showToast(
+            response.data.message || "Failed to delete bank details",
+            "error",
+          );
+          setConfirmModal((prev) => ({ ...prev, loading: false }));
+        }
+      }
+    } catch (error) {
+      console.error("Error deleting:", error);
+      showToast(error.response?.data?.message || "Failed to delete", "error");
+      setConfirmModal((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal({
+      isOpen: false,
+      type: null,
+      id: null,
+      title: "",
+      message: "",
+      loading: false,
+    });
+  };
+
+  // ─── Component CRUD ──────────────────────────────────────────────────
+  const handleUpdateComponent = async (componentId, updatedData) => {
+    try {
+      const employeeId = currentEmployee.id || currentEmployee.employee_id;
+      const response = await apiClient.put(
+        `/admin/salary-components/${componentId}`,
+        {
+          employee_id: employeeId,
+          component_name: updatedData.component_name,
+          value: updatedData.value,
+        },
+      );
+      if (response.data.status === "success") {
+        showToast("Salary component updated successfully", "success");
+        setEditingComponent(null);
+        fetchEmployeeData();
+      } else {
+        showToast(
+          response.data.message || "Failed to update salary component",
+          "error",
+        );
+      }
+    } catch (error) {
+      console.error("Error updating salary component:", error);
+      showToast(
+        error.response?.data?.message || "Failed to update salary component",
+        "error",
+      );
+    }
+  };
+
+  const handleAddComponent = async () => {
+    if (!newComponent.component_name || !newComponent.value) {
+      showToast("Please fill in all fields", "error");
+      return;
+    }
+
+    try {
+      const employeeId = currentEmployee.id || currentEmployee.employee_id;
+
+      if (!employeeId) {
+        showToast(
+          "Employee ID not found. Please refresh and try again.",
+          "error",
+        );
+        return;
+      }
+
+      const payload = {
+        employee_id: employeeId,
+        component_name: newComponent.component_name,
+        value: parseFloat(newComponent.value).toFixed(2),
+      };
+
+      const response = await apiClient.post(
+        "/admin/salary-components",
+        payload,
+      );
+
+      if (response.data.status === "success") {
+        showToast("Salary component added successfully", "success");
+        setShowAddComponent(false);
+        setNewComponent({
+          component_name: "",
+          value: "",
+        });
+        fetchEmployeeData();
+      } else {
+        showToast(
+          response.data.message || "Failed to add salary component",
+          "error",
+        );
+      }
+    } catch (error) {
+      console.error("Error adding salary component:", error);
+      showToast(
+        error.response?.data?.message || "Failed to add salary component",
+        "error",
+      );
+    }
+  };
+
+  // ─── Bank CRUD ──────────────────────────────────────────────────────
+  const handleAddBankDetail = async () => {
+    if (!newBank.bank_name || !newBank.account_number) {
+      showToast("Please fill in all required fields", "error");
+      return;
+    }
+
+    if (newBank.bank_country === "India" && !newBank.ifsc_code) {
+      showToast("IFSC Code is required for Indian bank accounts", "error");
+      return;
+    }
+    if (newBank.bank_country === "UAE" && !newBank.iban_number) {
+      showToast("IBAN Number is required for UAE bank accounts", "error");
+      return;
+    }
+
+    try {
+      const existingBanks = currentEmployee.bank_details || [];
+      const newBankFormatted = {
+        bank_country: newBank.bank_country,
+        bank_name: newBank.bank_name,
+        account_number: newBank.account_number,
+        ifsc_code: newBank.bank_country === "India" ? newBank.ifsc_code : null,
+        branch_name:
+          newBank.bank_country === "India" ? newBank.branch_name : null,
+        iban_number:
+          newBank.bank_country === "UAE" ? newBank.iban_number : null,
+        swift_code: newBank.bank_country === "UAE" ? newBank.swift_code : null,
+      };
+
+      const allBanks = [...existingBanks, newBankFormatted];
+      const payload = {
+        user_id: currentEmployee.user_id || currentEmployee.user?.id,
+        bank_details: allBanks,
+      };
+
+      const response = await apiClient.post(
+        "/admin/employees/onboard/banks",
+        payload,
+      );
+
+      if (response.data.status === "success") {
+        showToast("Bank details added successfully", "success");
+        setShowAddBank(false);
+        setNewBank({
+          bank_country: "India",
+          bank_name: "",
+          account_number: "",
+          ifsc_code: "",
+          branch_name: "",
+          iban_number: "",
+          swift_code: "",
+        });
+        fetchEmployeeData();
+      } else {
+        showToast(
+          response.data.message || "Failed to add bank details",
+          "error",
+        );
+      }
+    } catch (error) {
+      console.error("Error adding bank details:", error);
+      showToast(
+        error.response?.data?.message || "Failed to add bank details",
+        "error",
+      );
+    }
+  };
+
+  const handleUpdateBankDetail = async (bankId, updatedData) => {
+    try {
+      const response = await apiClient.put(
+        `/admin/bank-details/${bankId}`,
+        updatedData,
+      );
+
+      if (response.data.status === "success") {
+        showToast("Bank details updated successfully", "success");
+        setEditingBankDetail(null);
+        fetchEmployeeData();
+      } else {
+        showToast(
+          response.data.message || "Failed to update bank details",
+          "error",
+        );
+      }
+    } catch (error) {
+      console.error("Error updating bank details:", error);
+      showToast(
+        error.response?.data?.message || "Failed to update bank details",
+        "error",
+      );
     }
   };
 
@@ -235,6 +551,7 @@ const EmployeeDetails = () => {
   const getTabs = () => {
     const baseTabs = [
       { id: "basic", label: "Basic Info", icon: <FiUser /> },
+      { id: "salary", label: "Salary & Bank", icon: <FiDollarSign /> },
     ];
 
     if (selectedCountry === "UAE") {
@@ -367,7 +684,7 @@ const EmployeeDetails = () => {
             </div>
           </div>
 
-          {/* Profile Summary Card - FIXED DARK THEME */}
+          {/* Profile Summary Card */}
           <div className="bg-[var(--surface)] rounded-xl shadow-sm border border-[var(--border)] p-6 mb-6">
             <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
               {getEmployeePhoto() ? (
@@ -439,7 +756,7 @@ const EmployeeDetails = () => {
             </div>
           </div>
 
-          {/* Tabs Navigation - FIXED DARK THEME */}
+          {/* Tabs Navigation */}
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl mb-6 overflow-x-auto">
             <div className="flex min-w-max">
               {tabs.map((tab) => (
@@ -459,7 +776,7 @@ const EmployeeDetails = () => {
             </div>
           </div>
 
-          {/* Tab Content - FIXED DARK THEME */}
+          {/* Tab Content */}
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
             {/* Basic Information Tab */}
             {activeTab === "basic" && (
@@ -786,6 +1103,628 @@ const EmployeeDetails = () => {
               </div>
             )}
 
+            {/* ─── SALARY & BANK DETAILS TAB ────────────────────────────── */}
+            {activeTab === "salary" && (
+              <div>
+                {/* Salary Components Section */}
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-[var(--text)] flex items-center gap-2">
+                    <FiDollarSign className="text-green-500" /> Salary Components
+                  </h3>
+                  <button
+                    onClick={() => setShowAddComponent(true)}
+                    className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors flex items-center gap-1"
+                  >
+                    <FiPlus size={14} /> Add Component
+                  </button>
+                </div>
+
+                {/* Salary Components List */}
+                {getEmployeeComponents().length > 0 ? (
+                  <div className="border border-[var(--border)] rounded-xl overflow-hidden mb-6">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-[var(--border)]">
+                        <thead className="bg-[var(--surface2)]">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
+                              Component Name
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
+                              Amount (INR)
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-[var(--surface)] divide-y divide-[var(--border)]">
+                          {getEmployeeComponents().map((comp, index) => (
+                            <tr key={comp.id || index} className="hover:bg-[var(--surface2)]">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-[var(--text)]">
+                                {editingComponent === comp.id ? (
+                                  <input
+                                    type="text"
+                                    defaultValue={comp.component_name}
+                                    className="px-2 py-1 border border-[var(--border)] rounded bg-[var(--surface)] text-[var(--text)]"
+                                    id={`comp-name-${comp.id}`}
+                                  />
+                                ) : (
+                                  comp.component_name
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-[var(--text)] text-right">
+                                {editingComponent === comp.id ? (
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    defaultValue={comp.value}
+                                    className="px-2 py-1 border border-[var(--border)] rounded text-right bg-[var(--surface)] text-[var(--text)]"
+                                    id={`comp-value-${comp.id}`}
+                                  />
+                                ) : (
+                                  parseFloat(comp.value).toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-center">
+                                {editingComponent === comp.id ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button
+                                      onClick={() => {
+                                        const newName = document.getElementById(
+                                          `comp-name-${comp.id}`
+                                        ).value;
+                                        const newValue = document.getElementById(
+                                          `comp-value-${comp.id}`
+                                        ).value;
+                                        handleUpdateComponent(comp.id, {
+                                          component_name: newName,
+                                          value: newValue,
+                                        });
+                                      }}
+                                      className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
+                                      title="Save"
+                                    >
+                                      <FiSave size={16} />
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingComponent(null)}
+                                      className="text-[var(--muted)] hover:text-[var(--text)]"
+                                      title="Cancel"
+                                    >
+                                      <FiX size={16} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button
+                                      onClick={() => setEditingComponent(comp.id)}
+                                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                                      title="Edit"
+                                    >
+                                      <FiEdit size={16} />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleDeleteComponentClick(
+                                          comp.id,
+                                          comp.component_name
+                                        )
+                                      }
+                                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                                      title="Delete"
+                                    >
+                                      <FiTrash2 size={16} />
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                          {/* Total Row */}
+                          <tr className="bg-[var(--surface2)] font-bold">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-[var(--text)]">
+                              Total Salary
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-green-600 dark:text-green-400 text-right">
+                              INR {getTotalSalary().toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </td>
+                            <td></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-[var(--surface2)] rounded-xl border border-[var(--border)] mb-6">
+                    <FiDollarSign className="text-4xl text-[var(--muted)] mx-auto mb-2" />
+                    <p className="text-[var(--muted)]">
+                      No salary components configured
+                    </p>
+                  </div>
+                )}
+
+                {/* Add Component Modal */}
+                {showAddComponent && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-[var(--surface)] rounded-xl max-w-md w-full p-6 border border-[var(--border)]">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-[var(--text)]">
+                          Add Salary Component
+                        </h3>
+                        <button
+                          onClick={() => {
+                            setShowAddComponent(false);
+                            setNewComponent({
+                              component_name: "",
+                              value: "",
+                            });
+                          }}
+                          className="text-[var(--muted)] hover:text-[var(--text)]"
+                        >
+                          <FiX size={20} />
+                        </button>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                            Component Name
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g., Basic Salary"
+                            value={newComponent.component_name}
+                            onChange={(e) =>
+                              setNewComponent({
+                                ...newComponent,
+                                component_name: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] placeholder:text-[var(--muted)]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                            Amount
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="Enter amount"
+                            value={newComponent.value}
+                            onChange={(e) =>
+                              setNewComponent({
+                                ...newComponent,
+                                value: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] placeholder:text-[var(--muted)]"
+                          />
+                        </div>
+                        <button
+                          onClick={handleAddComponent}
+                          className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors"
+                        >
+                          Add Component
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── Bank Details Section ───────────────────────────────── */}
+                <div className="flex justify-between items-center mb-4 mt-8 pt-4 border-t border-[var(--border)]">
+                  <h3 className="text-lg font-semibold text-[var(--text)] flex items-center gap-2">
+                    <FiCreditCardIcon className="text-green-500" /> Bank Details
+                  </h3>
+                  <button
+                    onClick={() => setShowAddBank(true)}
+                    className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors flex items-center gap-1"
+                  >
+                    <FiPlus size={14} /> Add Bank Account
+                  </button>
+                </div>
+
+                {/* Add Bank Modal */}
+                {showAddBank && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                    <div className="bg-[var(--surface)] rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto border border-[var(--border)]">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-[var(--text)]">
+                          Add Bank Account
+                        </h3>
+                        <button
+                          onClick={() => setShowAddBank(false)}
+                          className="text-[var(--muted)] hover:text-[var(--text)]"
+                        >
+                          <FiX size={20} />
+                        </button>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                            Country
+                          </label>
+                          <select
+                            value={newBank.bank_country}
+                            onChange={(e) =>
+                              setNewBank({
+                                ...newBank,
+                                bank_country: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)]"
+                          >
+                            <option value="India">India</option>
+                            <option value="UAE">United Arab Emirates</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                            Bank Name *
+                          </label>
+                          <input
+                            type="text"
+                            value={newBank.bank_name}
+                            onChange={(e) =>
+                              setNewBank({
+                                ...newBank,
+                                bank_name: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] placeholder:text-[var(--muted)]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                            Account Number *
+                          </label>
+                          <input
+                            type="text"
+                            value={newBank.account_number}
+                            onChange={(e) =>
+                              setNewBank({
+                                ...newBank,
+                                account_number: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] placeholder:text-[var(--muted)]"
+                          />
+                        </div>
+                        {newBank.bank_country === "India" ? (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                                IFSC Code *
+                              </label>
+                              <input
+                                type="text"
+                                value={newBank.ifsc_code}
+                                onChange={(e) =>
+                                  setNewBank({
+                                    ...newBank,
+                                    ifsc_code: e.target.value.toUpperCase(),
+                                  })
+                                }
+                                className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] placeholder:text-[var(--muted)]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                                Branch Name
+                              </label>
+                              <input
+                                type="text"
+                                value={newBank.branch_name}
+                                onChange={(e) =>
+                                  setNewBank({
+                                    ...newBank,
+                                    branch_name: e.target.value,
+                                  })
+                                }
+                                className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] placeholder:text-[var(--muted)]"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                                IBAN Number *
+                              </label>
+                              <input
+                                type="text"
+                                value={newBank.iban_number}
+                                onChange={(e) =>
+                                  setNewBank({
+                                    ...newBank,
+                                    iban_number: e.target.value.toUpperCase(),
+                                  })
+                                }
+                                className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] placeholder:text-[var(--muted)]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                                SWIFT/BIC Code
+                              </label>
+                              <input
+                                type="text"
+                                value={newBank.swift_code}
+                                onChange={(e) =>
+                                  setNewBank({
+                                    ...newBank,
+                                    swift_code: e.target.value.toUpperCase(),
+                                  })
+                                }
+                                className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] placeholder:text-[var(--muted)]"
+                              />
+                            </div>
+                          </>
+                        )}
+                        <button
+                          onClick={handleAddBankDetail}
+                          className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors"
+                        >
+                          Add Bank Account
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Bank Details List */}
+                {currentEmployee.bank_details &&
+                currentEmployee.bank_details.length > 0 ? (
+                  <div className="space-y-4">
+                    {currentEmployee.bank_details.map((bank, index) => (
+                      <div
+                        key={bank.id || index}
+                        className="border border-[var(--border)] rounded-xl overflow-hidden"
+                      >
+                        <div className="bg-[var(--surface2)] px-6 py-3 border-b border-[var(--border)] flex justify-between items-center">
+                          <h4 className="font-semibold text-[var(--text)] flex items-center gap-2">
+                            <FiGlobeIcon className="text-green-500" />
+                            Bank Account{" "}
+                            {currentEmployee.bank_details.length > 1
+                              ? `#${index + 1}`
+                              : ""}
+                            <span className="ml-2 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs">
+                              {bank.bank_country}
+                            </span>
+                          </h4>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setEditingBankDetail(bank.id)}
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                              title="Edit"
+                            >
+                              <FiEdit size={16} />
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleDeleteBankDetailClick(
+                                  bank.id,
+                                  bank.bank_name,
+                                )
+                              }
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                              title="Delete"
+                            >
+                              <FiTrash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="p-6">
+                          {editingBankDetail === bank.id ? (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-xs text-[var(--muted)] mb-1">
+                                    Bank Name
+                                  </label>
+                                  <input
+                                    type="text"
+                                    defaultValue={bank.bank_name}
+                                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text)]"
+                                    id={`bank-name-${bank.id}`}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-[var(--muted)] mb-1">
+                                    Account Number
+                                  </label>
+                                  <input
+                                    type="text"
+                                    defaultValue={bank.account_number}
+                                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text)]"
+                                    id={`bank-account-${bank.id}`}
+                                  />
+                                </div>
+                                {bank.bank_country === "India" ? (
+                                  <>
+                                    <div>
+                                      <label className="block text-xs text-[var(--muted)] mb-1">
+                                        IFSC Code
+                                      </label>
+                                      <input
+                                        type="text"
+                                        defaultValue={bank.ifsc_code || ""}
+                                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text)]"
+                                        id={`bank-ifsc-${bank.id}`}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs text-[var(--muted)] mb-1">
+                                        Branch Name
+                                      </label>
+                                      <input
+                                        type="text"
+                                        defaultValue={bank.branch_name || ""}
+                                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text)]"
+                                        id={`bank-branch-${bank.id}`}
+                                      />
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div>
+                                      <label className="block text-xs text-[var(--muted)] mb-1">
+                                        IBAN Number
+                                      </label>
+                                      <input
+                                        type="text"
+                                        defaultValue={bank.iban_number || ""}
+                                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text)]"
+                                        id={`bank-iban-${bank.id}`}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs text-[var(--muted)] mb-1">
+                                        SWIFT Code
+                                      </label>
+                                      <input
+                                        type="text"
+                                        defaultValue={bank.swift_code || ""}
+                                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text)]"
+                                        id={`bank-swift-${bank.id}`}
+                                      />
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={() => setEditingBankDetail(null)}
+                                  className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] rounded-lg hover:bg-[var(--surface2)]"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const updatedData = {
+                                      bank_country: bank.bank_country,
+                                      bank_name: document.getElementById(
+                                        `bank-name-${bank.id}`,
+                                      ).value,
+                                      account_number: document.getElementById(
+                                        `bank-account-${bank.id}`,
+                                      ).value,
+                                    };
+                                    if (bank.bank_country === "India") {
+                                      updatedData.ifsc_code =
+                                        document.getElementById(
+                                          `bank-ifsc-${bank.id}`,
+                                        ).value;
+                                      updatedData.branch_name =
+                                        document.getElementById(
+                                          `bank-branch-${bank.id}`,
+                                        ).value;
+                                    } else {
+                                      updatedData.iban_number =
+                                        document.getElementById(
+                                          `bank-iban-${bank.id}`,
+                                        ).value;
+                                      updatedData.swift_code =
+                                        document.getElementById(
+                                          `bank-swift-${bank.id}`,
+                                        ).value;
+                                    }
+                                    handleUpdateBankDetail(
+                                      bank.id,
+                                      updatedData,
+                                    );
+                                  }}
+                                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                                >
+                                  Save Changes
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
+                                    Bank Name
+                                  </label>
+                                  <p className="text-[var(--text)] font-medium mt-1">
+                                    {bank.bank_name}
+                                  </p>
+                                </div>
+                                <div>
+                                  <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
+                                    Account Number
+                                  </label>
+                                  <p className="text-[var(--text)] font-medium mt-1 font-mono">
+                                    {bank.account_number}
+                                  </p>
+                                </div>
+                                {bank.branch_name && (
+                                  <div>
+                                    <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
+                                      Branch Name
+                                    </label>
+                                    <p className="text-[var(--text)] font-medium mt-1">
+                                      {bank.branch_name}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="space-y-3">
+                                {bank.ifsc_code && (
+                                  <div>
+                                    <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
+                                      IFSC Code
+                                    </label>
+                                    <p className="text-[var(--text)] font-medium mt-1 font-mono">
+                                      {bank.ifsc_code}
+                                    </p>
+                                  </div>
+                                )}
+                                {bank.iban_number && (
+                                  <div>
+                                    <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
+                                      IBAN Number
+                                    </label>
+                                    <p className="text-[var(--text)] font-medium mt-1 font-mono">
+                                      {bank.iban_number}
+                                    </p>
+                                  </div>
+                                )}
+                                {bank.swift_code && (
+                                  <div>
+                                    <label className="text-xs text-[var(--muted)] uppercase tracking-wide">
+                                      SWIFT/BIC Code
+                                    </label>
+                                    <p className="text-[var(--text)] font-medium mt-1 font-mono">
+                                      {bank.swift_code}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-[var(--surface2)] rounded-xl border border-[var(--border)]">
+                    <FiCreditCardIcon className="text-4xl text-[var(--muted)] mx-auto mb-2" />
+                    <p className="text-[var(--muted)]">
+                      No bank details available
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Passport Information Tab (UAE only) */}
             {activeTab === "passport" && selectedCountry === "UAE" && (
               <div>
@@ -1083,7 +2022,7 @@ const EmployeeDetails = () => {
               </div>
             )}
 
-            {/* Documents Tab - FIXED DARK THEME */}
+            {/* Documents Tab */}
             {activeTab === "documents" && (
               <div>
                 <h3 className="text-lg font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
@@ -1159,6 +2098,18 @@ const EmployeeDetails = () => {
           </div>
         </div>
       </main>
+
+      {/* ─── CONFIRM DELETE MODAL ───────────────────────────────────────── */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmModal}
+        onConfirm={executeDelete}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="Delete"
+        cancelText="Cancel"
+        loading={confirmModal.loading}
+      />
     </div>
   );
 };
