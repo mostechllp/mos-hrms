@@ -3,7 +3,6 @@ import apiClient from '../../../utils/apiClient';
 
 // Async Thunks
 export const savePayrollStep = createAsyncThunk('payroll/saveStep', async (data) => data);
-export const submitPayroll = createAsyncThunk('payroll/submit', async (data) => data);
 export const fetchDraftPayroll = createAsyncThunk('payroll/fetchDraft', async () => ({}));
 export const calculateSalarySplit = createAsyncThunk('payroll/calculateSplit', async (data) => []);
 export const fetchOvertimeData = createAsyncThunk('payroll/fetchOvertime', async () => []);
@@ -11,6 +10,29 @@ export const fetchPayrollSummary = createAsyncThunk('payroll/fetchSummary', asyn
 export const fetchEmployeeSalaryPackages = createAsyncThunk('payroll/fetchPackages', async () => []);
 export const convertSalary = createAsyncThunk('payroll/convertSalary', async (data) => data);
 export const generatePayslip = createAsyncThunk('payroll/generatePayslip', async () => ({}));
+
+// ✅ FIXED: Submit payroll to API
+export const submitPayroll = createAsyncThunk(
+  'payroll/submit',
+  async (payload, { rejectWithValue }) => {
+    try {
+      console.log('📤 Submitting payroll with payload:', payload);
+      const response = await apiClient.post('/admin/payroll/submit', payload);
+      console.log('📥 Submit response:', response.data);
+      
+      if (response.data?.success) {
+        return response.data;
+      } else {
+        return rejectWithValue(response.data?.message || 'Failed to submit payroll');
+      }
+    } catch (error) {
+      console.error('❌ Submit payroll error:', error);
+      return rejectWithValue(
+        error.response?.data?.message || error.message || 'Failed to submit payroll'
+      );
+    }
+  }
+);
 
 // ✅ FIXED: Fetch payroll employees
 export const fetchPayrollEmployees = createAsyncThunk(
@@ -28,20 +50,31 @@ export const fetchPayrollEmployees = createAsyncThunk(
   }
 );
 
-// ✅ FIXED: Fetch payroll entries - using /admin/payroll with month/year
+// ✅ FIXED: Fetch payroll entries - only year parameter
 export const fetchPayrollEntries = createAsyncThunk(
   'payroll/fetchEntries',
-  async ({ year, month }, { rejectWithValue }) => {
+  async ({ year }, { rejectWithValue }) => {
     try {
-      // Use /admin/payroll endpoint with month and year as query parameters
+      // Only pass year to the API
       const response = await apiClient.get('/admin/payroll', {
         params: { 
-          month: month,
           year: year 
         }
       });
       
-      return response.data?.data || response.data || [];
+      console.log('📥 Fetch payroll entries response:', response.data);
+      
+      // Handle different response structures
+      let entries = [];
+      if (response.data?.data) {
+        entries = response.data.data;
+      } else if (response.data?.payrolls) {
+        entries = response.data.payrolls;
+      } else if (Array.isArray(response.data)) {
+        entries = response.data;
+      }
+      
+      return entries;
     } catch (error) {
       console.error('Fetch payroll entries error:', error);
       return rejectWithValue(
@@ -113,10 +146,27 @@ const payrollSlice = createSlice({
         state.entriesLoading = false;
         state.payrollEntries = action.payload;
         state.totalCount = Array.isArray(action.payload) ? action.payload.length : 0;
+        console.log('✅ Payroll entries updated:', state.payrollEntries);
       })
       .addCase(fetchPayrollEntries.rejected, (state, action) => {
         state.entriesLoading = false;
         state.error = action.payload || 'Failed to fetch payroll entries';
+        console.error('❌ Failed to fetch payroll entries:', action.payload);
+      })
+      // ✅ Submit Payroll
+      .addCase(submitPayroll.pending, (state) => {
+        state.isSubmitting = true;
+        state.error = null;
+        state.successMessage = null;
+      })
+      .addCase(submitPayroll.fulfilled, (state, action) => {
+        state.isSubmitting = false;
+        state.successMessage = action.payload?.message || 'Payroll submitted successfully!';
+        state.summaryData = action.payload?.data || null;
+      })
+      .addCase(submitPayroll.rejected, (state, action) => {
+        state.isSubmitting = false;
+        state.error = action.payload || 'Failed to submit payroll';
       });
   },
 });
@@ -136,7 +186,6 @@ export const {
 // ============================================================
 // ✅ BASE SELECTORS - Simple direct lookups (not memoized)
 // ============================================================
-const selectPayrollState = (state) => state.payroll || {};
 
 export const selectCurrentStep = (state) => state.payroll?.currentStep || 1;
 export const selectStepData = (state) => state.payroll?.stepData || {};
@@ -200,8 +249,9 @@ export const selectPayrollEntriesWithCalculations = createSelector(
 export const selectTotalPayrollAmount = createSelector(
   [selectPayrollEntries],
   (entries) => {
+    if (!entries || entries.length === 0) return 0;
     return entries.reduce((acc, item) => {
-      const salary = item.salary || item.gross_salary || 0;
+      const salary = item.gross_salary || item.salary || 0;
       return acc + Number(salary);
     }, 0);
   }
@@ -214,6 +264,7 @@ export const selectTotalPayrollAmount = createSelector(
 export const selectPendingPayrollCount = createSelector(
   [selectPayrollEntries],
   (entries) => {
+    if (!entries || entries.length === 0) return 0;
     return entries.filter(
       (item) => item.status === 'pending' || !item.status
     ).length;
@@ -227,7 +278,8 @@ export const selectPendingPayrollCount = createSelector(
 export const selectPaidPayrollCount = createSelector(
   [selectPayrollEntries],
   (entries) => {
-    return entries.filter((item) => item.status === 'paid').length;
+    if (!entries || entries.length === 0) return 0;
+    return entries.filter((item) => item.status === 'completed' || item.status === 'paid').length;
   }
 );
 
@@ -241,18 +293,19 @@ export const selectFilteredPayrollEntries = createSelector(
     (state, searchTerm, statusFilter) => ({ searchTerm, statusFilter })
   ],
   (entries, filters) => {
+    if (!entries || entries.length === 0) return [];
     const { searchTerm, statusFilter } = filters;
     
     return entries.filter((item) => {
-      const employeeName = `${item.first_name || ''} ${item.last_name || ''}`.toLowerCase();
+      const employeeName = (item.employee_name || '').toLowerCase();
       const searchMatch = 
         !searchTerm ||
         employeeName.includes(searchTerm.toLowerCase()) ||
-        item.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
+        (item.employee_id?.toString() || '').includes(searchTerm.toLowerCase());
 
       const statusMatch =
         statusFilter === 'all' ||
-        (statusFilter === 'paid' && item.status === 'paid') ||
+        (statusFilter === 'paid' && (item.status === 'completed' || item.status === 'paid')) ||
         (statusFilter === 'pending' && (item.status === 'pending' || !item.status));
 
       return searchMatch && statusMatch;

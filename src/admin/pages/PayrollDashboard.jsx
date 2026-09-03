@@ -38,23 +38,30 @@ const PayrollDashboard = () => {
     const fetchData = async () => {
       setLoading(true);
       await dispatch(fetchPayrollEmployees());
-      // Fetch entries for current year
-      await dispatch(fetchPayrollEntries({ 
-        year: currentYear, 
-        month: 'all' 
-      }));
+      // Fetch entries for current year (only year parameter)
+      await dispatch(fetchPayrollEntries({ year: currentYear }));
       setLoading(false);
     };
     fetchData();
   }, [dispatch, currentYear]);
 
+  // Debug: Log entries when they change
+  useEffect(() => {
+    console.log('📊 Payroll entries in dashboard:', payrollEntries);
+    console.log('📊 Total count:', totalCount);
+  }, [payrollEntries, totalCount]);
+
   // Group payroll entries by month
   const getPayrollsByMonth = () => {
     const monthCounts = new Array(12).fill(0);
     
+    if (!payrollEntries || payrollEntries.length === 0) {
+      return monthCounts;
+    }
+    
     payrollEntries.forEach(entry => {
-      if (entry.pay_period_month) {
-        const monthIndex = parseInt(entry.pay_period_month) - 1;
+      if (entry.month) {
+        const monthIndex = parseInt(entry.month) - 1;
         if (monthIndex >= 0 && monthIndex < 12) {
           monthCounts[monthIndex]++;
         }
@@ -87,6 +94,7 @@ const PayrollDashboard = () => {
 
   // Format currency
   const formatCurrency = (amount) => {
+    if (!amount || isNaN(amount)) return '₹0.00';
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
@@ -103,10 +111,7 @@ const PayrollDashboard = () => {
   // Handle year change
   const handleYearChange = async (year) => {
     setCurrentYear(year);
-    await dispatch(fetchPayrollEntries({ 
-      year: year, 
-      month: 'all' 
-    }));
+    await dispatch(fetchPayrollEntries({ year: year }));
   };
 
   // Loading state
@@ -130,7 +135,7 @@ const PayrollDashboard = () => {
           <button
             onClick={() => {
               dispatch(fetchPayrollEmployees());
-              dispatch(fetchPayrollEntries({ year: currentYear, month: 'all' }));
+              dispatch(fetchPayrollEntries({ year: currentYear }));
             }}
             className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
           >
@@ -269,11 +274,15 @@ const PayrollDashboard = () => {
               </div>
               <div className="text-right">
                 <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Pending Amount</p>
-                <h3 className="text-lg font-bold text-amber-500">{formatCurrency(pendingCount > 0 ? totalPayrollAmount * (pendingCount / totalCount || 0) : 0)}</h3>
+                <h3 className="text-lg font-bold text-amber-500">
+                  {formatCurrency(pendingCount > 0 && totalCount > 0 ? totalPayrollAmount * (pendingCount / totalCount) : 0)}
+                </h3>
               </div>
               <div className="text-right">
                 <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Paid Amount</p>
-                <h3 className="text-lg font-bold text-green-500">{formatCurrency(paidCount > 0 ? totalPayrollAmount * (paidCount / totalCount || 0) : 0)}</h3>
+                <h3 className="text-lg font-bold text-green-500">
+                  {formatCurrency(paidCount > 0 && totalCount > 0 ? totalPayrollAmount * (paidCount / totalCount) : 0)}
+                </h3>
               </div>
             </div>
           </div>

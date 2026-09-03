@@ -10,6 +10,10 @@ import {
   Archive,
   Loader2,
   Users,
+  Eye,
+  Edit,
+  FileDown,
+  Trash2,
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -21,6 +25,9 @@ import {
   selectEntriesLoading,
   selectPayrollError,
 } from "../store/slices/payrollSlice";
+import { showToast } from "../components/common/Toast";
+import ConfirmModal from "../components/common/ConfirmModal";
+import apiClient from "../../utils/apiClient";
 
 const PayrollList = () => {
   const navigate = useNavigate();
@@ -33,6 +40,9 @@ const PayrollList = () => {
   const [entries, setEntries] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedPayroll, setSelectedPayroll] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Redux selectors
   const employees = useSelector(selectEmployees);
@@ -64,11 +74,12 @@ const PayrollList = () => {
       (item.first_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
       (item.last_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
       (item.employee_id?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (item.name?.toLowerCase() || "").includes(searchTerm.toLowerCase());
+      (item.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (item.employee_name?.toLowerCase() || "").includes(searchTerm.toLowerCase());
 
     const statusMatch =
       statusFilter === "all" ||
-      (statusFilter === "paid" && item.status === "paid") ||
+      (statusFilter === "paid" && (item.status === "paid" || item.status === "completed")) ||
       (statusFilter === "pending" &&
         (item.status === "pending" || !item.status));
 
@@ -89,18 +100,108 @@ const PayrollList = () => {
 
   // Calculate total amount
   const totalAmount = filteredData.reduce((acc, item) => {
-    const salary = item.salary || item.gross_salary || 0;
+    const salary = item.gross_salary || item.salary || 0;
     return acc + Number(salary);
   }, 0);
 
   // Format currency
   const formatCurrency = (amount) => {
+    if (!amount || isNaN(amount)) return "₹0.00";
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Handle View
+  const handleView = (item) => {
+    navigate(`/admin/payroll/view/${item.id}`);
+  };
+
+  // Handle Edit
+  const handleEdit = (item) => {
+    navigate(`/admin/payroll/edit/${item.id}`);
+  };
+
+  // Handle Generate Payslip
+  const handleGeneratePayslip = async (item) => {
+    try {
+      showToast("Generating payslip...", "info");
+      const response = await apiClient.post(`/admin/payroll/generate-payslip/${item.id}`);
+      if (response.data?.success) {
+        // If the API returns a URL, download it
+        if (response.data?.data?.url) {
+          window.open(response.data.data.url, "_blank");
+        } else if (response.data?.data?.pdf) {
+          // If PDF data is returned directly
+          const link = document.createElement("a");
+          link.href = `data:application/pdf;base64,${response.data.data.pdf}`;
+          link.download = `payslip_${item.employee_name || item.employee_id}_${item.month}_${item.year}.pdf`;
+          link.click();
+        }
+        showToast("Payslip generated successfully!", "success");
+      } else {
+        showToast(response.data?.message || "Failed to generate payslip", "error");
+      }
+    } catch (error) {
+      console.error("Error generating payslip:", error);
+      showToast(
+        error.response?.data?.message || "Failed to generate payslip",
+        "error"
+      );
+    }
+  };
+
+  // Handle Delete Click
+  const handleDeleteClick = (item) => {
+    setSelectedPayroll(item);
+    setShowDeleteModal(true);
+  };
+
+  // Handle Delete Confirm
+  const handleDeleteConfirm = async () => {
+    if (!selectedPayroll) return;
+    
+    setDeleteLoading(true);
+    try {
+      const response = await apiClient.delete(`/admin/payroll/${selectedPayroll.id}`);
+      if (response.data?.success) {
+        showToast("Payroll deleted successfully!", "success");
+        setShowDeleteModal(false);
+        setSelectedPayroll(null);
+        // Refresh the list
+        if (year && month) {
+          dispatch(fetchPayrollEntries({ year, month }));
+        }
+      } else {
+        showToast(response.data?.message || "Failed to delete payroll", "error");
+      }
+    } catch (error) {
+      console.error("Error deleting payroll:", error);
+      showToast(
+        error.response?.data?.message || "Failed to delete payroll",
+        "error"
+      );
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   // Render loading state
@@ -244,7 +345,7 @@ const PayrollList = () => {
                 className="border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-full text-sm px-4 py-2 text-gray-600 dark:text-gray-300 w-full sm:w-auto focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none font-medium"
               >
                 <option value="all">All Status</option>
-                <option value="paid">Paid</option>
+                <option value="paid">Paid / Completed</option>
                 <option value="pending">Pending</option>
               </select>
 
@@ -279,6 +380,9 @@ const PayrollList = () => {
                 <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-1">
                   No Payroll Records Found
                 </h3>
+                <p className="text-sm text-gray-400 dark:text-gray-500">
+                  No payroll records available for {displayTitle}
+                </p>
               </div>
             ) : (
               <table className="w-full text-left text-sm text-gray-500 dark:text-gray-400">
@@ -296,7 +400,7 @@ const PayrollList = () => {
                     <th className="px-6 py-4 whitespace-nowrap">CURRENCY</th>
                     <th className="px-6 py-4 whitespace-nowrap">STATUS</th>
                     <th className="px-6 py-4 whitespace-nowrap">PAYMENT DATE</th>
-                    <th className="px-6 py-4 whitespace-nowrap text-right">
+                    <th className="px-6 py-4 whitespace-nowrap text-center">
                       ACTIONS
                     </th>
                   </tr>
@@ -305,9 +409,10 @@ const PayrollList = () => {
                   {paginatedData.map((item, index) => {
                     // ✅ FIX: Safely get employee name
                     const employeeName =
-                      item.first_name || item.last_name
+                      item.employee_name ||
+                      (item.first_name || item.last_name
                         ? `${item.first_name || ""} ${item.last_name || ""}`.trim()
-                        : item.name || "Unnamed Employee";
+                        : item.name || "Unnamed Employee");
                     
                     const department = item.department?.name || item.department || "N/A";
                     const designation = item.designation?.name || item.designation || "N/A";
@@ -365,21 +470,55 @@ const PayrollList = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`px-3 py-1 text-[10px] font-bold rounded-full ${
-                              status === "paid"
+                              status === "paid" || status === "completed"
                                 ? "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400"
                                 : "bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400"
                             }`}
                           >
-                            {status.toUpperCase()}
+                            {status === "completed" ? "COMPLETED" : status.toUpperCase()}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-300">
-                          {paymentDate}
+                          {formatDate(paymentDate)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium text-xs">
-                            View
-                          </button>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-2">
+                            {/* View */}
+                            <button
+                              onClick={() => handleView(item)}
+                              className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                              title="View Details"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            
+                            {/* Edit */}
+                            <button
+                              onClick={() => handleEdit(item)}
+                              className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                              title="Edit Payroll"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            
+                            {/* Generate Payslip */}
+                            <button
+                              onClick={() => handleGeneratePayslip(item)}
+                              className="p-1.5 text-purple-500 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                              title="Generate Payslip"
+                            >
+                              <FileDown size={16} />
+                            </button>
+                            
+                            {/* Delete */}
+                            <button
+                              onClick={() => handleDeleteClick(item)}
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              title="Delete Payroll"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -424,6 +563,22 @@ const PayrollList = () => {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setSelectedPayroll(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Payroll"
+        message={`Are you sure you want to delete payroll record for ${selectedPayroll?.employee_name || selectedPayroll?.first_name || "this employee"} for ${selectedPayroll?.month ? `${selectedPayroll.month}/${selectedPayroll.year}` : ""}? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        loading={deleteLoading}
+        variant="danger"
+      />
     </div>
   );
 };
