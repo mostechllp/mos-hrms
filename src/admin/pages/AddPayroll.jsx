@@ -1,4 +1,4 @@
-// src/admin/pages/AddPayroll.js - Updated with Salary Components & Overtime API
+// src/admin/pages/AddPayroll.js - Updated with correct overtime API (POST)
 
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -84,6 +84,8 @@ function AddPayroll() {
   // Local state for form data
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(""); // This stores the numeric ID (e.g., 33)
+  const [selectedEmployeeCode, setSelectedEmployeeCode] = useState(""); // This stores the employee code (e.g., EMP-19011985-02092026)
   const [employeeId, setEmployeeId] = useState("");
   const [employeeName, setEmployeeName] = useState("");
   const [organizationId, setOrganizationId] = useState("");
@@ -161,6 +163,8 @@ function AddPayroll() {
     clearEmployeeFields();
     setSelectedEmployee("");
     setSelectedUserId("");
+    setSelectedEmployeeId("");
+    setSelectedEmployeeCode("");
 
     setPayPeriodMonth("");
     setPayPeriodYear("");
@@ -200,39 +204,55 @@ function AddPayroll() {
     if (employeeId) {
       try {
         const result = await dispatch(fetchEmployeeById(employeeId)).unwrap();
-        if (result && result.user_id) {
-          setSelectedUserId(result.user_id.toString());
+
+        if (result) {
+          // Store the numeric ID (e.g., 33) - THIS IS WHAT THE API EXPECTS
+          setSelectedEmployeeId(result.id);
+
+          // Store the user_id
+          if (result.user_id) {
+            setSelectedUserId(result.user_id.toString());
+          }
+
+          // Store the employee code for display (e.g., EMP-19011985-02092026)
+          if (result.employee_id) {
+            setSelectedEmployeeCode(result.employee_id);
+          }
+
+          // Fetch salary components using the numeric ID (result.id)
+          await fetchSalaryComponents(result.id);
         }
-        // Fetch salary components for this employee
-        await fetchSalaryComponents(result.user_id);
       } catch (error) {
         showToast("Failed to fetch employee details", error);
       }
     } else {
       clearEmployeeFields();
       setSelectedUserId("");
+      setSelectedEmployeeId("");
+      setSelectedEmployeeCode("");
       setSalaryComponents([]);
     }
   };
 
-  // Fetch salary components from API
-  const fetchSalaryComponents = async (userId) => {
-    if (!userId) return;
+  // ✅ FIXED: Fetch salary components using numeric employee ID
+  const fetchSalaryComponents = async (employeeId) => {
+    if (!employeeId) return;
     setComponentsLoading(true);
     try {
-      const response = await apiClient.get('/admin/salary-components', {
-        params: { employee_id: userId }
-      });
-      
-      if (response.data?.status === 'success') {
+      // Use the numeric ID (e.g., 33) in the URL
+      const response = await apiClient.get(
+        `/admin/salary-components/employee/${employeeId}`,
+      );
+
+      if (response.data?.status === "success") {
         const components = response.data.data || [];
         setSalaryComponents(components);
       } else {
         setSalaryComponents([]);
       }
     } catch (error) {
-      console.error('Error fetching salary components:', error);
-      showToast('Failed to fetch salary components', 'error');
+      console.error("Error fetching salary components:", error);
+      showToast("Failed to fetch salary components", "error");
       setSalaryComponents([]);
     } finally {
       setComponentsLoading(false);
@@ -241,18 +261,18 @@ function AddPayroll() {
 
   // Handle component value change
   const handleComponentChange = (componentId, field, value) => {
-    setSalaryComponents(prev =>
-      prev.map(comp =>
-        comp.id === componentId ? { ...comp, [field]: value } : comp
-      )
+    setSalaryComponents((prev) =>
+      prev.map((comp) =>
+        comp.id === componentId ? { ...comp, [field]: value } : comp,
+      ),
     );
   };
 
-  // Save component to API
+  // ✅ FIXED: Save component using numeric employee ID
   const saveComponent = async (component) => {
     try {
       const payload = {
-        employee_id: selectedUserId,
+        employee_id: selectedEmployeeId, // Use numeric ID (e.g., 33)
         component_name: component.component_name,
         value: parseFloat(component.value) || 0,
       };
@@ -260,40 +280,58 @@ function AddPayroll() {
       let response;
       if (component.id) {
         // Update existing component
-        response = await apiClient.put(`/admin/salary-components/${component.id}`, payload);
+        response = await apiClient.put(
+          `/admin/salary-components/${component.id}`,
+          payload,
+        );
       } else {
         // Create new component
-        response = await apiClient.post('/admin/salary-components', payload);
+        response = await apiClient.post("/admin/salary-components", payload);
       }
 
-      if (response.data?.status === 'success') {
-        showToast('Salary component saved successfully', 'success');
-        await fetchSalaryComponents(selectedUserId);
+      if (response.data?.status === "success") {
+        showToast("Salary component saved successfully", "success");
+        await fetchSalaryComponents(selectedEmployeeId);
         setEditingComponentId(null);
       } else {
-        showToast(response.data?.message || 'Failed to save component', 'error');
+        showToast(
+          response.data?.message || "Failed to save component",
+          "error",
+        );
       }
     } catch (error) {
-      console.error('Error saving component:', error);
-      showToast(error.response?.data?.message || 'Failed to save component', 'error');
+      console.error("Error saving component:", error);
+      showToast(
+        error.response?.data?.message || "Failed to save component",
+        "error",
+      );
     }
   };
 
   // Delete component from API
   const deleteComponent = async (componentId) => {
-    if (!window.confirm('Are you sure you want to delete this component?')) return;
-    
+    if (!window.confirm("Are you sure you want to delete this component?"))
+      return;
+
     try {
-      const response = await apiClient.delete(`/admin/salary-components/${componentId}`);
-      if (response.data?.status === 'success') {
-        showToast('Component deleted successfully', 'success');
-        await fetchSalaryComponents(selectedUserId);
+      const response = await apiClient.delete(
+        `/admin/salary-components/${componentId}`,
+      );
+      if (response.data?.status === "success") {
+        showToast("Component deleted successfully", "success");
+        await fetchSalaryComponents(selectedEmployeeId);
       } else {
-        showToast(response.data?.message || 'Failed to delete component', 'error');
+        showToast(
+          response.data?.message || "Failed to delete component",
+          "error",
+        );
       }
     } catch (error) {
-      console.error('Error deleting component:', error);
-      showToast(error.response?.data?.message || 'Failed to delete component', 'error');
+      console.error("Error deleting component:", error);
+      showToast(
+        error.response?.data?.message || "Failed to delete component",
+        "error",
+      );
     }
   };
 
@@ -301,31 +339,30 @@ function AddPayroll() {
   const addNewComponent = () => {
     const newComponent = {
       id: null,
-      component_name: '',
+      component_name: "",
       value: 0,
-      is_new: true
+      is_new: true,
     };
-    setSalaryComponents(prev => [...prev, newComponent]);
-    setEditingComponentId('new');
+    setSalaryComponents((prev) => [...prev, newComponent]);
+    setEditingComponentId("new");
   };
 
-  // Fetch overtime data
+  // ✅ FIXED: Fetch overtime using POST request with JSON body
   const fetchOvertimeData = async () => {
-    if (!selectedUserId) return;
-    
+    if (!selectedEmployeeId) return;
+
     const monthNumber = monthNames[payPeriodMonth] || new Date().getMonth() + 1;
     const year = parseInt(payPeriodYear) || new Date().getFullYear();
-    const monthStr = `${year}-${String(monthNumber).padStart(2, '0')}`;
-    
+    const monthStr = `${year}-${String(monthNumber).padStart(2, "0")}`;
+
     setOvertimeLoading(true);
     try {
-      const response = await apiClient.get('/admin/payroll/overtime', {
-        params: {
-          employee_id: selectedUserId,
-          month: monthStr
-        }
+      // Use POST request with JSON body
+      const response = await apiClient.post("/admin/payroll/overtime", {
+        employee_id: parseInt(selectedEmployeeId), // Send as integer
+        month: monthStr,
       });
-      
+
       if (response.data?.success) {
         setOvertimeData(response.data.data);
         setTotalOvertimeAmount(response.data.data?.total_overtime_amount || 0);
@@ -334,7 +371,7 @@ function AddPayroll() {
         setTotalOvertimeAmount(0);
       }
     } catch (error) {
-      console.error('Error fetching overtime data:', error);
+      console.error("Error fetching overtime data:", error);
       setOvertimeData(null);
       setTotalOvertimeAmount(0);
     } finally {
@@ -344,10 +381,15 @@ function AddPayroll() {
 
   // Fetch overtime when step 3 is active
   useEffect(() => {
-    if (reduxCurrentStep === 3 && selectedUserId && payPeriodMonth && payPeriodYear) {
+    if (
+      reduxCurrentStep === 3 &&
+      selectedEmployeeId &&
+      payPeriodMonth &&
+      payPeriodYear
+    ) {
       fetchOvertimeData();
     }
-  }, [reduxCurrentStep, selectedUserId, payPeriodMonth, payPeriodYear]);
+  }, [reduxCurrentStep, selectedEmployeeId, payPeriodMonth, payPeriodYear]);
 
   // Clear employee fields
   const clearEmployeeFields = () => {
@@ -368,8 +410,19 @@ function AddPayroll() {
         .filter(Boolean)
         .join(" ");
 
+      // Store the numeric ID (e.g., 33)
+      if (currentEmployee.id) {
+        setSelectedEmployeeId(currentEmployee.id);
+      }
+
+      // Store the user_id
       if (currentEmployee.user_id) {
         setSelectedUserId(currentEmployee.user_id.toString());
+      }
+
+      // Store the employee code for display
+      if (currentEmployee.employee_id) {
+        setSelectedEmployeeCode(currentEmployee.employee_id);
       }
 
       setEmployeeId(currentEmployee.employee_id || "");
@@ -483,14 +536,14 @@ function AddPayroll() {
         data = {
           pay_period_month: monthNumber,
           pay_period_year: year,
-          salary_components: salaryComponents.map(comp => ({
+          salary_components: salaryComponents.map((comp) => ({
             id: comp.id,
             component_name: comp.component_name,
             value: parseFloat(comp.value) || 0,
           })),
           total_salary: salaryComponents.reduce(
             (sum, comp) => sum + (parseFloat(comp.value) || 0),
-            0
+            0,
           ),
         };
         break;
@@ -528,22 +581,22 @@ function AddPayroll() {
           summary: {
             total_salary: salaryComponents.reduce(
               (sum, comp) => sum + (parseFloat(comp.value) || 0),
-              0
+              0,
             ),
             overtime_amount: totalOvertimeAmount,
             deductions: deductions.reduce(
               (sum, d) => sum + parseFloat(d.amount || 0),
               0,
             ),
-            net_pay: salaryComponents.reduce(
-              (sum, comp) => sum + (parseFloat(comp.value) || 0),
-              0
-            ) + totalOvertimeAmount - deductions.reduce(
-              (sum, d) => sum + parseFloat(d.amount || 0),
-              0,
-            ),
+            net_pay:
+              salaryComponents.reduce(
+                (sum, comp) => sum + (parseFloat(comp.value) || 0),
+                0,
+              ) +
+              totalOvertimeAmount -
+              deductions.reduce((sum, d) => sum + parseFloat(d.amount || 0), 0),
           },
-          salary_components: salaryComponents.map(comp => ({
+          salary_components: salaryComponents.map((comp) => ({
             id: comp.id,
             component_name: comp.component_name,
             value: parseFloat(comp.value) || 0,
@@ -601,29 +654,33 @@ function AddPayroll() {
         return;
       }
 
-      const monthNumber = monthNames[payPeriodMonth] || new Date().getMonth() + 1;
+      const monthNumber =
+        monthNames[payPeriodMonth] || new Date().getMonth() + 1;
       const year = parseInt(payPeriodYear) || new Date().getFullYear();
 
       const totalSalary = salaryComponents.reduce(
         (sum, comp) => sum + (parseFloat(comp.value) || 0),
-        0
+        0,
       );
 
       const totalDeductions = deductions.reduce(
         (sum, d) => sum + parseFloat(d.amount || 0),
-        0
+        0,
       );
 
       const payload = {
         user_id: parseInt(selectedUserId),
+        employee_id: parseInt(selectedEmployeeId), // Send numeric ID (e.g., 33)
         pay_period_month: parseInt(monthNumber),
         pay_period_year: parseInt(year),
         gross_salary: parseFloat(totalSalary),
         overtime: parseFloat(totalOvertimeAmount),
         deductions: parseFloat(totalDeductions),
-        net_pay: parseFloat(totalSalary + totalOvertimeAmount - totalDeductions),
+        net_pay: parseFloat(
+          totalSalary + totalOvertimeAmount - totalDeductions,
+        ),
         currency: "INR",
-        salary_components: salaryComponents.map(comp => ({
+        salary_components: salaryComponents.map((comp) => ({
           id: comp.id,
           component_name: comp.component_name,
           value: parseFloat(comp.value) || 0,
@@ -695,11 +752,13 @@ function AddPayroll() {
     }
 
     try {
-      const monthNumber = monthNames[payPeriodMonth] || new Date().getMonth() + 1;
+      const monthNumber =
+        monthNames[payPeriodMonth] || new Date().getMonth() + 1;
       const year = parseInt(payPeriodYear) || new Date().getFullYear();
 
       const enrichedData = {
         ...data,
+        employee_id: parseInt(selectedEmployeeId), // Send numeric ID
         pay_period_month: data.pay_period_month || monthNumber,
         pay_period_year: data.pay_period_year || year,
       };
@@ -755,13 +814,14 @@ function AddPayroll() {
   // Calculate totals for summary
   const totalSalaryAmount = salaryComponents.reduce(
     (sum, comp) => sum + (parseFloat(comp.value) || 0),
-    0
+    0,
   );
   const totalDeductionsAmount = deductions.reduce(
     (sum, d) => sum + parseFloat(d.amount || 0),
     0,
   );
-  const totalNetPay = totalSalaryAmount + totalOvertimeAmount - totalDeductionsAmount;
+  const totalNetPay =
+    totalSalaryAmount + totalOvertimeAmount - totalDeductionsAmount;
 
   return (
     <div className="w-full overflow-x-hidden px-4 md:px-6">
@@ -1108,10 +1168,13 @@ function AddPayroll() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                        Total: {salaryComponents.reduce(
-                          (sum, comp) => sum + (parseFloat(comp.value) || 0),
-                          0
-                        ).toFixed(2)}
+                        Total:{" "}
+                        {salaryComponents
+                          .reduce(
+                            (sum, comp) => sum + (parseFloat(comp.value) || 0),
+                            0,
+                          )
+                          .toFixed(2)}
                       </div>
                       <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">
                         Total Salary
@@ -1133,9 +1196,15 @@ function AddPayroll() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                            <th className="py-3 px-4 font-semibold">Component Name</th>
-                            <th className="py-3 px-4 font-semibold text-center">Amount</th>
-                            <th className="py-3 px-4 font-semibold text-center">Actions</th>
+                            <th className="py-3 px-4 font-semibold">
+                              Component Name
+                            </th>
+                            <th className="py-3 px-4 font-semibold text-center">
+                              Amount
+                            </th>
+                            <th className="py-3 px-4 font-semibold text-center">
+                              Actions
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1146,34 +1215,56 @@ function AddPayroll() {
                                 className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                               >
                                 <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
-                                  {editingComponentId === comp.id || (comp.is_new && editingComponentId === 'new') ? (
+                                  {editingComponentId === comp.id ||
+                                  (comp.is_new &&
+                                    editingComponentId === "new") ? (
                                     <input
                                       type="text"
                                       value={comp.component_name}
-                                      onChange={(e) => handleComponentChange(comp.id, 'component_name', e.target.value)}
+                                      onChange={(e) =>
+                                        handleComponentChange(
+                                          comp.id,
+                                          "component_name",
+                                          e.target.value,
+                                        )
+                                      }
                                       className="w-full px-2 py-1 text-sm rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
                                       placeholder="Enter component name"
                                     />
                                   ) : (
-                                    <span className="font-medium">{comp.component_name}</span>
+                                    <span className="font-medium">
+                                      {comp.component_name}
+                                    </span>
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm text-center">
-                                  {editingComponentId === comp.id || (comp.is_new && editingComponentId === 'new') ? (
+                                  {editingComponentId === comp.id ||
+                                  (comp.is_new &&
+                                    editingComponentId === "new") ? (
                                     <input
                                       type="number"
                                       step="0.01"
                                       value={comp.value}
-                                      onChange={(e) => handleComponentChange(comp.id, 'value', e.target.value)}
+                                      onChange={(e) =>
+                                        handleComponentChange(
+                                          comp.id,
+                                          "value",
+                                          e.target.value,
+                                        )
+                                      }
                                       className="w-32 px-2 py-1 text-sm text-center rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
                                       placeholder="0.00"
                                     />
                                   ) : (
-                                    <span className="font-mono">{(parseFloat(comp.value) || 0).toFixed(2)}</span>
+                                    <span className="font-mono">
+                                      {(parseFloat(comp.value) || 0).toFixed(2)}
+                                    </span>
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-center">
-                                  {editingComponentId === comp.id || (comp.is_new && editingComponentId === 'new') ? (
+                                  {editingComponentId === comp.id ||
+                                  (comp.is_new &&
+                                    editingComponentId === "new") ? (
                                     <div className="flex items-center justify-center gap-2">
                                       <button
                                         onClick={() => saveComponent(comp)}
@@ -1185,7 +1276,11 @@ function AddPayroll() {
                                       <button
                                         onClick={() => {
                                           if (comp.is_new) {
-                                            setSalaryComponents(prev => prev.filter(c => c.id !== comp.id));
+                                            setSalaryComponents((prev) =>
+                                              prev.filter(
+                                                (c) => c.id !== comp.id,
+                                              ),
+                                            );
                                           }
                                           setEditingComponentId(null);
                                         }}
@@ -1198,7 +1293,9 @@ function AddPayroll() {
                                   ) : (
                                     <div className="flex items-center justify-center gap-2">
                                       <button
-                                        onClick={() => setEditingComponentId(comp.id)}
+                                        onClick={() =>
+                                          setEditingComponentId(comp.id)
+                                        }
                                         className="text-blue-500 hover:text-blue-600 transition-colors"
                                         title="Edit"
                                       >
@@ -1218,9 +1315,13 @@ function AddPayroll() {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={3} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                              <td
+                                colSpan={3}
+                                className="py-8 text-center text-gray-500 dark:text-gray-400"
+                              >
                                 <i className="fas fa-coins text-4xl mb-3 block"></i>
-                                No salary components found. Click "Add Component" to create one.
+                                No salary components found. Click "Add
+                                Component" to create one.
                               </td>
                             </tr>
                           )}
@@ -1238,11 +1339,14 @@ function AddPayroll() {
                       <i className="fas fa-plus"></i> Add Component
                     </button>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Total: <span className="font-semibold text-gray-800 dark:text-gray-200">
-                        {salaryComponents.reduce(
-                          (sum, comp) => sum + (parseFloat(comp.value) || 0),
-                          0
-                        ).toFixed(2)}
+                      Total:{" "}
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        {salaryComponents
+                          .reduce(
+                            (sum, comp) => sum + (parseFloat(comp.value) || 0),
+                            0,
+                          )
+                          .toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -1252,105 +1356,126 @@ function AddPayroll() {
           )}
 
           {/* Step 3 - Overtime */}
-          {reduxCurrentStep === 3 && (
+{reduxCurrentStep === 3 && (
+  <div>
+    <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
+      <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+        <i className="fas fa-clock text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
+      </div>
+      <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
+        Overtime Details
+      </h3>
+    </div>
+
+    {overtimeLoading ? (
+      <div className="flex justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+      </div>
+    ) : overtimeData ? (
+      <>
+
+        {/* Editable Overtime Fields */}
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-4 md:p-6 mb-6 border border-indigo-200 dark:border-indigo-800">
+          <h4 className="text-sm font-semibold text-indigo-700 dark:text-indigo-300 mb-4 flex items-center gap-2">
+            <i className="fas fa-pen"></i>
+            Edit Overtime Details
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
-                <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-clock text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
-                </div>
-                <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
-                  Overtime Details
-                </h3>
-              </div>
-
-              {overtimeLoading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-                </div>
-              ) : overtimeData && overtimeData.overtime_details && overtimeData.overtime_details.length > 0 ? (
-                <>
-                  {/* Overtime Summary Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
-                      <div className="text-sm text-blue-600 dark:text-blue-400">Total Overtime</div>
-                      <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                        {overtimeData.total_overtime_formatted || "00:00"}
-                      </div>
-                    </div>
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
-                      <div className="text-sm text-green-600 dark:text-green-400">Total Amount</div>
-                      <div className="text-2xl font-bold text-green-700 dark:text-green-300">
-                        {overtimeData.total_overtime_amount?.toFixed(2) || "0.00"}
-                      </div>
-                    </div>
-                    <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
-                      <div className="text-sm text-purple-600 dark:text-purple-400">Hourly Rate</div>
-                      <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-                        {overtimeData.rates?.overtime_hourly_rate?.toFixed(2) || "0.00"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Overtime Table */}
-                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-soft overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                            <th className="py-3 px-4 font-semibold">Date</th>
-                            <th className="py-3 px-4 font-semibold">Punch In</th>
-                            <th className="py-3 px-4 font-semibold">Punch Out</th>
-                            <th className="py-3 px-4 font-semibold text-center">Total Hours</th>
-                            <th className="py-3 px-4 font-semibold text-center">Overtime</th>
-                            <th className="py-3 px-4 font-semibold text-center">Amount</th>
-                            <th className="py-3 px-4 font-semibold text-center">Breaks</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {overtimeData.overtime_details.map((item, idx) => (
-                            <tr
-                              key={idx}
-                              className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                            >
-                              <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
-                                {formatDate(item.date)}
-                              </td>
-                              <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
-                                {item.punch_in ? new Date(item.punch_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}
-                              </td>
-                              <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
-                                {item.punch_out ? new Date(item.punch_out).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-semibold text-blue-600 dark:text-blue-400 text-center">
-                                {item.total_working_minutes ? (item.total_working_minutes / 60).toFixed(2) : '0'}h
-                              </td>
-                              <td className="py-3 px-4 text-sm font-semibold text-orange-600 dark:text-orange-400 text-center">
-                                {item.overtime_duration || '00:00'}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-semibold text-green-600 dark:text-green-400 text-center">
-                                {item.overtime_amount?.toFixed(2) || '0.00'}
-                              </td>
-                              <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 text-center">
-                                {item.breaks?.length || 0}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-8">
-                  <i className="fas fa-clock text-4xl text-gray-300 dark:text-gray-600 mb-3 block"></i>
-                  <p className="text-gray-500 dark:text-gray-400">No overtime records found for this period.</p>
-                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-                    Make sure the employee has punched in/out during {payPeriodMonth} {payPeriodYear}
-                  </p>
-                </div>
-              )}
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <i className="fas fa-clock mr-1 text-indigo-500"></i>
+                Total Overtime (Hours)
+              </label>
+              <input
+                type="text"
+                value={overtimeData.total_overtime_formatted || "00:00"}
+                onChange={(e) => {
+                  // Update the formatted time
+                  setOvertimeData(prev => ({
+                    ...prev,
+                    total_overtime_formatted: e.target.value
+                  }));
+                }}
+                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                placeholder="HH:MM"
+              />
+              <p className="text-xs text-gray-400 mt-1">Format: HH:MM (e.g., 02:30)</p>
             </div>
-          )}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <i className="fas fa-money-bill mr-1 text-indigo-500"></i>
+                Total Overtime Amount
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={totalOvertimeAmount}
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value) || 0;
+                  setTotalOvertimeAmount(value);
+                  // Also update the overtimeData
+                  setOvertimeData(prev => ({
+                    ...prev,
+                    total_overtime_amount: value
+                  }));
+                }}
+                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                placeholder="0.00"
+              />
+              <p className="text-xs text-gray-400 mt-1">Enter the total overtime amount</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Rate Details Section */}
+        <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 rounded-xl p-4 md:p-6 border border-gray-200 dark:border-gray-700">
+          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+            <i className="fas fa-calculator text-indigo-500"></i>
+            Rate Calculation Details
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center">
+              <div className="text-xs text-gray-500 dark:text-gray-400">Monthly Salary</div>
+              <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                {overtimeData.rates?.monthly_salary?.toFixed(2) || "0.00"}
+              </div>
+            </div>
+            <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center">
+              <div className="text-xs text-gray-500 dark:text-gray-400">Daily Salary</div>
+              <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                {overtimeData.rates?.daily_salary?.toFixed(2) || "0.00"}
+              </div>
+            </div>
+            <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center">
+              <div className="text-xs text-gray-500 dark:text-gray-400">Normal Hourly Rate</div>
+              <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                {overtimeData.rates?.normal_hourly_rate?.toFixed(2) || "0.00"}
+              </div>
+            </div>
+            <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center">
+              <div className="text-xs text-gray-500 dark:text-gray-400">Overtime Hourly Rate</div>
+              <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                {overtimeData.rates?.overtime_hourly_rate?.toFixed(2) || "0.00"}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-center border-t border-gray-200 dark:border-gray-600 pt-2">
+            <i className="fas fa-info-circle mr-1"></i>
+            Overtime rate is calculated as 1.25× of normal hourly rate
+          </div>
+        </div>
+      </>
+    ) : (
+      <div className="text-center py-8">
+        <i className="fas fa-clock text-4xl text-gray-300 dark:text-gray-600 mb-3 block"></i>
+        <p className="text-gray-500 dark:text-gray-400">No overtime data available for this period.</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+          Make sure the employee has punched in/out during {payPeriodMonth} {payPeriodYear}
+        </p>
+      </div>
+    )}
+  </div>
+)}
 
           {/* Step 4 - Deductions */}
           {reduxCurrentStep === 4 && (
@@ -1460,210 +1585,248 @@ function AddPayroll() {
           )}
 
           {/* Step 5 - Summary */}
-          {reduxCurrentStep === 5 && (
-            <div>
-              <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
-                <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-clipboard-check text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
-                </div>
-                <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
-                  Payroll Summary
-                </h3>
+{reduxCurrentStep === 5 && (
+  <div>
+    <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
+      <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+        <i className="fas fa-clipboard-check text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
+      </div>
+      <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
+        Payroll Summary
+      </h3>
+    </div>
+
+    <div className="space-y-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        Review the payroll details before final submission.
+      </p>
+
+      {/* Employee Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700">
+          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            <i className="fas fa-user mr-2 text-green-500"></i>
+            Employee Details
+          </h4>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Name:</span>
+              <span className="font-medium">{employeeName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Employee ID:</span>
+              <span className="font-medium">{employeeId}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Department:</span>
+              <span className="font-medium">{department}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Designation:</span>
+              <span className="font-medium">{designation}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Pay Period:</span>
+              <span className="font-medium">
+                {payPeriodMonth} {payPeriodYear}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700">
+          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            <i className="fas fa-money-bill-wave mr-2 text-green-500"></i>
+            Payment Details
+          </h4>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Payment Date:</span>
+              <span className="font-medium">
+                {formatDate(paymentDate)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Payment Mode:</span>
+              <span className="font-medium">
+                {paymentMode || "N/A"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Working Days:</span>
+              <span className="font-medium">{totalWorkingDays}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Days Present:</span>
+              <span className="font-medium">{daysPresent}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Salary Breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Gross Salary */}
+        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+            <i className="fas fa-wallet mr-2"></i>
+            Gross Salary
+          </h4>
+          {salaryComponents.length > 0 ? (
+            salaryComponents.map((comp, idx) => (
+              <div
+                key={idx}
+                className="flex justify-between items-center text-sm py-1"
+              >
+                <span className="text-gray-600 dark:text-gray-400">
+                  {comp.component_name}:
+                </span>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                  {(parseFloat(comp.value) || 0).toFixed(2)}
+                </span>
               </div>
+            ))
+          ) : (
+            <div className="text-sm text-gray-400">No components</div>
+          )}
+          <div className="border-t border-blue-200 dark:border-blue-700 mt-2 pt-2 flex justify-between items-center font-semibold">
+            <span className="text-gray-700 dark:text-gray-300">
+              Total:
+            </span>
+            <span className="text-blue-600 dark:text-blue-400">
+              {totalSalaryAmount.toFixed(2)}
+            </span>
+          </div>
+        </div>
 
-              <div className="space-y-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Review the payroll details before final submission.
-                </p>
-
-                {/* Employee Summary */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      <i className="fas fa-user mr-2 text-green-500"></i>
-                      Employee Details
-                    </h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Name:</span>
-                        <span className="font-medium">{employeeName}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Employee ID:</span>
-                        <span className="font-medium">{employeeId}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Department:</span>
-                        <span className="font-medium">{department}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Designation:</span>
-                        <span className="font-medium">{designation}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Pay Period:</span>
-                        <span className="font-medium">
-                          {payPeriodMonth} {payPeriodYear}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      <i className="fas fa-money-bill-wave mr-2 text-green-500"></i>
-                      Payment Details
-                    </h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Payment Date:</span>
-                        <span className="font-medium">{formatDate(paymentDate)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Payment Mode:</span>
-                        <span className="font-medium">{paymentMode || "N/A"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Working Days:</span>
-                        <span className="font-medium">{totalWorkingDays}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Days Present:</span>
-                        <span className="font-medium">{daysPresent}</span>
-                      </div>
-                    </div>
-                  </div>
+        {/* Overtime - Scrollable */}
+        <div className="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 flex flex-col">
+          <h4 className="text-sm font-semibold text-orange-700 dark:text-orange-300 mb-2 flex items-center gap-2">
+            <i className="fas fa-clock mr-1"></i>
+            Overtime
+            <span className="ml-auto text-xs font-normal text-gray-500">
+              {overtimeData?.overtime_details?.length || 0} entries
+            </span>
+          </h4>
+          
+          {/* Scrollable Content */}
+          <div className="flex-1 max-h-[200px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-orange-300 scrollbar-track-orange-100 dark:scrollbar-thumb-orange-700 dark:scrollbar-track-orange-900/20">
+            {overtimeData && overtimeData.overtime_details && overtimeData.overtime_details.length > 0 ? (
+              overtimeData.overtime_details.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex justify-between items-center text-sm py-1 border-b border-orange-100 dark:border-orange-800/50 last:border-b-0"
+                >
+                  <span className="text-gray-600 dark:text-gray-400">
+                    {formatDate(item.date)}:
+                  </span>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">
+                    {item.overtime_duration || '00:00'}
+                  </span>
                 </div>
+              ))
+            ) : (
+              <div className="text-sm text-gray-400 text-center py-4">No overtime</div>
+            )}
+          </div>
+          
+          {/* Fixed Total at Bottom */}
+          <div className="border-t border-orange-200 dark:border-orange-700 mt-2 pt-2 flex justify-between items-center font-semibold bg-orange-50 dark:bg-orange-900/20 sticky bottom-0">
+            <span className="text-gray-700 dark:text-gray-300">Total:</span>
+            <span className="text-orange-600 dark:text-orange-400">
+              ₹{totalOvertimeAmount.toFixed(2)}
+            </span>
+          </div>
+        </div>
 
-                {/* Salary Breakdown */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Gross Salary */}
-                  <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                    <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
-                      <i className="fas fa-wallet mr-2"></i>
-                      Gross Salary
-                    </h4>
-                    {salaryComponents.length > 0 ? (
-                      salaryComponents.map((comp, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-sm py-1">
-                          <span className="text-gray-600 dark:text-gray-400">{comp.component_name}:</span>
-                          <span className="font-semibold text-gray-700 dark:text-gray-300">
-                            {(parseFloat(comp.value) || 0).toFixed(2)}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-sm text-gray-400">No components</div>
-                    )}
-                    <div className="border-t border-blue-200 dark:border-blue-700 mt-2 pt-2 flex justify-between items-center font-semibold">
-                      <span className="text-gray-700 dark:text-gray-300">Total:</span>
-                      <span className="text-blue-600 dark:text-blue-400">
-                        {totalSalaryAmount.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Overtime */}
-                  <div className="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
-                    <h4 className="text-sm font-semibold text-orange-700 dark:text-orange-300 mb-2">
-                      <i className="fas fa-clock mr-2"></i>
-                      Overtime
-                    </h4>
-                    {overtimeData && overtimeData.overtime_details && overtimeData.overtime_details.length > 0 ? (
-                      <>
-                        {overtimeData.overtime_details.map((item, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-sm py-1">
-                            <span className="text-gray-600 dark:text-gray-400">{formatDate(item.date)}:</span>
-                            <span className="font-semibold text-gray-700 dark:text-gray-300">
-                              {item.overtime_duration}
-                            </span>
-                          </div>
-                        ))}
-                        <div className="border-t border-orange-200 dark:border-orange-700 mt-2 pt-2 flex justify-between items-center font-semibold">
-                          <span className="text-gray-700 dark:text-gray-300">Total:</span>
-                          <span className="text-orange-600 dark:text-orange-400">
-                            {totalOvertimeAmount.toFixed(2)}
-                          </span>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-sm text-gray-400">No overtime</div>
-                    )}
-                  </div>
-
-                  {/* Deductions */}
-                  <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                    <h4 className="text-sm font-semibold text-red-700 dark:text-red-300 mb-2">
-                      <i className="fas fa-minus-circle mr-2"></i>
-                      Deductions
-                    </h4>
-                    {deductions.filter(d => parseFloat(d.amount || 0) > 0).length > 0 ? (
-                      deductions.filter(d => parseFloat(d.amount || 0) > 0).map((d, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-sm py-1">
-                          <span className="text-gray-600 dark:text-gray-400">{d.type || "Unnamed"}:</span>
-                          <span className="font-semibold text-gray-700 dark:text-gray-300">
-                            {(parseFloat(d.amount) || 0).toFixed(2)}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-sm text-gray-400">No deductions</div>
-                    )}
-                    {deductions.filter(d => parseFloat(d.amount || 0) > 0).length > 0 && (
-                      <div className="border-t border-red-200 dark:border-red-700 mt-2 pt-2 flex justify-between items-center font-semibold">
-                        <span className="text-gray-700 dark:text-gray-300">Total:</span>
-                        <span className="text-red-500">
-                          {totalDeductionsAmount.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+        {/* Deductions */}
+        <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+          <h4 className="text-sm font-semibold text-red-700 dark:text-red-300 mb-2">
+            <i className="fas fa-minus-circle mr-2"></i>
+            Deductions
+          </h4>
+          {deductions.filter((d) => parseFloat(d.amount || 0) > 0)
+            .length > 0 ? (
+            deductions
+              .filter((d) => parseFloat(d.amount || 0) > 0)
+              .map((d, idx) => (
+                <div
+                  key={idx}
+                  className="flex justify-between items-center text-sm py-1"
+                >
+                  <span className="text-gray-600 dark:text-gray-400">
+                    {d.type || "Unnamed"}:
+                  </span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
+                    {(parseFloat(d.amount) || 0).toFixed(2)}
+                  </span>
                 </div>
-
-                {/* Net Pay */}
-                <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                  <h4 className="text-sm font-semibold text-green-700 dark:text-green-300 mb-2">
-                    <i className="fas fa-check-circle mr-2"></i>
-                    Net Pay Summary
-                  </h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Gross Salary:</span>
-                      <span className="font-medium">{totalSalaryAmount.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-orange-600">
-                      <span>+ Overtime:</span>
-                      <span>{totalOvertimeAmount.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-red-500">
-                      <span>- Deductions:</span>
-                      <span>{totalDeductionsAmount.toFixed(2)}</span>
-                    </div>
-                    <div className="border-t border-green-200 dark:border-green-700 mt-2 pt-2 flex justify-between items-center font-bold text-lg">
-                      <span className="text-gray-800 dark:text-gray-200">Net Pay:</span>
-                      <span className="text-green-600 dark:text-green-400">
-                        {totalNetPay.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Payslip Delivery Info */}
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 flex items-start gap-3">
-                  <i className="fas fa-envelope text-blue-500 mt-1"></i>
-                  <div>
-                    <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300">
-                      Payslip Delivery
-                    </h4>
-                    <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
-                      Upon submission, the generated payslip will be
-                      automatically sent to the employee via Email only.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              ))
+          ) : (
+            <div className="text-sm text-gray-400">No deductions</div>
+          )}
+          {deductions.filter((d) => parseFloat(d.amount || 0) > 0)
+            .length > 0 && (
+            <div className="border-t border-red-200 dark:border-red-700 mt-2 pt-2 flex justify-between items-center font-semibold">
+              <span className="text-gray-700 dark:text-gray-300">
+                Total:
+              </span>
+              <span className="text-red-500">
+                {totalDeductionsAmount.toFixed(2)}
+              </span>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Net Pay */}
+      <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+        <h4 className="text-sm font-semibold text-green-700 dark:text-green-300 mb-2">
+          <i className="fas fa-check-circle mr-2"></i>
+          Net Pay Summary
+        </h4>
+        <div className="space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Gross Salary:</span>
+            <span className="font-medium">
+              {totalSalaryAmount.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex justify-between text-orange-600">
+            <span>+ Overtime:</span>
+            <span>{totalOvertimeAmount.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-red-500">
+            <span>- Deductions:</span>
+            <span>{totalDeductionsAmount.toFixed(2)}</span>
+          </div>
+          <div className="border-t border-green-200 dark:border-green-700 mt-2 pt-2 flex justify-between items-center font-bold text-lg">
+            <span className="text-gray-800 dark:text-gray-200">
+              Net Pay:
+            </span>
+            <span className="text-green-600 dark:text-green-400">
+              {totalNetPay.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Payslip Delivery Info */}
+      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 flex items-start gap-3">
+        <i className="fas fa-envelope text-blue-500 mt-1"></i>
+        <div>
+          <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+            Payslip Delivery
+          </h4>
+          <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
+            Upon submission, the generated payslip will be
+            automatically sent to the employee via Email only.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
           {/* Action Buttons */}
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 md:pt-6 border-t border-gray-200 dark:border-gray-700">
