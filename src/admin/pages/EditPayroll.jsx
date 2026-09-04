@@ -1,13 +1,15 @@
+// src/admin/pages/EditPayroll.jsx
+
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { showToast } from "../components/common/Toast";
 import apiClient from "../../utils/apiClient";
-import DateInput from "../components/common/DateInput";
 
 import {
   savePayrollStep,
   submitPayroll,
+  fetchPayrollById,
   fetchDraftPayroll,
   setCurrentStep,
   updateStepData,
@@ -22,7 +24,7 @@ import {
   selectPayrollSuccess,
   selectPayrollError,
   selectPayrollSaving,
-  fetchWorkingDays,
+  selectCurrentPayroll,
 } from "../store/slices/payrollSlice";
 
 import {
@@ -55,8 +57,10 @@ const getOrganizationName = (employees, organizationId) => {
   return null;
 };
 
-function AddPayroll() {
+function EditPayroll() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { id } = useParams();
 
   const { user } = useSelector((state) => state.auth || {});
   const isAdmin =
@@ -73,6 +77,7 @@ function AddPayroll() {
   const isSaving = useSelector(selectPayrollSaving);
   const successMessage = useSelector(selectPayrollSuccess);
   const error = useSelector(selectPayrollError);
+  const currentPayroll = useSelector(selectCurrentPayroll);
 
   // Employee state
   const {
@@ -101,7 +106,6 @@ function AddPayroll() {
   const [paymentMode, setPaymentMode] = useState(null);
   const [totalWorkingDays, setTotalWorkingDays] = useState("");
   const [daysPresent, setDaysPresent] = useState("");
-  const [workingDaysLoading, setWorkingDaysLoading] = useState(false);
   
   // Payroll draft ID from API
   const [payrollDraftId, setPayrollDraftId] = useState(null);
@@ -163,105 +167,116 @@ function AddPayroll() {
     December: 12,
   };
 
+  // Number to month name mapping
+  const monthNumbersToName = {
+    1: "January",
+    2: "February",
+    3: "March",
+    4: "April",
+    5: "May",
+    6: "June",
+    7: "July",
+    8: "August",
+    9: "September",
+    10: "October",
+    11: "November",
+    12: "December",
+  };
+
   // Available currencies
   const currencies = ["AED", "INR", "USD", "EUR", "GBP", "PHP", "LKR"];
 
-  // --- Clear current employee on mount ---
+  // Fetch payroll data on mount
   useEffect(() => {
-    clearEmployeeFields();
-    setSelectedEmployee("");
-    setSelectedUserId("");
-    setSelectedEmployeeId("");
-    setSelectedEmployeeCode("");
-    setPayrollDraftId(null);
-
-    setPayPeriodMonth("");
-    setPayPeriodYear("");
-    setPeriodStart("");
-    setPeriodEnd("");
-    setPaymentDate("");
-    setPaymentMode(null);
-    setTotalWorkingDays("");
-    setDaysPresent("");
-
+    if (id) {
+      dispatch(fetchPayrollById(id));
+    }
     dispatch(fetchEmployees());
     dispatch(setCurrentStep(1));
 
     return () => {
       // Clean up
     };
-  }, [dispatch]);
+  }, [dispatch, id]);
 
-// --- Fetch Working Days when employee and month are selected ---
+  // Populate form with payroll data when loaded
   useEffect(() => {
-    const fetchWorkingDaysData = async () => {
-      if (!selectedUserId || !payPeriodMonth || !payPeriodYear) {
-        return;
+    if (currentPayroll) {
+      const payroll = currentPayroll;
+      const stepData = payroll.step_data || {};
+      
+      // Get step data
+      const step1 = stepData.step_1 || {};
+      const step2 = stepData.step_2 || {};
+      const step3 = stepData.step_3 || {};
+      const step4 = stepData.step_4 || {};
+      const step5 = stepData.step_5 || {};
+
+      // Populate Step 1 - Basic Info
+      if (payroll.employee) {
+        const emp = payroll.employee;
+        setSelectedEmployeeId(payroll.employee_id || emp.id);
+        setSelectedUserId(payroll.user_id || emp.user_id);
+        setEmployeeId(emp.employee_code || payroll.employee_id);
+        setEmployeeName(emp.name || payroll.employee_name);
+        setDepartment(emp.department?.name || payroll.department?.name || "");
+        setDesignation(emp.designation?.name || payroll.designation?.name || "");
+        setEmploymentType(emp.employee_type || "");
+        setOrganizationName(emp.organization?.name || payroll.organization?.name || "");
+        
+        // Try to find employee in list
+        if (emp.id) {
+          setSelectedEmployee(emp.id.toString());
+        }
       }
 
-      const monthNumber = monthNames[payPeriodMonth];
-      if (!monthNumber) return;
-
-      const monthFormatted = `${payPeriodYear}-${String(monthNumber).padStart(2, "0")}`;
-
-      setWorkingDaysLoading(true);
-      try {
-        const result = await dispatch(
-          fetchWorkingDays({
-            employeeId: selectedUserId,
-            month: monthFormatted,
-          }),
-        ).unwrap();
-
-
-        if (result) {
-          // ✅ Update total working days from API
-          if (
-            result.total_working_days !== undefined &&
-            result.total_working_days !== null
-          ) {
-            setTotalWorkingDays(String(result.total_days));
-          }
-
-          // ✅ Update present days from API
-          if (
-            result.present_days !== undefined &&
-            result.present_days !== null
-          ) {
-            setDaysPresent(String(result.total_working_days));
-          }
-
-          // ✅ Auto-calculate period dates based on month
-          const monthNumberVal = monthNames[payPeriodMonth];
-          const yearVal = parseInt(payPeriodYear);
-          const monthNumStr = String(monthNumberVal).padStart(2, "0");
-          const lastDay = new Date(yearVal, monthNumberVal, 0).getDate();
-
-          setPeriodStart(`${yearVal}-${monthNumStr}-01`);
-          setPeriodEnd(
-            `${yearVal}-${monthNumStr}-${String(lastDay).padStart(2, "0")}`,
-          );
-          setPaymentDate(`${yearVal}-${monthNumStr}-25`);
-
-          // Show success message with details
-          const holidayInfo =
-            result.holidays_count > 0
-              ? `${result.holidays_count} holiday${result.holidays_count > 1 ? "s" : ""}`
-              : "no holidays";
-          const sundayInfo = `${result.sundays_count} Sunday${result.sundays_count > 1 ? "s" : ""}`;
-        }
-      } catch (error) {
-        console.error("Failed to fetch working days:", error);
-        if (!error.includes("not found")) {
-          showToast(error || "Failed to fetch working days", "warning");
-        }
-      } finally {
-        setWorkingDaysLoading(false);
+      // Populate pay period
+      const monthNum = payroll.pay_period_month || payroll.month || step1.pay_period_month;
+      if (monthNum) {
+        setPayPeriodMonth(monthNumbersToName[monthNum] || "");
       }
-    };
+      setPayPeriodYear(payroll.pay_period_year || payroll.year || step1.pay_period_year || "");
+      setPeriodStart(step1.period_start || payroll.period_start || "");
+      setPeriodEnd(step1.period_end || payroll.period_end || "");
+      setPaymentDate(step1.payment_date || payroll.payment_date || "");
+      setPaymentMode(step1.payment_mode || payroll.payment_mode || null);
+      setTotalWorkingDays(step1.total_working_days || payroll.total_days || payroll.working_days || "");
+      setDaysPresent(step1.days_present || payroll.days_present || "");
 
-    fetchWorkingDaysData();
-  }, [selectedUserId, payPeriodMonth, payPeriodYear, dispatch]);
+      // Populate Step 2 - Salary Components
+      const comps = step5.salary_components || step2.salary_components || [];
+      if (comps.length > 0) {
+        setSalaryComponents(comps);
+      }
+
+      // Populate Step 3 - Overtime
+      const otData = step3.overtime_data || step5.overtime_details || null;
+      if (otData) {
+        setOvertimeData(otData);
+        setTotalOvertimeAmount(otData.total_overtime_amount || 0);
+      }
+
+      // Populate Step 4 - Deductions
+      const manualDeductions = step4.manual_deductions || step5.manual_deductions_details || [];
+      if (manualDeductions.length > 0) {
+        setDeductions(manualDeductions.map((d, index) => ({
+          ...d,
+          id: index + 1,
+          amount: d.amount || 0,
+        })));
+      }
+
+      const leaveDed = step4.leave_deductions || step5.leave_deductions_details || null;
+      if (leaveDed) {
+        setLeaveDeductions(leaveDed);
+      }
+
+      // Store draft ID
+      if (payroll.id) {
+        setPayrollDraftId(payroll.id);
+      }
+    }
+  }, [currentPayroll]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
@@ -298,23 +313,6 @@ function AddPayroll() {
           if (result.employee_id) {
             setSelectedEmployeeCode(result.employee_id);
           }
-          
-          // Wait for pay period to be set first
-          const currentMonth = payPeriodMonth || new Date().toLocaleString('default', { month: 'long' });
-          const currentYear = payPeriodYear || new Date().getFullYear().toString();
-          
-          // Set pay period if not already set
-          if (!payPeriodMonth) {
-            const monthNamesList = [
-              "January", "February", "March", "April", "May", "June",
-              "July", "August", "September", "October", "November", "December"
-            ];
-            const currentMonthIndex = new Date().getMonth();
-            setPayPeriodMonth(monthNamesList[currentMonthIndex]);
-            setPayPeriodYear(new Date().getFullYear().toString());
-          }
-          
-          
           await fetchSalaryComponents(result.id);
           await fetchLeaveDeductions(result.id);
           
@@ -332,8 +330,6 @@ function AddPayroll() {
       setSalaryComponents([]);
       setLeaveDeductions(null);
       setPayrollDraftId(null);
-      setTotalWorkingDays("");
-      setDaysPresent("");
     }
   };
 
@@ -468,7 +464,6 @@ function AddPayroll() {
       const response = await apiClient.post('/admin/payroll/save-step', payload);
 
       if (response.data?.success) {
-        // Store the draft ID for subsequent saves
         if (response.data.data?.id) {
           setPayrollDraftId(response.data.data.id);
         }
@@ -570,7 +565,6 @@ function AddPayroll() {
         showToast("Salary component saved successfully", "success");
         await fetchSalaryComponents(selectedEmployeeId);
         setEditingComponentId(null);
-        // Save step 2 after component update
         await saveStepToAPI(2);
       } else {
         showToast(
@@ -599,7 +593,6 @@ function AddPayroll() {
       if (response.data?.status === "success") {
         showToast("Component deleted successfully", "success");
         await fetchSalaryComponents(selectedEmployeeId);
-        // Save step 2 after component deletion
         await saveStepToAPI(2);
       } else {
         showToast(
@@ -693,104 +686,6 @@ function AddPayroll() {
     setDesignation("");
     setEmploymentType("");
   };
-
-  // Auto-populate fields when employee data is loaded
-  useEffect(() => {
-    if (currentEmployee && selectedEmployee) {
-      const user = currentEmployee.user || {};
-      const fullName = [currentEmployee.first_name, currentEmployee.last_name]
-        .filter(Boolean)
-        .join(" ");
-
-      if (currentEmployee.id) {
-        setSelectedEmployeeId(currentEmployee.id);
-      }
-
-      if (currentEmployee.user_id) {
-        setSelectedUserId(currentEmployee.user_id.toString());
-      }
-
-      if (currentEmployee.employee_id) {
-        setSelectedEmployeeCode(currentEmployee.employee_id);
-      }
-
-      setEmployeeId(currentEmployee.employee_id || "");
-      setEmployeeName(fullName || "");
-
-      let orgId = "";
-      let orgName = "";
-
-      if (user.organization_id) {
-        orgId = user.organization_id.toString();
-      }
-
-      if (user.organization && user.organization.name) {
-        orgName = user.organization.name;
-      } else if (user.company && user.company.name) {
-        orgName = user.company.name;
-      } else if (orgId) {
-        const orgNameFromList = getOrganizationName(employees, orgId);
-        if (orgNameFromList) {
-          orgName = orgNameFromList;
-        } else {
-          orgName = `Organization #${orgId}`;
-        }
-      }
-
-      setOrganizationId(orgId);
-      setOrganizationName(orgName || "N/A");
-
-      const deptName =
-        user.department?.name || user.department_id?.toString() || "N/A";
-      setDepartment(deptName);
-
-      const desigName =
-        user.designation?.name || user.designation_id?.toString() || "N/A";
-      setDesignation(desigName);
-
-      setEmploymentType(user.type || user.employment_type || "employee");
-
-      if (!payPeriodMonth) {
-        const currentMonth = new Date().getMonth() + 1;
-        const currentYear = new Date().getFullYear();
-        const monthNum = String(currentMonth).padStart(2, "0");
-
-        const monthNamesList = [
-          "January",
-          "February",
-          "March",
-          "April",
-          "May",
-          "June",
-          "July",
-          "August",
-          "September",
-          "October",
-          "November",
-          "December",
-        ];
-
-        setPayPeriodMonth(monthNamesList[currentMonth - 1]);
-        setPayPeriodYear(currentYear.toString());
-
-        setPeriodStart(`${currentYear}-${monthNum}-01`);
-
-        const lastDay = new Date(currentYear, currentMonth, 0).getDate();
-        setPeriodEnd(
-          `${currentYear}-${monthNum}-${String(lastDay).padStart(2, "0")}`,
-        );
-
-        setPaymentDate(`${currentYear}-${monthNum}-25`);
-        
-        // ✅ REMOVE these static values - they will be set by the API
-        // setTotalWorkingDays("26");
-        // setDaysPresent("30");
-        
-        setPaymentMode(null);
-      }
-    }
-  }, [currentEmployee, employees, payPeriodMonth, selectedEmployee, dispatch]);
-
 
   // Handle success/error messages from Redux
   useEffect(() => {
@@ -928,8 +823,6 @@ function AddPayroll() {
     }
 
     const currentData = getCurrentStepData();
-    
-    // Save current step to API
     const saved = await saveStepToAPI(reduxCurrentStep);
 
     if (saved) {
@@ -951,7 +844,6 @@ function AddPayroll() {
     }
 
     try {
-      // Save step 5 first
       const saved = await saveStepToAPI(5);
 
       if (!saved) {
@@ -976,7 +868,6 @@ function AddPayroll() {
       const totalAllDeductions = totalManualDeductions + totalLeaveDeductions;
       const netPay = totalSalary + totalOvertimeAmount - totalAllDeductions;
 
-      // ✅ Payload for /admin/payroll/submit
       const payload = {
         user_id: parseInt(selectedUserId),
         pay_period_month: parseInt(monthNumber),
@@ -988,6 +879,10 @@ function AddPayroll() {
         currency: "INR",
       };
 
+      if (payrollDraftId) {
+        payload.id = payrollDraftId;
+      }
+
       console.log("Submitting payroll:", payload);
 
       const result = await dispatch(submitPayroll(payload)).unwrap();
@@ -998,7 +893,7 @@ function AddPayroll() {
       );
 
       setTimeout(() => {
-        window.location.href = `${basePath}/payroll`;
+        navigate(`${basePath}/payroll`);
       }, 3000);
     } catch (error) {
       console.error("Submit payroll error:", error);
@@ -1021,7 +916,6 @@ function AddPayroll() {
       return;
     }
 
-    // Save current step before moving forward
     const saved = await saveStepToAPI(reduxCurrentStep);
 
     if (saved) {
@@ -1036,28 +930,6 @@ function AddPayroll() {
     if (reduxCurrentStep > 1) {
       dispatch(setCurrentStep(reduxCurrentStep - 1));
     }
-  };
-
-  const handleMonthChange = (e) => {
-    const newMonth = e.target.value;
-    setPayPeriodMonth(newMonth);
-    // Clear working days so they get refetched from API
-    setTotalWorkingDays("");
-    setDaysPresent("");
-  };
-
-  const handleYearChange = (e) => {
-    const newYear = e.target.value;
-    setPayPeriodYear(newYear);
-    // Clear working days so they get refetched from API
-    setTotalWorkingDays("");
-    setDaysPresent("");
-  };
-
-
-  // Save current step data
-  const handleSaveStep = async (step, data) => {
-    return await saveStepToAPI(step);
   };
 
   // Deduction actions
@@ -1084,7 +956,6 @@ function AddPayroll() {
 
   const handleRemoveDeduction = (id) => {
     setDeductions(deductions.filter((d) => d.id !== id));
-    // Save step 4 after deduction removal
     saveStepToAPI(4);
   };
 
@@ -1102,6 +973,32 @@ function AddPayroll() {
   const totalNetPay =
     totalSalaryAmount + totalOvertimeAmount - totalAllDeductions;
 
+  if (isLoading) {
+    return (
+      <div className="w-full overflow-x-hidden px-4 md:px-6">
+        <div className="flex justify-center items-center h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentPayroll) {
+    return (
+      <div className="w-full overflow-x-hidden px-4 md:px-6">
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">Payroll not found</p>
+          <button
+            onClick={() => navigate("/admin/payroll")}
+            className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+          >
+            Back to Payroll
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full overflow-x-hidden px-4 md:px-6">
       {/* Breadcrumbs */}
@@ -1113,16 +1010,16 @@ function AddPayroll() {
           Payroll
         </Link>
         <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
-        <span className="text-gray-500 dark:text-gray-400">Add Payroll</span>
+        <span className="text-gray-500 dark:text-gray-400">Edit Payroll</span>
       </div>
 
       {/* Page Header */}
       <div className="mb-4 md:mb-6">
         <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
-          <i className="fas fa-plus-circle mr-2"></i> Add New Payroll
+          <i className="fas fa-edit mr-2"></i> Edit Payroll
         </h2>
         <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Configure employee salary, overtime, and deductions
+          Edit employee payroll details
         </p>
       </div>
 
@@ -1146,7 +1043,7 @@ function AddPayroll() {
         ))}
       </div>
 
-      {/* Form Container */}
+      {/* Form Container - Same as AddPayroll but with prefilled values */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 md:p-6 lg:p-8 shadow-soft">
         <div className="space-y-6">
           {/* Step 1 - Basic Info */}
@@ -1164,29 +1061,6 @@ function AddPayroll() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-user text-green-500 mr-1"></i>
-                      Employee <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                      value={selectedEmployee}
-                      onChange={(e) => handleEmployeeSelect(e.target.value)}
-                      disabled={employeesLoading}
-                    >
-                      <option value="">
-                        {employeesLoading
-                          ? "Loading employees..."
-                          : "Select Employee"}
-                      </option>
-                      {employees.map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-id-card text-green-500 mr-1"></i>
@@ -1211,18 +1085,7 @@ function AddPayroll() {
                       className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-500 dark:text-gray-400 cursor-not-allowed"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-building text-green-500 mr-1"></i>
-                      Organization <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={organizationName}
-                      readOnly
-                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                    />
-                  </div>
+                  
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-diagram-project text-green-500 mr-1"></i>
@@ -1271,12 +1134,6 @@ function AddPayroll() {
                   <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
                     Pay Period
                   </h3>
-                  {workingDaysLoading && (
-                    <span className="ml-2 text-xs text-blue-500">
-                      <i className="fas fa-spinner fa-spin mr-1"></i> Loading
-                      working days...
-                    </span>
-                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
@@ -1288,7 +1145,7 @@ function AddPayroll() {
                     <select
                       className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                       value={payPeriodMonth}
-                      onChange={handleMonthChange}
+                      onChange={(e) => setPayPeriodMonth(e.target.value)}
                       disabled={!selectedUserId}
                     >
                       <option value="">Select Month</option>
@@ -1314,7 +1171,7 @@ function AddPayroll() {
                     <select
                       className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                       value={payPeriodYear}
-                      onChange={handleYearChange}
+                      onChange={(e) => setPayPeriodYear(e.target.value)}
                       disabled={!selectedUserId}
                     >
                       <option value="">Select Year</option>
@@ -1329,36 +1186,45 @@ function AddPayroll() {
                       <i className="fas fa-calendar-plus text-green-500 mr-1"></i>
                       Period Start Date
                     </label>
-                    <DateInput
-                      value={periodStart}
-                      onChange={(date) => setPeriodStart(date)}
-                      placeholder="dd/mm/yyyy"
-                      disabled={!selectedUserId}
-                    />
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={periodStart}
+                        onChange={(e) => setPeriodStart(e.target.value)}
+                        className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                        disabled={!selectedUserId}
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-calendar-times text-green-500 mr-1"></i>
                       Period End Date
                     </label>
-                    <DateInput
-                      value={periodEnd}
-                      onChange={(date) => setPeriodEnd(date)}
-                      placeholder="dd/mm/yyyy"
-                      disabled={!selectedUserId}
-                    />
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={periodEnd}
+                        onChange={(e) => setPeriodEnd(e.target.value)}
+                        className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                        disabled={!selectedUserId}
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-money-bill-wave text-green-500 mr-1"></i>
                       Payment Date <span className="text-red-500">*</span>
                     </label>
-                    <DateInput
-                      value={paymentDate}
-                      onChange={(date) => setPaymentDate(date)}
-                      placeholder="dd/mm/yyyy"
-                      disabled={!selectedUserId}
-                    />
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={paymentDate}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                        className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                        disabled={!selectedUserId}
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
@@ -1372,9 +1238,8 @@ function AddPayroll() {
                       disabled={!selectedUserId}
                     >
                       <option value="">Select Payment Mode</option>
-                      <option value="WPS">WPS</option>
-                      <option value="bank_transfer">Bank Transfer</option>
-                      <option value="INR_transfer">INR Transfer</option>
+                      <option value="NEFT">Bank Transfer (NEFT)</option>
+                      <option value="RTGS">Bank Transfer (RTGS)</option>
                       <option value="Cheque">Cheque</option>
                       <option value="Cash">Cash</option>
                     </select>
@@ -1383,46 +1248,26 @@ function AddPayroll() {
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-calendar-week text-green-500 mr-1"></i>
                       Total Working Days
-                      {workingDaysLoading && (
-                        <span className="ml-1 text-blue-500">
-                          <i className="fas fa-spinner fa-spin"></i>
-                        </span>
-                      )}
                     </label>
                     <input
                       type="text"
                       value={totalWorkingDays}
                       onChange={(e) => setTotalWorkingDays(e.target.value)}
                       className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                      disabled={!selectedUserId || workingDaysLoading}
-                      placeholder={
-                        workingDaysLoading
-                          ? "Loading..."
-                          : "Auto-filled from API"
-                      }
+                      disabled={!selectedUserId}
                     />
                   </div>
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-calendar-check text-green-500 mr-1"></i>
                       Days Present
-                      {workingDaysLoading && (
-                        <span className="ml-1 text-blue-500">
-                          <i className="fas fa-spinner fa-spin"></i>
-                        </span>
-                      )}
                     </label>
                     <input
                       type="text"
                       value={daysPresent}
                       onChange={(e) => setDaysPresent(e.target.value)}
                       className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                      disabled={!selectedUserId || workingDaysLoading}
-                      placeholder={
-                        workingDaysLoading
-                          ? "Loading..."
-                          : "Auto-filled from API"
-                      }
+                      disabled={!selectedUserId}
                     />
                   </div>
                 </div>
@@ -1430,7 +1275,7 @@ function AddPayroll() {
             </>
           )}
 
-          {/* Step 2 - Salary Components */}
+          {/* Step 2 - Salary Components - Same as AddPayroll */}
           {reduxCurrentStep === 2 && (
             <div>
               <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
@@ -1487,21 +1332,14 @@ function AddPayroll() {
                 </div>
               ) : (
                 <>
-                  {/* Salary Components Table */}
                   <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-soft overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                            <th className="py-3 px-4 font-semibold">
-                              Component Name
-                            </th>
-                            <th className="py-3 px-4 font-semibold text-center">
-                              Amount
-                            </th>
-                            <th className="py-3 px-4 font-semibold text-center">
-                              Actions
-                            </th>
+                            <th className="py-3 px-4 font-semibold">Component Name</th>
+                            <th className="py-3 px-4 font-semibold text-center">Amount</th>
+                            <th className="py-3 px-4 font-semibold text-center">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1627,7 +1465,6 @@ function AddPayroll() {
                     </div>
                   </div>
 
-                  {/* Add Component Button */}
                   <div className="mt-4 flex justify-between items-center">
                     <button
                       onClick={addNewComponent}
@@ -1652,7 +1489,7 @@ function AddPayroll() {
             </div>
           )}
 
-          {/* Step 3 - Overtime */}
+          {/* Step 3 - Overtime - Same as AddPayroll */}
           {reduxCurrentStep === 3 && (
             <div>
               <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
@@ -1670,7 +1507,6 @@ function AddPayroll() {
                 </div>
               ) : overtimeData && overtimeData.overtime_details && overtimeData.overtime_details.length > 0 ? (
                 <>
-                  {/* Total Overtime Amount - Big Display */}
                   <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-6 md:p-8 mb-6 border border-indigo-200 dark:border-indigo-800 text-center">
                     <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Overtime Amount</div>
                     <div className="text-4xl md:text-5xl font-bold text-indigo-600 dark:text-indigo-400">
@@ -1681,7 +1517,6 @@ function AddPayroll() {
                     </div>
                   </div>
 
-                  {/* Rate Details Cards */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center border border-gray-200 dark:border-gray-700">
                       <div className="text-xs text-gray-500 dark:text-gray-400">Monthly Salary</div>
@@ -1709,7 +1544,6 @@ function AddPayroll() {
                     </div>
                   </div>
 
-                  {/* Editable Overtime Fields */}
                   <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 rounded-xl p-4 md:p-6 mb-6 border border-gray-200 dark:border-gray-700">
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
                       <i className="fas fa-pen text-indigo-500"></i>
@@ -1760,7 +1594,6 @@ function AddPayroll() {
                     </div>
                   </div>
 
-                  {/* Scrollable Overtime Details Table */}
                   <div>
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                       <i className="fas fa-list text-indigo-500"></i>
@@ -1826,7 +1659,7 @@ function AddPayroll() {
             </div>
           )}
 
-          {/* Step 4 - Deductions */}
+          {/* Step 4 - Deductions - Same as AddPayroll */}
           {reduxCurrentStep === 4 && (
             <div>
               <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
@@ -1856,7 +1689,6 @@ function AddPayroll() {
                   </div>
                 ) : leaveDeductions ? (
                   <div className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 rounded-xl overflow-hidden">
-                    {/* Summary Cards */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-red-50 dark:bg-red-900/10 border-b border-red-200 dark:border-red-800">
                       <div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">Total Leaves</div>
@@ -1884,7 +1716,6 @@ function AddPayroll() {
                       </div>
                     </div>
 
-                    {/* Leave List */}
                     {leaveDeductions.leaves && leaveDeductions.leaves.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
@@ -1930,7 +1761,6 @@ function AddPayroll() {
                       </div>
                     ) : null}
 
-                    {/* Salary Info */}
                     {leaveDeductions.salary_info && (
                       <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-t border-red-200 dark:border-red-800">
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -2068,7 +1898,7 @@ function AddPayroll() {
             </div>
           )}
 
-          {/* Step 5 - Summary */}
+          {/* Step 5 - Summary - Same as AddPayroll */}
           {reduxCurrentStep === 5 && (
             <div>
               <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
@@ -2085,7 +1915,6 @@ function AddPayroll() {
                   Review the payroll details before final submission.
                 </p>
 
-                {/* Employee Summary */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700">
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -2148,9 +1977,7 @@ function AddPayroll() {
                   </div>
                 </div>
 
-                {/* Salary Breakdown */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {/* Gross Salary */}
                   <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                     <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
                       <i className="fas fa-wallet mr-2"></i>
@@ -2174,16 +2001,13 @@ function AddPayroll() {
                       <div className="text-sm text-gray-400">No components</div>
                     )}
                     <div className="border-t border-blue-200 dark:border-blue-700 mt-2 pt-2 flex justify-between items-center font-semibold">
-                      <span className="text-gray-700 dark:text-gray-300">
-                        Total:
-                      </span>
+                      <span className="text-gray-700 dark:text-gray-300">Total:</span>
                       <span className="text-blue-600 dark:text-blue-400">
                         {totalSalaryAmount.toFixed(2)}
                       </span>
                     </div>
                   </div>
 
-                  {/* Overtime */}
                   <div className="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
                     <h4 className="text-sm font-semibold text-orange-700 dark:text-orange-300 mb-2">
                       <i className="fas fa-clock mr-2"></i>
@@ -2199,7 +2023,6 @@ function AddPayroll() {
                     </div>
                   </div>
 
-                  {/* Deductions */}
                   <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
                     <h4 className="text-sm font-semibold text-red-700 dark:text-red-300 mb-2">
                       <i className="fas fa-minus-circle mr-2"></i>
@@ -2225,7 +2048,6 @@ function AddPayroll() {
                     </div>
                   </div>
 
-                  {/* Net Pay */}
                   <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                     <h4 className="text-sm font-semibold text-green-700 dark:text-green-300 mb-2">
                       <i className="fas fa-check-circle mr-2"></i>
@@ -2242,7 +2064,6 @@ function AddPayroll() {
                   </div>
                 </div>
 
-                {/* Payslip Delivery Info */}
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 flex items-start gap-3">
                   <i className="fas fa-envelope text-blue-500 mt-1"></i>
                   <div>
@@ -2289,10 +2110,10 @@ function AddPayroll() {
                   className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <i
-                    className={`fas ${isSubmitting ? "fa-spinner fa-spin" : "fa-file-invoice"} text-xs md:text-sm`}
+                    className={`fas ${isSubmitting ? "fa-spinner fa-spin" : "fa-save"} text-xs md:text-sm`}
                   ></i>
                   <span>
-                    {isSubmitting ? "Submitting..." : "Submit Payroll"}
+                    {isSubmitting ? "Saving..." : "Update Payroll"}
                   </span>
                 </button>
               )}
@@ -2304,4 +2125,4 @@ function AddPayroll() {
   );
 }
 
-export default AddPayroll;
+export default EditPayroll;

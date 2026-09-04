@@ -33,6 +33,22 @@ const PayrollDashboard = () => {
   const paidCount = useSelector(selectPaidPayrollCount);
   const totalCount = useSelector(selectPayrollTotalCount);
 
+  // Month name to number mapping
+  const monthNameToNumber = {
+    january: 1,
+    february: 2,
+    march: 3,
+    april: 4,
+    may: 5,
+    june: 6,
+    july: 7,
+    august: 8,
+    september: 9,
+    october: 10,
+    november: 11,
+    december: 12
+  };
+
   // Fetch employees and payroll entries on mount
   useEffect(() => {
     const fetchData = async () => {
@@ -60,8 +76,16 @@ const PayrollDashboard = () => {
     }
     
     payrollEntries.forEach(entry => {
+      // Check if entry has month field (from API response)
       if (entry.month) {
         const monthIndex = parseInt(entry.month) - 1;
+        if (monthIndex >= 0 && monthIndex < 12) {
+          monthCounts[monthIndex]++;
+        }
+      }
+      // Fallback: check pay_period_month
+      else if (entry.pay_period_month) {
+        const monthIndex = parseInt(entry.pay_period_month) - 1;
         if (monthIndex >= 0 && monthIndex < 12) {
           monthCounts[monthIndex]++;
         }
@@ -103,12 +127,17 @@ const PayrollDashboard = () => {
     }).format(amount);
   };
 
-  // Handle month click
+  // Handle month click - navigate to payroll list with month number
   const handleMonthClick = (monthName) => {
-    navigate(`/admin/payroll/${currentYear}/${monthName.toLowerCase()}`);
+    // Convert month name to lowercase for lookup
+    const monthLower = monthName.toLowerCase();
+    const monthNumber = monthNameToNumber[monthLower];
+    
+    // Navigate to payroll list with year and month number
+    navigate(`/admin/payroll/${currentYear}/${monthNumber}`);
   };
 
-  // Handle year change
+  // Handle year change - fetch entries for the new year
   const handleYearChange = async (year) => {
     setCurrentYear(year);
     await dispatch(fetchPayrollEntries({ year: year }));
