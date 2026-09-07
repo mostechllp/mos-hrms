@@ -23,11 +23,12 @@ const DepartmentDistributionChart = ({ employees = [] }) => {
 
   if (data.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-sm p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-700">Department Distribution</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 md:p-6 border border-gray-200 dark:border-gray-700 h-full flex flex-col">
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Department Distribution</h3>
+          <span className="text-xs text-gray-400">0 departments</span>
         </div>
-        <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+        <div className="flex items-center justify-center flex-1 text-gray-400 dark:text-gray-500 text-sm">
           No employee data available
         </div>
       </div>
@@ -60,12 +61,15 @@ const DepartmentDistributionChart = ({ employees = [] }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-700">Department Distribution</h3>
-        <span className="text-xs text-gray-400">{data.length} departments</span>
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 md:p-6 border border-gray-200 dark:border-gray-700 h-full flex flex-col">
+      <div className="flex items-center justify-between mb-3 flex-shrink-0">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          <i className="fas fa-users text-blue-500 mr-2"></i>
+          Department Distribution
+        </h3>
+        <span className="text-xs text-gray-400 dark:text-gray-500">{data.length} departments</span>
       </div>
-      <div className="h-56">
+      <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -112,7 +116,7 @@ const DepartmentDistributionChart = ({ employees = [] }) => {
               iconType="circle"
               iconSize={8}
               formatter={(value) => (
-                <span className="text-gray-600 text-xs">{value}</span>
+                <span className="text-gray-600 dark:text-gray-400 text-xs">{value}</span>
               )}
             />
           </PieChart>
