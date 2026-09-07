@@ -49,29 +49,56 @@ export const addCompany = createAsyncThunk(
   },
 );
 
-// Update company
+// src/admin/store/slices/companySlice.js
+
 // Update company
 export const updateCompany = createAsyncThunk(
   "companies/update",
   async ({ id, data }, { rejectWithValue }) => {
     try {
-      const payload = {
-        organization_id: parseInt(data.organization_id),
-        company_name: data.company_name,
-        phone: data.phone || "",
-        email: data.email || "",
-        address: data.address || "",
-        country: data.country || "",
-        trade_license: data.trade_license || null,
-        company_type: data.company_type || null,
-        trade_license_expiry: data.trade_license_expiry || null,
-        establishment_card_expiry: data.establishment_card_expiry || null,
-      };
+      let response;
+      
+      // Check if data is FormData
+      if (data instanceof FormData) {
+        // For PUT with FormData, use POST with _method field
+        response = await apiClient.post(`/admin/companies/${id}`, data, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      } else {
+        // For JSON data (keeping backward compatibility)
+        const payload = {
+          organization_id: parseInt(data.organization_id),
+          company_name: data.company_name,
+          phone: data.phone || "",
+          email: data.email || "",
+          address: data.address || "",
+          country: data.country || "",
+          trade_license: data.trade_license || null,
+          company_type: data.company_type || null,
+          trade_license_expiry: data.trade_license_expiry || null,
+          establishment_card_expiry: data.establishment_card_expiry || null,
+        };
 
-      const response = await apiClient.put(`/admin/companies/${id}`, payload);
+        if (data.logo) {
+          payload.logo = data.logo;
+        }
+
+        response = await apiClient.put(`/admin/companies/${id}`, payload);
+      }
+      
       return response.data.data;
     } catch (error) {
       console.error("Company update error:", error.response?.data);
+      
+      if (error.response?.data?.errors) {
+        return rejectWithValue({
+          message: error.response.data.message || "Validation failed",
+          errors: error.response.data.errors,
+        });
+      }
+      
       return rejectWithValue(
         error.response?.data?.message || "Failed to update company",
       );
