@@ -32,6 +32,7 @@ import {
 import LocationModal from "../components/modals/LocationModal";
 import MapView from "../components/common/MapView";
 import { fetchWorkingHours } from "../../admin/store/slices/settingsSlice";
+import LeavesByDepartment from "../components/attendance/LeavesByDepartment";
 
 // Status tab mapping - assigned goes to its own tab now
 const STATUS_TAB_MAP = {
@@ -1278,6 +1279,15 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {(dashboardData?.is_hr || dashboardData?.is_team_lead) && (
+      <div className="mb-7">
+        <LeavesByDepartment 
+          leavesByDepartment={dashboardData?.leaves_today_by_department || {}}
+          userType={dashboardData?.is_hr ? "hr" : "team_lead"}
+        />
+      </div>
+    )}
 
       {/* Chart and Recent Activity Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-7 mb-7">

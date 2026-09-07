@@ -7,7 +7,8 @@ import Header from "../components/common/Header";
 import WelcomeBanner from "../components/dashboard/WelcomeBanner";
 import StatsCard from "../components/dashboard/StatsCard";
 import AttendanceChart from "../components/dashboard/AttendanceChart";
-import PunchChart from "../components/dashboard/PunchChart";
+// Remove: import PunchChart from "../components/dashboard/PunchChart";
+import LeavesTodayChart from "../components/dashboard/LeavesTodayChart"; // ✅ New import
 import WeeklyAttendanceChart from "../components/dashboard/WeeklyAttendanceChart";
 import AttendanceStatsChart from "../components/dashboard/AttendanceStatsChart";
 import TaskDistributionChart from "../components/dashboard/TaskDistributionChart";
@@ -128,6 +129,7 @@ const Dashboard = () => {
   // Debug: Log the data to verify it's coming through
   useEffect(() => {
     console.log("Dashboard Data:", { stats, charts, tasks, weekly_attendance, recentData, projects });
+    console.log("Leaves Today:", recentData?.leaves_today || []);
   }, [stats, charts, tasks, weekly_attendance, recentData, projects]);
 
   const formattedStats = stats && {
@@ -192,8 +194,9 @@ const Dashboard = () => {
         <div className="w-full min-w-0 overflow-hidden">
           <WeeklyAttendanceChart data={weeklyData} />
         </div>
+        {/* ✅ Replace PunchChart with LeavesTodayChart */}
         <div className="w-full min-w-0 overflow-hidden">
-          <PunchChart punchData={charts?.punch_chart} />
+          <LeavesTodayChart leavesToday={recentData?.leaves_today || []} />
         </div>
       </div>
 
