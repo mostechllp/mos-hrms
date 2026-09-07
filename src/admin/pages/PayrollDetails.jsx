@@ -77,12 +77,16 @@ const PayrollDetails = () => {
 
   const currentPayroll = useSelector(selectCurrentPayroll);
   const isLoading = useSelector(selectPayrollLoading);
-  const actionLoading = useSelector(selectPayrollActionLoading);
+  // Not using actionLoading for button states - using local states instead
   const error = useSelector(selectPayrollError);
   const successMessage = useSelector(selectPayrollSuccess);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // ✅ Separate loading states for each action
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [sendLoading, setSendLoading] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -160,23 +164,31 @@ const PayrollDetails = () => {
     return statusMap[status?.toLowerCase()] || statusMap.draft;
   };
 
+  // ✅ Updated with separate loading state
   const handleGeneratePayslip = async () => {
     if (!id) return;
+    setDownloadLoading(true);
     try {
       await dispatch(generatePayslip(id)).unwrap();
       showToast("Payslip downloaded successfully!", "success");
     } catch (error) {
       // Error handled by slice
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
+  // ✅ Updated with separate loading state
   const handleSendPayslip = async () => {
     if (!id) return;
+    setSendLoading(true);
     try {
       const result = await dispatch(sendPayslip(id)).unwrap();
       showToast(result.message || "Payslip sent successfully!", "success");
     } catch (error) {
       showToast(error || "Failed to send payslip", "error");
+    } finally {
+      setSendLoading(false);
     }
   };
 
@@ -322,25 +334,43 @@ const PayrollDetails = () => {
           </button>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons - ✅ Only use local loading states */}
         <div className="flex flex-wrap justify-end gap-2 mb-6">
           {(payroll.status === "completed" || payroll.status === "generated") && (
             <>
               <button
                 onClick={handleSendPayslip}
-                disabled={actionLoading}
-                className="px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 text-xs disabled:opacity-50"
+                disabled={sendLoading}
+                className="px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Mail size={14} />
-                {actionLoading ? "Sending..." : "Send"}
+                {sendLoading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail size={14} />
+                    Send
+                  </>
+                )}
               </button>
               <button
                 onClick={handleGeneratePayslip}
-                disabled={actionLoading}
-                className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 text-xs disabled:opacity-50"
+                disabled={downloadLoading}
+                className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <FileDown size={14} />
-                Download PDF
+                {downloadLoading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <FileDown size={14} />
+                    Download PDF
+                  </>
+                )}
               </button>
             </>
           )}

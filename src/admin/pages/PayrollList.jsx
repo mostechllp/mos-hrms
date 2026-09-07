@@ -466,9 +466,6 @@ const PayrollList = () => {
                               <span className="font-semibold text-gray-800 dark:text-white text-sm truncate max-w-[120px]">
                                 {employeeName}
                               </span>
-                              <span className="text-[9px] text-gray-400 dark:text-gray-500">
-                                {employeeId}
-                              </span>
                             </div>
                           </div>
                         </td>

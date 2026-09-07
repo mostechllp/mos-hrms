@@ -2069,195 +2069,197 @@ function AddPayroll() {
           )}
 
           {/* Step 5 - Summary */}
-          {reduxCurrentStep === 5 && (
-            <div>
-              <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
-                <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-clipboard-check text-green-600 dark:text-green-400 text-xs md:text-sm"></i>
-                </div>
-                <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
-                  Payroll Summary
-                </h3>
-              </div>
+{reduxCurrentStep === 5 && (
+  <div>
+    <div className="flex items-center gap-2 pb-3 border-b-2 border-blue-100 dark:border-blue-900/30 mb-4 md:mb-6">
+      <div className="w-6 h-6 md:w-8 md:h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+        <i className="fas fa-clipboard-check text-blue-600 dark:text-blue-400 text-xs md:text-sm"></i>
+      </div>
+      <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
+        Payroll Summary
+      </h3>
+    </div>
 
-              <div className="space-y-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Review the payroll details before final submission.
-                </p>
+    <div className="space-y-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        Review the payroll details before final submission.
+      </p>
 
-                {/* Employee Summary */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      <i className="fas fa-user mr-2 text-green-500"></i>
-                      Employee Details
-                    </h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Name:</span>
-                        <span className="font-medium">{employeeName}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Employee ID:</span>
-                        <span className="font-medium">{employeeId}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Department:</span>
-                        <span className="font-medium">{department}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Designation:</span>
-                        <span className="font-medium">{designation}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Pay Period:</span>
-                        <span className="font-medium">
-                          {payPeriodMonth} {payPeriodYear}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      <i className="fas fa-money-bill-wave mr-2 text-green-500"></i>
-                      Payment Details
-                    </h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Payment Date:</span>
-                        <span className="font-medium">
-                          {formatDate(paymentDate)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Payment Mode:</span>
-                        <span className="font-medium">
-                          {paymentMode || "N/A"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Working Days:</span>
-                        <span className="font-medium">{totalWorkingDays}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Days Present:</span>
-                        <span className="font-medium">{daysPresent}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Salary Breakdown */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {/* Gross Salary */}
-                  <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                    <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
-                      <i className="fas fa-wallet mr-2"></i>
-                      Gross Salary
-                    </h4>
-                    {salaryComponents.length > 0 ? (
-                      salaryComponents.map((comp, idx) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center text-sm py-1"
-                        >
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {comp.component_name}:
-                          </span>
-                          <span className="font-semibold text-gray-700 dark:text-gray-300">
-                            {(parseFloat(comp.value) || 0).toFixed(2)}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-sm text-gray-400">No components</div>
-                    )}
-                    <div className="border-t border-blue-200 dark:border-blue-700 mt-2 pt-2 flex justify-between items-center font-semibold">
-                      <span className="text-gray-700 dark:text-gray-300">
-                        Total:
-                      </span>
-                      <span className="text-blue-600 dark:text-blue-400">
-                        {totalSalaryAmount.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Overtime */}
-                  <div className="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
-                    <h4 className="text-sm font-semibold text-orange-700 dark:text-orange-300 mb-2">
-                      <i className="fas fa-clock mr-2"></i>
-                      Overtime
-                    </h4>
-                    <div className="text-center py-2">
-                      <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                        ₹{totalOvertimeAmount.toFixed(2)}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {overtimeData?.total_overtime_formatted || "00:00"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Deductions */}
-                  <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                    <h4 className="text-sm font-semibold text-red-700 dark:text-red-300 mb-2">
-                      <i className="fas fa-minus-circle mr-2"></i>
-                      Deductions
-                    </h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Manual:</span>
-                        <span className="text-gray-700 dark:text-gray-300">
-                          ₹{totalManualDeductions.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-red-600">
-                        <span>Leave (LOP):</span>
-                        <span>₹{totalLeaveDeductions.toFixed(2)}</span>
-                      </div>
-                      <div className="border-t border-red-200 dark:border-red-700 mt-2 pt-2 flex justify-between font-semibold">
-                        <span className="text-gray-700 dark:text-gray-300">Total:</span>
-                        <span className="text-red-600 dark:text-red-400">
-                          ₹{totalAllDeductions.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Net Pay */}
-                  <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                    <h4 className="text-sm font-semibold text-green-700 dark:text-green-300 mb-2">
-                      <i className="fas fa-check-circle mr-2"></i>
-                      Net Pay
-                    </h4>
-                    <div className="text-center py-2">
-                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        ₹{totalNetPay.toFixed(2)}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        After all deductions
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Payslip Delivery Info */}
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 flex items-start gap-3">
-                  <i className="fas fa-envelope text-blue-500 mt-1"></i>
-                  <div>
-                    <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300">
-                      Payslip Delivery
-                    </h4>
-                    <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
-                      Upon submission, the generated payslip will be
-                      automatically sent to the employee via Email only.
-                    </p>
-                  </div>
-                </div>
-              </div>
+      {/* Employee Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+            <i className="fas fa-user mr-2 text-blue-500"></i>
+            Employee Details
+          </h4>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Name:</span>
+              <span className="font-medium text-blue-700 dark:text-blue-300">{employeeName}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Employee ID:</span>
+              <span className="font-medium text-blue-700 dark:text-blue-300">{employeeId}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Department:</span>
+              <span className="font-medium text-blue-700 dark:text-blue-300">{department}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Designation:</span>
+              <span className="font-medium text-blue-700 dark:text-blue-300">{designation}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Pay Period:</span>
+              <span className="font-medium text-blue-700 dark:text-blue-300">
+                {payPeriodMonth} {payPeriodYear}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+            <i className="fas fa-money-bill-wave mr-2 text-blue-500"></i>
+            Payment Details
+          </h4>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Payment Date:</span>
+              <span className="font-medium text-blue-700 dark:text-blue-300">
+                {formatDate(paymentDate)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Payment Mode:</span>
+              <span className="font-medium text-blue-700 dark:text-blue-300">
+                {paymentMode || "N/A"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Working Days:</span>
+              <span className="font-medium text-blue-700 dark:text-blue-300">{totalWorkingDays}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Days Present:</span>
+              <span className="font-medium text-blue-700 dark:text-blue-300">{daysPresent}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Salary Breakdown - All Blue */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Gross Salary */}
+        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+            <i className="fas fa-wallet mr-2"></i>
+            Gross Salary
+          </h4>
+          {salaryComponents.length > 0 ? (
+            salaryComponents.map((comp, idx) => (
+              <div
+                key={idx}
+                className="flex justify-between items-center text-sm py-1"
+              >
+                <span className="text-gray-600 dark:text-gray-400">
+                  {comp.component_name}:
+                </span>
+                <span className="font-semibold text-blue-700 dark:text-blue-300">
+                  {(parseFloat(comp.value) || 0).toFixed(2)}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="text-sm text-gray-400">No components</div>
           )}
+          <div className="border-t border-blue-200 dark:border-blue-700 mt-2 pt-2 flex justify-between items-center font-semibold">
+            <span className="text-gray-700 dark:text-gray-300">
+              Total:
+            </span>
+            <span className="text-blue-600 dark:text-blue-400">
+              {totalSalaryAmount.toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        {/* Overtime */}
+        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+            <i className="fas fa-clock mr-2"></i>
+            Overtime
+          </h4>
+          <div className="text-center py-2">
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              ₹{totalOvertimeAmount.toFixed(2)}
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {overtimeData?.total_overtime_formatted || "00:00"}
+            </div>
+          </div>
+        </div>
+
+        {/* Deductions */}
+        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+            <i className="fas fa-minus-circle mr-2"></i>
+            Deductions
+          </h4>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Manual:</span>
+              <span className="text-blue-700 dark:text-blue-300">
+                ₹{totalManualDeductions.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Leave (LOP):</span>
+              <span className="text-blue-600 dark:text-blue-400">
+                ₹{totalLeaveDeductions.toFixed(2)}
+              </span>
+            </div>
+            <div className="border-t border-blue-200 dark:border-blue-700 mt-2 pt-2 flex justify-between font-semibold">
+              <span className="text-gray-700 dark:text-gray-300">Total:</span>
+              <span className="text-blue-600 dark:text-blue-400">
+                ₹{totalAllDeductions.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Net Pay */}
+        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+            <i className="fas fa-check-circle mr-2"></i>
+            Net Pay
+          </h4>
+          <div className="text-center py-2">
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              ₹{totalNetPay.toFixed(2)}
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              After all deductions
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Payslip Delivery Info */}
+      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 flex items-start gap-3">
+        <i className="fas fa-envelope text-blue-500 mt-1"></i>
+        <div>
+          <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+            Payslip Delivery
+          </h4>
+          <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
+            Upon submission, the generated payslip will be
+            automatically sent to the employee via Email only.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
           {/* Action Buttons */}
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 md:pt-6 border-t border-gray-200 dark:border-gray-700">

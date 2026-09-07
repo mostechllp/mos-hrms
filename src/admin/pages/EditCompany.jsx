@@ -29,7 +29,8 @@ const EditCompany = () => {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [logoPreview, setLogoPreview] = useState(null);
-  const [, setLogoFile] = useState(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const [removeLogo, setRemoveLogo] = useState(false); // Add state for logo removal
   const [currentOrganization, setCurrentOrganization] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -148,12 +149,12 @@ const EditCompany = () => {
         organization_id: currentCompany.organization_id || organizationId,
       });
 
-      console.log("Country value:", currentCompany.country);
-      console.log("Trade license value:", currentCompany.trade_license);
-
       if (currentCompany.logo) {
         setLogoPreview(getFullLogoUrl(currentCompany.logo));
       }
+      
+      // Reset remove logo flag when loading new company
+      setRemoveLogo(false);
     }
   }, [currentCompany, organizationId]);
 
@@ -182,6 +183,7 @@ const EditCompany = () => {
         return;
       }
       setLogoFile(file);
+      setRemoveLogo(false); // Reset remove flag when new file is selected
       const reader = new FileReader();
       reader.onload = (event) => {
         setLogoPreview(event.target.result);
@@ -193,6 +195,7 @@ const EditCompany = () => {
   const handleRemoveLogo = () => {
     setLogoPreview(null);
     setLogoFile(null);
+    setRemoveLogo(true); // Set flag to remove logo
   };
 
   const handleSubmit = async (e) => {
@@ -205,21 +208,46 @@ const EditCompany = () => {
 
     setLoading(true);
 
-    const companyData = {
-      company_name: formData.company_name,
-      phone: formData.phone,
-      email: formData.email,
-      address: formData.address,
-      country: formData.country || null,
-      trade_license: formData.trade_license || null,
-      company_type: formData.company_type || null,
-      trade_license_expiry: formData.trade_license_expiry || null,
-      establishment_card_expiry: formData.establishment_card_expiry || null,
-      organization_id: parseInt(organizationId),
-    };
+    // Create FormData for file upload
+    const formDataToSend = new FormData();
+    
+    // Append all fields
+    formDataToSend.append("organization_id", parseInt(organizationId));
+    formDataToSend.append("company_name", formData.company_name);
+    formDataToSend.append("phone", formData.phone || "");
+    formDataToSend.append("email", formData.email || "");
+    formDataToSend.append("address", formData.address || "");
+    formDataToSend.append("country", formData.country || "");
+    formDataToSend.append("trade_license", formData.trade_license || "");
+    formDataToSend.append("company_type", formData.company_type || "");
+    formDataToSend.append("trade_license_expiry", formData.trade_license_expiry || "");
+    formDataToSend.append("establishment_card_expiry", formData.establishment_card_expiry || "");
+
+    // Handle logo
+    if (removeLogo) {
+      // Send a flag to remove the logo
+      formDataToSend.append("remove_logo", "true");
+    } else if (logoFile) {
+      // Upload new logo
+      formDataToSend.append("logo", logoFile);
+    }
+    // If neither removeLogo nor logoFile, keep existing logo
+
+    // For PUT with FormData, use POST with _method
+    formDataToSend.append("_method", "PUT");
+
+    // Debug: Log all FormData entries
+    console.log("Sending FormData:");
+    for (let [key, value] of formDataToSend.entries()) {
+      if (key === 'logo' && value instanceof File) {
+        console.log(`${key}: ${value.name} (${value.type}, ${value.size} bytes)`);
+      } else {
+        console.log(`${key}: ${value}`);
+      }
+    }
 
     const result = await dispatch(
-      updateCompany({ id: parseInt(id), data: companyData }),
+      updateCompany({ id: parseInt(id), data: formDataToSend })
     );
     setLoading(false);
 
@@ -232,7 +260,7 @@ const EditCompany = () => {
         navigate(`/admin/organizations/${organizationId}/companies`);
       }, 1200);
     } else {
-      const errorMsg = result.payload || "Failed to update company";
+      const errorMsg = result.payload?.message || result.payload || "Failed to update company";
       showToast(errorMsg, "error");
     }
   };
