@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { NavLink, useNavigate } from "react-router-dom";
-import { markAsRead, markAllRead } from "../../store/slices/notificationSlice";
+import { markAsRead, markAllRead, markNotificationAsRead, markAllNotificationsAsRead, fetchNotifications } from "../../store/slices/notificationSlice";
 import { logoutUser } from "../../store/slices/authSlice";
-import { fetchNotifications } from "../../store/slices/notificationSlice";
-import ConfirmModal from "./ConfirmModal"; 
+import ConfirmModal from "./ConfirmModal";
 
 const Header = ({ onMenuClick }) => {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -111,11 +110,11 @@ const Header = ({ onMenuClick }) => {
   }, []);
 
   const handleMarkAsRead = (id) => {
-    dispatch(markAsRead(id));
+    dispatch(markNotificationAsRead(id));
   };
 
   const handleMarkAllRead = () => {
-    dispatch(markAllRead());
+    dispatch(markAllNotificationsAsRead());
   };
 
   const handleLogoutClick = () => {
@@ -141,6 +140,42 @@ const Header = ({ onMenuClick }) => {
   const userInitials = getUserInitials();
   const userName = getUserName();
   const userEmail = getUserEmail();
+
+  const getNotificationUI = (notif) => {
+    const title = (notif.title || notif.type || "Notification").toLowerCase();
+    
+    if (title.includes("probation") || title.includes("alert")) {
+      return {
+        type: notif.title || "Probation Alert",
+        typeColor: "text-[#7B61FF] bg-[#F4F0FF]",
+        icon: "fas fa-clock",
+        iconColor: "text-[#F2994A]",
+      };
+    } else if (title.includes("document") || title.includes("expiry")) {
+      return {
+        type: notif.title || "Document Expiry",
+        typeColor: "text-[#F2994A] bg-[#FFF6ED]",
+        icon: "fas fa-file-alt",
+        iconColor: "text-[#F2994A]",
+      };
+    } else if (title.includes("leave")) {
+      return {
+        type: notif.title || "Leave Request",
+        typeColor: "text-[#20B256] bg-[#EAF9EF]",
+        icon: "fas fa-calendar-alt",
+        iconColor: "text-[#20B256]",
+      };
+    }
+    
+    return {
+      type: notif.title || "Notification",
+      typeColor: "text-gray-700 bg-gray-100",
+      icon: "fas fa-bell",
+      iconColor: "text-gray-500",
+    };
+  };
+
+  const displayNotifications = (notifications || []).slice(0, 5); // Show latest 5 in dropdown
 
   return (
     <>
@@ -177,60 +212,81 @@ const Header = ({ onMenuClick }) => {
               >
                 <i className="fas fa-bell text-gray-600 dark:text-gray-300 text-sm md:text-base"></i>
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                  <span className="absolute -top-1 -right-1 bg-[#FF5A5F] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center border-2 border-white dark:border-gray-800">
                     {unreadCount}
                   </span>
                 )}
               </button>
 
               {showNotifications && (
-                <div className="absolute top-12 right-0 w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-soft-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                    <h3 className="font-semibold text-gray-800 dark:text-gray-200">
-                      Notifications
-                    </h3>
+                <div className="absolute top-12 right-0 w-[420px] bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden">
+                  <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800">
+                    <div className="flex items-center gap-2">
+                      <i className="fas fa-bell text-[#20B256] text-lg"></i>
+                      <h3 className="font-bold text-gray-800 dark:text-gray-200 text-lg">
+                        Notifications
+                      </h3>
+                      <span className="bg-[#FF5A5F] text-white text-[11px] font-bold px-2 py-0.5 rounded-full ml-1">
+                        {unreadCount} unread
+                      </span>
+                    </div>
                     <button
                       onClick={handleMarkAllRead}
-                      className="text-xs text-green-500 hover:text-green-600"
+                      className="text-sm font-medium text-[#20B256] hover:text-green-600"
                     >
                       Mark all as read
                     </button>
                   </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {notifications.length === 0 ? (
+                  <div className="max-h-[400px] overflow-y-auto">
+                    {displayNotifications.length === 0 ? (
                       <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                         <i className="fas fa-bell-slash text-3xl mb-2 opacity-50"></i>
                         <p>No notifications</p>
                       </div>
                     ) : (
-                      notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className={`p-3 border-b border-gray-200 dark:border-gray-700 cursor-pointer transition-colors ${!notification.read
-                            ? "bg-green-50 dark:bg-green-900/20"
-                            : ""
-                            } hover:bg-gray-50 dark:hover:bg-gray-700`}
-                          onClick={() => handleMarkAsRead(notification.id)}
-                        >
-                          <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                            {notification.title}
+                      displayNotifications.map((notification) => {
+                        const ui = getNotificationUI(notification);
+                        return (
+                          <div
+                            key={notification.id}
+                            className={`p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors ${
+                              !notification.read
+                                ? "bg-[#EAF9EF] dark:bg-green-900/20"
+                                : "bg-white dark:bg-gray-800"
+                            } hover:bg-green-50 dark:hover:bg-gray-700 flex gap-3`}
+                            onClick={() => handleMarkAsRead(notification.id)}
+                          >
+                            <div className="mt-0.5">
+                              <i className={`${ui.icon} ${ui.iconColor} text-base`}></i>
+                            </div>
+                            <div className="flex-1">
+                              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold mb-2 ${ui.typeColor}`}>
+                                {ui.type}
+                              </span>
+                              <p className="text-[14px] leading-relaxed text-[#344054] dark:text-gray-300">
+                                {notification.message}
+                              </p>
+                              <div className="flex items-center gap-2 mt-2">
+                                <span className="text-xs font-medium text-[#98A2B3] dark:text-gray-500">
+                                  {notification.time || notification.created_at || "Just now"}
+                                </span>
+                                {!notification.read && (
+                                  <div className="w-1.5 h-1.5 rounded-full bg-[#20B256]"></div>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                            {notification.message}
-                          </p>
-                          <small className="text-xs text-gray-500 dark:text-gray-400 block mt-1">
-                            {notification.time || "Just now"}
-                          </small>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
-                  <div className="p-3 border-t border-gray-200 dark:border-gray-700 text-center bg-gray-50 dark:bg-gray-700/50">
+                  <div className="p-4 bg-white dark:bg-gray-800 text-center rounded-b-2xl">
                     <button
                       onClick={() => {
                         setShowNotifications(false);
+                        navigate("/admin/notifications");
                       }}
-                      className="text-xs text-green-500 hover:text-green-600"
+                      className="text-sm font-bold text-[#20B256] hover:text-green-600"
                     >
                       View all notifications
                     </button>
