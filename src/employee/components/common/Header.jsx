@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAppSelector } from '../../store/hooks';
 import { useAppTheme } from '../../../context/ThemeContext';
 import { logoutUser } from '../../../store/slices/authSlice';
+import { markNotificationAsRead, markAllNotificationsAsRead, fetchNotifications } from '../../../admin/store/slices/notificationSlice';
 
 const Header = ({ onMenuClick }) => {
   const dispatch = useDispatch();
@@ -11,8 +12,16 @@ const Header = ({ onMenuClick }) => {
   const { user } = useAppSelector((state) => state.auth);
   const { themeMode, setThemeMode } = useAppTheme();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
   const menuRef = useRef(null);
+  const notificationRef = useRef(null);
+  
+  const { notifications, unreadCount } = useAppSelector((state) => state.notifications);
+
+  useEffect(() => {
+    dispatch(fetchNotifications());
+  }, [dispatch]);
 
   useEffect(() => {
     const updateDate = () => {
@@ -34,6 +43,9 @@ const Header = ({ onMenuClick }) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setShowProfileMenu(false);
       }
+      if (notificationRef.current && !notificationRef.current.contains(e.target)) {
+        setShowNotifications(false);
+      }
     };
     
     document.addEventListener('click', handleClickOutside);
@@ -45,6 +57,51 @@ const Header = ({ onMenuClick }) => {
     setShowProfileMenu(false);
     navigate("/login");
   };
+
+  const handleMarkAsRead = (id) => {
+    dispatch(markNotificationAsRead(id));
+  };
+
+  const handleMarkAllRead = () => {
+    dispatch(markAllNotificationsAsRead());
+  };
+
+  const getNotificationUI = (notif) => {
+    const title = (notif.title || notif.type || "Notification").toLowerCase();
+    
+    if (title.includes("probation") || title.includes("alert")) {
+      return {
+        type: notif.title || "Probation Alert",
+        typeColor: "text-[#7B61FF] bg-[#F4F0FF]",
+        icon: "fas fa-clock",
+        iconColor: "text-[#F2994A]",
+      };
+    } else if (title.includes("document") || title.includes("expiry")) {
+      return {
+        type: notif.title || "Document Expiry",
+        typeColor: "text-[#F2994A] bg-[#FFF6ED]",
+        icon: "fas fa-file-alt",
+        iconColor: "text-[#F2994A]",
+      };
+    } else if (title.includes("leave")) {
+      return {
+        type: "leave_request",
+        alertType: notif.title || "Leave Request",
+        typeColor: "text-green-500 bg-green-50",
+        icon: "fas fa-calendar-alt",
+        iconColor: "text-green-500",
+      };
+    }
+    
+    return {
+      type: notif.title || "Notification",
+      typeColor: "text-gray-700 bg-gray-100",
+      icon: "fas fa-bell",
+      iconColor: "text-gray-500",
+    };
+  };
+
+  const displayNotifications = (notifications || []).slice(0, 5);
 
   return (
     <header className="header bg-[var(--surface)] border-b border-[var(--border)] py-3 px-4 md:px-6 sticky top-0 z-40 flex items-center justify-between flex-wrap gap-3">
@@ -83,6 +140,97 @@ const Header = ({ onMenuClick }) => {
           >
             <i className="fas fa-moon"></i>
           </button>
+        </div>
+        
+        {/* Notification Bell */}
+        <div className="relative" ref={notificationRef}>
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative w-9 h-9 md:w-10 md:h-10 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full flex items-center justify-center"
+          >
+            <i className="fas fa-bell text-gray-600 dark:text-gray-300 text-sm md:text-base"></i>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-[#FF5A5F] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center border-2 border-white dark:border-gray-800">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute top-12 right-0 w-[420px] bg-[var(--surface)] rounded-2xl shadow-xl border border-[var(--border)] z-50 overflow-hidden">
+              <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--surface)]">
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-bell text-green-500 text-lg"></i>
+                  <h3 className="font-bold text-[var(--text)] text-lg">
+                    Notifications
+                  </h3>
+                  <span className="bg-[#FF5A5F] text-white text-[11px] font-bold px-2 py-0.5 rounded-full ml-1">
+                    {unreadCount} unread
+                  </span>
+                </div>
+                <button
+                  onClick={handleMarkAllRead}
+                  className="text-sm font-medium text-green-500 hover:text-green-600"
+                >
+                  Mark all as read
+                </button>
+              </div>
+              <div className="max-h-[400px] overflow-y-auto bg-[var(--surface)]">
+                {displayNotifications.length === 0 ? (
+                  <div className="p-8 text-center text-[var(--muted)]">
+                    <i className="fas fa-bell-slash text-3xl mb-2 opacity-50"></i>
+                    <p>No notifications</p>
+                  </div>
+                ) : (
+                  displayNotifications.map((notification) => {
+                    const ui = getNotificationUI(notification);
+                    return (
+                      <div
+                        key={notification.id}
+                        className={`p-4 border-b border-[var(--border)] cursor-pointer transition-colors ${
+                          !notification.read
+                            ? "bg-green-50 dark:bg-green-900/20"
+                            : "bg-[var(--surface)]"
+                        } hover:bg-[var(--surface2)] flex gap-3`}
+                        onClick={() => handleMarkAsRead(notification.id)}
+                      >
+                        <div className="mt-0.5">
+                          <i className={`${ui.icon} ${ui.iconColor} text-base`}></i>
+                        </div>
+                        <div className="flex-1">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold mb-2 ${ui.typeColor}`}>
+                            {ui.type}
+                          </span>
+                          <p className="text-[14px] leading-relaxed text-[var(--text)]">
+                            {notification.message}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-xs font-medium text-[var(--muted)]">
+                              {notification.time || notification.created_at || "Just now"}
+                            </span>
+                            {!notification.read && (
+                              <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              <div className="p-4 bg-[var(--surface)] text-center rounded-b-2xl border-t border-[var(--border)]">
+                <button
+                  onClick={() => {
+                    setShowNotifications(false);
+                    navigate("/employee/notifications");
+                  }}
+                  className="text-sm font-bold text-green-500 hover:text-green-600"
+                >
+                  View all notifications
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Fixed dropdown wrapper */}

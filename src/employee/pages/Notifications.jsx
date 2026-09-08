@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "../store/slices/notificationSlice";
+import { fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "../../admin/store/slices/notificationSlice";
 
 const Notifications = () => {
   const navigate = useNavigate();
@@ -89,9 +89,9 @@ const Notifications = () => {
               <i className="fas fa-check-circle"></i>
               Mark All as Read
             </button>
-            <button
-              onClick={() => navigate("/admin/dashboard")}
-              className="px-4 py-2 bg-white text-gray-700 border border-gray-300 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
+            <button 
+              onClick={() => navigate('/employee/dashboard')}
+              className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
             >
               Back to Dashboard
             </button>
