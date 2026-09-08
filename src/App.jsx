@@ -131,7 +131,8 @@ const Projects = lazy(() => import("./admin/pages/Projects"));
 const ProjectTasks = lazy(
   () => import("./admin/components/projects/ProjectTasks"),
 );
-const ProjectsTasks = lazy(() => import("./admin/pages/ProjectTasks"))
+const ProjectsTasks = lazy(() => import("./admin/pages/ProjectTasks"));
+const Notifications = lazy(() => import("./admin/pages/Notifications"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -205,6 +206,7 @@ function App() {
           {/* Admin nested routes - these will render inside AdminLayout */}
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="notifications" element={<Notifications />} />
           <Route path="employees" element={<Employees />} />
           <Route path="employees/add-employee" element={<AddEmployee />} />
           <Route
