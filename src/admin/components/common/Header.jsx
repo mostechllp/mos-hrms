@@ -267,14 +267,11 @@ const Header = ({ onMenuClick }) => {
                               <p className="text-[14px] leading-relaxed text-[#344054] dark:text-gray-300">
                                 {notification.message}
                               </p>
-                              <div className="flex items-center gap-2 mt-2">
-                                <span className="text-xs font-medium text-[#98A2B3] dark:text-gray-500">
-                                  {notification.time || notification.created_at || "Just now"}
-                                </span>
-                                {!notification.read && (
-                                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                                )}
-                              </div>
+                                <div className="flex items-center mt-2">
+                                  {!notification.read && (
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                  )}
+                                </div>
                             </div>
                           </div>
                         );

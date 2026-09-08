@@ -204,10 +204,7 @@ const Header = ({ onMenuClick }) => {
                           <p className="text-[14px] leading-relaxed text-[var(--text)]">
                             {notification.message}
                           </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="text-xs font-medium text-[var(--muted)]">
-                              {notification.time || notification.created_at || "Just now"}
-                            </span>
+                          <div className="flex items-center mt-2">
                             {!notification.read && (
                               <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
                             )}
@@ -217,17 +214,6 @@ const Header = ({ onMenuClick }) => {
                     );
                   })
                 )}
-              </div>
-              <div className="p-4 bg-[var(--surface)] text-center rounded-b-2xl border-t border-[var(--border)]">
-                <button
-                  onClick={() => {
-                    setShowNotifications(false);
-                    navigate("/employee/notifications");
-                  }}
-                  className="text-sm font-bold text-green-500 hover:text-green-600"
-                >
-                  View all notifications
-                </button>
               </div>
             </div>
           )}
