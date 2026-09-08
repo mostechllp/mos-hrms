@@ -142,6 +142,7 @@ const EmployeeProfile = lazy(() => import("./employee/pages/Profile"));
 const EmployeeWFH = lazy(() => import("./employee/pages/WFH"));
 const EmployeeTaskReports = lazy(() => import("./employee/pages/TaskReports"));
 const EmployeeTasks = lazy(() => import("./employee/pages/Tasks"));
+const EmployeeNotifications = lazy(() => import("./employee/pages/Notifications"));
 const AttendanceRequests = lazy(
   () => import("./employee/pages/AttendanceRequests"),
 );
@@ -377,6 +378,7 @@ function App() {
           <Route path="my-tasks" element={<EmployeeTaskReports />} />
           <Route path="task-reports" element={<TaskReports />} />
           <Route path="tasks" element={<EmployeeTasks />} />
+          <Route path="notifications" element={<EmployeeNotifications />} />
           <Route path="profile" element={<EmployeeProfile />} />
           <Route path="attendance-requests" element={<AttendanceRequests />} />
           <Route path="organizations" element={<Organizations />} />
