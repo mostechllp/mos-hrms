@@ -38,9 +38,9 @@ const Notifications = () => {
       return {
         type: "leave_request",
         alertType: notif.title || "Leave Request",
-        typeColor: "text-[#20B256]",
+        typeColor: "text-green-500",
         icon: "far fa-calendar-alt",
-        iconColor: "text-[#20B256]",
+        iconColor: "text-green-500",
       };
     }
     
@@ -78,8 +78,13 @@ const Notifications = () => {
           </div>
           <div className="flex items-center gap-3">
             <button 
-              onClick={() => dispatch(markAllNotificationsAsRead())}
-              className="flex items-center gap-2 px-4 py-2 bg-[#20B256] text-white text-sm font-medium rounded-md hover:bg-green-600 transition-colors"
+              onClick={() => unreadCount > 0 && dispatch(markAllNotificationsAsRead())}
+              disabled={unreadCount === 0}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                unreadCount > 0 
+                  ? "bg-green-500 text-white hover:bg-green-600" 
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              }`}
             >
               <i className="fas fa-check-circle"></i>
               Mark All as Read
@@ -98,7 +103,7 @@ const Notifications = () => {
             <button
               onClick={() => setActiveTab("all")}
               className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                activeTab === "all" ? "bg-[#20B256] text-white shadow-sm" : "text-gray-600 hover:text-gray-900"
+                activeTab === "all" ? "bg-green-500 text-white shadow-sm" : "text-gray-600 hover:text-gray-900"
               }`}
             >
               All ({totalCount})
@@ -106,7 +111,7 @@ const Notifications = () => {
             <button
               onClick={() => setActiveTab("unread")}
               className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                activeTab === "unread" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
+                activeTab === "unread" ? "bg-green-500 text-white shadow-sm" : "text-gray-600 hover:text-gray-900"
               }`}
             >
               Unread ({unreadCount})
@@ -114,7 +119,7 @@ const Notifications = () => {
             <button
               onClick={() => setActiveTab("read")}
               className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                activeTab === "read" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
+                activeTab === "read" ? "bg-green-500 text-white shadow-sm" : "text-gray-600 hover:text-gray-900"
               }`}
             >
               Read ({readCount})
@@ -127,7 +132,7 @@ const Notifications = () => {
               placeholder="Search notifications..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#20B256] focus:border-[#20B256]"
+              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
             />
           </div>
         </div>
@@ -145,7 +150,7 @@ const Notifications = () => {
                 <div
                   key={notification.id}
                   className={`flex items-start justify-between p-4 rounded-xl border ${
-                    !notification.read ? "bg-[#EAF9EF] border-[#CDEEDB]" : "bg-white border-gray-200"
+                    !notification.read ? "bg-green-50 border-green-500/20" : "bg-white border-gray-200"
                   }`}
                 >
                   <div className="flex gap-4">
@@ -166,19 +171,24 @@ const Notifications = () => {
                         </span>
                         {!notification.read && (
                           <>
-                            <span className="w-1 h-1 bg-[#20B256] rounded-full"></span>
-                            <span className="text-xs text-[#20B256] font-medium">Unread</span>
+                            <span className="w-1 h-1 bg-green-500 rounded-full"></span>
+                            <span className="text-xs text-green-500 font-medium">Unread</span>
                           </>
                         )}
                       </div>
                     </div>
                   </div>
                   <button 
-                    onClick={() => dispatch(markNotificationAsRead(notification.id))}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-[#20B256] text-white text-xs font-medium rounded-md hover:bg-green-600 transition-colors"
+                    onClick={() => !notification.read && dispatch(markNotificationAsRead(notification.id))}
+                    disabled={notification.read}
+                    className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      !notification.read 
+                        ? "bg-green-500 text-white hover:bg-green-600" 
+                        : "bg-gray-100 text-gray-500 border border-gray-200 cursor-default"
+                    }`}
                   >
-                    <i className="far fa-eye"></i>
-                    View
+                    <i className={!notification.read ? "fas fa-check" : "fas fa-check-double"}></i>
+                    {!notification.read ? "Mark as Read" : "Read"}
                   </button>
                 </div>
               );

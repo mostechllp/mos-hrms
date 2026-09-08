@@ -160,10 +160,11 @@ const Header = ({ onMenuClick }) => {
       };
     } else if (title.includes("leave")) {
       return {
-        type: notif.title || "Leave Request",
-        typeColor: "text-[#20B256] bg-[#EAF9EF]",
+        type: "leave_request",
+        alertType: notif.title || "Leave Request",
+        typeColor: "text-green-500 bg-green-50",
         icon: "fas fa-calendar-alt",
-        iconColor: "text-[#20B256]",
+        iconColor: "text-green-500",
       };
     }
     
@@ -222,7 +223,7 @@ const Header = ({ onMenuClick }) => {
                 <div className="absolute top-12 right-0 w-[420px] bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden">
                   <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800">
                     <div className="flex items-center gap-2">
-                      <i className="fas fa-bell text-[#20B256] text-lg"></i>
+                      <i className="fas fa-bell text-green-500 text-lg"></i>
                       <h3 className="font-bold text-gray-800 dark:text-gray-200 text-lg">
                         Notifications
                       </h3>
@@ -232,7 +233,7 @@ const Header = ({ onMenuClick }) => {
                     </div>
                     <button
                       onClick={handleMarkAllRead}
-                      className="text-sm font-medium text-[#20B256] hover:text-green-600"
+                      className="text-sm font-medium text-green-500 hover:text-green-600"
                     >
                       Mark all as read
                     </button>
@@ -251,7 +252,7 @@ const Header = ({ onMenuClick }) => {
                             key={notification.id}
                             className={`p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors ${
                               !notification.read
-                                ? "bg-[#EAF9EF] dark:bg-green-900/20"
+                                ? "bg-green-50 dark:bg-green-900/20"
                                 : "bg-white dark:bg-gray-800"
                             } hover:bg-green-50 dark:hover:bg-gray-700 flex gap-3`}
                             onClick={() => handleMarkAsRead(notification.id)}
@@ -271,7 +272,7 @@ const Header = ({ onMenuClick }) => {
                                   {notification.time || notification.created_at || "Just now"}
                                 </span>
                                 {!notification.read && (
-                                  <div className="w-1.5 h-1.5 rounded-full bg-[#20B256]"></div>
+                                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
                                 )}
                               </div>
                             </div>
@@ -286,7 +287,7 @@ const Header = ({ onMenuClick }) => {
                         setShowNotifications(false);
                         navigate("/admin/notifications");
                       }}
-                      className="text-sm font-bold text-[#20B256] hover:text-green-600"
+                      className="text-sm font-bold text-green-500 hover:text-green-600"
                     >
                       View all notifications
                     </button>
