@@ -1248,9 +1248,7 @@ const Dashboard = () => {
             <i className="fas fa-calendar-check"></i>
           </div>
           <div className="stat-number text-3xl font-extrabold text-green-600">
-            {dashboardData?.attendance_history?.filter(
-              (a) => a.punch_in && a.punch_out,
-            ).length || 0}
+            {dashboardData?.days_present}
           </div>
           <div className="stat-label text-xs text-[var(--muted)]">
             Days Present
