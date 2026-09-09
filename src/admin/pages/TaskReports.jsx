@@ -9,9 +9,11 @@ import {
   fetchTaskReports,
   deleteTaskReport,
   updateTaskReportRemarks,
+  addTaskReport,
 } from "../store/slices/taskReportSlice";
 import { fetchEmployees } from "../store/slices/employeeSlice";
 import TaskReportModal from "../components/taskReports/TaskReportModal";
+import DateInput from "../components/common/DateInput";
 
 const TaskReports = () => {
   const dispatch = useDispatch();
@@ -22,6 +24,8 @@ const TaskReports = () => {
     currentPage: currentPageState,
     perPage: perPageState,
   } = useSelector((state) => state.taskReports || {});
+
+  const { employees = [] } = useSelector((state) => state.employees || {});
 
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,6 +38,19 @@ const TaskReports = () => {
     useState(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState(null);
+
+  // Add Task Report Modal States
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addFormData, setAddFormData] = useState({
+    employee_id: "",
+    date: new Date().toISOString().split("T")[0],
+    tasksCompleted: "",
+    pendingTasks: "",
+    planForTomorrow: "",
+    remarks: "",
+  });
+  const [addFormErrors, setAddFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Edit Modal States
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -65,8 +82,6 @@ const TaskReports = () => {
     setSelectedReport(null);
   };
 
-  // Removed handleEdit function - no longer needed
-
   const handleAddRemarks = (report) => {
     setSelectedReportForRemarks(report);
     setRemarksText(report.remarks || "");
@@ -93,12 +108,108 @@ const TaskReports = () => {
     );
   };
 
-  // Removed handleDeleteClick and handleDelete functions - no longer needed
-
   const handleRemarksModalClose = () => {
     setRemarksModalOpen(false);
     setSelectedReportForRemarks(null);
     setRemarksText("");
+  };
+
+  // Add Task Report Handlers
+  const handleAddTaskReport = () => {
+    setAddFormData({
+      employee_id: "",
+      date: new Date().toISOString().split("T")[0],
+      tasksCompleted: "",
+      pendingTasks: "",
+      planForTomorrow: "",
+      remarks: "",
+    });
+    setAddFormErrors({});
+    setAddModalOpen(true);
+  };
+
+  const handleAddFormChange = (e) => {
+    const { name, value } = e.target;
+    setAddFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    // Clear error for this field
+    if (addFormErrors[name]) {
+      setAddFormErrors((prev) => ({
+        ...prev,
+        [name]: "",
+      }));
+    }
+  };
+
+  const validateAddForm = () => {
+    const errors = {};
+    if (!addFormData.employee_id) {
+      errors.employee_id = "Please select an employee";
+    }
+    if (!addFormData.date) {
+      errors.date = "Please select a date";
+    }
+    if (!addFormData.tasksCompleted?.trim()) {
+      errors.tasksCompleted = "Please enter tasks completed";
+    }
+    setAddFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleAddFormSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateAddForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Find employee name for the payload
+      const selectedEmployee = employees.find(
+        (emp) => emp.id === parseInt(addFormData.employee_id),
+      );
+
+      const payload = {
+        employee: selectedEmployee?.name || "",
+        date: addFormData.date,
+        tasksCompleted: addFormData.tasksCompleted,
+        pendingTasks: addFormData.pendingTasks || "",
+        planForTomorrow: addFormData.planForTomorrow,
+        remarks: addFormData.remarks || "",
+      };
+
+      await dispatch(addTaskReport(payload)).unwrap();
+      setAddModalOpen(false);
+      setAddFormData({
+        employee_id: "",
+        date: new Date().toISOString().split("T")[0],
+        tasksCompleted: "",
+        pendingTasks: "",
+        planForTomorrow: "",
+        remarks: "",
+      });
+      // Refresh the list
+      dispatch(
+        fetchTaskReports({
+          page: currentPage,
+          perPage: perPage,
+          search: searchTerm,
+        }),
+      );
+    } catch (error) {
+      console.error("Failed to add task report:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddModalClose = () => {
+    if (!isSubmitting) {
+      setAddModalOpen(false);
+      setAddFormErrors({});
+    }
   };
 
   // Calculate stats from fetched data
@@ -108,7 +219,7 @@ const TaskReports = () => {
   const today = new Date().toISOString().split("T")[0];
   const todayReports = taskReports.filter((r) => r.date === today).length;
 
-  // Get paginated data (if API doesn't handle pagination)
+  // Get paginated data
   const start = (currentPage - 1) * perPage;
   const paginatedReports = taskReports.slice(start, start + perPage);
   const totalPages = Math.ceil(totalReports / perPage);
@@ -158,6 +269,26 @@ const TaskReports = () => {
             Task Report
           </h2>
         </div>
+        {/* Add Task Report Button */}
+        <button
+          onClick={handleAddTaskReport}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 4v16m8-8H4"
+            />
+          </svg>
+          Add Task Report
+        </button>
       </div>
 
       {/* Dashboard Layout: 2x2 Grid (Left) + 1 Large Card (Right) */}
@@ -550,11 +681,13 @@ const TaskReports = () => {
                           >
                             <i className="fas fa-eye text-xs md:text-sm"></i>
                           </button>
-                          {/* Add/Edit Remarks Button - Only this action remains */}
+                          {/* Add/Edit Remarks Button */}
                           <button
                             onClick={() => handleAddRemarks(report)}
                             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-green-500 transition-colors"
-                            title={report.remarks ? "Edit Remarks" : "Add Remarks"}
+                            title={
+                              report.remarks ? "Edit Remarks" : "Add Remarks"
+                            }
                           >
                             <i className="fas fa-comment text-xs md:text-sm"></i>
                           </button>
@@ -580,7 +713,241 @@ const TaskReports = () => {
         </div>
       </div>
 
-      {/* View Task Report Modal - Redesigned to match the clean green mockup */}
+      {/* Add Task Report Modal */}
+      {addModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full shadow-soft-lg border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="px-6 py-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-2xl">
+              <h3 className="text-[17px] font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2.5">
+                <span className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs shadow-sm">
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                </span>
+                Add Task Report
+              </h3>
+              <button
+                onClick={handleAddModalClose}
+                disabled={isSubmitting}
+                className="text-gray-400 hover:text-red-500 transition-colors text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Form */}
+            <form
+              onSubmit={handleAddFormSubmit}
+              className="p-6 overflow-y-auto"
+            >
+              <div className="space-y-4">
+                {/* Employee Selection */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                    Employee <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="employee_id"
+                    value={addFormData.employee_id}
+                    onChange={handleAddFormChange}
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors ${
+                      addFormErrors.employee_id
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    }`}
+                  >
+                    <option value="">Select Employee</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name} {emp.email ? `(${emp.email})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {addFormErrors.employee_id && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {addFormErrors.employee_id}
+                    </p>
+                  )}
+                </div>
+
+                {/* Date - Using DateInput */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                    Date <span className="text-red-500">*</span>
+                  </label>
+                  <DateInput
+                    value={addFormData.date}
+                    onChange={(date) => {
+                      setAddFormData((prev) => ({
+                        ...prev,
+                        date: date,
+                      }));
+                      // Clear error for date field
+                      if (addFormErrors.date) {
+                        setAddFormErrors((prev) => ({
+                          ...prev,
+                          date: "",
+                        }));
+                      }
+                    }}
+                    placeholder="dd/mm/yyyy"
+                    type="special_day"
+                    error={!!addFormErrors.date}
+                    className="w-full"
+                  />
+                  {addFormErrors.date && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {addFormErrors.date}
+                    </p>
+                  )}
+                </div>
+
+                {/* Tasks Completed */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                    Tasks Completed <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    name="tasksCompleted"
+                    value={addFormData.tasksCompleted}
+                    onChange={handleAddFormChange}
+                    rows="3"
+                    placeholder="List the tasks completed today..."
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white resize-none transition-colors ${
+                      addFormErrors.tasksCompleted
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    }`}
+                  />
+                  {addFormErrors.tasksCompleted && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {addFormErrors.tasksCompleted}
+                    </p>
+                  )}
+                </div>
+
+                {/* Pending Tasks */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                    Pending Tasks
+                  </label>
+                  <textarea
+                    name="pendingTasks"
+                    value={addFormData.pendingTasks}
+                    onChange={handleAddFormChange}
+                    rows="2"
+                    placeholder="List any pending tasks..."
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white resize-none transition-colors"
+                  />
+                </div>
+
+                {/* Plan for Tomorrow */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                    Plan for Tomorrow
+                  </label>
+                  <textarea
+                    name="planForTomorrow"
+                    value={addFormData.planForTomorrow}
+                    onChange={handleAddFormChange}
+                    rows="3"
+                    placeholder="What are your plans for tomorrow? (optional)"
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white resize-none transition-colors"
+                  />
+                </div>
+
+                {/* Remarks */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                    Remarks
+                  </label>
+                  <textarea
+                    name="remarks"
+                    value={addFormData.remarks}
+                    onChange={handleAddFormChange}
+                    rows="2"
+                    placeholder="Additional remarks (optional)..."
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white resize-none transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={handleAddModalClose}
+                  disabled={isSubmitting}
+                  className="px-5 py-2.5 rounded-full font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm shadow-sm disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2.5 rounded-full font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 transition-all shadow-md hover:shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <svg
+                        className="animate-spin h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      Save Report
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Task Report Modal */}
       {viewModalOpen && selectedReport && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-xl w-full shadow-soft-lg border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]">
@@ -769,9 +1136,6 @@ const TaskReports = () => {
           </div>
         </div>
       )}
-
-      {/* Delete Confirmation Modal - Removed since delete is not allowed */}
-      {/* Edit Task Report Modal - Removed since editing is not allowed */}
     </div>
   );
 };
