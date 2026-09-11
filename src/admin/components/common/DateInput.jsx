@@ -14,6 +14,7 @@ const DateInput = forwardRef(
       minDate,
       maxDate,
       type = "general",
+      disablePast = false,
       ...props
     },
     // eslint-disable-next-line no-unused-vars
@@ -56,6 +57,7 @@ const DateInput = forwardRef(
     // Calculate min and max dates based on type
     const getMinDate = () => {
       if (minDate) return minDate;
+       if (disablePast) return today;   
       if (type === "dob") {
         const hundredYearsAgo = new Date();
         hundredYearsAgo.setFullYear(today.getFullYear() - 100);

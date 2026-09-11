@@ -426,7 +426,7 @@ export const PunchOutModal = ({
                 <div className="grid grid-cols-4 gap-2 text-center text-xs mb-3 text-[var(--text)]">
                   <div className="p-2 bg-[var(--surface2)] rounded-lg">
                     <span className="text-[var(--muted)] block mb-0.5">
-                      Daily Limit
+                      Working Hours
                     </span>
                     <span className="font-semibold text-gray-400">
                       {formatDuration(LIMIT_MS)}
@@ -434,7 +434,7 @@ export const PunchOutModal = ({
                   </div>
                   <div className="p-2 bg-[var(--surface2)] rounded-lg">
                     <span className="text-[var(--muted)] block mb-0.5">
-                      Work Time
+                      Worked Hours
                     </span>
                     <span className="font-semibold text-green-500">
                       {formatDuration(effectiveWorkedMs)}

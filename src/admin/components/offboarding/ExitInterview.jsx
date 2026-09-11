@@ -4,7 +4,6 @@ import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { showToast } from "../common/Toast";
 import OffboardingHeader from "./OffboardingHeader";
-import OffboardingProgressBox from "./OffboardingProgressBox";
 import { fetchOffboardingById, submitInterview, saveOffboardingDraft, fetchOffboardingProgress } from "../../store/slices/offboardingSlice";
 import { fetchEmployeeById } from "../../store/slices/employeeSlice";
 
@@ -267,13 +266,6 @@ const ExitInterview = () => {
         {/* SaaS Offboarding Header */}
         <OffboardingHeader currentStep={5} />
 
-        {/* Progress Box */}
-        <OffboardingProgressBox 
-          currentStep={5} 
-          apiProgressPercentage={apiProgressPercentage}
-          completedStepsFromApi={completedStepsFromApi}
-          totalStepsFromApi={totalStepsFromApi}
-        />
 
         {/* Main Content Card */}
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-soft p-6 sm:p-8 space-y-8">

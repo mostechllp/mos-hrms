@@ -14,7 +14,6 @@ import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { showToast } from "../common/Toast";
 import OffboardingHeader from "./OffboardingHeader";
-import OffboardingProgressBox from "./OffboardingProgressBox";
 import { fetchOffboardingById, fetchOffboardingProgress, updateOffboarding, completeOffboarding } from "../../store/slices/offboardingSlice";
 import { fetchEmployeeById } from "../../store/slices/employeeSlice";
 import { fetchEmployeeAssets } from "../../store/slices/assetSlice";
@@ -220,7 +219,6 @@ const OffboardingChecklist = () => {
     <div className="min-h-screen bg-gray-50/30 dark:bg-gray-900/40 p-4 sm:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
         <OffboardingHeader currentStep={7} />
-        <OffboardingProgressBox currentStep={7} />
 
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-soft p-6 sm:p-8 space-y-8">
           

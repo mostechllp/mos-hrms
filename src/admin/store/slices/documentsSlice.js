@@ -152,46 +152,56 @@ export const updateDocument = createAsyncThunk(
   async ({ id, formData, file }, { rejectWithValue }) => {
     try {
       const dataToSend = transformDocumentForAPI(formData, file, true);
-      
+
       console.log("Updating document ID:", id);
       console.log("Form data being sent:");
       for (let [key, value] of dataToSend.entries()) {
         console.log(key, ":", value);
       }
-      
+
       // Use POST with _method=PUT in the form data, NOT in the URL
-      const response = await apiClient.post(`/admin/documents/${id}`, dataToSend, {
-        headers: {
-          "Content-Type": "multipart/form-data",
+      const response = await apiClient.post(
+        `/admin/documents/${id}`,
+        dataToSend,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         },
-      });
-      
+      );
+
       return response.data.data || response.data;
     } catch (error) {
       console.error("Update document error details:", {
         status: error.response?.status,
         data: error.response?.data,
         message: error.response?.data?.message,
-        errors: error.response?.data?.errors
+        errors: error.response?.data?.errors,
       });
-      
+
       // If POST with _method doesn't work, try PUT as fallback
       if (error.response?.status === 405) {
         try {
           console.log("POST method failed, trying PUT as fallback...");
           const dataToSend = transformDocumentForAPI(formData, file, false);
-          const response = await apiClient.put(`/admin/documents/${id}`, dataToSend, {
-            headers: {
-              "Content-Type": "multipart/form-data",
+          const response = await apiClient.put(
+            `/admin/documents/${id}`,
+            dataToSend,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
             },
-          });
+          );
           return response.data.data || response.data;
         } catch (fallbackError) {
           console.error("PUT fallback also failed:", fallbackError);
-          return rejectWithValue(fallbackError.response?.data || "Failed to update document");
+          return rejectWithValue(
+            fallbackError.response?.data || "Failed to update document",
+          );
         }
       }
-      
+
       // Return the full error response for better handling
       if (error.response?.data) {
         return rejectWithValue(error.response.data);
@@ -225,24 +235,31 @@ export const uploadToTemp = createAsyncThunk(
     try {
       const formData = new FormData();
       formData.append("file", file);
-      
-      const response = await apiClient.post("/admin/documents/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      
+
+      const response = await apiClient.post(
+        "/admin/documents/upload",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
+
       // Log the full response to see what you're getting
       console.log("Full upload response:", response);
       console.log("Response data:", response.data);
-      
+
       const result = response.data;
-      
+
       // Check different possible response structures
       if (result.status && result.path) {
         return { path: result.path, filename: result.filename || file.name };
-      } 
+      }
       // If response has data wrapper
       else if (result.data && result.data.path) {
-        return { path: result.data.path, filename: result.data.filename || file.name };
+        return {
+          path: result.data.path,
+          filename: result.data.filename || file.name,
+        };
       }
       // If response directly has path
       else if (result.path) {
@@ -250,18 +267,26 @@ export const uploadToTemp = createAsyncThunk(
       }
       // If response has file_path
       else if (result.file_path) {
-        return { path: result.file_path, filename: result.filename || file.name };
-      }
-      else {
+        return {
+          path: result.file_path,
+          filename: result.filename || file.name,
+        };
+      } else {
         console.error("Unexpected response structure:", result);
-        return rejectWithValue("Failed to upload file to temp storage: Invalid response structure");
+        return rejectWithValue(
+          "Failed to upload file to temp storage: Invalid response structure",
+        );
       }
     } catch (error) {
       console.error("Upload error:", error);
       console.error("Error response:", error.response);
-      return rejectWithValue(error.response?.data?.message || error.message || "Failed to upload file");
+      return rejectWithValue(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to upload file",
+      );
     }
-  }
+  },
 );
 
 // Get document folders
@@ -580,6 +605,12 @@ const documentsSlice = createSlice({
         if (index !== -1) {
           state.folders[index] = action.payload;
         }
+      })
+      // Delete folder
+      .addCase(deleteDocumentFolder.fulfilled, (state, action) => {
+        state.folders = state.folders.filter(
+          (folder) => String(folder.id) !== String(action.payload),
+        );
       });
   },
 });

@@ -5,12 +5,11 @@ import { useSelector } from "react-redux";
 
 const STEPS = [
   { id: 1, name: "Initiation" },
-  { id: 2, name: "Assets" },
-  { id: 3, name: "Settlement" },
-  { id: 4, name: "Visa Cancel" },
-  { id: 5, name: "Interview" },
-  { id: 6, name: "Letters" },
-  { id: 7, name: "Checklist" },
+  { id: 2, name: "Handover" },
+  { id: 3, name: "Leave Check" },
+  { id: 4, name: "Access Removal" },
+  { id: 5, name: "FnF Statement" },
+  { id: 6, name: "Documentation" },
 ];
 
 const OffboardingProgressBox = ({ 

@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation, useSearchParams, useParams } from "react-router-dom";
+import {
+  useNavigate,
+  useLocation,
+  useSearchParams,
+  useParams,
+} from "react-router-dom";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -15,7 +20,6 @@ import { useDispatch, useSelector } from "react-redux";
 import DateInput from "../common/DateInput";
 import { showToast } from "../common/Toast";
 import OffboardingHeader from "./OffboardingHeader";
-import OffboardingProgressBox from "./OffboardingProgressBox";
 import { fetchEmployees } from "../../store/slices/employeeSlice";
 import { fetchDepartments } from "../../store/slices/departmentSlice";
 import { fetchDesignations } from "../../store/slices/designationSlice";
@@ -32,50 +36,75 @@ import apiClient from "../../../utils/apiClient";
 // ----------------------------------------------------
 // ZOD RESOLVER SCHEMA
 // ----------------------------------------------------
-// Update the Zod schema to accept both string and number
-const offboardingSchema = z.object({
-  employeeId: z.union([z.string(), z.number()]).transform((val) => String(val)).pipe(z.string().min(1, "Employee ID is required")),
-  backendEmployeeId: z.union([z.string(), z.number()]).optional().transform((val) => (val ? String(val) : "")),
-  employeeName: z.string().min(1, "Employee name is required"),
-  department: z.string().min(1, "Department is required"),
-  designation: z.string().min(1, "Designation is required"),
-  reportingManager: z.string().min(1, "Reporting manager is required"),
-  reportingManagerId: z.union([z.string(), z.number()]).optional(),
-  email: z.string().email("Invalid email").optional().or(z.literal("")),
-  joiningDate: z.string().optional(),
-  
-  exitType: z.string().min(1, "Exit Type is required"),
-  exitInitiationDate: z.string().min(1, "Exit initiation date is required"),
-  lastWorkingDay: z.string().min(1, "Last working day is required"),
-  noticePeriodDays: z.coerce.number().optional(),
-  reasonForLeaving: z.string().min(5, "Please enter a reason for leaving (min 5 chars)"),
+const offboardingSchema = z
+  .object({
+    employeeId: z
+      .union([z.string(), z.number()])
+      .transform((val) => String(val))
+      .pipe(z.string().min(1, "Employee ID is required")),
+    backendEmployeeId: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((val) => (val ? String(val) : "")),
+    employeeName: z.string().min(1, "Employee name is required"),
+    department: z.string().min(1, "Department is required"),
+    designation: z.string().min(1, "Designation is required"),
+    reportingManager: z.string().min(1, "Reporting manager is required"),
+    reportingManagerId: z.union([z.string(), z.number()]).optional(),
+    email: z.string().email("Invalid email").optional().or(z.literal("")),
+    joiningDate: z.string().optional(),
 
-  resignationSubmissionDate: z.string().optional(),
-  resignationAcceptanceStatus: z.string().optional(),
-  resignationReason: z.string().optional(),
+    exitType: z.string().min(1, "Exit Type is required"),
+    exitInitiationDate: z.string().min(1, "Exit initiation date is required"),
+    lastWorkingDay: z.string().min(1, "Last working day is required"),
+    noticePeriodDays: z.coerce.number().optional(),
+    reasonForLeaving: z
+      .string()
+      .min(5, "Please enter a reason for leaving (min 5 chars)"),
 
-  terminationDiscussionDate: z.string().optional(),
-  discussionCompleted: z.string().optional(),
-  terminationReason: z.string().optional(),
-  managementRemarks: z.string().optional(),
-}).superRefine((data, ctx) => {
-  if (data.exitType === "Resignation") {
-    if (!data.resignationSubmissionDate) {
-      ctx.addIssue({ path: ["resignationSubmissionDate"], message: "Required for resignation", code: z.ZodIssueCode.custom });
+    resignationSubmissionDate: z.string().optional(),
+    resignationAcceptanceStatus: z.string().optional(),
+    resignationReason: z.string().optional(),
+
+    terminationDiscussionDate: z.string().optional(),
+    discussionCompleted: z.string().optional(),
+    terminationReason: z.string().optional(),
+    managementRemarks: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.exitType === "Resignation") {
+      if (!data.resignationSubmissionDate) {
+        ctx.addIssue({
+          path: ["resignationSubmissionDate"],
+          message: "Required for resignation",
+          code: z.ZodIssueCode.custom,
+        });
+      }
+      if (!data.resignationReason) {
+        ctx.addIssue({
+          path: ["resignationReason"],
+          message: "Required for resignation",
+          code: z.ZodIssueCode.custom,
+        });
+      }
     }
-    if (!data.resignationReason) {
-      ctx.addIssue({ path: ["resignationReason"], message: "Required for resignation", code: z.ZodIssueCode.custom });
+    if (data.exitType === "Termination") {
+      if (!data.terminationDiscussionDate) {
+        ctx.addIssue({
+          path: ["terminationDiscussionDate"],
+          message: "Required for termination",
+          code: z.ZodIssueCode.custom,
+        });
+      }
+      if (!data.terminationReason) {
+        ctx.addIssue({
+          path: ["terminationReason"],
+          message: "Required for termination",
+          code: z.ZodIssueCode.custom,
+        });
+      }
     }
-  }
-  if (data.exitType === "Termination") {
-    if (!data.terminationDiscussionDate) {
-      ctx.addIssue({ path: ["terminationDiscussionDate"], message: "Required for termination", code: z.ZodIssueCode.custom });
-    }
-    if (!data.terminationReason) {
-      ctx.addIssue({ path: ["terminationReason"], message: "Required for termination", code: z.ZodIssueCode.custom });
-    }
-  }
-});
+  });
 
 const OffboardingInitiation = () => {
   const navigate = useNavigate();
@@ -83,32 +112,44 @@ const OffboardingInitiation = () => {
   const { id: paramId } = useParams();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  
-  // Try to get ID from various sources (params, state, query, or localStorage)
-  const offboardingId = paramId || location.state?.id || searchParams.get('id') || localStorage.getItem("offboarding_id");
 
-  // Determine if we're in edit mode based on URL, state, or localStorage
-  const isEditMode = !!offboardingId || !!location.state?.offboardingData || !!location.state?.isEdit;
+  const offboardingId = paramId || location.state?.id || searchParams.get("id");
+  const isEditMode =
+    !!offboardingId ||
+    !!location.state?.offboardingData ||
+    !!location.state?.isEdit;
 
   const dropdownRef = useRef(null);
   const managerDropdownRef = useRef(null);
+  const departmentDropdownRef = useRef(null);
+  const designationDropdownRef = useRef(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [showManagerDropdown, setShowManagerDropdown] = useState(false);
+  const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
+  const [showDesignationDropdown, setShowDesignationDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [managerSearchQuery, setManagerSearchQuery] = useState("");
+  const [departmentSearchQuery, setDepartmentSearchQuery] = useState("");
+  const [designationSearchQuery, setDesignationSearchQuery] = useState("");
   const [showProgress, setShowProgress] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [reportingManagers, setReportingManagers] = useState([]);
   const [offboardingEmployees, setOffboardingEmployees] = useState([]);
-  const [offboardingEmployeesLoading, setOffboardingEmployeesLoading] = useState(true);
+  const [offboardingEmployeesLoading, setOffboardingEmployeesLoading] =
+    useState(true);
 
   // Redux state
   const { employees, loading: employeesLoading } = useSelector(
     (state) => state.employees,
   );
-  const { departments } = useSelector((state) => state.departments);
-  const { designations } = useSelector((state) => state.designations);
+  const { departments, loading: departmentsLoading } = useSelector(
+    (state) => state.departments,
+  );
+  const { designations, loading: designationsLoading } = useSelector(
+    (state) => state.designations,
+  );
   const {
     loading: offboardingLoading,
     error: offboardingError,
@@ -136,9 +177,9 @@ const OffboardingInitiation = () => {
       reportingManagerId: "",
       email: "",
       joiningDate: "",
-      
+
       exitType: "Resignation",
-      exitInitiationDate: new Date().toISOString().split('T')[0],
+      exitInitiationDate: new Date().toISOString().split("T")[0],
       lastWorkingDay: "",
       noticePeriodDays: 30,
       reasonForLeaving: "",
@@ -159,13 +200,12 @@ const OffboardingInitiation = () => {
     dispatch(fetchEmployees());
     dispatch(fetchDepartments());
     dispatch(fetchDesignations());
-    
-    // Fetch offboarding employees specifically for this dropdown
+
     const fetchOffboardingEmployees = async () => {
       try {
         setOffboardingEmployeesLoading(true);
-        const response = await apiClient.get('/admin/offboarding/employees');
-        if (response.data?.status === 'success' && response.data?.data) {
+        const response = await apiClient.get("/admin/offboarding/employees");
+        if (response.data?.status === "success" && response.data?.data) {
           setOffboardingEmployees(response.data.data);
         } else if (Array.isArray(response.data?.data)) {
           setOffboardingEmployees(response.data.data);
@@ -180,11 +220,12 @@ const OffboardingInitiation = () => {
     };
     fetchOffboardingEmployees();
 
-    // Fetch reporting managers
     const fetchManagers = async () => {
       try {
-        const response = await apiClient.get('/admin/offboarding/reporting-managers');
-        if (response.data?.status === 'success' && response.data?.data) {
+        const response = await apiClient.get(
+          "/admin/offboarding/reporting-managers",
+        );
+        if (response.data?.status === "success" && response.data?.data) {
           setReportingManagers(response.data.data);
         } else if (Array.isArray(response.data?.data)) {
           setReportingManagers(response.data.data);
@@ -199,15 +240,13 @@ const OffboardingInitiation = () => {
   }, [dispatch]);
 
   // Load existing offboarding data when in edit mode
-  // Load existing offboarding data when in edit mode
   useEffect(() => {
     const loadExistingOffboarding = async () => {
       setLoadingData(true);
 
-      // Check if we have data from navigation state
       if (location.state?.offboardingData) {
         const data = location.state.offboardingData;
-        
+
         let currentEmployees = employees;
         if (!currentEmployees || currentEmployees.length === 0) {
           try {
@@ -217,7 +256,7 @@ const OffboardingInitiation = () => {
             console.error("Failed to fetch employees", e);
           }
         }
-        
+
         populateFormWithData(data, currentEmployees);
         if (data.id) {
           dispatch(fetchOffboardingProgress(data.id));
@@ -226,7 +265,6 @@ const OffboardingInitiation = () => {
         return;
       }
 
-      // Check if we have an ID in URL
       if (offboardingId) {
         try {
           const result = await dispatch(
@@ -236,10 +274,10 @@ const OffboardingInitiation = () => {
             let currentEmployees = employees;
             if (!currentEmployees || currentEmployees.length === 0) {
               const empPayload = await dispatch(fetchEmployees()).unwrap();
-              currentEmployees = empPayload?.data?.data || empPayload?.data || [];
+              currentEmployees =
+                empPayload?.data?.data || empPayload?.data || [];
             }
             populateFormWithData(result, currentEmployees);
-            // Fetch progress to show current step info
             await dispatch(fetchOffboardingProgress(offboardingId));
           }
         } catch (error) {
@@ -261,23 +299,23 @@ const OffboardingInitiation = () => {
   }, [offboardingId, location.state, isEditMode, dispatch]);
 
   // Helper function to populate form with existing data
-  // Helper function to populate form with existing data
   const populateFormWithData = (data, currentEmployees = employees) => {
-
-    // Extract employee info from nested object
     let employeeData = data.employee || {};
     let foundFullEmployee = null;
-    
-    // The backend API might not return department, designation, or reporting_manager in the offboarding details response.
-    // Try to find the full employee record from Redux state to get these details!
+
     if (currentEmployees && currentEmployees.length > 0) {
-      foundFullEmployee = currentEmployees.find(emp => emp.id === employeeData.id || emp.id === data.employee_id || String(emp.employee_id) === String(data.employee_id) || String(emp.user_id) === String(employeeData.user_id));
+      foundFullEmployee = currentEmployees.find(
+        (emp) =>
+          emp.id === employeeData.id ||
+          emp.id === data.employee_id ||
+          String(emp.employee_id) === String(data.employee_id) ||
+          String(emp.user_id) === String(employeeData.user_id),
+      );
       if (foundFullEmployee) {
-        employeeData = { ...foundFullEmployee, ...employeeData }; // Merge, preferring any specific data returned by the API if present
-      } 
+        employeeData = { ...foundFullEmployee, ...employeeData };
+      }
     }
 
-    // Set form values based on actual API response structure
     setValue("employeeId", employeeData.employee_id || data.employee_id || "", {
       shouldValidate: true,
     });
@@ -287,76 +325,178 @@ const OffboardingInitiation = () => {
       { shouldValidate: true },
     );
 
-    // Employee name from employee object
     const employeeName =
       employeeData.first_name && employeeData.last_name
         ? `${employeeData.first_name} ${employeeData.last_name}`
         : data.employee_name || "";
     setValue("employeeName", employeeName, { shouldValidate: true });
 
-    // Department from employee or direct
     const departmentName =
-      employeeData.department?.name || employeeData.department || foundFullEmployee?.department?.name || foundFullEmployee?.department || data.department?.name || data.department || "";
-    const finalDepartment = typeof departmentName === 'object' ? departmentName?.name || "" : departmentName;
+      employeeData.department?.name ||
+      employeeData.department ||
+      foundFullEmployee?.department?.name ||
+      foundFullEmployee?.department ||
+      data.department?.name ||
+      data.department ||
+      "";
+    const finalDepartment =
+      typeof departmentName === "object"
+        ? departmentName?.name || ""
+        : departmentName;
     setValue("department", finalDepartment, { shouldValidate: true });
 
-    // Designation from employee or direct
     const designationName =
-      employeeData.designation?.name || employeeData.designation || foundFullEmployee?.designation?.name || foundFullEmployee?.designation || data.designation?.name || data.designation || "";
-    const finalDesignation = typeof designationName === 'object' ? designationName?.name || "" : designationName;
+      employeeData.designation?.name ||
+      employeeData.designation ||
+      foundFullEmployee?.designation?.name ||
+      foundFullEmployee?.designation ||
+      data.designation?.name ||
+      data.designation ||
+      "";
+    const finalDesignation =
+      typeof designationName === "object"
+        ? designationName?.name || ""
+        : designationName;
 
     setValue("designation", finalDesignation, { shouldValidate: true });
 
-    // Email from employee or direct
-    const emailAddress = employeeData.company_email || employeeData.email || data.email || "";
+    const emailAddress =
+      employeeData.company_email || employeeData.email || data.email || "";
     setValue("email", emailAddress, { shouldValidate: true });
 
-    // Joining Date
-    const joiningDate = employeeData.joining_date || employeeData.hire_date || "";
+    const joiningDate =
+      employeeData.joining_date || employeeData.hire_date || "";
     setValue("joiningDate", joiningDate, { shouldValidate: true });
 
-    // Reporting manager
-    let reportingManagerName = data.reporting_manager?.name || data.reporting_manager?.full_name || data.reporting_manager?.first_name ? `${data.reporting_manager.first_name} ${data.reporting_manager.last_name || ''}`.trim() : data.reporting_manager || data.reportingManager?.name || data.reportingManager || employeeData.reporting_manager?.name || employeeData.reporting_manager || employeeData.reportingManager?.name || employeeData.reportingManager || "";
-    if (typeof reportingManagerName === 'object') {
-      reportingManagerName = reportingManagerName?.name || reportingManagerName?.full_name || reportingManagerName?.first_name ? `${reportingManagerName.first_name} ${reportingManagerName.last_name || ''}`.trim() : "";
+    let reportingManagerName =
+      data.reporting_manager?.name ||
+      data.reporting_manager?.full_name ||
+      data.reporting_manager?.first_name
+        ? `${data.reporting_manager.first_name} ${data.reporting_manager.last_name || ""}`.trim()
+        : data.reporting_manager ||
+          data.reportingManager?.name ||
+          data.reportingManager ||
+          employeeData.reporting_manager?.name ||
+          employeeData.reporting_manager ||
+          employeeData.reportingManager?.name ||
+          employeeData.reportingManager ||
+          "";
+    if (typeof reportingManagerName === "object") {
+      reportingManagerName =
+        reportingManagerName?.name ||
+        reportingManagerName?.full_name ||
+        reportingManagerName?.first_name
+          ? `${reportingManagerName.first_name} ${reportingManagerName.last_name || ""}`.trim()
+          : "";
     }
-    
-    if (!reportingManagerName && (data.reporting_manager_id || employeeData.reporting_manager_id)) {
-      const managerId = data.reporting_manager_id || employeeData.reporting_manager_id;
+
+    if (
+      !reportingManagerName &&
+      (data.reporting_manager_id || employeeData.reporting_manager_id)
+    ) {
+      const managerId =
+        data.reporting_manager_id || employeeData.reporting_manager_id;
       if (currentEmployees && currentEmployees.length > 0) {
-        const foundManager = currentEmployees.find(emp => String(emp.id) === String(managerId) || String(emp.employee_id) === String(managerId));
+        const foundManager = currentEmployees.find(
+          (emp) =>
+            String(emp.id) === String(managerId) ||
+            String(emp.employee_id) === String(managerId),
+        );
         if (foundManager) {
-          reportingManagerName = foundManager.name || foundManager.full_name || `${foundManager.first_name || ''} ${foundManager.last_name || ''}`.trim();
+          reportingManagerName =
+            foundManager.name ||
+            foundManager.full_name ||
+            `${foundManager.first_name || ""} ${foundManager.last_name || ""}`.trim();
         }
       }
     }
-    setValue("reportingManager", reportingManagerName, { shouldValidate: true });
-    setValue("reportingManagerId", data.reporting_manager_id || data.reportingManagerId || "", { shouldValidate: true });
+    setValue("reportingManager", reportingManagerName, {
+      shouldValidate: true,
+    });
+    setValue(
+      "reportingManagerId",
+      data.reporting_manager_id || data.reportingManagerId || "",
+      { shouldValidate: true },
+    );
 
-    // Exit Info
     const exitType = data.separation_type
-        ? data.separation_type.charAt(0).toUpperCase() + data.separation_type.slice(1)
-        : data.exitType || data.separationType || "Resignation";
+      ? data.separation_type.charAt(0).toUpperCase() +
+        data.separation_type.slice(1)
+      : data.exitType || data.separationType || "Resignation";
     setValue("exitType", exitType, { shouldValidate: true });
-    setValue("exitInitiationDate", data.exit_initiation_date || data.created_at?.split('T')[0] || new Date().toISOString().split('T')[0], { shouldValidate: true });
-    setValue("lastWorkingDay", data.last_working_day || data.lastWorkingDay || "", { shouldValidate: true });
-    setValue("noticePeriodDays", data.notice_period_days || data.noticePeriodDays || 30, { shouldValidate: true });
-    setValue("reasonForLeaving", data.reason_for_leaving || data.reasonForLeaving || "", { shouldValidate: true });
+    setValue(
+      "exitInitiationDate",
+      data.exit_initiation_date ||
+        data.created_at?.split("T")[0] ||
+        new Date().toISOString().split("T")[0],
+      { shouldValidate: true },
+    );
+    setValue(
+      "lastWorkingDay",
+      data.last_working_day || data.lastWorkingDay || "",
+      { shouldValidate: true },
+    );
+    setValue(
+      "noticePeriodDays",
+      data.notice_period_days || data.noticePeriodDays || 30,
+      { shouldValidate: true },
+    );
+    setValue(
+      "reasonForLeaving",
+      data.reason_for_leaving || data.reasonForLeaving || "",
+      { shouldValidate: true },
+    );
 
-    // Resignation specific
-    setValue("resignationSubmissionDate", data.resignation_date || data.resignationSubmissionDate || "", { shouldValidate: true });
-    setValue("resignationAcceptanceStatus", data.resignation_acceptance_status || data.resignationAcceptanceStatus || "Pending", { shouldValidate: true });
-    setValue("resignationReason", data.resignation_reason || data.resignationReason || data.reason_for_leaving || "", { shouldValidate: true });
+    setValue(
+      "resignationSubmissionDate",
+      data.resignation_date || data.resignationSubmissionDate || "",
+      { shouldValidate: true },
+    );
+    setValue(
+      "resignationAcceptanceStatus",
+      data.resignation_acceptance_status ||
+        data.resignationAcceptanceStatus ||
+        "Pending",
+      { shouldValidate: true },
+    );
+    setValue(
+      "resignationReason",
+      data.resignation_reason ||
+        data.resignationReason ||
+        data.reason_for_leaving ||
+        "",
+      { shouldValidate: true },
+    );
 
-    // Termination specific
-    setValue("terminationDiscussionDate", data.termination_discussion_date || data.terminationDiscussionDate || "", { shouldValidate: true });
-    setValue("discussionCompleted", data.discussion_completed || data.discussionCompleted || "Yes", { shouldValidate: true });
-    setValue("terminationReason", data.termination_reason || data.terminationReason || data.reason_for_leaving || "", { shouldValidate: true });
-    setValue("managementRemarks", data.management_remarks || data.managementRemarks || "", { shouldValidate: true });
+    setValue(
+      "terminationDiscussionDate",
+      data.termination_discussion_date || data.terminationDiscussionDate || "",
+      { shouldValidate: true },
+    );
+    setValue(
+      "discussionCompleted",
+      data.discussion_completed || data.discussionCompleted || "Yes",
+      { shouldValidate: true },
+    );
+    setValue(
+      "terminationReason",
+      data.termination_reason ||
+        data.terminationReason ||
+        data.reason_for_leaving ||
+        "",
+      { shouldValidate: true },
+    );
+    setValue(
+      "managementRemarks",
+      data.management_remarks || data.managementRemarks || "",
+      { shouldValidate: true },
+    );
 
     // Set search query values for display
     if (employeeName) setSearchQuery(employeeName);
     if (reportingManagerName) setManagerSearchQuery(reportingManagerName);
+    if (finalDepartment) setDepartmentSearchQuery(finalDepartment);
+    if (finalDesignation) setDesignationSearchQuery(finalDesignation);
 
     showToast("Offboarding data loaded successfully", "success");
   };
@@ -397,7 +537,7 @@ const OffboardingInitiation = () => {
     };
   }, [showProgress, currentProgress, navigate]);
 
-  // Handle click outside to close employee dropdown
+  // Handle click outside to close dropdowns
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -408,6 +548,18 @@ const OffboardingInitiation = () => {
         !managerDropdownRef.current.contains(event.target)
       ) {
         setShowManagerDropdown(false);
+      }
+      if (
+        departmentDropdownRef.current &&
+        !departmentDropdownRef.current.contains(event.target)
+      ) {
+        setShowDepartmentDropdown(false);
+      }
+      if (
+        designationDropdownRef.current &&
+        !designationDropdownRef.current.contains(event.target)
+      ) {
+        setShowDesignationDropdown(false);
       }
     };
 
@@ -451,8 +603,12 @@ const OffboardingInitiation = () => {
 
   // Filter employees based on search query
   const filteredEmployees = offboardingEmployees.filter((emp) => {
-    const employeeId = emp.employee_id ? String(emp.employee_id).toLowerCase() : "";
-    const employeeName = emp.full_name ? String(emp.full_name).toLowerCase() : "";
+    const employeeId = emp.employee_id
+      ? String(emp.employee_id).toLowerCase()
+      : "";
+    const employeeName = emp.full_name
+      ? String(emp.full_name).toLowerCase()
+      : "";
     const employeeEmail = emp.email ? String(emp.email).toLowerCase() : "";
     const searchLower = searchQuery.toLowerCase();
 
@@ -477,6 +633,20 @@ const OffboardingInitiation = () => {
     );
   });
 
+  // Filter departments based on search query
+  const filteredDepartments = departments.filter((dept) => {
+    const deptName = (dept.name || "").toLowerCase();
+    const searchLower = (departmentSearchQuery || "").toLowerCase();
+    return deptName.includes(searchLower);
+  });
+
+  // Filter designations based on search query
+  const filteredDesignations = designations.filter((des) => {
+    const desName = (des.name || "").toLowerCase();
+    const searchLower = (designationSearchQuery || "").toLowerCase();
+    return desName.includes(searchLower);
+  });
+
   // Handle employee selection and auto-populate all form fields
   const handleSelectEmployee = (emp) => {
     setSearchQuery(emp.full_name);
@@ -489,20 +659,49 @@ const OffboardingInitiation = () => {
     setValue("department", emp.department || "", { shouldValidate: true });
     setValue("designation", emp.designation || "", { shouldValidate: true });
     setValue("email", emp.email || "", { shouldValidate: true });
-    setValue("joiningDate", emp.joining_date || emp.hire_date || "", { shouldValidate: true });
+    setValue("joiningDate", emp.joining_date || emp.hire_date || "", {
+      shouldValidate: true,
+    });
     setValue("backendEmployeeId", String(emp.id), { shouldValidate: true });
+
+    // Update the search queries for department and designation
+    if (emp.department) setDepartmentSearchQuery(emp.department);
+    if (emp.designation) setDesignationSearchQuery(emp.designation);
 
     showToast(`Employee ${emp.full_name} loaded successfully!`, "success");
   };
 
   // Handle manager selection
   const handleSelectManager = (manager) => {
-    setValue("reportingManager", manager.name || manager.full_name || `${manager.first_name || ''} ${manager.last_name || ''}`.trim(), { shouldValidate: true });
-    // The backend expects the numeric table ID (e.g., 46) NOT the string EMP- identifier!
+    setValue(
+      "reportingManager",
+      manager.name ||
+        manager.full_name ||
+        `${manager.first_name || ""} ${manager.last_name || ""}`.trim(),
+      { shouldValidate: true },
+    );
     setValue("reportingManagerId", manager.id, { shouldValidate: true });
-    setManagerSearchQuery(manager.name || manager.full_name || `${manager.first_name || ''} ${manager.last_name || ''}`.trim());
+    setManagerSearchQuery(
+      manager.name ||
+        manager.full_name ||
+        `${manager.first_name || ""} ${manager.last_name || ""}`.trim(),
+    );
     setShowManagerDropdown(false);
     showToast(`Reporting manager selected`, "success");
+  };
+
+  // Handle department selection
+  const handleSelectDepartment = (dept) => {
+    setValue("department", dept.name, { shouldValidate: true });
+    setDepartmentSearchQuery(dept.name);
+    setShowDepartmentDropdown(false);
+  };
+
+  // Handle designation selection
+  const handleSelectDesignation = (des) => {
+    setValue("designation", des.name, { shouldValidate: true });
+    setDesignationSearchQuery(des.name);
+    setShowDesignationDropdown(false);
   };
 
   // Handle validation errors when form submit is attempted
@@ -516,31 +715,38 @@ const OffboardingInitiation = () => {
 
     try {
       const payload = {
-        employee_id: data.backendEmployeeId ? parseInt(data.backendEmployeeId, 10) : null,
-        reporting_manager_id: data.reportingManagerId ? parseInt(data.reportingManagerId, 10) : null,
+        employee_id: data.backendEmployeeId
+          ? parseInt(data.backendEmployeeId, 10)
+          : null,
+        reporting_manager_id: data.reportingManagerId
+          ? parseInt(data.reportingManagerId, 10)
+          : null,
         last_working_day: data.lastWorkingDay || null,
         separation_type: data.exitType?.toLowerCase() || null,
         exit_initiation_date: data.exitInitiationDate || null,
-        notice_period_days: data.noticePeriodDays ? parseInt(data.noticePeriodDays, 10) : 0,
+        notice_period_days: data.noticePeriodDays
+          ? parseInt(data.noticePeriodDays, 10)
+          : 0,
         reason_for_leaving: data.reasonForLeaving,
-        // Conditional fields based on type
-        ...(data.exitType === "Resignation" ? {
-          resignation_date: data.resignationSubmissionDate || null,
-          resignation_acceptance_status: data.resignationAcceptanceStatus,
-          resignation_reason: data.resignationReason,
-        } : {
-          termination_discussion_date: data.terminationDiscussionDate || null,
-          discussion_completed: data.discussionCompleted,
-          termination_reason: data.terminationReason,
-          management_remarks: data.managementRemarks,
-        }),
+        ...(data.exitType === "Resignation"
+          ? {
+              resignation_date: data.resignationSubmissionDate || null,
+              resignation_acceptance_status: data.resignationAcceptanceStatus,
+              resignation_reason: data.resignationReason,
+            }
+          : {
+              termination_discussion_date:
+                data.terminationDiscussionDate || null,
+              discussion_completed: data.discussionCompleted,
+              termination_reason: data.terminationReason,
+              management_remarks: data.managementRemarks,
+            }),
         is_draft: 0,
       };
 
       let result;
 
       if (isEditMode && offboardingId) {
-        // Update existing offboarding
         result = await dispatch(
           updateOffboarding({ id: offboardingId, data: payload }),
         ).unwrap();
@@ -556,7 +762,6 @@ const OffboardingInitiation = () => {
           "success",
         );
       } else {
-        // Create new offboarding
         result = await dispatch(initiateOffboarding(payload)).unwrap();
 
         if (result && result.id) {
@@ -593,8 +798,9 @@ const OffboardingInitiation = () => {
       reset();
       setSearchQuery("");
       setManagerSearchQuery("");
+      setDepartmentSearchQuery("");
+      setDesignationSearchQuery("");
 
-      // Redirect to handover for both create and update
       setTimeout(() => {
         const targetId = (result && result.id) || offboardingId;
         if (targetId) {
@@ -618,28 +824,37 @@ const OffboardingInitiation = () => {
       showToast("Please select Employee and Manager first.", "warning");
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       const payload = {
-        employee_id: data.backendEmployeeId ? parseInt(data.backendEmployeeId, 10) : null,
-        reporting_manager_id: data.reportingManagerId ? parseInt(data.reportingManagerId, 10) : null,
+        employee_id: data.backendEmployeeId
+          ? parseInt(data.backendEmployeeId, 10)
+          : null,
+        reporting_manager_id: data.reportingManagerId
+          ? parseInt(data.reportingManagerId, 10)
+          : null,
         last_working_day: data.lastWorkingDay || null,
         separation_type: data.exitType ? data.exitType.toLowerCase() : null,
         exit_initiation_date: data.exitInitiationDate || null,
-        notice_period_days: data.noticePeriodDays ? parseInt(data.noticePeriodDays, 10) : 0,
+        notice_period_days: data.noticePeriodDays
+          ? parseInt(data.noticePeriodDays, 10)
+          : 0,
         reason_for_leaving: data.reasonForLeaving,
-        ...(data.exitType === "Resignation" ? {
-          resignation_date: data.resignationSubmissionDate || null,
-          resignation_acceptance_status: data.resignationAcceptanceStatus,
-          resignation_reason: data.resignationReason,
-        } : {
-          termination_discussion_date: data.terminationDiscussionDate || null,
-          discussion_completed: data.discussionCompleted,
-          termination_reason: data.terminationReason,
-          management_remarks: data.managementRemarks,
-        }),
+        ...(data.exitType === "Resignation"
+          ? {
+              resignation_date: data.resignationSubmissionDate || null,
+              resignation_acceptance_status: data.resignationAcceptanceStatus,
+              resignation_reason: data.resignationReason,
+            }
+          : {
+              termination_discussion_date:
+                data.terminationDiscussionDate || null,
+              discussion_completed: data.discussionCompleted,
+              termination_reason: data.terminationReason,
+              management_remarks: data.managementRemarks,
+            }),
         is_draft: 1,
       };
 
@@ -652,10 +867,15 @@ const OffboardingInitiation = () => {
         const result = await dispatch(initiateOffboarding(payload)).unwrap();
         if (result && result.id) {
           localStorage.setItem("offboarding_id", result.id);
-          localStorage.setItem("offboarding_employee_id", data.backendEmployeeId);
+          localStorage.setItem(
+            "offboarding_employee_id",
+            data.backendEmployeeId,
+          );
           localStorage.setItem("offboarding_employee_name", data.employeeName);
-          
-          navigate(`/admin/employees/offboarding-initiation?id=${result.id}`, { replace: true });
+
+          navigate(`/admin/employees/offboarding-initiation?id=${result.id}`, {
+            replace: true,
+          });
         }
         showToast("Draft saved successfully", "success");
       }
@@ -663,7 +883,10 @@ const OffboardingInitiation = () => {
     } catch (error) {
       console.error("Save draft error:", error);
       localStorage.setItem("offboarding_draft", JSON.stringify(data));
-      showToast("Failed to save draft to server. Data saved locally.", "warning");
+      showToast(
+        "Failed to save draft to server. Data saved locally.",
+        "warning",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -685,6 +908,12 @@ const OffboardingInitiation = () => {
         }
         if (parsedDraft.employeeName) {
           setSearchQuery(parsedDraft.employeeName);
+        }
+        if (parsedDraft.department) {
+          setDepartmentSearchQuery(parsedDraft.department);
+        }
+        if (parsedDraft.designation) {
+          setDesignationSearchQuery(parsedDraft.designation);
         }
       }
     }
@@ -800,16 +1029,13 @@ const OffboardingInitiation = () => {
   return (
     <div className="min-h-screen bg-gray-50/30 dark:bg-gray-900/40 p-4 sm:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
-        {/* SaaS Offboarding Header */}
         <OffboardingHeader currentStep={1} />
-        
-        {/* Progress Box */}
-        <OffboardingProgressBox currentStep={1} />
 
-        {/* Form Container Card */}
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-soft p-6 sm:p-8">
-          <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-6">
-            {/* Header Title with Draft Badge */}
+          <form
+            onSubmit={handleSubmit(onSubmit, onError)}
+            className="space-y-6"
+          >
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-4 mb-6">
               <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
                 {isEditMode ? "Edit Offboarding" : "Initiate offboarding"}
@@ -823,9 +1049,11 @@ const OffboardingInitiation = () => {
 
             {/* Section 1: Employee Information */}
             <div className="mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">Employee Information</h2>
+              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                Employee Information
+              </h2>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
               {/* Employee Name (Searchable Select Input) */}
               <div className="space-y-1.5 relative" ref={dropdownRef}>
@@ -859,9 +1087,9 @@ const OffboardingInitiation = () => {
                         setValue("backendEmployeeId", "");
                         setValue("department", "");
                         setValue("designation", "");
-                        setValue("nationality", "");
-                        setValue("visaSponsorship", "");
                         setValue("email", "");
+                        setDepartmentSearchQuery("");
+                        setDesignationSearchQuery("");
                       }}
                       className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
                     >
@@ -870,7 +1098,6 @@ const OffboardingInitiation = () => {
                   )}
                 </div>
 
-                {/* Dropdown suggestions list */}
                 {showDropdown && !isEditMode && (
                   <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
                     {offboardingEmployeesLoading ? (
@@ -910,7 +1137,8 @@ const OffboardingInitiation = () => {
                   </p>
                 )}
               </div>
-              {/* Employee ID */}
+
+              {/* Employee ID - Now Editable */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Employee ID
@@ -918,19 +1146,18 @@ const OffboardingInitiation = () => {
                 <input type="hidden" {...register("backendEmployeeId")} />
                 <input
                   type="text"
-                  placeholder="Auto-populated"
+                  placeholder="Auto-populated or enter manually"
                   value={watch("employeeId") || ""}
                   onChange={(e) =>
                     setValue("employeeId", e.target.value, {
                       shouldValidate: true,
                     })
                   }
-                  className={`w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none ${
+                  className={`w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 ${
                     errors.employeeId
                       ? "border-red-500"
                       : "border-gray-200 dark:border-gray-700"
                   }`}
-                  readOnly
                 />
                 {errors.employeeId && (
                   <p className="text-xxs font-bold text-red-500 mt-1">
@@ -938,42 +1165,141 @@ const OffboardingInitiation = () => {
                   </p>
                 )}
               </div>
-              {/* Department */}
-              <div className="space-y-1.5">
+
+              {/* Department - Now Editable with Dropdown */}
+              <div className="space-y-1.5 relative" ref={departmentDropdownRef}>
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Department
                 </label>
-                <input
-                  type="text"
-                  placeholder="Auto-populated"
-                  {...register("department")}
-                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none"
-                  readOnly
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search or select department..."
+                    value={departmentSearchQuery || watch("department") || ""}
+                    onChange={(e) => {
+                      setDepartmentSearchQuery(e.target.value);
+                      setValue("department", e.target.value, {
+                        shouldValidate: true,
+                      });
+                      setShowDepartmentDropdown(true);
+                    }}
+                    onFocus={() => {
+                      // Show ALL departments when the dropdown is opened
+                      setDepartmentSearchQuery("");
+                      setShowDepartmentDropdown(true);
+                    }}
+                    className={`w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:ring-2 ${
+                      errors.department
+                        ? "border-red-500 focus:ring-red-500/20"
+                        : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-green-500/20"
+                    }`}
+                  />
+                  <ChevronDown
+                    size={16}
+                    className="absolute inset-y-0 right-3 flex items-center text-gray-400 pointer-events-none top-1/2 -translate-y-1/2"
+                  />
+                </div>
+                {showDepartmentDropdown && (
+                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+                    {departmentsLoading ? (
+                      <div className="p-3 text-center text-xs text-gray-400">
+                        Loading departments...
+                      </div>
+                    ) : filteredDepartments.length > 0 ? (
+                      filteredDepartments.map((dept) => (
+                        <button
+                          key={dept.id}
+                          type="button"
+                          onClick={() => handleSelectDepartment(dept)}
+                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                        >
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {dept.name}
+                          </p>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="p-3 text-center text-xs text-gray-400">
+                        No departments found
+                      </div>
+                    )}
+                  </div>
+                )}
                 {errors.department && (
                   <p className="text-xxs font-bold text-red-500 mt-1">
                     {errors.department.message}
                   </p>
                 )}
               </div>
-              {/* Designation */}
-              <div className="space-y-1.5">
+
+              {/* Designation - Now Editable with Dropdown */}
+              <div
+                className="space-y-1.5 relative"
+                ref={designationDropdownRef}
+              >
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Designation
                 </label>
-                <input
-                  type="text"
-                  placeholder="Auto-populated"
-                  {...register("designation")}
-                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none"
-                  readOnly
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search or select designation..."
+                    value={designationSearchQuery || watch("designation") || ""}
+                    onChange={(e) => {
+                      setDesignationSearchQuery(e.target.value);
+                      setValue("designation", e.target.value, {
+                        shouldValidate: true,
+                      });
+                      setShowDesignationDropdown(true);
+                    }}
+                    onFocus={() => {
+                      setDesignationSearchQuery("");
+                      setShowDesignationDropdown(true);
+                    }}
+                    className={`w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:ring-2 ${
+                      errors.designation
+                        ? "border-red-500 focus:ring-red-500/20"
+                        : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-green-500/20"
+                    }`}
+                  />
+                  <ChevronDown
+                    size={16}
+                    className="absolute inset-y-0 right-3 flex items-center text-gray-400 pointer-events-none top-1/2 -translate-y-1/2"
+                  />
+                </div>
+                {showDesignationDropdown && (
+                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+                    {designationsLoading ? (
+                      <div className="p-3 text-center text-xs text-gray-400">
+                        Loading designations...
+                      </div>
+                    ) : filteredDesignations.length > 0 ? (
+                      filteredDesignations.map((des) => (
+                        <button
+                          key={des.id}
+                          type="button"
+                          onClick={() => handleSelectDesignation(des)}
+                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                        >
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {des.name}
+                          </p>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="p-3 text-center text-xs text-gray-400">
+                        No designations found
+                      </div>
+                    )}
+                  </div>
+                )}
                 {errors.designation && (
                   <p className="text-xxs font-bold text-red-500 mt-1">
                     {errors.designation.message}
                   </p>
                 )}
               </div>
+
               {/* Reporting Manager (Searchable Dropdown) */}
               <div className="space-y-1.5 relative" ref={managerDropdownRef}>
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -1022,15 +1348,18 @@ const OffboardingInitiation = () => {
                   <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
                     {filteredManagers.length > 0 ? (
                       filteredManagers.map((manager) => {
-                        const managerName = manager.full_name || manager.name || "";
+                        const managerName =
+                          manager.full_name || manager.name || "";
                         return (
                           <button
                             key={manager.id}
                             type="button"
-                            onClick={() => handleSelectManager({
-                              ...manager,
-                              name: managerName
-                            })}
+                            onClick={() =>
+                              handleSelectManager({
+                                ...manager,
+                                name: managerName,
+                              })
+                            }
                             className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                           >
                             <div>
@@ -1039,7 +1368,11 @@ const OffboardingInitiation = () => {
                               </p>
                               {(manager.designation || manager.department) && (
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  {manager.designation || 'No Designation'} {manager.designation && manager.department ? '•' : ''} {manager.department || ''}
+                                  {manager.designation || "No Designation"}{" "}
+                                  {manager.designation && manager.department
+                                    ? "•"
+                                    : ""}{" "}
+                                  {manager.department || ""}
                                 </p>
                               )}
                             </div>
@@ -1059,20 +1392,24 @@ const OffboardingInitiation = () => {
                   </p>
                 )}
               </div>
-              {/* Email */}
+
+              {/* Email - Now Editable */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Email
                 </label>
                 <input
                   type="email"
-                  placeholder="Auto-populated"
+                  placeholder="Auto-populated or enter manually"
                   value={watch("email") || ""}
                   onChange={(e) =>
                     setValue("email", e.target.value, { shouldValidate: true })
                   }
-                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none"
-                  readOnly
+                  className={`w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 ${
+                    errors.email
+                      ? "border-red-500"
+                      : "border-gray-200 dark:border-gray-700"
+                  }`}
                 />
                 {errors.email && (
                   <p className="text-xxs font-bold text-red-500 mt-1">
@@ -1081,28 +1418,28 @@ const OffboardingInitiation = () => {
                 )}
               </div>
 
-              {/* Joining Date */}
+              {/* Joining Date - Now Editable */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Joining Date
                 </label>
                 <input
                   type="text"
-                  placeholder="Auto-populated"
+                  placeholder="Auto-populated or enter manually (YYYY-MM-DD)"
                   {...register("joiningDate")}
-                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none"
-                  readOnly
+                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                 />
               </div>
             </div>
 
             {/* Section 2: Exit Information */}
             <div className="mt-8 mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">Exit Information</h2>
+              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                Exit Information
+              </h2>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
-              {/* Exit Type */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Exit Type <span className="text-red-500">*</span>
@@ -1115,11 +1452,12 @@ const OffboardingInitiation = () => {
                   <option value="Termination">Termination</option>
                 </select>
                 {errors.exitType && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">{errors.exitType.message}</p>
+                  <p className="text-xxs font-bold text-red-500 mt-1">
+                    {errors.exitType.message}
+                  </p>
                 )}
               </div>
 
-              {/* Exit Initiation Date */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Exit Initiation Date <span className="text-red-500">*</span>
@@ -1137,11 +1475,12 @@ const OffboardingInitiation = () => {
                   )}
                 />
                 {errors.exitInitiationDate && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">{errors.exitInitiationDate.message}</p>
+                  <p className="text-xxs font-bold text-red-500 mt-1">
+                    {errors.exitInitiationDate.message}
+                  </p>
                 )}
               </div>
 
-              {/* Last Working Day */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Last Working Day <span className="text-red-500">*</span>
@@ -1159,11 +1498,12 @@ const OffboardingInitiation = () => {
                   )}
                 />
                 {errors.lastWorkingDay && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">{errors.lastWorkingDay.message}</p>
+                  <p className="text-xxs font-bold text-red-500 mt-1">
+                    {errors.lastWorkingDay.message}
+                  </p>
                 )}
               </div>
 
-              {/* Notice Period Days */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Notice Period (Days)
@@ -1176,21 +1516,25 @@ const OffboardingInitiation = () => {
                 />
               </div>
 
-              {/* Reason for Leaving */}
               <div className="space-y-1.5 md:col-span-2">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Reason for Leaving / Exit Reason <span className="text-red-500">*</span>
+                  Reason for Leaving / Exit Reason{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows={3}
                   placeholder="Brief reason for the exit..."
                   {...register("reasonForLeaving")}
                   className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 outline-none transition-all focus:ring-2 focus:ring-green-500/20 focus:border-green-500 font-semibold ${
-                    errors.reasonForLeaving ? "border-red-500" : "border-gray-200 dark:border-gray-700"
+                    errors.reasonForLeaving
+                      ? "border-red-500"
+                      : "border-gray-200 dark:border-gray-700"
                   }`}
                 ></textarea>
                 {errors.reasonForLeaving && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">{errors.reasonForLeaving.message}</p>
+                  <p className="text-xxs font-bold text-red-500 mt-1">
+                    {errors.reasonForLeaving.message}
+                  </p>
                 )}
               </div>
             </div>
@@ -1199,12 +1543,15 @@ const OffboardingInitiation = () => {
             {watch("exitType") === "Resignation" && (
               <>
                 <div className="mt-8 mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
-                  <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">Resignation Details</h2>
+                  <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                    Resignation Details
+                  </h2>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Resignation Submission Date <span className="text-red-500">*</span>
+                      Resignation Submission Date{" "}
+                      <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="resignationSubmissionDate"
@@ -1219,7 +1566,9 @@ const OffboardingInitiation = () => {
                       )}
                     />
                     {errors.resignationSubmissionDate && (
-                      <p className="text-xxs font-bold text-red-500 mt-1">{errors.resignationSubmissionDate.message}</p>
+                      <p className="text-xxs font-bold text-red-500 mt-1">
+                        {errors.resignationSubmissionDate.message}
+                      </p>
                     )}
                   </div>
 
@@ -1245,11 +1594,15 @@ const OffboardingInitiation = () => {
                       placeholder="Detailed resignation reason..."
                       {...register("resignationReason")}
                       className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 outline-none transition-all focus:ring-2 focus:ring-green-500/20 focus:border-green-500 font-semibold ${
-                        errors.resignationReason ? "border-red-500" : "border-gray-200 dark:border-gray-700"
+                        errors.resignationReason
+                          ? "border-red-500"
+                          : "border-gray-200 dark:border-gray-700"
                       }`}
                     ></textarea>
                     {errors.resignationReason && (
-                      <p className="text-xxs font-bold text-red-500 mt-1">{errors.resignationReason.message}</p>
+                      <p className="text-xxs font-bold text-red-500 mt-1">
+                        {errors.resignationReason.message}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -1260,12 +1613,15 @@ const OffboardingInitiation = () => {
             {watch("exitType") === "Termination" && (
               <>
                 <div className="mt-8 mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
-                  <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">Termination Details</h2>
+                  <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                    Termination Details
+                  </h2>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Termination Discussion Date <span className="text-red-500">*</span>
+                      Termination Discussion Date{" "}
+                      <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="terminationDiscussionDate"
@@ -1280,7 +1636,9 @@ const OffboardingInitiation = () => {
                       )}
                     />
                     {errors.terminationDiscussionDate && (
-                      <p className="text-xxs font-bold text-red-500 mt-1">{errors.terminationDiscussionDate.message}</p>
+                      <p className="text-xxs font-bold text-red-500 mt-1">
+                        {errors.terminationDiscussionDate.message}
+                      </p>
                     )}
                   </div>
 
@@ -1306,11 +1664,15 @@ const OffboardingInitiation = () => {
                       placeholder="Detailed termination reason..."
                       {...register("terminationReason")}
                       className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 outline-none transition-all focus:ring-2 focus:ring-green-500/20 focus:border-green-500 font-semibold ${
-                        errors.terminationReason ? "border-red-500" : "border-gray-200 dark:border-gray-700"
+                        errors.terminationReason
+                          ? "border-red-500"
+                          : "border-gray-200 dark:border-gray-700"
                       }`}
                     ></textarea>
                     {errors.terminationReason && (
-                      <p className="text-xxs font-bold text-red-500 mt-1">{errors.terminationReason.message}</p>
+                      <p className="text-xxs font-bold text-red-500 mt-1">
+                        {errors.terminationReason.message}
+                      </p>
                     )}
                   </div>
 
@@ -1365,7 +1727,6 @@ const OffboardingInitiation = () => {
         </div>
       </div>
 
-      {/* Progress Modal - only show for new offboarding */}
       {!isEditMode && <ProgressModal />}
     </div>
   );
