@@ -166,10 +166,28 @@ const Profile = () => {
         setAvatarPreview(null);
       }
     } catch (error) {
-      console.error("Avatar upload error:", error);
-      showToast(`Upload failed: ${error.message}`, "error");
-      setAvatarPreview(null);
-    } finally {
+  console.error("Avatar upload error:", error);
+
+  // Extract the most useful message from the API response
+  let errorMessage = "Upload failed";
+
+  const data = error.response?.data;
+
+  if (data) {
+    // Laravel validation errors: { errors: { file: ["..."] } }
+    if (data.errors && typeof data.errors === "object") {
+      const firstError = Object.values(data.errors).flat()[0];
+      if (firstError) errorMessage = firstError;
+    } else if (data.message) {
+      errorMessage = data.message;
+    }
+  } else if (error.message) {
+    errorMessage = error.message;
+  }
+
+  showToast(errorMessage, "error");
+  setAvatarPreview(null);
+} finally {
       setUploadingAvatar(false);
     }
   };
@@ -391,7 +409,7 @@ const Profile = () => {
                   )}
                 </div>
               </div>
-              <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-5 h-5 md:w-6 md:h-6 bg-green-500 border-[3px] border-white rounded-full z-20"></div>
+              {/* <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-5 h-5 md:w-6 md:h-6 bg-green-500 border-[3px] border-white rounded-full z-20"></div> */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -400,6 +418,9 @@ const Profile = () => {
                 onChange={handleAvatarChange}
                 disabled={uploadingAvatar}
               />
+               <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2 text-center md:text-left">
+    JPG, JPEG, PNG · Max 2MB
+  </p>
             </div>
 
             <div className="text-center md:text-left mb-2 md:mb-1">
