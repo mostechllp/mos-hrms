@@ -2,11 +2,15 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "../store/slices/notificationSlice";
+import Pagination from "../components/common/Paginations";
 
 const Notifications = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [currentPage, setCurrentPage] = useState(1);
+const [perPage, setPerPage] = useState(10);
 
   const dispatch = useDispatch();
   const { notifications, unreadCount } = useSelector((state) => state.notifications);
@@ -14,6 +18,12 @@ const Notifications = () => {
   useEffect(() => {
     dispatch(fetchNotifications());
   }, [dispatch]);
+
+  useEffect(() => {
+  setCurrentPage(1);
+}, [activeTab, searchQuery]);
+
+
 
   const getNotificationUI = (notif) => {
     const title = (notif.title || notif.type || "Notification").toLowerCase();
@@ -62,10 +72,16 @@ const Notifications = () => {
     return true;
   });
 
+  const totalFiltered = filteredNotifications.length;
+const totalPages = Math.max(1, Math.ceil(totalFiltered / perPage));
+const start = (currentPage - 1) * perPage;
+const paginatedNotifications = filteredNotifications.slice(start, start + perPage);
+
   const totalCount = (notifications || []).length;
   const readCount = (notifications || []).filter(n => n.read).length;
 
   return (
+    
     <div className="p-4 md:p-6 bg-[#F9FAFB] min-h-screen">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-start mb-6">
@@ -138,13 +154,13 @@ const Notifications = () => {
         </div>
 
         <div className="flex flex-col gap-3">
-          {filteredNotifications.length === 0 ? (
-            <div className="p-12 text-center text-gray-500">
-              <i className="fas fa-bell-slash text-4xl mb-4 opacity-50"></i>
-              <p>No notifications found</p>
-            </div>
-          ) : (
-            filteredNotifications.map((notification) => {
+          {paginatedNotifications.length === 0 ? (
+  <div className="p-12 text-center text-gray-500">
+    <i className="fas fa-bell-slash text-4xl mb-4 opacity-50"></i>
+    <p>No notifications found</p>
+  </div>
+) : (
+            paginatedNotifications.map((notification) => {
               const ui = getNotificationUI(notification);
               return (
                 <div
@@ -196,6 +212,15 @@ const Notifications = () => {
           )}
         </div>
       </div>
+      {totalFiltered > 0 && (
+  <Pagination
+    currentPage={currentPage}
+    totalPages={totalPages}
+    onPageChange={setCurrentPage}
+    totalItems={totalFiltered}
+    itemsPerPage={perPage}
+  />
+)}
     </div>
   );
 };

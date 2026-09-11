@@ -81,7 +81,7 @@ const StatusDropdown = ({ value, onChange, statuses, name = "status", includeAll
       </div>
 
       {isOpen && (
-        <div className="absolute z-[1050] w-full mt-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute z-30 w-full mt-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
           {Object.entries(grouped).map(([groupName, items]) => {
             if (items.length === 0) return null;
             return (
