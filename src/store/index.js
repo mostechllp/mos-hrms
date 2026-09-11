@@ -24,6 +24,8 @@ import taskReducer from "../admin/store/slices/tasksSlice";
 import projectReducer from "../admin/store/slices/projectsSlice";
 import moduleReducer from "../admin/store/slices/moduleSlice";
 import reportReducer from "../admin/store/slices/reportSlice";
+import payrollReducer from "../admin/store/slices/payrollSlice";
+import publicHolidayReducer from "../admin/store/slices/publicHolidaySlice";
 
 
 // Employee reducers
@@ -36,6 +38,7 @@ import taskReportsReducer from "../employee/store/slices/taskReportsSlice";
 import EmpAttendanceReducer from "../employee/store/slices/attendanceSlice";
 import EmpAttendanceTypeReducer from "../employee/store/slices/attendanceTypeSlice";
 import employeeTasksReducer from "../employee/store/slices/taskSlice";
+import myPayrollReducer from "../employee/store/slices/myPayrollSlice";
 
 
 export const store = configureStore({
@@ -65,6 +68,8 @@ export const store = configureStore({
     projects: projectReducer,
     settings: settingsReducer,
     reports: reportReducer,
+    payroll: payrollReducer,
+    publicHolidays: publicHolidayReducer,
 
     // Employee
     EmpLeaves: leavesReducer,
@@ -76,6 +81,7 @@ export const store = configureStore({
     EmpAttendance: EmpAttendanceReducer,
     EmpAttendanceType: EmpAttendanceTypeReducer,
     employeeTasks: employeeTasksReducer,
+    myPayroll: myPayrollReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

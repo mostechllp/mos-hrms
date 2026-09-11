@@ -13,14 +13,14 @@ const SalaryBankDetailsForm = () => {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   // 1. Salary Structure States
-  const [currency, setCurrency] = useState("AED");
+  const [currency, setCurrency] = useState("INR");
   const [salaryComponents, setSalaryComponents] = useState([]);
   const [newComponentName, setNewComponentName] = useState("");
   const [newComponentPrice, setNewComponentPrice] = useState("");
   const [isSalarySaved, setIsSalarySaved] = useState(false);
 
   // 2. Bank Details States
-  const [bankCountry, setBankCountry] = useState("UAE"); // Default UAE
+  const [bankCountry, setBankCountry] = useState("India"); // Default India
   const [bankName, setBankName] = useState("");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankIfsc, setBankIfsc] = useState("");
@@ -201,10 +201,8 @@ const SalaryBankDetailsForm = () => {
     const cleanVal = val.replace(/[\s-]/g, "");
     if (!val.trim()) {
       setFormErrors(prev => ({ ...prev, accountNumber: "Account number is required" }));
-    } else if (bankCountry === "India" && (cleanVal.length < 9 || cleanVal.length > 18)) {
+    } else if (cleanVal.length < 9 || cleanVal.length > 18) {
       setFormErrors(prev => ({ ...prev, accountNumber: "Indian bank account numbers must be 9 to 18 digits" }));
-    } else if (bankCountry === "UAE" && (cleanVal.length < 8 || cleanVal.length > 16)) {
-      setFormErrors(prev => ({ ...prev, accountNumber: "UAE bank account numbers must be 8 to 16 digits" }));
     } else {
       setFormErrors(prev => ({ ...prev, accountNumber: "" }));
     }
@@ -321,27 +319,12 @@ const SalaryBankDetailsForm = () => {
     if (!bankName.trim()) errors.bankName = "Bank name is required";
     if (!bankAccountNumber.trim()) errors.accountNumber = "Account number is required";
 
-    if (bankCountry === "India") {
-      if (!bankIfsc.trim()) {
-        errors.ifsc = "IFSC Code is required";
-      } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bankIfsc)) {
-        errors.ifsc = "Invalid IFSC Code format";
-      }
-      if (!bankBranch.trim()) errors.branch = "Branch name is required";
-    } else { // UAE
-      const rawIban = bankIban.replace(/\s/g, "");
-      if (!bankIban.trim()) {
-        errors.iban = "IBAN is required";
-      } else if (!/^AE[A-Z0-9]{21}$/.test(rawIban)) {
-        errors.iban = "Invalid UAE IBAN format (AE followed by 21 characters)";
-      }
-
-      if (!bankSwift.trim()) {
-        errors.swift = "SWIFT/BIC Code is required";
-      } else if (!/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(bankSwift)) {
-        errors.swift = "Invalid SWIFT/BIC Code format";
-      }
+    if (!bankIfsc.trim()) {
+      errors.ifsc = "IFSC Code is required";
+    } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bankIfsc)) {
+      errors.ifsc = "Invalid IFSC Code format";
     }
+    if (!bankBranch.trim()) errors.branch = "Branch name is required";
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
@@ -427,12 +410,12 @@ const SalaryBankDetailsForm = () => {
     };
 
     dispatch(updateEmployeeDetails(finalPayload));
-    dispatch(setStep(4)); // Proceed to Step 4 (Offer Letter Preview)
+    dispatch(setStep(5)); // Proceed to Step 5 (Offer Letter Preview)
     showToast("Financial details verified and saved!", "success");
   };
 
   const handleBack = () => {
-    dispatch(setStep(2)); // Back to Step 2 (Employee Details Form)
+    dispatch(setStep(3)); // Back to Step 3 (Professional Verification Form)
   };
 
   return (
@@ -719,23 +702,8 @@ const SalaryBankDetailsForm = () => {
               // BANK DETAILS EDIT MODE
               <div className="space-y-6 animate-fadeIn">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Country Selector */}
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                      Bank Country <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={bankCountry}
-                      onChange={handleBankCountryChange}
-                      className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white transition-all duration-200 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 cursor-pointer"
-                    >
-                      <option value="UAE">United Arab Emirates (UAE)</option>
-                      <option value="India">India</option>
-                    </select>
-                    <p className="text-[10px] text-gray-400 font-medium">
-                      Switches bank identifier validation (IBAN & SWIFT for UAE vs IFSC & Branch for India).
-                    </p>
-                  </div>
+                  {/* Country Selector Removed as requested, defaults to India */}
+
 
                   {/* Bank Name */}
                   <div className="space-y-2">
@@ -779,96 +747,48 @@ const SalaryBankDetailsForm = () => {
                     )}
                   </div>
 
-                  {/* REGION-SPECIFIC bank details fields (India: IFSC, Branch; UAE: IBAN, SWIFT) */}
-                  {bankCountry === "India" ? (
-                    <>
-                      {/* IFSC Code */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                          IFSC Code <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. HDFC0000240"
-                          value={bankIfsc}
-                          onChange={handleIfscChange}
-                          className={`w-full px-4 py-3 bg-white dark:bg-gray-900 border rounded-xl text-gray-900 dark:text-white transition-all outline-none font-mono tracking-wider ${
-                            formErrors.ifsc
-                              ? "border-red-500 focus:ring-4 focus:ring-red-500/10 focus:border-red-500"
-                              : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-4 focus:ring-green-500/10"
-                          }`}
-                        />
-                        {formErrors.ifsc && (
-                          <p className="text-xs font-semibold text-red-500">{formErrors.ifsc}</p>
-                        )}
-                      </div>
+                  {/* REGION-SPECIFIC bank details fields (India: IFSC, Branch) */}
+                  {/* IFSC Code */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                      IFSC Code <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. HDFC0000240"
+                      value={bankIfsc}
+                      onChange={handleIfscChange}
+                      className={`w-full px-4 py-3 bg-white dark:bg-gray-900 border rounded-xl text-gray-900 dark:text-white transition-all outline-none font-mono tracking-wider ${
+                        formErrors.ifsc
+                          ? "border-red-500 focus:ring-4 focus:ring-red-500/10 focus:border-red-500"
+                          : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-4 focus:ring-green-500/10"
+                      }`}
+                    />
+                    {formErrors.ifsc && (
+                      <p className="text-xs font-semibold text-red-500">{formErrors.ifsc}</p>
+                    )}
+                  </div>
 
-                      {/* Branch Name */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                          Branch Name <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Bandra East, Mumbai"
-                          value={bankBranch}
-                          onChange={handleBranchChange}
-                          className={`w-full px-4 py-3 bg-white dark:bg-gray-900 border rounded-xl text-gray-900 dark:text-white transition-all outline-none ${
-                            formErrors.branch
-                              ? "border-red-500 focus:ring-4 focus:ring-red-500/10 focus:border-red-500"
-                              : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-4 focus:ring-green-500/10"
-                          }`}
-                        />
-                        {formErrors.branch && (
-                          <p className="text-xs font-semibold text-red-500">{formErrors.branch}</p>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {/* IBAN number */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                          IBAN Number <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. AE55 0230 0000 1234 5678 901"
-                          value={bankIban}
-                          onChange={handleIbanChange}
-                          className={`w-full px-4 py-3 bg-white dark:bg-gray-900 border rounded-xl text-gray-900 dark:text-white transition-all outline-none font-mono tracking-wide ${
-                            formErrors.iban
-                              ? "border-red-500 focus:ring-4 focus:ring-red-500/10 focus:border-red-500"
-                              : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-4 focus:ring-green-500/10"
-                          }`}
-                        />
-                        {formErrors.iban && (
-                          <p className="text-xs font-semibold text-red-500">{formErrors.iban}</p>
-                        )}
-                      </div>
-
-                      {/* SWIFT/BIC Code */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                          SWIFT/BIC Code <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. EBILAEADXXX"
-                          value={bankSwift}
-                          onChange={handleSwiftChange}
-                          className={`w-full px-4 py-3 bg-white dark:bg-gray-900 border rounded-xl text-gray-900 dark:text-white transition-all outline-none font-mono tracking-wider ${
-                            formErrors.swift
-                              ? "border-red-500 focus:ring-4 focus:ring-red-500/10 focus:border-red-500"
-                              : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-4 focus:ring-green-500/10"
-                          }`}
-                        />
-                        {formErrors.swift && (
-                          <p className="text-xs font-semibold text-red-500">{formErrors.swift}</p>
-                        )}
-                      </div>
-                    </>
-                  )}
+                  {/* Branch Name */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                      Branch Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Bandra East, Mumbai"
+                      value={bankBranch}
+                      onChange={handleBranchChange}
+                      className={`w-full px-4 py-3 bg-white dark:bg-gray-900 border rounded-xl text-gray-900 dark:text-white transition-all outline-none ${
+                        formErrors.branch
+                          ? "border-red-500 focus:ring-4 focus:ring-red-500/10 focus:border-red-500"
+                          : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-4 focus:ring-green-500/10"
+                      }`}
+                    />
+                    {formErrors.branch && (
+                      <p className="text-xs font-semibold text-red-500">{formErrors.branch}</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* DYNAMIC SETUP: Custom additional fields input */}
@@ -1011,30 +931,14 @@ const SalaryBankDetailsForm = () => {
                         </div>
                       </td>
 
-                      {/* Key Identifier column (India: IFSC Code, UAE: IBAN & SWIFT) */}
+                      {/* Key Identifier column (India: IFSC Code) */}
                       <td className="px-6 py-5">
-                        {bankCountry === "India" ? (
                           <div className="space-y-1">
                             <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest block">IFSC Code</span>
                             <span className="font-mono text-sm font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-900 px-2.5 py-1 rounded border border-gray-200 dark:border-gray-800">
                               {bankIfsc}
                             </span>
                           </div>
-                        ) : (
-                          <div className="space-y-1.5">
-                            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest block">IBAN & SWIFT</span>
-                            <div className="space-y-1">
-                              <span className="font-mono text-xs font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded border border-gray-200 dark:border-gray-800 block w-fit">
-                                {bankIban}
-                              </span>
-                              {bankSwift && (
-                                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold block">
-                                  SWIFT: <span className="font-mono text-xs font-bold text-gray-700 dark:text-gray-300 bg-gray-100/50 dark:bg-gray-900/50 px-1.5 py-0.5 rounded">{bankSwift}</span>
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
                       </td>
 
                       {/* Action column to unlock edit state */}

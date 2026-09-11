@@ -17,10 +17,8 @@ const isValidPunch = (value) => value && value !== "-" && value.trim() !== "";
 
 const extractAttendanceRecords = (response) => {
   try {
-    console.log("===== FULL API RESPONSE =====");
-    console.log(JSON.stringify(response.data, null, 2));
+    
     const attendance = response.data?.data?.attendance;
-    console.log("First record from API:", attendance?.data?.[0]);
     const apiStats = response.data?.data?.stats;
 
     if (attendance?.data && Array.isArray(attendance.data)) {
@@ -79,10 +77,6 @@ const extractAttendanceRecords = (response) => {
           status =
             record.punch_in && record.punch_in !== "--" ? "Present" : "Absent";
         }
-
-        console.log(
-          `Record ID ${recordId}: userid=${employeeId}, employeeName=${employeeName}`,
-        );
 
         return {
           id: recordId, // ✅ Use the actual record ID

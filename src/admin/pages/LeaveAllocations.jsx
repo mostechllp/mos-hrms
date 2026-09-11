@@ -46,7 +46,9 @@ const LeaveAllocations = () => {
       allAllocations.forEach((item) => {
         // New API format: { employee_name: '...', leave_types: [...] }
         if (item.employee_name && item.leave_types) {
-          balances[item.employee_name] = item.leave_types;
+          // Normalize employee name by trimming spaces
+          const normalizedName = item.employee_name.trim();
+          balances[normalizedName] = item.leave_types;
         }
         // If it's a flat array of allocations
         else if (item.employee_id && item.leave_type_id) {
@@ -109,9 +111,28 @@ const LeaveAllocations = () => {
     return leaveType?.id;
   };
 
+  // Normalize employee name for matching
+  const normalizeName = (name) => {
+    return name?.trim() || "";
+  };
+
   const getAllocationValue = (employeeId, employeeName, leaveTypeName, field) => {
-    // Try to get balances by name (new API) or by ID (old API format)
-    const balances = leaveBalances[employeeName] || leaveBalances[employeeId];
+    // Normalize employee name
+    const normalizedEmployeeName = normalizeName(employeeName);
+    
+    // Try to get balances by normalized name (new API) or by ID (old API format)
+    let balances = leaveBalances[normalizedEmployeeName] || leaveBalances[employeeId];
+    
+    // If not found by exact match, try to find by partial match
+    if (!balances) {
+      // Find any key in leaveBalances that matches the employee name (case insensitive, trimmed)
+      const matchingKey = Object.keys(leaveBalances).find(key => 
+        normalizeName(key).toLowerCase() === normalizedEmployeeName.toLowerCase()
+      );
+      if (matchingKey) {
+        balances = leaveBalances[matchingKey];
+      }
+    }
     
     if (!balances || !Array.isArray(balances)) return 0;
     

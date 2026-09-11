@@ -56,15 +56,28 @@ export const fetchTaskReports = createAsyncThunk(
   }
 );
 
-// Save task report
+// Save task report - Updated with date and employee_id
+// Save task report - Updated with date and employee_id
 export const saveTaskReport = createAsyncThunk(
   'taskReports/save',
-  async ({ tasks_completed, plan_tomorrow }, { rejectWithValue, dispatch }) => {
+  async ({ date, tasks_completed, plan_tomorrow, pending_tasks }, { rejectWithValue, dispatch, getState }) => {
     try {
-      const response = await apiClient.post('/employee/task-reports', {
+      // Get employee ID from auth state - use employee.id, not user.id
+      const state = getState();
+      const user = state.auth?.user;
+      const employeeId = user?.employee?.id || user?.employee_id || user?.id;
+      
+      const payload = {
+        date: date || new Date().toISOString().split("T")[0],
+        employee_id: employeeId,
         tasks_completed,
-        plan_tomorrow
-      });
+        plan_tomorrow: plan_tomorrow || "",
+        pending_tasks: pending_tasks || ""
+      };
+      
+      console.log("Saving task report with payload:", payload);
+      
+      const response = await apiClient.post('/employee/task-reports', payload);
       console.log("Save task report response:", response.data);
       
       if (response.data?.status === "success") {
@@ -183,37 +196,46 @@ const taskReportsSlice = createSlice({
       
       // Save Task Report
       .addCase(saveTaskReport.pending, (state) => {
+        state.loading = true;
         state.error = null;
       })
       .addCase(saveTaskReport.fulfilled, (state) => {
         console.log("Save fulfilled");
+        state.loading = false;
         state.error = null;
       })
       .addCase(saveTaskReport.rejected, (state, action) => {
+        state.loading = false;
         state.error = action.payload;
       })
       
       // Update Task Report
       .addCase(updateTaskReport.pending, (state) => {
+        state.loading = true;
         state.error = null;
       })
       .addCase(updateTaskReport.fulfilled, (state) => {
         console.log("Update fulfilled");
+        state.loading = false;
         state.error = null;
       })
       .addCase(updateTaskReport.rejected, (state, action) => {
+        state.loading = false;
         state.error = action.payload;
       })
       
       // Delete Task Report
       .addCase(deleteTaskReport.pending, (state) => {
+        state.loading = true;
         state.error = null;
       })
       .addCase(deleteTaskReport.fulfilled, (state) => {
         console.log("Delete fulfilled");
+        state.loading = false;
         state.error = null;
       })
       .addCase(deleteTaskReport.rejected, (state, action) => {
+        state.loading = false;
         state.error = action.payload;
       });
   },

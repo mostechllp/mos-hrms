@@ -7,7 +7,9 @@ import ResumeUpload from "./ResumeUpload";
 import EmployeeDetailsForm from "./EmployeeDetailsForm";
 import SalaryBankDetailsForm from "./SalaryBankDetailsForm";
 import OfferLetterPreview from "./OfferLetterPreview";
+import PreOnboardingChecklist from "./PreOnboardingChecklist";
 import OnboardingReview from "./OnboardingReview";
+import ProfessionalVerificationForm from "./ProfessionalVerificationForm";
 import Stepper from "./Stepper";
 
 const Onboarding = () => {
@@ -63,10 +65,14 @@ const Onboarding = () => {
       case 2:
         return <EmployeeDetailsForm />;
       case 3:
-        return <SalaryBankDetailsForm />;
+        return <ProfessionalVerificationForm />;
       case 4:
-        return <OfferLetterPreview />;
+        return <SalaryBankDetailsForm />;
       case 5:
+        return <OfferLetterPreview />;
+      case 6:
+        return <PreOnboardingChecklist />;
+      case 7:
         return <OnboardingReview />;
       default:
         return <ResumeUpload onSkip={handleSkipResume} />;

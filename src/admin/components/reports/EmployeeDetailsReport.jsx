@@ -261,7 +261,7 @@ const EmployeeDetailsReport = () => {
             <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
             <span className="text-gray-500">Employee details report</span>
           </div>
-          <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent">
+          <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent dark:from-gray-200 dark:to-green-400">
             Employee Details Report
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">

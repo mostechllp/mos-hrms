@@ -265,9 +265,8 @@ const transformLeaveBalanceData = (data) => {
       // Parse allocated days
       const allocatedDays = parseFloat(alloc.allocated_days) || 0;
 
-      // For now, used days is 0 since API doesn't return it
-      // We can fetch used days from leave history if needed
-      const usedDays = 0;
+      // Fetch used days from API response
+      const usedDays = parseFloat(alloc.used_days || alloc.used || 0);
 
       leaveBalances[leaveTypeName] = {
         id: alloc.leave_type_id,

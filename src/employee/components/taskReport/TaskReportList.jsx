@@ -7,6 +7,7 @@ import {
   setTaskReportsSearch,
   deleteTaskReport,
   updateTaskReport,
+  saveTaskReport,
 } from "../../store/slices/taskReportsSlice";
 import { useEffect, useState } from "react";
 import { showToast } from "../common/Toast";
@@ -26,6 +27,8 @@ import {
   FiAlertCircle,
   FiTrendingUp,
   FiStar,
+  FiPlus,
+  FiX,
 } from "react-icons/fi";
 
 export const TaskReportsList = () => {
@@ -51,6 +54,17 @@ export const TaskReportsList = () => {
     pending_tasks: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Add Task Report Modal States
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addFormData, setAddFormData] = useState({
+    date: new Date().toISOString().split("T")[0], // Default to today
+    tasksCompleted: "",
+    pendingTasks: "",
+    planForTomorrow: "",
+  });
+  const [addFormErrors, setAddFormErrors] = useState({});
+  const [isAdding, setIsAdding] = useState(false);
 
   const refreshTaskReports = () => {
     dispatch(fetchTaskReports());
@@ -291,6 +305,82 @@ export const TaskReportsList = () => {
     }
   };
 
+  // Add Task Report Handlers
+  const handleAddTaskReport = () => {
+    setAddFormData({
+      date: new Date().toISOString().split("T")[0],
+      tasksCompleted: "",
+      pendingTasks: "",
+      planForTomorrow: "",
+    });
+    setAddFormErrors({});
+    setAddModalOpen(true);
+  };
+
+  const handleAddFormChange = (e) => {
+    const { name, value } = e.target;
+    setAddFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (addFormErrors[name]) {
+      setAddFormErrors((prev) => ({
+        ...prev,
+        [name]: "",
+      }));
+    }
+  };
+
+  const validateAddForm = () => {
+    const errors = {};
+    if (!addFormData.date) {
+      errors.date = "Please select a date";
+    }
+    if (!addFormData.tasksCompleted?.trim()) {
+      errors.tasksCompleted = "Please enter tasks completed";
+    }
+    setAddFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleAddFormSubmit = async (e) => {
+  e.preventDefault();
+  if (!validateAddForm()) {
+    return;
+  }
+
+  setIsAdding(true);
+  try {
+    // Include date in the payload
+    await dispatch(saveTaskReport({
+      date: addFormData.date, // ✅ Date is now included
+      tasks_completed: addFormData.tasksCompleted,
+      pending_tasks: addFormData.pendingTasks || "",
+      plan_tomorrow: addFormData.planForTomorrow || "",
+    })).unwrap();
+    showToast("Task report added successfully!", "success");
+    setAddModalOpen(false);
+    setAddFormData({
+      date: new Date().toISOString().split("T")[0],
+      tasksCompleted: "",
+      pendingTasks: "",
+      planForTomorrow: "",
+    });
+    refreshTaskReports();
+  } catch (error) {
+    showToast(error || "Failed to add task report", "error");
+  } finally {
+    setIsAdding(false);
+  }
+};
+
+  const handleAddModalClose = () => {
+    if (!isAdding) {
+      setAddModalOpen(false);
+      setAddFormErrors({});
+    }
+  };
+
   if (loading && taskReports.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -309,6 +399,14 @@ export const TaskReportsList = () => {
         <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-[var(--text)] to-green-600 bg-clip-text text-transparent">
           My Task Reports
         </h2>
+        {/* Add Task Report Button */}
+        <button
+          onClick={handleAddTaskReport}
+          className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-all shadow-md hover:shadow-lg"
+        >
+          <FiPlus className="text-lg" />
+          Add Task Report
+        </button>
       </div>
 
       {/* Stats Cards + Performance Overview - Side by Side */}
@@ -502,7 +600,7 @@ export const TaskReportsList = () => {
               <th className="text-left py-3.5 px-4 text-sm font-semibold text-[var(--muted)]">Remarks (Admin)</th>
               <th className="text-center py-3.5 px-4 text-sm font-semibold text-[var(--muted)]">Actions</th>
               <th className="text-center py-3.5 px-4 text-sm font-semibold text-[var(--muted)] w-10">Expand</th>
-                          </tr>
+            </tr>
           </thead>
           <tbody>
             {currentReports.length === 0 ? (
@@ -511,6 +609,13 @@ export const TaskReportsList = () => {
                   <div className="flex flex-col items-center gap-3">
                     <FiClock className="text-5xl text-[var(--muted)]" />
                     <p className="text-base">No task reports found.</p>
+                    <button
+                      onClick={handleAddTaskReport}
+                      className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      <FiPlus className="inline mr-2" />
+                      Add Your First Report
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -583,7 +688,24 @@ export const TaskReportsList = () => {
                               <p className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap">{report.tasks_completed || "-"}</p>
                             </div>
                           </div>
-                          
+                          {report.pending_tasks && (
+                            <div className="flex items-start gap-3">
+                              <FiAlertCircle className="text-amber-500 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <h4 className="text-sm font-semibold text-[var(--text)] mb-1">Pending Works</h4>
+                                <p className="text-sm text-amber-600 dark:text-amber-400 whitespace-pre-wrap">{report.pending_tasks}</p>
+                              </div>
+                            </div>
+                          )}
+                          {report.plan_tomorrow && (
+                            <div className="flex items-start gap-3">
+                              <FiCalendar className="text-blue-500 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <h4 className="text-sm font-semibold text-[var(--text)] mb-1">Plan for Tomorrow</h4>
+                                <p className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap">{report.plan_tomorrow}</p>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -620,6 +742,137 @@ export const TaskReportsList = () => {
         </div>
       )}
 
+      {/* Add Task Report Modal */}
+      {addModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
+          <div className="bg-[var(--surface)] rounded-2xl max-w-2xl w-full shadow-soft-lg border border-[var(--border)] flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="px-6 py-4 flex justify-between items-center border-b border-[var(--border)] bg-[var(--surface)] rounded-t-2xl">
+              <h3 className="text-lg font-bold text-[var(--text)] flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-sm shadow-sm">
+                  <FiPlus />
+                </span>
+                Add Task Report
+              </h3>
+              <button
+                onClick={handleAddModalClose}
+                disabled={isAdding}
+                className="text-[var(--muted)] hover:text-red-500 transition-colors text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--surface2)] disabled:opacity-50"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleAddFormSubmit} className="p-6 overflow-y-auto">
+              <div className="space-y-5">
+                {/* Date Field */}
+                <div>
+                  <label className="block text-sm font-semibold text-[var(--text)] mb-2">
+                    Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    name="date"
+                    value={addFormData.date}
+                    onChange={handleAddFormChange}
+                    className={`w-full px-4 py-2.5 bg-[var(--surface2)] border rounded-lg text-sm text-[var(--text)] transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 ${
+                      addFormErrors.date
+                        ? "border-red-500"
+                        : "border-[var(--border)]"
+                    }`}
+                  />
+                  {addFormErrors.date && (
+                    <p className="mt-1 text-sm text-red-500">{addFormErrors.date}</p>
+                  )}
+                </div>
+
+                {/* Tasks Completed */}
+                <div>
+                  <label className="block text-sm font-semibold text-[var(--text)] mb-2">
+                    Tasks Completed <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    name="tasksCompleted"
+                    value={addFormData.tasksCompleted}
+                    onChange={handleAddFormChange}
+                    rows="4"
+                    placeholder="List all the tasks you completed today..."
+                    className={`w-full px-4 py-2.5 bg-[var(--surface2)] border rounded-lg text-sm text-[var(--text)] transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 resize-vertical ${
+                      addFormErrors.tasksCompleted
+                        ? "border-red-500"
+                        : "border-[var(--border)]"
+                    }`}
+                  />
+                  {addFormErrors.tasksCompleted && (
+                    <p className="mt-1 text-sm text-red-500">{addFormErrors.tasksCompleted}</p>
+                  )}
+                </div>
+
+                {/* Pending Tasks */}
+                <div>
+                  <label className="block text-sm font-semibold text-[var(--text)] mb-2">
+                    Pending Tasks
+                  </label>
+                  <textarea
+                    name="pendingTasks"
+                    value={addFormData.pendingTasks}
+                    onChange={handleAddFormChange}
+                    rows="2"
+                    placeholder="List any tasks that are still pending (optional)"
+                    className="w-full px-4 py-2.5 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 resize-vertical"
+                  />
+                </div>
+
+                {/* Plan for Tomorrow */}
+                <div>
+                  <label className="block text-sm font-semibold text-[var(--text)] mb-2">
+                    Plan for Tomorrow
+                  </label>
+                  <textarea
+                    name="planForTomorrow"
+                    value={addFormData.planForTomorrow}
+                    onChange={handleAddFormChange}
+                    rows="3"
+                    placeholder="What are your plans for tomorrow? (optional)"
+                    className="w-full px-4 py-2.5 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 resize-vertical"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={handleAddModalClose}
+                  disabled={isAdding}
+                  className="px-5 py-2.5 rounded-full font-semibold bg-[var(--surface2)] text-[var(--text)] hover:bg-[var(--border)] transition-colors text-sm shadow-sm disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAdding || !addFormData.tasksCompleted.trim() || !addFormData.date}
+                  className="px-5 py-2.5 rounded-full font-semibold bg-green-500 hover:bg-green-600 text-white flex items-center gap-2 transition-all shadow-md hover:shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAdding ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <FiSave />
+                      Save Report
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* View Modal */}
       {viewModalOpen && selectedReport && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
@@ -637,8 +890,12 @@ export const TaskReportsList = () => {
                 <div><label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider block mb-1">SUBMITTED AT</label><span className="text-sm font-bold text-[var(--text)]">{formatDateTime(selectedReport.created_at)}</span></div>
               </div>
               <div><label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider block mb-1.5">TASKS COMPLETED</label><div className="px-4 py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-xl"><p className="text-sm text-[var(--text)] whitespace-pre-wrap leading-relaxed">{selectedReport.tasks_completed || "-"}</p></div></div>
-              <div><label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider block mb-1.5">PENDING WORKS</label><div className="px-4 py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-xl"><p className="text-sm text-amber-600 dark:text-amber-400 whitespace-pre-wrap leading-relaxed">{selectedReport.pending_tasks || "-"}</p></div></div>
-              <div><label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider block mb-1.5">PLAN FOR TOMORROW</label><div className="px-4 py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-xl"><p className="text-sm text-[var(--text)] whitespace-pre-wrap leading-relaxed">{selectedReport.plan_tomorrow || "-"}</p></div></div>
+              {selectedReport.pending_tasks && (
+                <div><label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider block mb-1.5">PENDING WORKS</label><div className="px-4 py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-xl"><p className="text-sm text-amber-600 dark:text-amber-400 whitespace-pre-wrap leading-relaxed">{selectedReport.pending_tasks}</p></div></div>
+              )}
+              {selectedReport.plan_tomorrow && (
+                <div><label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider block mb-1.5">PLAN FOR TOMORROW</label><div className="px-4 py-3 bg-[var(--surface2)] border border-[var(--border)] rounded-xl"><p className="text-sm text-[var(--text)] whitespace-pre-wrap leading-relaxed">{selectedReport.plan_tomorrow}</p></div></div>
+              )}
               <div><label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider flex items-center gap-1.5 mb-1.5"><FiClock className="text-[var(--muted)]" />ADMIN REMARKS</label><div className="px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl"><p className="text-sm text-blue-700 dark:text-blue-300 whitespace-pre-wrap">{selectedReport.remarks || "No remarks added by admin"}</p></div></div>
             </div>
             <div className="px-6 py-4 flex justify-end gap-3 border-t border-[var(--border)] bg-[var(--surface)] rounded-b-2xl">

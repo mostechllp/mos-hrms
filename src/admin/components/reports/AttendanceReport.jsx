@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import SearchBar from "../common/SearchBar";
@@ -9,8 +9,11 @@ import {
   fetchAllAttendanceReport,
   fetchAttendanceReport,
   exportAttendanceReport,
+  fetchEmployeesForFilter,
 } from "../../store/slices/reportSlice";
 import ExportModal from "../../../components/common/ExportModal";
+import DateInput from "../common/DateInput";
+import { debounce } from 'lodash';
 
 const AttendanceReport = () => {
   const dispatch = useDispatch();
@@ -20,17 +23,34 @@ const AttendanceReport = () => {
     attendanceTotalCount: totalCount = 0,
     attendanceLastPage: lastPage = 1,
     exportLoading = false,
+    employeesList = [],
   } = useSelector((state) => state.reports || {});
 
-  // Local state
+  // Local state (UI filters - what the user sees/selects)
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all");
   const [employeeFilter, setEmployeeFilter] = useState("all");
   const [showExportModal, setShowExportModal] = useState(false);
-  const [datePreset, setDatePreset] = useState("custom");
+  const [datePreset, setDatePreset] = useState("this_month");
   const [exportType, setExportType] = useState("current");
+
+  // Applied filters - these are the ones actually used in the API call
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
+  const [appliedEmployeeFilter, setAppliedEmployeeFilter] = useState("all");
+  const [appliedStartDate, setAppliedStartDate] = useState("");
+  const [appliedEndDate, setAppliedEndDate] = useState("");
+
+  const [tableKey, setTableKey] = useState(0);
+
+  const debouncedSearch = useCallback(
+    debounce((value) => {
+      setSearchTerm(value);
+      setCurrentPage(1);
+    }, 500),
+    []
+  );
 
   // Date range state
   const [startDate, setStartDate] = useState(() => {
@@ -42,36 +62,25 @@ const AttendanceReport = () => {
     return new Date().toISOString().split("T")[0];
   });
 
-  // Get unique employees and companies for filters
-  const uniqueCompanies = [
-    ...new Set(records.map((record) => record.company).filter(Boolean)),
-  ];
-  
-  const uniqueEmployees = [
-    ...new Set(
-      records
-        .map((record) => ({
-          id: record.employeeId || record.employee_id || record.id,
-          name: record.employeeName || record.name || record.employee_name,
-        }))
-        .filter((emp) => emp.id && emp.name)
-    ),
-  ];
+  useEffect(() => {
+    dispatch(fetchEmployeesForFilter());
+  }, [dispatch]);
 
-  // Fetch attendance data with filters
+  // ✅ Fetch attendance data with APPLIED filters (not the UI filters)
   useEffect(() => {
     const fetchData = async () => {
-      await dispatch(
-        fetchAttendanceReport({
-          page: currentPage,
-          per_page: perPage,
-          company: companyFilter !== "all" ? companyFilter : undefined,
-          employee_id: employeeFilter !== "all" ? employeeFilter : undefined,
-          search: searchTerm || undefined,
-          start_date: startDate,
-          end_date: endDate,
-        }),
-      );
+      const params = {
+        page: currentPage,
+        per_page: perPage,
+        company: companyFilter !== "all" ? companyFilter : undefined,
+        employee_id: appliedEmployeeFilter !== "all" ? appliedEmployeeFilter : undefined,
+        search: appliedSearchTerm || undefined,
+        start_date: appliedStartDate || startDate,
+        end_date: appliedEndDate || endDate,
+      };
+      
+      console.log("Fetching with applied filters:", params);
+      await dispatch(fetchAttendanceReport(params));
     };
     fetchData();
   }, [
@@ -79,16 +88,16 @@ const AttendanceReport = () => {
     currentPage,
     perPage,
     companyFilter,
-    employeeFilter,
-    searchTerm,
-    startDate,
-    endDate,
+    appliedEmployeeFilter,
+    appliedSearchTerm,
+    appliedStartDate,
+    appliedEndDate,
   ]);
 
-  // Reset to first page when filters change
+  // Reset to first page when applied filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [companyFilter, employeeFilter, searchTerm, perPage, startDate, endDate]);
+  }, [appliedEmployeeFilter, appliedSearchTerm, perPage, appliedStartDate, appliedEndDate]);
 
   const handleDatePresetChange = (preset) => {
     setDatePreset(preset);
@@ -129,88 +138,105 @@ const AttendanceReport = () => {
     setEndDate(end.toISOString().split("T")[0]);
   };
 
-  const hasOvertimeValue = (overtime) => {
-    if (!overtime || overtime === "-" || overtime === "0" || overtime === 0)
-      return false;
-    if (typeof overtime === "string" && overtime.trim() !== "") return true;
-    if (typeof overtime === "number" && overtime > 0) return true;
+  // ✅ SIMPLIFIED: Just check if overtime exists from API
+  const hasOvertime = (record) => {
+    // Check is_overtime from API
+    if (record.is_overtime === "Yes" || record.is_overtime === true || record.is_overtime === 1) {
+      return true;
+    }
+    
+    // Also check if overtime has a value
+    if (record.overtime && record.overtime !== "-" && record.overtime !== "0" && record.overtime !== 0) {
+      return true;
+    }
+    
     return false;
   };
 
-  const handleApplyFilters = () => {
-    setCurrentPage(1);
-    showToast("Filters applied successfully", "success");
-  };
-
-  const handleResetFilters = () => {
-    const firstDayOfMonth = new Date();
-    firstDayOfMonth.setDate(1);
-    setStartDate(firstDayOfMonth.toISOString().split("T")[0]);
-    setEndDate(new Date().toISOString().split("T")[0]);
-    setCompanyFilter("all");
-    setEmployeeFilter("all");
-    setSearchTerm("");
-    setCurrentPage(1);
-    showToast("Filters reset successfully", "success");
-  };
-
-  // Updated handleExport using the export thunk
-  const handleExport = async (format) => {
-    // Build export parameters
-    const params = {
-      format: format,
-      date_range: datePreset,
-    };
-
-    // Add date range for custom
-    if (datePreset === "custom") {
-      params.from_date = startDate;
-      params.to_date = endDate;
+  // ✅ SIMPLIFIED: Get overtime display value directly from API
+  const getOvertimeDisplay = (record) => {
+    // First check if is_overtime is "Yes"
+    if (record.is_overtime === "Yes" || record.is_overtime === true || record.is_overtime === 1) {
+      // If overtime has a value, show it, otherwise show "Yes"
+      if (record.overtime && record.overtime !== "-" && record.overtime !== "0") {
+        return record.overtime;
+      }
+      return "Yes";
     }
-
-    // Add filters
-    if (companyFilter && companyFilter !== "all") {
-      params.company_id = companyFilter;
-    }
-    if (employeeFilter && employeeFilter !== "all") {
-      params.employee_id = employeeFilter;
-    }
-    if (searchTerm) {
-      params.search = searchTerm;
-    }
-
-    // Dispatch the export thunk
-    const result = await dispatch(exportAttendanceReport(params));
     
-    if (exportAttendanceReport.fulfilled.match(result)) {
-      const { url, filename } = result.payload;
+    // If no explicit is_overtime, check if overtime value exists
+    if (record.overtime && record.overtime !== "-" && record.overtime !== "0" && record.overtime !== 0) {
+      return record.overtime;
+    }
+    
+    return "-";
+  };
+
+  // ✅ SIMPLIFIED: Get is_overtime display value directly from API
+  const getIsOvertimeDisplay = (record) => {
+    if (record.is_overtime === "Yes" || record.is_overtime === true || record.is_overtime === 1) {
+      return "Yes";
+    }
+    return "No";
+  };
+
+  // ✅ SIMPLIFIED: Format date properly
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "-";
+    try {
+      // Handle "YYYY-MM-DD" format
+      if (dateStr.includes("-")) {
+        const parts = dateStr.split("-");
+        if (parts.length === 3) {
+          const date = new Date(parts[0], parts[1] - 1, parts[2]);
+          if (!isNaN(date.getTime())) {
+            return date.toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            });
+          }
+        }
+      }
       
-      // Create a download link
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Handle "DD/MM/YYYY" format
+      if (dateStr.includes("/")) {
+        const parts = dateStr.split("/");
+        if (parts.length === 3) {
+          const date = new Date(parts[2], parts[1] - 1, parts[0]);
+          if (!isNaN(date.getTime())) {
+            return date.toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            });
+          }
+        }
+      }
       
-      // Revoke the URL after download
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-      }, 100);
+      // Try parsing as date
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
+      }
       
-      showToast(`Attendance report exported successfully!`, "success");
-    } else {
-      showToast(result.payload || "Failed to export report", "error");
+      return dateStr;
+    } catch (e) {
+      return dateStr;
     }
   };
 
   const formatTime = (time) => {
-    if (!time) return "-";
+    if (!time || time === "-") return "-";
     return time;
   };
 
   const formatWorkedHours = (hours) => {
-    if (!hours || hours === 0 || hours === "0") return "-";
+    if (!hours || hours === 0 || hours === "0" || hours === "-") return "-";
     const numHours = typeof hours === "string" ? parseFloat(hours) : hours;
     if (isNaN(numHours) || numHours === 0) return "-";
     const h = Math.floor(numHours);
@@ -221,20 +247,19 @@ const AttendanceReport = () => {
   };
 
   // Status badge with overtime indicator
-  const getStatusBadge = (status, overtime = 0) => {
+  const getStatusBadge = (status, hasOT) => {
     const statusLower = String(status || "").toLowerCase();
-    const hasOvertime = overtime > 0;
 
     const statusConfigs = {
       present: {
-        bg: hasOvertime
+        bg: hasOT
           ? "bg-emerald-100 dark:bg-emerald-900/30"
           : "bg-green-100 dark:bg-green-900/30",
-        text: hasOvertime
+        text: hasOT
           ? "text-emerald-700 dark:text-emerald-400"
           : "text-green-700 dark:text-green-400",
-        icon: hasOvertime ? "fa-star" : "fa-check-circle",
-        label: hasOvertime ? "Present + OT" : "Present",
+        icon: hasOT ? "fa-star" : "fa-check-circle",
+        label: hasOT ? "Present + OT" : "Present",
       },
       absent: {
         bg: "bg-red-100 dark:bg-red-900/30",
@@ -243,54 +268,54 @@ const AttendanceReport = () => {
         label: "Absent",
       },
       late: {
-        bg: hasOvertime
+        bg: hasOT
           ? "bg-amber-100 dark:bg-amber-900/30"
           : "bg-yellow-100 dark:bg-yellow-900/30",
-        text: hasOvertime
+        text: hasOT
           ? "text-amber-700 dark:text-amber-400"
           : "text-yellow-700 dark:text-yellow-400",
-        icon: hasOvertime ? "fa-star" : "fa-clock",
-        label: hasOvertime ? "Late + OT" : "Late",
+        icon: hasOT ? "fa-star" : "fa-clock",
+        label: hasOT ? "Late + OT" : "Late",
       },
       "half day": {
-        bg: hasOvertime
+        bg: hasOT
           ? "bg-indigo-100 dark:bg-indigo-900/30"
           : "bg-blue-100 dark:bg-blue-900/30",
-        text: hasOvertime
+        text: hasOT
           ? "text-indigo-700 dark:text-indigo-400"
           : "text-blue-700 dark:text-blue-400",
-        icon: hasOvertime ? "fa-star" : "fa-hourglass-half",
-        label: hasOvertime ? "Half Day + OT" : "Half Day",
+        icon: hasOT ? "fa-star" : "fa-hourglass-half",
+        label: hasOT ? "Half Day + OT" : "Half Day",
       },
       halfday: {
-        bg: hasOvertime
+        bg: hasOT
           ? "bg-indigo-100 dark:bg-indigo-900/30"
           : "bg-blue-100 dark:bg-blue-900/30",
-        text: hasOvertime
+        text: hasOT
           ? "text-indigo-700 dark:text-indigo-400"
           : "text-blue-700 dark:text-blue-400",
-        icon: hasOvertime ? "fa-star" : "fa-hourglass-half",
-        label: hasOvertime ? "Half Day + OT" : "Half Day",
+        icon: hasOT ? "fa-star" : "fa-hourglass-half",
+        label: hasOT ? "Half Day + OT" : "Half Day",
       },
       "full day": {
-        bg: hasOvertime
+        bg: hasOT
           ? "bg-purple-100 dark:bg-purple-900/30"
           : "bg-purple-100 dark:bg-purple-900/30",
-        text: hasOvertime
+        text: hasOT
           ? "text-purple-700 dark:text-purple-400"
           : "text-purple-700 dark:text-purple-400",
         icon: "fa-check-double",
-        label: hasOvertime ? "Full Day + OT" : "Full Day",
+        label: hasOT ? "Full Day + OT" : "Full Day",
       },
       fullday: {
-        bg: hasOvertime
+        bg: hasOT
           ? "bg-purple-100 dark:bg-purple-900/30"
           : "bg-purple-100 dark:bg-purple-900/30",
-        text: hasOvertime
+        text: hasOT
           ? "text-purple-700 dark:text-purple-400"
           : "text-purple-700 dark:text-purple-400",
-        icon: hasOvertime ? "fa-star" : "fa-check-double",
-        label: hasOvertime ? "Full Day + OT" : "Full Day",
+        icon: hasOT ? "fa-star" : "fa-check-double",
+        label: hasOT ? "Full Day + OT" : "Full Day",
       },
       holiday: {
         bg: "bg-pink-100 dark:bg-pink-900/30",
@@ -329,29 +354,97 @@ const AttendanceReport = () => {
     );
   };
 
-  // Calculate stats for summary
+  // Calculate stats for summary - using API data directly
   const allRecords = records || [];
   const totalPresent = allRecords.filter(
-    (r) => r.status !== "Absent" && !r.lateBy,
+    (r) => r.status !== "Absent" && r.status !== "absent",
   ).length;
   const totalHalfDay = allRecords.filter((r) => {
-    const status = String(r.status || r.attendance_status || "").toLowerCase();
+    const status = String(r.status || "").toLowerCase();
     return status === "half day" || status === "halfday";
   }).length;
-  const totalAbsent = allRecords.filter((r) => r.status === "Absent").length;
-  const totalOvertime = allRecords.filter((r) => {
-    const overtime = r.overtime;
-    if (!overtime || overtime === "-" || overtime === "0" || overtime === 0)
-      return false;
-    if (typeof overtime === "string" && overtime.trim() !== "") return true;
-    if (typeof overtime === "number" && overtime > 0) return true;
-    return false;
-  }).length;
+  const totalAbsent = allRecords.filter((r) => r.status === "Absent" || r.status === "absent").length;
+  const totalOvertime = allRecords.filter((r) => hasOvertime(r)).length;
 
-  const filteredRecords = allRecords;
+  const filteredRecords = records || [];
   const totalFiltered = totalCount || filteredRecords.length;
   const totalPages = lastPage || Math.ceil(totalFiltered / perPage);
   const start = (currentPage - 1) * perPage;
+
+  // Handle Apply Filters
+  const handleApplyFilters = () => {
+    setAppliedEmployeeFilter(employeeFilter);
+    setAppliedSearchTerm(searchTerm);
+    setAppliedStartDate(startDate);
+    setAppliedEndDate(endDate);
+    setCurrentPage(1);
+    setTableKey(prev => prev + 1);
+    showToast("Filters applied successfully", "success");
+  };
+
+  // Handle Reset Filters
+  const handleResetFilters = () => {
+    const firstDayOfMonth = new Date();
+    firstDayOfMonth.setDate(1);
+    const newStartDate = firstDayOfMonth.toISOString().split("T")[0];
+    const newEndDate = new Date().toISOString().split("T")[0];
+    
+    setStartDate(newStartDate);
+    setEndDate(newEndDate);
+    setCompanyFilter("all");
+    setEmployeeFilter("all");
+    setSearchTerm("");
+    setDatePreset("this_month");
+    setCurrentPage(1);
+    setTableKey(prev => prev + 1);
+    
+    setAppliedEmployeeFilter("all");
+    setAppliedSearchTerm("");
+    setAppliedStartDate(newStartDate);
+    setAppliedEndDate(newEndDate);
+    
+    showToast("Filters reset successfully", "success");
+  };
+
+  const handleExport = async (format) => {
+    const params = {
+      format: format,
+      date_range: datePreset,
+    };
+
+    if (datePreset === "custom") {
+      params.from_date = appliedStartDate || startDate;
+      params.to_date = appliedEndDate || endDate;
+    }
+
+    if (companyFilter && companyFilter !== "all") {
+      params.company_id = companyFilter;
+    }
+    if (appliedEmployeeFilter && appliedEmployeeFilter !== "all") {
+      params.employee_id = appliedEmployeeFilter;
+    }
+    if (appliedSearchTerm) {
+      params.search = appliedSearchTerm;
+    }
+
+    const result = await dispatch(exportAttendanceReport(params));
+
+    if (exportAttendanceReport.fulfilled.match(result)) {
+      const { url, filename } = result.payload;
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      showToast(`Attendance report exported successfully!`, "success");
+    } else {
+      showToast(result.payload || "Failed to export report", "error");
+    }
+  };
 
   return (
     <div className="w-full overflow-x-hidden">
@@ -379,7 +472,7 @@ const AttendanceReport = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <div key={tableKey} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -462,8 +555,8 @@ const AttendanceReport = () => {
 
         {/* Date Range Filter */}
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[120px]">
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
                 <i className="fas fa-clock mr-1"></i> DATE RANGE
               </label>
@@ -479,28 +572,50 @@ const AttendanceReport = () => {
                 <option value="this_month">This Month</option>
               </select>
             </div>
-            <div>
+
+            <div className="flex-1 min-w-[130px]">
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                <i className="fas fa-calendar-alt mr-1"></i> START DATE
+                <i className="fas fa-calendar-alt mr-1"></i> START
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+                onChange={(date) => setStartDate(date)}
+                placeholder="dd/mm/yyyy"
+                type="general"
               />
             </div>
-            <div>
+
+            <div className="flex-1 min-w-[130px]">
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                <i className="fas fa-calendar-alt mr-1"></i> END DATE
+                <i className="fas fa-calendar-alt mr-1"></i> END
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+                onChange={(date) => setEndDate(date)}
+                placeholder="dd/mm/yyyy"
+                type="general"
               />
             </div>
+
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                <i className="fas fa-user mr-1"></i> EMPLOYEE
+              </label>
+              <select
+                value={employeeFilter}
+                onChange={(e) => setEmployeeFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+              >
+                <option value="all">All Employees</option>
+                {Array.isArray(employeesList) &&
+                  employeesList.map((employee) => (
+                    <option key={employee.id} value={String(employee.id)}>
+                      {employee.name || `Employee ${employee.id}`}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
             <div className="flex gap-2">
               <button
                 onClick={handleApplyFilters}
@@ -518,41 +633,6 @@ const AttendanceReport = () => {
           </div>
         </div>
 
-        {/* Additional Filters */}
-        <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
-          <select
-            value={companyFilter}
-            onChange={(e) => {
-              setCompanyFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-3 md:px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs md:text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
-          >
-            <option value="all">All Companies</option>
-            {uniqueCompanies.map((company) => (
-              <option key={company} value={company}>
-                {company}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={employeeFilter}
-            onChange={(e) => {
-              setEmployeeFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-3 md:px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs md:text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500 min-w-[150px]"
-          >
-            <option value="all">All Employees</option>
-            {uniqueEmployees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
         {/* Actions Bar */}
         <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-5">
           <EntriesSelector
@@ -563,14 +643,6 @@ const AttendanceReport = () => {
             }}
           />
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <SearchBar
-              value={searchTerm}
-              onChange={(val) => {
-                setSearchTerm(val);
-                setCurrentPage(1);
-              }}
-              placeholder="Search by employee name..."
-            />
             <select
               value={exportType}
               onChange={(e) => setExportType(e.target.value)}
@@ -586,9 +658,13 @@ const AttendanceReport = () => {
               className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {exportLoading ? (
-                <><i className="fas fa-spinner fa-spin"></i> Exporting...</>
+                <>
+                  <i className="fas fa-spinner fa-spin"></i> Exporting...
+                </>
               ) : (
-                <><i className="fas fa-download"></i> Export Report</>
+                <>
+                  <i className="fas fa-download"></i> Export Report
+                </>
               )}
             </button>
           </div>
@@ -634,6 +710,9 @@ const AttendanceReport = () => {
                       <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                         OVERTIME
                       </th>
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                        IS OVERTIME
+                      </th>
                       <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
                         STATUS
                       </th>
@@ -642,60 +721,25 @@ const AttendanceReport = () => {
                   <tbody>
                     {filteredRecords.length > 0 ? (
                       filteredRecords.map((record, idx) => {
-                        const hasOvertime = hasOvertimeValue(record.overtime);
+                        const hasOT = hasOvertime(record);
                         const isLate = record.lateBy && record.lateBy > 0;
+                        const overtimeDisplay = getOvertimeDisplay(record);
+                        const isOvertimeDisplay = getIsOvertimeDisplay(record);
 
                         return (
                           <tr
                             key={record.id || idx}
-                            className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${hasOvertime ? 'dark:bg-emerald-900/5' : ''}`}
+                            className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${hasOT ? "bg-emerald-50/30 dark:bg-emerald-900/10" : ""}`}
                           >
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
                               {start + idx + 1}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                              {record.date
-                                ? (() => {
-                                    try {
-                                      if (record.date.includes("/")) {
-                                        const parts = record.date.split("/");
-                                        if (parts.length === 3) {
-                                          const date = new Date(
-                                            `${parts[2]}-${parts[1]}-${parts[0]}`,
-                                          );
-                                          if (!isNaN(date.getTime())) {
-                                            return date.toLocaleDateString(
-                                              "en-GB",
-                                              {
-                                                day: "2-digit",
-                                                month: "short",
-                                                year: "numeric",
-                                              },
-                                            );
-                                          }
-                                        }
-                                      }
-                                      const date = new Date(record.date);
-                                      if (!isNaN(date.getTime())) {
-                                        return date.toLocaleDateString(
-                                          "en-GB",
-                                          {
-                                            day: "2-digit",
-                                            month: "short",
-                                            year: "numeric",
-                                          },
-                                        );
-                                      }
-                                      return record.date;
-                                    } catch (e) {
-                                      return record.date;
-                                    }
-                                  })()
-                                : "-"}
+                              {formatDate(record.date)}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
                               {record.employeeName || record.name || "-"}
-                              {hasOvertime && (
+                              {hasOT && (
                                 <span className="ml-1 text-[8px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">
                                   OT
                                 </span>
@@ -708,7 +752,7 @@ const AttendanceReport = () => {
                               <span
                                 className={`font-semibold ${isLate ? "text-amber-600 dark:text-amber-400" : "text-gray-800 dark:text-gray-200"}`}
                               >
-                                {formatTime(record.punchIn)}
+                                {formatTime(record.punch_in || record.punchIn)}
                               </span>
                               {isLate && (
                                 <span className="ml-1 text-[8px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full">
@@ -717,9 +761,9 @@ const AttendanceReport = () => {
                               )}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
-                              {record.punchOut ? (
+                              {record.punch_out || record.punchOut ? (
                                 <span className="font-semibold text-gray-800 dark:text-gray-200">
-                                  {formatTime(record.punchOut)}
+                                  {formatTime(record.punch_out || record.punchOut)}
                                 </span>
                               ) : (
                                 <span className="inline-block bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[9px] md:text-xs px-1.5 md:px-2 py-0.5 rounded-full whitespace-nowrap">
@@ -728,21 +772,22 @@ const AttendanceReport = () => {
                               )}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                              {record.working_hours !== undefined &&
-                              record.working_hours !== null &&
-                              record.working_hours !== 0 &&
-                              record.working_hours !== "0" ? (
+                              {record.worked_hours !== undefined &&
+                              record.worked_hours !== null &&
+                              record.worked_hours !== 0 &&
+                              record.worked_hours !== "0" &&
+                              record.worked_hours !== "-" ? (
                                 <span className="font-medium text-gray-700 dark:text-gray-300">
-                                  {formatWorkedHours(record.working_hours)}
+                                  {formatWorkedHours(record.worked_hours)}
                                 </span>
                               ) : (
                                 "-"
                               )}
                             </td>
                             <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
-                              {hasOvertime ? (
+                              {overtimeDisplay !== "-" ? (
                                 <span className="inline-flex items-center gap-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-semibold px-2 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
-                                  {record.overtime}
+                                  {overtimeDisplay}
                                 </span>
                               ) : (
                                 <span className="text-gray-400 dark:text-gray-500 text-[10px]">
@@ -750,10 +795,22 @@ const AttendanceReport = () => {
                                 </span>
                               )}
                             </td>
+                            <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                              {isOvertimeDisplay === "Yes" ? (
+                                <span className="inline-flex items-center gap-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-semibold px-2 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+                                  <i className="fas fa-check-circle text-[10px]"></i>
+                                  Yes
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-semibold px-2 py-1 rounded-full border border-gray-200 dark:border-gray-700">
+                                  No
+                                </span>
+                              )}
+                            </td>
                             <td className="px-3 md:px-4 py-2 md:py-3">
                               {getStatusBadge(
                                 record.attendance_status || record.status,
-                                hasOvertime,
+                                hasOT,
                               )}
                             </td>
                           </tr>
@@ -762,7 +819,7 @@ const AttendanceReport = () => {
                     ) : (
                       <tr>
                         <td
-                          colSpan="9"
+                          colSpan="10"
                           className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                         >
                           <div className="flex flex-col items-center justify-center gap-2">

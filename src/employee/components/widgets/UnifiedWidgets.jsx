@@ -4,10 +4,6 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { addTask, toggleTask, deleteTask, clearCompletedTasks } from '../../store/slices/myTasksSlice';
 import { addNote, deleteNote } from '../../store/slices/notesSlice';
 
-// Import your existing desktop widgets
-import TaskWidget from './TaskWidget';
-import NotesWidget from './NotesWidget';
-
 const UnifiedWidgets = () => {
   const dispatch = useAppDispatch();
   const tasks = useAppSelector((state) => state.myTasks.tasks);
@@ -46,56 +42,53 @@ const UnifiedWidgets = () => {
 
   return (
     <>
-      {/* Desktop Widgets - Visible only on desktop */}
-      <div className="hidden md:block">
-        <TaskWidget />
-        <NotesWidget />
-      </div>
+      {/* Floating Action Button - Only visible element when closed */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`
+          fixed z-[1000] 
+          bottom-6 right-6
+          w-14 h-14 rounded-full 
+          shadow-lg hover:shadow-xl 
+          flex items-center justify-center
+          transition-all duration-300
+          ${isOpen ? 'rotate-45' : 'rotate-0'}
+          border-0 cursor-pointer
+          hover:scale-105 active:scale-95
+        `}
+        style={{
+          background: 'linear-gradient(135deg, #9753B3 0%, #EEAD16 100%)',
+          boxShadow: '0 4px 15px rgba(151, 83, 179, 0.4)'
+        }}
+      >
+        <i className={`fas ${isOpen ? 'fa-times' : 'fa-plus'} text-white text-2xl`} style={{ color: 'white' }}></i>
+        {totalPending > 0 && !isOpen && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 min-w-[22px] text-center border-2 border-white">
+            {totalPending}
+          </span>
+        )}
+      </button>
 
-      {/* Mobile Widgets - Visible only on mobile */}
-      <>
-        {/* Floating Action Button */}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={`
-            fixed z-[1000] 
-            bottom-6 right-6
-            w-14 h-14 rounded-full 
-            shadow-lg hover:shadow-xl 
-            flex items-center justify-center
-            transition-all duration-300
-            ${isOpen ? 'rotate-45' : 'rotate-0'}
-            md:hidden
-            border-0
-            cursor-pointer
-          `}
-          style={{
-            background: 'linear-gradient(135deg, #9753B3 0%, #EEAD16 100%)',
-            boxShadow: '0 4px 15px rgba(151, 83, 179, 0.4)'
-          }}
-        >
-          <i className={`fas ${isOpen ? 'fa-times' : 'fa-plus'} text-white text-2xl`} style={{ color: 'white' }}></i>
-          {totalPending > 0 && !isOpen && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 min-w-[22px] text-center border-2 border-white">
-              {totalPending}
-            </span>
-          )}
-        </button>
-
-        {/* Mobile Drawer */}
+      {/* Drawer - Completely hidden when closed, only shows when isOpen is true */}
+      {isOpen && (
         <div
           className={`
             fixed inset-x-0 bottom-0 z-[999]
             bg-white dark:bg-gray-800
             rounded-t-3xl shadow-2xl
-            transition-transform duration-300 ease-in-out
-            ${isOpen ? 'translate-y-0' : 'translate-y-full'}
-            md:hidden
+            transition-all duration-300 ease-in-out
             max-h-[85vh]
+            md:max-w-md md:left-auto md:right-6 md:rounded-2xl md:shadow-2xl
+            animate-slide-up
           `}
+          style={{
+            ...(window.innerWidth >= 768 && {
+              bottom: '90px',
+            })
+          }}
         >
           {/* Drag Handle */}
-          <div className="flex justify-center pt-3 pb-2">
+          <div className="flex justify-center pt-3 pb-2 md:pt-4">
             <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
           </div>
 
@@ -115,7 +108,7 @@ const UnifiedWidgets = () => {
                 className={`
                   flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all
                   ${activeTab === 'tasks' 
-                    ? 'bg-purple-500 text-black shadow-md' 
+                    ? 'bg-purple-500 text-black dark:text-white shadow-md' 
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }
                 `}
@@ -137,7 +130,7 @@ const UnifiedWidgets = () => {
                 className={`
                   flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all
                   ${activeTab === 'notes' 
-                    ? 'bg-yellow-500 text-black shadow-md' 
+                    ? 'bg-yellow-500 text-black dark:text-white shadow-md' 
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }
                 `}
@@ -147,7 +140,7 @@ const UnifiedWidgets = () => {
                 {notes.length > 0 && (
                   <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
                     activeTab === 'notes' 
-                      ? 'bg-white/20 text-white ' 
+                      ? 'bg-white/20 text-white' 
                       : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-300'
                   }`}>
                     {notes.length}
@@ -174,7 +167,7 @@ const UnifiedWidgets = () => {
                   />
                   <button
                     onClick={handleAddTask}
-                    className="bg-purple-500 hover:bg-purple-600 active:scale-95 dark:text-gray-300  text-black px-5 py-3 rounded-xl text-sm font-medium transition-all shadow-md hover:shadow-lg"
+                    className="bg-purple-500 hover:bg-purple-600 active:scale-95 text-black dark:text-white px-5 py-3 rounded-xl text-sm font-medium transition-all shadow-md hover:shadow-lg"
                   >
                     <i className="fas fa-plus mr-1"></i>
                     Add
@@ -250,7 +243,7 @@ const UnifiedWidgets = () => {
                   />
                   <button
                     onClick={handleAddNote}
-                    className="mt-2 w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black dark:text-gray-300 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md hover:shadow-lg"
+                    className="mt-2 w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 dark:text-white text-black  py-2.5 rounded-xl text-sm font-medium transition-all shadow-md hover:shadow-lg"
                   >
                     <i className="fas fa-save mr-2"></i>
                     Add Note
@@ -315,7 +308,7 @@ const UnifiedWidgets = () => {
             </button>
           </div>
         </div>
-      </>
+      )}
     </>
   );
 };

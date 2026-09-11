@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/static-components */
 import { useDispatch, useSelector } from "react-redux";
-import { FiCheckCircle, FiFileText, FiUser, FiChevronLeft, FiSend, FiShield, FiGlobe, FiBriefcase, FiAlertTriangle, FiX, FiDollarSign, FiCalendar } from "react-icons/fi";
+import { FiCheckCircle, FiFileText, FiUser, FiChevronLeft, FiSend, FiShield, FiGlobe, FiBriefcase, FiAlertTriangle, FiX, FiDollarSign, FiCalendar, FiCheckSquare, FiLink } from "react-icons/fi";
 import { setStep, completeOnboarding } from "../../store/slices/onboardingSlice";
 import { showToast } from "../../components/common/Toast";
 import { fetchEmployees } from "../../store/slices/employeeSlice";
@@ -15,7 +15,7 @@ import apiClient from "../../../utils/apiClient";
 const OnboardingReview = () => {
   const dispatch = useDispatch();
   const onboardingState = useSelector((state) => state.onboarding) || {};
-  const { employeeDetails = {}, resumeData = {} } = onboardingState;
+  const { employeeDetails = {}, resumeData = {}, professionalVerification = {} } = onboardingState;
 
   // Redux Selectors for Metadata
   const { organizations = [] } = useSelector((state) => state.organizations || {});
@@ -342,7 +342,7 @@ const OnboardingReview = () => {
   };
 
   const handleBack = () => {
-    dispatch(setStep(4));
+    dispatch(setStep(6));
   };
 
   const handleSaveDraft = () => {
@@ -530,19 +530,19 @@ const OnboardingReview = () => {
                   <div className="space-y-1">
                     <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Basic Salary</p>
                     <p className="text-sm font-bold text-gray-900 dark:text-white">
-                      {employeeDetails.currency || "AED"} {parseFloat(employeeDetails.basicSalary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {employeeDetails.currency || "INR"} {parseFloat(employeeDetails.basicSalary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Other Allowance</p>
                     <p className="text-sm font-bold text-gray-900 dark:text-white">
-                      {employeeDetails.currency || "AED"} {parseFloat(employeeDetails.otherAllowance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {employeeDetails.currency || "INR"} {parseFloat(employeeDetails.otherAllowance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Total Monthly Salary</p>
                     <p className="text-sm font-extrabold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20 px-3 py-1 rounded-lg inline-block">
-                      {employeeDetails.currency || "AED"} {parseFloat(employeeDetails.totalMonthlySalary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {employeeDetails.currency || "INR"} {parseFloat(employeeDetails.totalMonthlySalary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="space-y-1">
@@ -560,7 +560,7 @@ const OnboardingReview = () => {
                         <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-900/35 rounded-xl border border-gray-100 dark:border-gray-800/80 flex items-center justify-between">
                           <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">{comp.name}</span>
                           <span className="text-xs font-bold text-gray-900 dark:text-white shrink-0 ml-2">
-                            {employeeDetails.currency || "AED"} {comp.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {employeeDetails.currency || "INR"} {comp.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ))}
@@ -570,11 +570,7 @@ const OnboardingReview = () => {
 
                 {/* Country-specific Bank Transfer Info */}
                 <div className="border-t border-gray-100 dark:border-gray-700/60 pt-6 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Bank Country</p>
-                      <p className="text-sm font-bold text-gray-900 dark:text-white">{employeeDetails.bankCountry || "UAE"}</p>
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
                     <div className="space-y-1">
                       <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Bank Name</p>
                       <p className="text-sm font-bold text-gray-900 dark:text-white">{employeeDetails.bankName || "-"}</p>
@@ -583,50 +579,17 @@ const OnboardingReview = () => {
                       <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Account Number</p>
                       <p className="text-sm font-bold text-gray-900 dark:text-white font-mono">{employeeDetails.accountNumber || "-"}</p>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
-                    {employeeDetails.bankCountry === "India" ? (
-                      <>
-                        {employeeDetails.bankIfsc && (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">IFSC Code</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white font-mono">{employeeDetails.bankIfsc}</p>
-                          </div>
-                        )}
-                        {employeeDetails.bankBranch && (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Branch Name</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">{employeeDetails.bankBranch}</p>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        {employeeDetails.bankIban && (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">IBAN Number</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white font-mono">
-                              {(() => {
-                                // Re-format space separators for display
-                                const raw = employeeDetails.bankIban.replace(/\s/g, "");
-                                let formatted = "";
-                                for (let i = 0; i < raw.length; i++) {
-                                  if (i > 0 && i % 4 === 0) formatted += " ";
-                                  formatted += raw[i];
-                                }
-                                return formatted;
-                              })()}
-                            </p>
-                          </div>
-                        )}
-                        {employeeDetails.bankSwift && (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">SWIFT/BIC Code</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white font-mono">{employeeDetails.bankSwift}</p>
-                          </div>
-                        )}
-                      </>
+                    {employeeDetails.bankIfsc && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">IFSC Code</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white font-mono">{employeeDetails.bankIfsc}</p>
+                      </div>
+                    )}
+                    {employeeDetails.bankBranch && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Branch Name</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">{employeeDetails.bankBranch}</p>
+                      </div>
                     )}
                   </div>
 
@@ -648,6 +611,84 @@ const OnboardingReview = () => {
               </div>
             </SummaryCard>
           </div>
+        </div>
+
+        {/* Professional Verification Summary */}
+        <div className="md:col-span-2">
+          <SummaryCard title="Professional Verification" icon={FiCheckSquare}>
+            <div className="space-y-6">
+              {/* URLs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-1"><FiLink size={12}/> LinkedIn</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                    {professionalVerification.linkedInUrl ? (
+                      <a href={professionalVerification.linkedInUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">{professionalVerification.linkedInUrl}</a>
+                    ) : "-"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-1"><FiLink size={12}/> GitHub</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                    {professionalVerification.githubUrl ? (
+                      <a href={professionalVerification.githubUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">{professionalVerification.githubUrl}</a>
+                    ) : "-"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-1"><FiLink size={12}/> Portfolio</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                    {professionalVerification.portfolioUrl ? (
+                      <a href={professionalVerification.portfolioUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">{professionalVerification.portfolioUrl}</a>
+                    ) : "-"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-1"><FiLink size={12}/> Other URL</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                    {professionalVerification.otherUrl ? (
+                      <a href={professionalVerification.otherUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">{professionalVerification.otherUrl}</a>
+                    ) : "-"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Checkboxes */}
+              <div className="pt-4 border-t border-gray-100 dark:border-gray-700/60">
+                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Verification Status</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-5 h-5 rounded flex items-center justify-center ${professionalVerification.identityVerified ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-transparent'}`}>
+                      <FiCheckSquare size={14} />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Identity Verified</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-5 h-5 rounded flex items-center justify-center ${professionalVerification.credentialsVerified ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-transparent'}`}>
+                      <FiCheckSquare size={14} />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Credentials Verified</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-5 h-5 rounded flex items-center justify-center ${professionalVerification.employmentInfoVerified ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-transparent'}`}>
+                      <FiCheckSquare size={14} />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Employment Info Verified</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              {professionalVerification.verificationNotes && (
+                <div className="pt-4 border-t border-gray-100 dark:border-gray-700/60">
+                  <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Verification Notes</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
+                    {professionalVerification.verificationNotes}
+                  </p>
+                </div>
+              )}
+            </div>
+          </SummaryCard>
         </div>
 
         {/* Footer Actions */}

@@ -1,97 +1,224 @@
-import React from "react";
-import { ArrowLeft, User, Briefcase, CheckCircle2, MoreHorizontal } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 const STEPS = [
-  { id: 1, label: "Initiation", path: "/admin/employees/offboarding-initiation" },
-  { id: 2, label: "Visa Cancel", path: "/admin/employees/visa-cancellation" },
-  { id: 3, label: "Checklist", path: "/admin/employees/offboarding-checklist" },
-  { id: 4, label: "Assets", path: "/admin/employees/asset-return" },
-  { id: 5, label: "Interview", path: "/admin/employees/exit-interview" },
-  { id: 6, label: "Settlement", path: "/admin/employees/final-settlement" },
-  { id: 7, label: "Letters", path: "/admin/employees/letters-and-clearance" },
+  { id: 1, label: "Exit Initiation", subtitle: "Start Process", path: "/admin/employees/offboarding-initiation" },
+  { id: 2, label: "Handover", subtitle: "Responsibilities", path: "/admin/employees/offboarding/handover" },
+  { id: 3, label: "Leave Check", subtitle: "Encashment", path: "/admin/employees/offboarding/leave-check" },
+  { id: 4, label: "Access Removal", subtitle: "Revoke Access", path: "/admin/employees/offboarding/access-removal" },
+  { id: 5, label: "FnF Settlement", subtitle: "Final Payment", path: "/admin/employees/final-settlement" },
+  { id: 6, label: "Documentation", subtitle: "Letters & Exit", path: "/admin/employees/letters-and-clearance" },
 ];
 
-const OffboardingHeader = ({ currentStep, employeeName = "Khalid Al Mansouri", employeeId = "EMP-0088", role = "Operations Manager" }) => {
+const OffboardingHeader = ({ currentStep }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { currentProgress, currentOffboarding } = useSelector((state) => state.offboarding);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 px-6 py-6 sm:px-8 rounded-2xl shadow-soft">
-      {/* Top Bar: Back Button & Context */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => navigate("/admin/employees")}
-            className="p-1.5 -ml-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 font-bold text-lg">
-              {employeeName.charAt(0)}
-            </div>
-            <div>
-              <h2 className="text-lg font-black text-gray-900 dark:text-white leading-tight">
-                {employeeName}
-              </h2>
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 mt-0.5">
-                <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> {role}</span>
-                <span>•</span>
-                <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" /> {employeeId}</span>
-              </div>
-            </div>
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const getOffboardingId = () => {
+    const urlParams = new URLSearchParams(location.search);
+    return location.state?.id || urlParams.get('id') || localStorage.getItem("offboarding_id");
+  };
+  
+  const combinedStatus = currentProgress?.status ?? currentOffboarding?.status;
+  
+  let apiCalculatedStep = null;
+  if (combinedStatus) {
+     if (combinedStatus === "completed" || currentProgress?.progress_percentage === 100) apiCalculatedStep = 7;
+     else if (combinedStatus.includes("initiation")) apiCalculatedStep = 1;
+     else if (combinedStatus.includes("handover")) apiCalculatedStep = 2;
+     else if (combinedStatus.includes("leave")) apiCalculatedStep = 3;
+     else if (combinedStatus.includes("access")) apiCalculatedStep = 4;
+     else if (combinedStatus.includes("settlement")) apiCalculatedStep = 5;
+     else if (combinedStatus.includes("documentation") || combinedStatus.includes("letter")) apiCalculatedStep = 6;
+  }
+
+  const maxAllowedStep = apiCalculatedStep ? apiCalculatedStep : currentStep;
+
+  // Allow clicking any step so users can view fields without filling out the previous step
+  const canNavigateToStep = (stepId) => {
+    return true; // Used to be: return stepId <= maxAllowedStep;
+  };
+  
+  const handleStepClick = (step) => {
+    if (canNavigateToStep(step.id)) {
+      const id = getOffboardingId();
+      navigate(`${step.path}${id ? `?id=${id}` : ''}`);
+    }
+  };
+
+  if (!isMobile) {
+    return (
+      <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 px-6 py-6 sm:px-8 rounded-2xl shadow-soft">
+        <div className="flex items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => navigate("/admin/employees/offboarding")}
+              className="p-1.5 -ml-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h2 className="text-xl font-black text-gray-900 dark:text-white">
+              Offboarding Process
+            </h2>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1.5 bg-white dark:bg-gray-800 text-amber-500 border border-amber-200 dark:border-amber-900/60 rounded-full text-xs font-bold flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-            Offboarding Active
-          </span>
-          <button className="p-1.5 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-400 transition-colors">
-            <MoreHorizontal className="w-4 h-4" />
+
+        <div className="flex items-center justify-between w-full">
+          {STEPS.map((step, index) => {
+            const isCompleted = step.id < maxAllowedStep && step.id !== currentStep;
+            const isActive = step.id === currentStep;
+            const isClickable = canNavigateToStep(step.id);
+            
+            return (
+              <React.Fragment key={step.id}>
+                <div 
+                  className="flex flex-col items-center relative z-10"
+                  onClick={() => handleStepClick(step)}
+                  style={{ cursor: isClickable ? 'pointer' : 'not-allowed' }}
+                >
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-2 ${
+                      isCompleted
+                        ? "bg-green-600 border-green-600 text-white shadow-sm shadow-green-500/20"
+                        : isActive
+                        ? "bg-white dark:bg-gray-800 border-green-600 text-green-600 ring-4 ring-green-50 dark:ring-green-950/30"
+                        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400"
+                    } ${isClickable ? 'hover:scale-105 hover:shadow-md' : 'opacity-60'}`}
+                  >
+                    {isCompleted ? (
+                      <CheckCircle2 size={20} strokeWidth={2} />
+                    ) : (
+                      <span className="font-bold">{step.id}</span>
+                    )}
+                  </div>
+                  
+                  <div className="mt-3 text-center">
+                    <p className={`text-sm font-semibold transition-colors ${
+                      maxAllowedStep >= step.id
+                        ? "text-gray-900 dark:text-white" 
+                        : "text-gray-400"
+                    }`}>
+                      {step.label}
+                    </p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">
+                      {step.subtitle}
+                    </p>
+                  </div>
+                </div>
+
+                {index < STEPS.length - 1 && (
+                  <div className="flex-1 h-0.5 mx-4 -mt-10 bg-gray-100 dark:bg-gray-700">
+                    <div 
+                      className="h-full bg-green-600 transition-all duration-500 ease-in-out" 
+                      style={{ 
+                        width: maxAllowedStep > step.id ? "100%" : "0%" 
+                      }}
+                    />
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 px-3 py-3 rounded-2xl shadow-soft">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <button 
+            onClick={() => navigate("/admin/employees/offboarding")}
+            className="p-1.5 -ml-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 transition-colors flex-shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4" />
           </button>
+          <h2 className="text-sm font-bold text-gray-900 dark:text-white truncate">
+            Offboarding
+          </h2>
+        </div>
+        
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+            {currentStep}/{STEPS.length}
+          </span>
         </div>
       </div>
 
-      {/* Stepper */}
-      <div className="relative pt-1">
-        {/* The connecting line - positioned precisely behind the centers of the circles */}
-        <div className="absolute top-[15px] left-[35px] right-[35px] h-[2px] bg-gray-100 dark:bg-gray-700 z-0 hidden sm:block"></div>
-        
-        <div className="relative z-10 flex items-start justify-between overflow-x-auto pb-2 sm:pb-0 hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div className="relative">
+        <div className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-full mb-2.5">
+          <div 
+            className="h-full bg-green-600 rounded-full transition-all duration-500 ease-in-out"
+            style={{ 
+              width: `${((Math.max(currentStep, maxAllowedStep) - 1) / (STEPS.length - 1)) * 100}%` 
+            }}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
           {STEPS.map((step) => {
-            const isCurrent = step.id === currentStep;
+            const isCompleted = step.id < maxAllowedStep && step.id !== currentStep;
+            const isActive = step.id === currentStep;
+            const isClickable = canNavigateToStep(step.id);
 
             return (
               <div 
-                key={step.id} 
-                onClick={() => navigate(step.path)}
-                className="flex flex-col items-center gap-2 cursor-pointer min-w-[70px] group transition-opacity"
+                key={step.id}
+                className="flex flex-col items-center relative"
+                onClick={() => handleStepClick(step)}
+                style={{ cursor: isClickable ? 'pointer' : 'not-allowed' }}
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm bg-white dark:bg-gray-800 border-2 transition-colors relative z-10 ${
-                  isCurrent 
-                    ? "border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-500 shadow-sm ring-4 ring-blue-50 dark:ring-blue-900/20"
-                    : "border-gray-200 dark:border-gray-600 text-gray-300 dark:text-gray-500 group-hover:border-gray-300"
-                }`}>
-                  {step.id}
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 border-2 ${
+                    isCompleted
+                      ? "bg-green-600 border-green-600 text-white"
+                      : isActive
+                      ? "bg-white dark:bg-gray-800 border-green-600 text-green-600 ring-2 ring-green-50 dark:ring-green-950/30"
+                      : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400"
+                  } ${isClickable ? 'hover:scale-105' : 'opacity-60'}`}
+                >
+                  {isCompleted ? (
+                    <CheckCircle2 size={12} strokeWidth={2} />
+                  ) : (
+                    <span className="font-bold text-[10px]">{step.id}</span>
+                  )}
                 </div>
-                <span className={`text-[11px] sm:text-[11px] font-bold text-center whitespace-nowrap mt-1 ${
-                  isCurrent 
-                    ? "text-blue-600 dark:text-blue-400" 
-                    : "text-gray-300 dark:text-gray-500 group-hover:text-gray-400"
+                
+                <p className={`text-[7px] font-semibold mt-1 text-center leading-tight max-w-[40px] ${
+                  maxAllowedStep >= step.id
+                    ? "text-gray-900 dark:text-white" 
+                    : "text-gray-400"
                 }`}>
-                  {step.label}
-                </span>
+                  {step.label.length > 8 ? step.label.substring(0, 6) + '…' : step.label}
+                </p>
               </div>
             );
           })}
         </div>
-        <style dangerouslySetInnerHTML={{__html: `
-          .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-          }
-        `}} />
+      </div>
+
+      <div className="mt-2.5 pt-2.5 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex-shrink-0">
+            Step {currentStep}
+          </span>
+          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">
+            {STEPS.find(s => s.id === currentStep)?.label || ''}
+          </span>
+        </div>
       </div>
     </div>
   );

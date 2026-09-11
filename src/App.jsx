@@ -76,7 +76,11 @@ const AdminWFH = lazy(() => import("./admin/pages/WFH"));
 const Settings = lazy(() => import("./admin/pages/Settings"));
 const RoleManagement = lazy(() => import("./admin/pages/RoleManagement"));
 const ModuleManagement = lazy(() => import("./admin/pages/ModuleManagement"));
+const PayrollDashboard = lazy(() => import("./admin/pages/PayrollDashboard"));
+const PayrollList = lazy(() => import("./admin/pages/PayrollList"));
 const AddPayroll = lazy(() => import("./admin/pages/AddPayroll"));
+const PayrollDetails = lazy(() => import("./admin/pages/PayrollDetails"));
+const EditPayroll = lazy(() => import("./admin/pages/EditPayroll"));
 const OnboardingInitalize = lazy(
   () => import("./admin/components/onboarding/Onboarding"),
 );
@@ -110,6 +114,15 @@ const FinalSettlement = lazy(
 const LettersAndClearance = lazy(
   () => import("./admin/components/offboarding/LettersAndClearance"),
 );
+const Handover = lazy(
+  () => import("./admin/components/offboarding/Handover"),
+);
+const LeaveCheck = lazy(
+  () => import("./admin/components/offboarding/LeaveCheck"),
+);
+const AccessRemoval = lazy(
+  () => import("./admin/components/offboarding/AccessRemoval"),
+);
 const ChecklistCategories = lazy(
   () => import("./admin/pages/ChecklistCategoriesManagement"),
 );
@@ -118,7 +131,8 @@ const Projects = lazy(() => import("./admin/pages/Projects"));
 const ProjectTasks = lazy(
   () => import("./admin/components/projects/ProjectTasks"),
 );
-const ProjectsTasks = lazy(() => import("./admin/pages/ProjectTasks"))
+const ProjectsTasks = lazy(() => import("./admin/pages/ProjectTasks"));
+const Notifications = lazy(() => import("./admin/pages/Notifications"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -128,8 +142,12 @@ const EmployeeProfile = lazy(() => import("./employee/pages/Profile"));
 const EmployeeWFH = lazy(() => import("./employee/pages/WFH"));
 const EmployeeTaskReports = lazy(() => import("./employee/pages/TaskReports"));
 const EmployeeTasks = lazy(() => import("./employee/pages/Tasks"));
+const EmployeeNotifications = lazy(() => import("./employee/pages/Notifications"));
 const AttendanceRequests = lazy(
   () => import("./employee/pages/AttendanceRequests"),
+);
+const MyPayroll = lazy(
+  () => import("./employee/pages/MyPayroll"),
 );
 
 // Custom wrapper for lazy-loaded components
@@ -189,6 +207,7 @@ function App() {
           {/* Admin nested routes - these will render inside AdminLayout */}
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="notifications" element={<Notifications />} />
           <Route path="employees" element={<Employees />} />
           <Route path="employees/add-employee" element={<AddEmployee />} />
           <Route
@@ -235,6 +254,9 @@ function App() {
             path="employees/letters-and-clearance"
             element={<LettersAndClearance />}
           />
+          <Route path="employees/offboarding/handover" element={<Handover />} />
+          <Route path="employees/offboarding/leave-check" element={<LeaveCheck />} />
+          <Route path="employees/offboarding/access-removal" element={<AccessRemoval />} />
           <Route path="employees/edit/:id" element={<EditEmployee />} />
           <Route path="employees/:id" element={<EmployeeDetails />} />
           <Route path="organizations" element={<Organizations />} />
@@ -314,7 +336,11 @@ function App() {
             path="leaves/allocations/:id"
             element={<EditLeaveAllocation />}
           />
+          <Route path="payroll" element={<PayrollDashboard />} />
           <Route path="payroll/add" element={<AddPayroll />} />
+          <Route path="payroll/details/:id" element={<PayrollDetails />} />
+          <Route path="payroll/edit/:id" element={<EditPayroll />} />
+          <Route path="payroll/:year/:month" element={<PayrollList />} />
           <Route path="wfh" element={<AdminWFH />} />
           <Route path="attendance-requests" element={<AttendanceRequests isAdmin={true} />} /> 
           <Route path="wfh-requests" element={<AdminWFH />} />  
@@ -352,6 +378,7 @@ function App() {
           <Route path="my-tasks" element={<EmployeeTaskReports />} />
           <Route path="task-reports" element={<TaskReports />} />
           <Route path="tasks" element={<EmployeeTasks />} />
+          <Route path="notifications" element={<EmployeeNotifications />} />
           <Route path="profile" element={<EmployeeProfile />} />
           <Route path="attendance-requests" element={<AttendanceRequests />} />
           <Route path="organizations" element={<Organizations />} />
@@ -366,6 +393,7 @@ function App() {
           <Route path="attendance" element={<Attendances />} />
           <Route path="documents" element={<Agreements />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="my-payroll" element={<MyPayroll />} />
           <Route path="settings" element={<Settings />} />
           <Route path="projects" element={<Projects />} />
           <Route path="projects/:id/tasks" element={<ProjectTasks />} />

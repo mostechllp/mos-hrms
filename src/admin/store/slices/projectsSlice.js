@@ -438,10 +438,12 @@ export const createProject = createAsyncThunk(
     }
     
     try {
+      console.log("🚀 POST /admin/projects Sending Payload:", projectData);
       const response = await apiClient.post("/admin/projects", projectData);
+      console.log("📥 POST /admin/projects API Response:", response.data);
       return response.data;
     } catch (error) {
-      console.error("Create Project Error Payload:", error.response?.data);
+      console.error("❌ Create Project Error Payload:", error.response?.data);
       return rejectWithValue(error.response?.data?.message || "Failed to create project");
     }
   }
@@ -459,10 +461,12 @@ export const updateProject = createAsyncThunk(
     }
     
     try {
+      console.log(`🚀 PUT /admin/projects/${id} Sending Payload:`, data);
       const response = await apiClient.put(`/admin/projects/${id}`, data);
+      console.log(`📥 PUT /admin/projects/${id} API Response:`, response.data);
       return response.data;
     } catch (error) {
-      console.error("Update Project Error Payload:", error.response?.data);
+      console.error("❌ Update Project Error Payload:", error.response?.data);
       return rejectWithValue(error.response?.data?.message || "Failed to update project");
     }
   }
@@ -480,7 +484,8 @@ export const deleteProject = createAsyncThunk(
     }
     
     try {
-      await apiClient.delete(`/admin/projects/${id}`);
+      const response = await apiClient.delete(`/admin/projects/${id}`);
+      console.log(`📥 DELETE /admin/projects/${id} API Response:`, response.data);
       return id;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Failed to delete project");
@@ -501,6 +506,7 @@ export const updateProjectStatus = createAsyncThunk(
     
     try {
       const response = await apiClient.post(`/admin/projects/${id}/status`, { status });
+      console.log(`📥 POST /admin/projects/${id}/status API Response:`, response.data);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Failed to update project status");
@@ -508,9 +514,24 @@ export const updateProjectStatus = createAsyncThunk(
   }
 );
 
+// Fetch project statuses
+export const fetchProjectStatuses = createAsyncThunk(
+  "projects/fetchStatuses",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get("/admin/projects/statuses");
+      console.log("📥 GET /admin/projects/statuses API Response:", response.data);
+      return response.data?.data || response.data || [];
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch project statuses");
+    }
+  }
+);
+
 const initialState = {
   projects: [],
   currentProject: null,
+  statuses: [],
   loading: false,
   error: null,
   totalCount: 0,
@@ -598,6 +619,11 @@ const projectsSlice = createSlice({
         const index = state.projects.findIndex((p) => p.id === updatedProject.id);
         if (index !== -1) {
           state.projects[index] = updatedProject;
+        }
+      })
+      .addCase(fetchProjectStatuses.fulfilled, (state, action) => {
+        if (Array.isArray(action.payload) && action.payload.length > 0) {
+          state.statuses = action.payload;
         }
       });
   },

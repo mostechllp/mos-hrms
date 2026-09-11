@@ -80,7 +80,7 @@ export const generateAttendancePDF = (records, filters = {}) => {
   pdf.addHeader("Attendance Report", `Period: ${filters.start_date} to ${filters.end_date}`, { ...filters, stats });
 
   // Updated columns - added OVERTIME column
-  const columns = ["S.No", "Date", "Employee", "Department", "Punch In", "Punch Out", "Worked Hours", "Overtime", "Status"];
+  const columns = ["S.No", "Date", "Employee", "Department", "Punch In", "Punch Out", "Worked Hours", "Overtime", "Is Overtime", "Status"];
 
   // Helper function to format worked hours (handles both number and string)
   const formatWorkedHours = (hours) => {
@@ -154,6 +154,7 @@ export const generateAttendancePDF = (records, filters = {}) => {
       record.punchOut || record.punch_out || (record.punchOut === null ? "Not Punched Out" : "-"),
       workedHoursDisplay,
       overtimeDisplay,
+      (hasOvertime || record.is_overtime) ? "Yes" : "No",
       getStatusLabel(status) + (hasOvertime ? " + OT" : ""),
     ];
   });

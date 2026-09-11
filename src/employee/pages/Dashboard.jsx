@@ -31,6 +31,8 @@ import {
 } from "../store/slices/taskSlice";
 import LocationModal from "../components/modals/LocationModal";
 import MapView from "../components/common/MapView";
+import { fetchWorkingHours } from "../../admin/store/slices/settingsSlice";
+import LeavesByDepartment from "../components/attendance/LeavesByDepartment";
 
 // Status tab mapping - assigned goes to its own tab now
 const STATUS_TAB_MAP = {
@@ -62,6 +64,11 @@ const Dashboard = () => {
     (state) => state.EmpAttendance,
   );
   const { primaryColor, primaryDark } = useAppTheme();
+
+  // Working hours from settings (for dynamic overtime calculation)
+  const { workingHours: workingHoursData } = useSelector(
+    (state) => state.settings || {},
+  );
 
   const [activeTaskTab, setActiveTaskTab] = useState("today_assigned_tasks");
 
@@ -188,6 +195,8 @@ const Dashboard = () => {
   useEffect(() => {
     dispatch(fetchDashboardData());
     dispatch(fetchEmployeeBreaks());
+    // Fetch working hours for dynamic overtime calculation (only if not already loaded)
+    dispatch(fetchWorkingHours());
   }, [dispatch]);
 
   // Add to Dashboard component
@@ -417,7 +426,7 @@ const Dashboard = () => {
           });
           localStorage.setItem("attendance-on-break", "true");
           localStorage.setItem("attendance-break-start-time", nowStr);
-          showToastMessage("⏸️ Break Started", "success");
+          showToastMessage("Break Started", "success");
           dispatch(fetchEmployeeBreaks());
         } else {
           showToastMessage(
@@ -459,7 +468,7 @@ const Dashboard = () => {
             newTotal.toString(),
           );
           localStorage.removeItem("attendance-break-start-time");
-          showToastMessage("▶️ Work Resumed", "success");
+          showToastMessage("Work Resumed", "success");
 
           // Refresh break table from backend
           dispatch(fetchEmployeeBreaks());
@@ -1035,48 +1044,70 @@ const Dashboard = () => {
     breakStartTime,
   ]);
 
-  const getDuration = () => {
-    if (!displayPunchTime) return "00h 00m 00s";
+  const getAvatarUrl = (avatarPath) => {
+    if (!avatarPath) return null;
 
-    const startTime = parsePunchTime(displayPunchTime);
-    if (!startTime || isNaN(startTime.getTime())) return "00h 00m 00s";
-
-    let endTime;
-    if (isActuallyPunchedIn) {
-      if (isOnBreak && breakStartTime) {
-        endTime = new Date(breakStartTime);
-      } else {
-        endTime = new Date();
-      }
-    } else if (
-      todayAttendance.punched_out === true &&
-      todayAttendance.punch_out_time !== "--"
-    ) {
-      // Only consider punched out if there's an actual punch out time
-      const outTime =
-        todayAttendance.punch_out_time || todayAttendance.punch_out;
-      if (outTime && outTime !== "--") {
-        endTime = parsePunchTime(outTime);
-      } else {
-        // If no valid punch out time, treat as still punched in
-        endTime = new Date();
-      }
-    } else {
-      return "00h 00m 00s";
+    if (avatarPath.startsWith("http://") || avatarPath.startsWith("https://")) {
+      return avatarPath;
     }
 
-    if (!endTime || isNaN(endTime.getTime())) return "00h 00m 00s";
+    const baseUrl =
+      import.meta.env.VITE_API_URL?.replace("/api", "") ||
+      window.location.origin;
 
-    let diff = Math.max(0, endTime - startTime);
-    diff -= totalBreakMs;
-    diff = Math.max(0, diff);
+    if (avatarPath.startsWith("avatars/")) {
+      return `${baseUrl}/storage/${avatarPath}`;
+    }
+    if (avatarPath.startsWith("storage/")) {
+      return `${baseUrl}/${avatarPath}`;
+    }
+    if (avatarPath.startsWith("/storage/")) {
+      return `${baseUrl}${avatarPath}`;
+    }
 
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
-
-    return `${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
+    return `${baseUrl}/storage/${avatarPath}`;
   };
+
+  const getDuration = () => {
+  if (!displayPunchTime) return "00h 00m 00s";
+
+  const startTime = parsePunchTime(displayPunchTime);
+  if (!startTime || isNaN(startTime.getTime())) return "00h 00m 00s";
+
+  let endTime;
+  if (isActuallyPunchedIn) {
+    // Always use current time as end time, regardless of break status
+    endTime = new Date();
+  } else if (
+    todayAttendance.punched_out === true &&
+    todayAttendance.punch_out_time !== "--"
+  ) {
+    const outTime = todayAttendance.punch_out_time || todayAttendance.punch_out;
+    if (outTime && outTime !== "--") {
+      endTime = parsePunchTime(outTime);
+    } else {
+      endTime = new Date();
+    }
+  } else {
+    return "00h 00m 00s";
+  }
+
+  if (!endTime || isNaN(endTime.getTime())) return "00h 00m 00s";
+
+  // Calculate total time from punch-in to now (including breaks)
+  let diff = Math.max(0, endTime - startTime);
+  
+  // DO NOT subtract break time - we want total time including breaks
+  // diff -= totalBreakMs; // <-- REMOVED THIS LINE
+  
+  // Also don't pause during break - always count time
+
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+
+  return `${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
+};
 
   const formatBreakDuration = (ms) => {
     let currentTotalMs = ms;
@@ -1101,6 +1132,11 @@ const Dashboard = () => {
     }
   }, [displayPunchTime]);
 
+  const employeeAvatar = dashboardData?.employee?.avatar
+    ? getAvatarUrl(dashboardData.employee.avatar)
+    : user?.avatar
+      ? getAvatarUrl(user.avatar)
+      : null;
   return (
     <div>
       {/* Welcome Banner with Theme Support */}
@@ -1110,7 +1146,19 @@ const Dashboard = () => {
       >
         <div className="welcome-left flex items-center gap-5 flex-wrap">
           <div className="welcome-avatar w-16 h-16 rounded-xl overflow-hidden border-3 border-white shadow-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <i className="fas fa-user text-white text-3xl"></i>
+            {employeeAvatar ? (
+              <img
+                src={employeeAvatar}
+                alt={getEmployeeName()}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                  e.target.parentElement.innerHTML = `<i class="fas fa-user text-white text-3xl"></i>`;
+                }}
+              />
+            ) : (
+              <i className="fas fa-user text-white text-3xl"></i>
+            )}
           </div>
           <div className="welcome-text">
             <h2 className="text-xl md:text-2xl font-bold text-white">
@@ -1200,9 +1248,7 @@ const Dashboard = () => {
             <i className="fas fa-calendar-check"></i>
           </div>
           <div className="stat-number text-3xl font-extrabold text-green-600">
-            {dashboardData?.attendance_history?.filter(
-              (a) => a.punch_in && a.punch_out,
-            ).length || 0}
+            {dashboardData?.days_present}
           </div>
           <div className="stat-label text-xs text-[var(--muted)]">
             Days Present
@@ -1231,6 +1277,15 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {(dashboardData?.is_hr || dashboardData?.is_team_lead) && (
+      <div className="mb-7">
+        <LeavesByDepartment 
+          leavesByDepartment={dashboardData?.leaves_today_by_department || {}}
+          userType={dashboardData?.is_hr ? "hr" : "team_lead"}
+        />
+      </div>
+    )}
 
       {/* Chart and Recent Activity Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-7 mb-7">
@@ -1946,12 +2001,19 @@ const Dashboard = () => {
       </div>
 
       {/* Punch Out Modal */}
-      <PunchOutModal
-        isOpen={showPunchOutModal}
-        onClose={() => setShowPunchOutModal(false)}
-        onSubmit={handlePunchOutSubmit}
-        loading={isSubmitting}
-      />
+     <PunchOutModal
+  isOpen={showPunchOutModal}
+  onClose={() => setShowPunchOutModal(false)}
+  onSubmit={handlePunchOutSubmit}
+  loading={isSubmitting}
+  punchInTime={displayPunchTime}
+  totalBreakMs={totalBreakMs}
+  isOnBreak={isOnBreak}
+  breakStartTime={breakStartTime}
+  workingHours={workingHoursData}
+  workingHoursFromAPI={todayAttendance.working_hours}
+  employeeBreaks={employeeBreaks || []} 
+/>
 
       {/* Location Modal */}
       <LocationModal
