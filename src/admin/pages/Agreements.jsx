@@ -1,29 +1,54 @@
-import { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { Link } from 'react-router-dom';
-import SearchBar from '@admin/components/common/SearchBar';
-import EntriesSelector from '@admin/components/common/EntriesSelector';
-import { showToast } from '../../components/common/Toast';
-import Pagination from '@admin/components/common/Paginations';
-import ConfirmModal from '@admin/components/common/ConfirmModal';
-import { fetchDocuments, deleteDocument, clearError, fetchDocumentFolders } from '@admin/store/slices/documentsSlice';
+import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Link } from "react-router-dom";
+import SearchBar from "@admin/components/common/SearchBar";
+import EntriesSelector from "@admin/components/common/EntriesSelector";
+import { showToast } from "../../components/common/Toast";
+import Pagination from "@admin/components/common/Paginations";
+import ConfirmModal from "@admin/components/common/ConfirmModal";
+import {
+  fetchDocuments,
+  deleteDocument,
+  clearError,
+  fetchDocumentFolders,
+} from "@admin/store/slices/documentsSlice";
+import FoldersModal from "../components/documents/FoldersModal";
 
 const Agreements = () => {
   const dispatch = useDispatch();
-  const { documents: documentsState = [], folders = [], error = null } = useSelector(
-    (state) => state.documents || { documents: [], folders: [], loading: false, error: null }
+  const {
+    documents: documentsState = [],
+    folders = [],
+    error = null,
+  } = useSelector(
+    (state) =>
+      state.documents || {
+        documents: [],
+        folders: [],
+        loading: false,
+        error: null,
+      },
   );
-  
+
   // Ensure documents is always an array
   const documents = Array.isArray(documentsState) ? documentsState : [];
-  
-  const [currentFolder, setCurrentFolder] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
+
+  const [currentFolder, setCurrentFolder] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const [showFoldersModal, setShowFoldersModal] = useState(false);
+
+  const documentCounts = documents.reduce((acc, doc) => {
+    if (doc.folder_id != null) {
+      acc[doc.folder_id] = (acc[doc.folder_id] || 0) + 1;
+    }
+    return acc;
+  }, {});
 
   useEffect(() => {
     dispatch(fetchDocuments());
@@ -32,48 +57,70 @@ const Agreements = () => {
 
   useEffect(() => {
     if (error) {
-      showToast(error, 'error');
+      showToast(error, "error");
       dispatch(clearError());
     }
   }, [error, dispatch]);
 
-  // Build folder list from API or use defaults
+  useEffect(() => {
+  if (
+    currentFolder !== "all" &&
+    folders.length > 0 &&
+    !folders.some((f) => String(f.id) === String(currentFolder))
+  ) {
+    setCurrentFolder("all");
+  }
+}, [folders, currentFolder]);
+
+  // Build folder list from API only
   const folderList = [
-    { name: 'All Files', value: 'all', icon: 'fas fa-folder-open' },
-    ...(folders && folders.length > 0
-      ? folders.map(folder => ({
-        name: folder.name || folder,
-        value: folder.name || folder,
-        icon: 'fas fa-folder'
-      }))
-      : [
-        { name: 'Agreements', value: 'agreements', icon: 'fas fa-file-signature' },
-        { name: 'HR', value: 'hr', icon: 'fas fa-users' },
-        { name: 'IT', value: 'it', icon: 'fas fa-code' },
-        { name: 'Finance', value: 'finance', icon: 'fas fa-chart-line' },
-        { name: 'Legal', value: 'legal', icon: 'fas fa-gavel' },
-      ]
-    )
+    { name: "All Files", value: "all", icon: "fas fa-folder-open" },
+    ...(folders || []).map((folder) => ({
+      // Preserve id for reliable filtering; fall back to name
+      name: folder.name,
+      value: folder.id != null ? String(folder.id) : folder.name,
+      icon: "fas fa-folder",
+    })),
   ];
 
   const getFilteredDocuments = () => {
-    // Ensure documents is an array
     const docsArray = Array.isArray(documents) ? documents : [];
     let filtered = docsArray;
 
-    if (currentFolder !== 'all') {
-      filtered = filtered.filter(doc =>
-        (doc.folder || doc.type || '').toLowerCase() === currentFolder.toLowerCase()
+    if (currentFolder !== "all") {
+      const selectedFolder = folders.find(
+        (f) =>
+          String(f.id) === String(currentFolder) || f.name === currentFolder,
       );
+
+      filtered = filtered.filter((doc) => {
+        // 1) Match by folder_id if both sides have it
+        if (selectedFolder?.id != null && doc.folder_id != null) {
+          return String(doc.folder_id) === String(selectedFolder.id);
+        }
+
+        // 2) Match by folder name (case-insensitive, trimmed)
+        const docFolder =
+          doc.folder_name || doc.folder || doc.type || doc.folder?.name || "";
+        const targetName = (selectedFolder?.name || currentFolder || "")
+          .toString()
+          .trim()
+          .toLowerCase();
+
+        return docFolder.toString().trim().toLowerCase() === targetName;
+      });
     }
+
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(doc =>
-        (doc.name || '').toLowerCase().includes(searchLower) ||
-        (doc.description || '').toLowerCase().includes(searchLower) ||
-        (doc.folder || '').toLowerCase().includes(searchLower)
+      filtered = filtered.filter(
+        (doc) =>
+          (doc.name || "").toLowerCase().includes(searchLower) ||
+          (doc.description || "").toLowerCase().includes(searchLower) ||
+          (doc.folder || "").toLowerCase().includes(searchLower),
       );
     }
+
     return filtered;
   };
 
@@ -95,12 +142,12 @@ const Agreements = () => {
     const result = await dispatch(deleteDocument(selectedDocument.id));
 
     if (deleteDocument.fulfilled.match(result)) {
-      showToast(`${selectedDocument.name} deleted successfully`, 'success');
+      showToast(`${selectedDocument.name} deleted successfully`, "success");
       setConfirmOpen(false);
       setSelectedDocument(null);
       dispatch(fetchDocuments());
     } else {
-      showToast('Failed to delete document', 'error');
+      showToast("Failed to delete document", "error");
     }
 
     setDeleteLoading(false);
@@ -109,43 +156,51 @@ const Agreements = () => {
   const handleViewDocument = (filePath) => {
     if (filePath) {
       // Construct full URL for file access
-      const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || window.location.origin;
-      const fileUrl = `${baseUrl}/storage/${filePath.replace(/^\/+/, '')}`;
-      window.open(fileUrl, '_blank');
+      const baseUrl =
+        import.meta.env.VITE_API_URL?.replace(/\/api$/, "") ||
+        window.location.origin;
+      const fileUrl = `${baseUrl}/storage/${filePath.replace(/^\/+/, "")}`;
+      window.open(fileUrl, "_blank");
     } else {
-      showToast('No document file available', 'info');
+      showToast("No document file available", "info");
     }
   };
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return 'No Expiry';
+    if (!dateStr) return "No Expiry";
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     });
   };
 
   const getExpiryClass = (expiryDate) => {
-    if (!expiryDate) return '';
+    if (!expiryDate) return "";
     const today = new Date();
     const expiry = new Date(expiryDate);
     const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-    if (diffDays < 0) return 'text-red-500 font-semibold';
-    if (diffDays <= 30) return 'text-amber-500 font-semibold';
-    return '';
+    if (diffDays < 0) return "text-red-500 font-semibold";
+    if (diffDays <= 30) return "text-amber-500 font-semibold";
+    return "";
   };
 
   const getFolderClass = (folder) => {
     const classes = {
-      'agreements': 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400',
-      'hr': 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
-      'it': 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
-      'finance': 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
-      'legal': 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400',
+      agreements:
+        "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+      hr: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+      it: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
+      finance:
+        "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+      legal:
+        "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
     };
-    return classes[folder?.toLowerCase()] || 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+    return (
+      classes[folder?.toLowerCase()] ||
+      "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+    );
   };
 
   const total = documents.length;
@@ -158,7 +213,7 @@ const Agreements = () => {
   let expiringSoon = 0;
   let expired = 0;
 
-  documents.forEach(doc => {
+  documents.forEach((doc) => {
     if (doc.expiry_date) {
       const expiryDate = new Date(doc.expiry_date);
       if (expiryDate < today) {
@@ -179,8 +234,12 @@ const Agreements = () => {
               <i className="fas fa-file-alt text-green-600 dark:text-green-400 text-base md:text-xl"></i>
             </div>
           </div>
-          <div className="text-2xl md:text-3xl font-extrabold text-green-600 dark:text-green-400">{total}</div>
-          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">Total Documents</div>
+          <div className="text-2xl md:text-3xl font-extrabold text-green-600 dark:text-green-400">
+            {total}
+          </div>
+          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
+            Total Documents
+          </div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
@@ -189,8 +248,12 @@ const Agreements = () => {
               <i className="fas fa-clock text-amber-600 dark:text-amber-400 text-base md:text-xl"></i>
             </div>
           </div>
-          <div className="text-2xl md:text-3xl font-extrabold text-amber-600 dark:text-amber-400">{expiringSoon}</div>
-          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">Expiring Soon (30 days)</div>
+          <div className="text-2xl md:text-3xl font-extrabold text-amber-600 dark:text-amber-400">
+            {expiringSoon}
+          </div>
+          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
+            Expiring Soon (30 days)
+          </div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-5 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
@@ -199,8 +262,12 @@ const Agreements = () => {
               <i className="fas fa-calendar-times text-red-600 dark:text-red-400 text-base md:text-xl"></i>
             </div>
           </div>
-          <div className="text-2xl md:text-3xl font-extrabold text-red-600 dark:text-red-400">{expired}</div>
-          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">Expired</div>
+          <div className="text-2xl md:text-3xl font-extrabold text-red-600 dark:text-red-400">
+            {expired}
+          </div>
+          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
+            Expired
+          </div>
         </div>
       </div>
 
@@ -221,14 +288,17 @@ const Agreements = () => {
                 setCurrentFolder(folder.value);
                 setCurrentPage(1);
               }}
-              className={`px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all whitespace-nowrap ${currentFolder === folder.value
-                  ? 'bg-green-500 text-white shadow-md'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
+              className={`px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all whitespace-nowrap ${
+                String(currentFolder) === String(folder.value)
+                  ? "bg-green-500 text-white shadow-md"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
             >
               <i className={`${folder.icon} mr-1 text-[10px] md:text-xs`}></i>
               <span className="hidden sm:inline">{folder.name}</span>
-              <span className="sm:hidden">{folder.name === 'All Files' ? 'All' : folder.name}</span>
+              <span className="sm:hidden">
+                {folder.name === "All Files" ? "All" : folder.name}
+              </span>
             </button>
           ))}
         </div>
@@ -238,12 +308,22 @@ const Agreements = () => {
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-5">
         <EntriesSelector value={perPage} onChange={setPerPage} />
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Search documents..." />
+          <SearchBar
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Search documents..."
+          />
+          <button
+            onClick={() => setShowFoldersModal(true)}
+            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:bg-gray-50 dark:hover:bg-gray-700 w-full sm:w-auto"
+          >
+            <i className="fas fa-folder text-green-500"></i> Folders
+          </button>
           <Link
             to="/admin/documents/add-agreement"
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
           >
-            <i className="fas fa-plus-circle"></i> Upload Agreement
+            <i className="fas fa-plus-circle"></i> Upload Document
           </Link>
         </div>
       </div>
@@ -254,49 +334,80 @@ const Agreements = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Sl.No.</th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Name</th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Folder</th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Description</th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Share With</th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Expiry Date</th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Action</th>
+                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  Sl.No.
+                </th>
+                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  Name
+                </th>
+                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  Folder
+                </th>
+                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  Description
+                </th>
+                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  Share With
+                </th>
+                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  Expiry Date
+                </th>
+                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody>
               {pageDocuments.length > 0 ? (
                 pageDocuments.map((document, idx) => (
-                  <tr key={document.id || idx} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">{start + idx + 1}</td>
+                  <tr
+                    key={document.id || idx}
+                    className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  >
+                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
+                      {start + idx + 1}
+                    </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
                       <button
                         onClick={() => handleViewDocument(document.file_path)}
                         className="hover:text-green-500 transition-colors text-left"
                       >
-                        {document.name || 'Untitled'}
+                        {document.name || "Untitled"}
                       </button>
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
-                      <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold ${getFolderClass(document.folder || document.type)} whitespace-nowrap`}>
-                        {document.folder_name || document.folder || document.type || '-'}
+                      <span
+                        className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold ${getFolderClass(document.folder || document.type)} whitespace-nowrap`}
+                      >
+                        {document.folder_name ||
+                          document.folder ||
+                          document.type ||
+                          "-"}
                       </span>
                     </td>
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={document.description}>
-                      {document.description || '-'}
+                    <td
+                      className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate"
+                      title={document.description}
+                    >
+                      {document.description || "-"}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
                       <span className="inline-flex items-center gap-1 md:gap-1.5 bg-gray-100 dark:bg-gray-700 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs whitespace-nowrap">
                         <i className="fas fa-share-alt text-gray-500 text-[8px] md:text-xs"></i>
                         <span>
                           {document.shared_users?.length > 0
-                            ? document.shared_users.map(u => u.name).join(', ')
+                            ? document.shared_users
+                                .map((u) => u.name)
+                                .join(", ")
                             : document.share_with?.length > 0
-                              ? document.share_with.join(', ')
-                              : '-'}
+                              ? document.share_with.join(", ")
+                              : "-"}
                         </span>
                       </span>
                     </td>
-                    <td className={`px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm ${getExpiryClass(document.expiry_date)} whitespace-nowrap`}>
+                    <td
+                      className={`px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm ${getExpiryClass(document.expiry_date)} whitespace-nowrap`}
+                    >
                       {formatDate(document.expiry_date)}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
@@ -328,8 +439,11 @@ const Agreements = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                    No documents found. Click "Upload Agreement" to add one.
+                  <td
+                    colSpan="7"
+                    className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                  >
+                    No documents found. Click "Upload Document" to add one.
                   </td>
                 </tr>
               )}
@@ -360,6 +474,11 @@ const Agreements = () => {
         confirmText="Delete"
         loading={deleteLoading}
         variant="danger"
+      />
+      <FoldersModal
+        isOpen={showFoldersModal}
+        onClose={() => setShowFoldersModal(false)}
+        documentCounts={documentCounts}
       />
     </div>
   );

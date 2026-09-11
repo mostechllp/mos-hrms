@@ -4,7 +4,6 @@ import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { showToast } from "../common/Toast";
 import OffboardingHeader from "./OffboardingHeader";
-import OffboardingProgressBox from "./OffboardingProgressBox";
 import { fetchOffboardingById, updateSettlement, fetchOffboardingProgress } from "../../store/slices/offboardingSlice";
 import apiClient from "../../../utils/apiClient";
 
@@ -194,7 +193,6 @@ const FinalSettlement = () => {
       <div className="max-w-5xl mx-auto space-y-6">
 
         <OffboardingHeader currentStep={5} />
-        <OffboardingProgressBox currentStep={5} />
 
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-soft p-6 sm:p-8">
           <div className="flex justify-between items-center mb-8">

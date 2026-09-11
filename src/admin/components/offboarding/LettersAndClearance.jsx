@@ -4,7 +4,6 @@ import { showToast } from "../common/Toast";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import OffboardingHeader from "./OffboardingHeader";
-import OffboardingProgressBox from "./OffboardingProgressBox";
 import { fetchOffboardingById, generateLetters, fetchOffboardingProgress, updateOffboarding } from "../../store/slices/offboardingSlice";
 import { fetchEmployeeById } from "../../store/slices/employeeSlice";
 import apiClient, { getStorageUrl } from "../../../utils/apiClient";
@@ -516,8 +515,6 @@ const LettersAndClearance = () => {
         {/* SaaS Offboarding Header */}
         <OffboardingHeader currentStep={6} />
         
-        {/* Progress Box */}
-        <OffboardingProgressBox currentStep={6} />
 
         {/* Main Card */}
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-soft p-6 sm:p-8">
