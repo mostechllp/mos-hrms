@@ -23,6 +23,7 @@ import {
   selectPayrollEntries,
   selectEntriesLoading,
   selectPayrollError,
+  generatePayslip,
 } from "../store/slices/payrollSlice";
 import { showToast } from "../components/common/Toast";
 import ConfirmModal from "../components/common/ConfirmModal";
@@ -37,8 +38,7 @@ const getAvatarUrl = (avatarPath) => {
   }
 
   const baseUrl =
-    import.meta.env.VITE_API_URL?.replace("/api", "") ||
-    window.location.origin;
+    import.meta.env.VITE_API_URL?.replace("/api", "") || window.location.origin;
 
   if (avatarPath.startsWith("avatars/")) {
     return `${baseUrl}/storage/${avatarPath}`;
@@ -66,7 +66,7 @@ const monthNumberToName = {
   9: "September",
   10: "October",
   11: "November",
-  12: "December"
+  12: "December",
 };
 
 const PayrollList = () => {
@@ -76,7 +76,8 @@ const PayrollList = () => {
 
   // Get month name from number
   const monthName = month ? monthNumberToName[parseInt(month)] : "";
-  const displayTitle = monthName && year ? `${monthName} ${year}` : "All Payrolls";
+  const displayTitle =
+    monthName && year ? `${monthName} ${year}` : "All Payrolls";
 
   const [entries, setEntries] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
@@ -104,26 +105,40 @@ const PayrollList = () => {
 
   // ✅ FIX: Ensure we always have arrays
   const safeEmployees = Array.isArray(employees) ? employees : [];
-  const safePayrollEntries = Array.isArray(payrollEntries) ? payrollEntries : [];
+  const safePayrollEntries = Array.isArray(payrollEntries)
+    ? payrollEntries
+    : [];
 
   // Prepare table data - combine employees with payroll entries or use employees as base
-  const tableData = safePayrollEntries.length > 0 ? safePayrollEntries : safeEmployees;
+  const tableData =
+    safePayrollEntries.length > 0 ? safePayrollEntries : safeEmployees;
 
   // ✅ FIX: Filter data with safe array check
   const filteredData = tableData.filter((item) => {
     if (!item) return false;
     const searchMatch =
       searchTerm === "" ||
-      (item.first_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (item.last_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (item.employee_id?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (item.first_name?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase(),
+      ) ||
+      (item.last_name?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase(),
+      ) ||
+      (item.employee_id?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase(),
+      ) ||
       (item.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (item.employee_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (item.employee_code?.toLowerCase() || "").includes(searchTerm.toLowerCase());
+      (item.employee_name?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase(),
+      ) ||
+      (item.employee_code?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase(),
+      );
 
     const statusMatch =
       statusFilter === "all" ||
-      (statusFilter === "paid" && (item.status === "paid" || item.status === "completed")) ||
+      (statusFilter === "paid" &&
+        (item.status === "paid" || item.status === "completed")) ||
       (statusFilter === "pending" &&
         (item.status === "pending" || !item.status));
 
@@ -187,27 +202,15 @@ const PayrollList = () => {
   // Handle Generate Payslip
   const handleGeneratePayslip = async (item) => {
     try {
-      showToast("Generating payslip...", "info");
-      const response = await apiClient.post(`/admin/payroll/generate-payslip/${item.id}`);
-      if (response.data?.success) {
-        if (response.data?.data?.url) {
-          window.open(response.data.data.url, "_blank");
-        } else if (response.data?.data?.pdf) {
-          const link = document.createElement("a");
-          link.href = `data:application/pdf;base64,${response.data.data.pdf}`;
-          link.download = `payslip_${item.employee_name || item.employee_id}_${item.month}_${item.year}.pdf`;
-          link.click();
-        }
-        showToast("Payslip generated successfully!", "success");
-      } else {
-        showToast(response.data?.message || "Failed to generate payslip", "error");
-      }
+      showToast("Downloading payslip...", "success");
+      const result = await dispatch(generatePayslip(item.id)).unwrap();
+      showToast(
+        `Payslip downloaded${result?.filename ? `: ${result.filename}` : ""}`,
+        "success",
+      );
     } catch (error) {
       console.error("Error generating payslip:", error);
-      showToast(
-        error.response?.data?.message || "Failed to generate payslip",
-        "error"
-      );
+      showToast(error || "Failed to download payslip", "error");
     }
   };
 
@@ -220,10 +223,12 @@ const PayrollList = () => {
   // Handle Delete Confirm
   const handleDeleteConfirm = async () => {
     if (!selectedPayroll) return;
-    
+
     setDeleteLoading(true);
     try {
-      const response = await apiClient.delete(`/admin/payroll/${selectedPayroll.id}`);
+      const response = await apiClient.delete(
+        `/admin/payroll/${selectedPayroll.id}`,
+      );
       if (response.data?.success) {
         showToast("Payroll deleted successfully!", "success");
         setShowDeleteModal(false);
@@ -234,13 +239,16 @@ const PayrollList = () => {
           dispatch(fetchPayrollEntries({ year }));
         }
       } else {
-        showToast(response.data?.message || "Failed to delete payroll", "error");
+        showToast(
+          response.data?.message || "Failed to delete payroll",
+          "error",
+        );
       }
     } catch (error) {
       console.error("Error deleting payroll:", error);
       showToast(
         error.response?.data?.message || "Failed to delete payroll",
-        "error"
+        "error",
       );
     } finally {
       setDeleteLoading(false);
@@ -270,7 +278,8 @@ const PayrollList = () => {
           <button
             onClick={() => {
               dispatch(fetchPayrollEmployees());
-              if (year && month) dispatch(fetchPayrollEntries({ year, month: parseInt(month) }));
+              if (year && month)
+                dispatch(fetchPayrollEntries({ year, month: parseInt(month) }));
             }}
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
           >
@@ -298,18 +307,30 @@ const PayrollList = () => {
         {/* Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Total Payrolls</p>
-            <h3 className="text-2xl font-black text-blue-600 dark:text-blue-400">{totalPayrolls}</h3>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Total Payrolls
+            </p>
+            <h3 className="text-2xl font-black text-blue-600 dark:text-blue-400">
+              {totalPayrolls}
+            </h3>
           </div>
 
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Pending</p>
-            <h3 className="text-2xl font-black text-amber-500">{pendingCount}</h3>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Pending
+            </p>
+            <h3 className="text-2xl font-black text-amber-500">
+              {pendingCount}
+            </h3>
           </div>
 
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">INR Total</p>
-            <h3 className="text-xl font-black text-blue-500">{formatCurrency(totalAmount)}</h3>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              INR Total
+            </p>
+            <h3 className="text-xl font-black text-blue-500">
+              {formatCurrency(totalAmount)}
+            </h3>
           </div>
         </div>
 
@@ -393,7 +414,10 @@ const PayrollList = () => {
             {paginatedData.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-4">
                 <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center mb-3">
-                  <Users className="w-8 h-8 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
+                  <Users
+                    className="w-8 h-8 text-gray-300 dark:text-gray-600"
+                    strokeWidth={1.5}
+                  />
                 </div>
                 <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-1">
                   No Payroll Records Found
@@ -408,25 +432,41 @@ const PayrollList = () => {
                   <tr>
                     <th className="px-3 py-2 whitespace-nowrap">SL NO</th>
                     <th className="px-3 py-2 whitespace-nowrap">EMPLOYEE</th>
-                    <th className="px-3 py-2 whitespace-nowrap">MONTH / YEAR</th>
-                    <th className="px-3 py-2 whitespace-nowrap text-right">GROSS SALARY</th>
-                    <th className="px-3 py-2 whitespace-nowrap text-right">OVERTIME</th>
-                    <th className="px-3 py-2 whitespace-nowrap text-right">DEDUCTIONS</th>
-                    <th className="px-3 py-2 whitespace-nowrap text-right">NET PAY</th>
+                    <th className="px-3 py-2 whitespace-nowrap">
+                      MONTH / YEAR
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap text-right">
+                      GROSS SALARY
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap text-right">
+                      OVERTIME
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap text-right">
+                      DEDUCTIONS
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap text-right">
+                      NET PAY
+                    </th>
                     <th className="px-3 py-2 whitespace-nowrap">CURRENCY</th>
                     <th className="px-3 py-2 whitespace-nowrap">STATUS</th>
-                    <th className="px-3 py-2 whitespace-nowrap">PAYMENT DATE</th>
-                    <th className="px-3 py-2 whitespace-nowrap text-center">ACTIONS</th>
+                    <th className="px-3 py-2 whitespace-nowrap">
+                      PAYMENT DATE
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap text-center">
+                      ACTIONS
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedData.map((item, index) => {
-                    const employeeName = item.employee_name || 
-                      (item.first_name && item.last_name 
+                    const employeeName =
+                      item.employee_name ||
+                      (item.first_name && item.last_name
                         ? `${item.first_name} ${item.last_name}`.trim()
                         : item.name || "Unnamed Employee");
-                    
-                    const employeeId = item.employee_id || item.employee_code || "N/A";
+
+                    const employeeId =
+                      item.employee_id || item.employee_code || "N/A";
                     const status = item.status || "pending";
                     const grossSalary = item.gross_salary || item.salary || 0;
                     const overtime = item.overtime || 0;
@@ -434,8 +474,10 @@ const PayrollList = () => {
                     const netPay = grossSalary + overtime - deductions || 0;
                     const currency = item.currency || "INR";
                     const paymentDate = item.payment_date || "N/A";
-                    
-                    const avatarUrl = item.avatar ? getAvatarUrl(item.avatar) : null;
+
+                    const avatarUrl = item.avatar
+                      ? getAvatarUrl(item.avatar)
+                      : null;
 
                     return (
                       <tr
@@ -454,7 +496,9 @@ const PayrollList = () => {
                                 className="w-7 h-7 rounded-full object-cover border border-gray-200 dark:border-gray-600"
                                 onError={(e) => {
                                   e.target.style.display = "none";
-                                  e.target.parentElement.querySelector(".avatar-fallback").style.display = "flex";
+                                  e.target.parentElement.querySelector(
+                                    ".avatar-fallback",
+                                  ).style.display = "flex";
                                 }}
                               />
                             ) : (
@@ -493,13 +537,15 @@ const PayrollList = () => {
                               status === "paid" || status === "completed"
                                 ? "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400"
                                 : status === "generated"
-                                ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                                : "bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                  ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                                  : "bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400"
                             }`}
                           >
-                            {status === "completed" ? "Completed" : 
-                             status === "generated" ? "Generated" : 
-                             status.toUpperCase()}
+                            {status === "completed"
+                              ? "Completed"
+                              : status === "generated"
+                                ? "Generated"
+                                : status.toUpperCase()}
                           </span>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap text-gray-700 dark:text-gray-300 text-sm">
@@ -521,13 +567,15 @@ const PayrollList = () => {
                             >
                               <Edit size={15} />
                             </button>
-                            <button
-                              onClick={() => handleGeneratePayslip(item)}
-                              className="p-1 text-purple-500 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors"
-                              title="Generate Payslip"
-                            >
-                              <FileDown size={15} />
-                            </button>
+                            {(status === "completed" || status === "paid") && (
+                              <button
+                                onClick={() => handleGeneratePayslip(item)}
+                                className="p-1 text-purple-500 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors"
+                                title="Download Payslip"
+                              >
+                                <FileDown size={15} />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDeleteClick(item)}
                               className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import SearchBar from "@admin/components/common/SearchBar";
 import EntriesSelector from "@admin/components/common/EntriesSelector";
 import { showToast } from "../../components/common/Toast";
@@ -16,6 +16,8 @@ import FoldersModal from "../components/documents/FoldersModal";
 
 const Agreements = () => {
   const dispatch = useDispatch();
+  const location = useLocation();
+const basePath = location.pathname.split("/")[1] || "admin"; 
   const {
     documents: documentsState = [],
     folders = [],
@@ -320,11 +322,11 @@ const Agreements = () => {
             <i className="fas fa-folder text-green-500"></i> Folders
           </button>
           <Link
-            to="/admin/documents/add-agreement"
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
-          >
-            <i className="fas fa-plus-circle"></i> Upload Document
-          </Link>
+  to={`/${basePath}/documents/add-agreement`}
+  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+>
+  <i className="fas fa-plus-circle"></i> Upload Document
+</Link>
         </div>
       </div>
 
@@ -420,12 +422,12 @@ const Agreements = () => {
                           <i className="fas fa-eye text-xs md:text-sm"></i>
                         </button>
                         <Link
-                          to={`/admin/documents/edit-agreement/${document.id}`}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
-                          title="Edit"
-                        >
-                          <i className="fas fa-edit text-xs md:text-sm"></i>
-                        </Link>
+  to={`/${basePath}/documents/edit-agreement/${document.id}`}
+  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors"
+  title="Edit"
+>
+  <i className="fas fa-edit text-xs md:text-sm"></i>
+</Link>
                         <button
                           onClick={() => handleDeleteClick(document)}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
