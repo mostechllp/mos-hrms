@@ -846,22 +846,22 @@ const AddEmployee = () => {
     }
 
     // Additional documents
-    if (additionalDocuments.length > 0) {
-      const additionalDocsData = additionalDocuments.map((doc) => ({
-        name: doc.name,
-        filename: doc.filename,
-      }));
-      formData.append(
-        "additional_documents",
-        JSON.stringify(additionalDocsData),
-      );
-
-      additionalDocuments.forEach((doc, index) => {
-        if (doc.file) {
-          formData.append(`additional_document_${index}`, doc.file);
-        }
-      });
+   // Additional documents
+if (additionalDocuments.length > 0) {
+  additionalDocuments.forEach((doc, index) => {
+    formData.append(
+      `additional_documents[${index}][document_name]`,
+      doc.name,
+    );
+    formData.append(
+      `additional_documents[${index}][filename]`,
+      doc.filename,
+    );
+    if (doc.file) {
+      formData.append(`additional_documents[${index}][file]`, doc.file);
     }
+  });
+}
 
     const result = await dispatch(addEmployee(formData));
 

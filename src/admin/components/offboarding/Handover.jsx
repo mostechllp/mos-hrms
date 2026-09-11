@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { CheckCircle2, ArrowRight, Save, Loader, FolderMinus } from "lucide-react";
 import OffboardingHeader from "./OffboardingHeader";
 import { showToast } from "../common/Toast";
+import { fetchOffboardingProgress, saveHandover } from "../../store/slices/offboardingSlice";
 // import { updateOffboardingProgress } from "../../store/slices/offboardingSlice"; // API not implemented yet
 
 const Handover = () => {
@@ -23,40 +24,42 @@ const Handover = () => {
   const [notes, setNotes] = useState("");
 
   const handleSaveAndContinue = async () => {
-    if (!offboardingId) {
-      navigate(`/admin/employees/offboarding/leave-check`);
-      return;
-    }
+  if (!offboardingId) {
+    showToast("Offboarding ID missing. Please restart the flow.", "error");
+    return;
+  }
 
-    setSaving(true);
+  setSaving(true);
+  try {
+    await dispatch(
+      saveHandover({
+        offboarding_id: Number(offboardingId),
+        task_and_projects: tasksHandedOver,
+        files_and_contents: filesHandedOver,
+        reporting_manager_confirmation: managerConfirmed,
+        notes: notes || "",
+      }),
+    ).unwrap();
+
+    // Refresh progress so the header / dashboard reflect the completed step
     try {
-      // await dispatch(
-      //   updateOffboardingProgress({
-      //     id: offboardingId,
-      //     data: {
-      //       step: "handover",
-      //       status: "completed",
-      //       details: {
-      //         tasksHandedOver,
-      //         filesHandedOver,
-      //         managerConfirmed,
-      //         notes
-      //       }
-      //     },
-      //   })
-      // ).unwrap();
-
-      showToast("Handover step completed successfully.", "success");
-      setTimeout(() => {
-        navigate(`/admin/employees/offboarding/leave-check?id=${offboardingId}`);
-      }, 1000);
-    } catch (error) {
-      console.error(error);
-      showToast(error || "Failed to save handover details", "error");
-    } finally {
-      setSaving(false);
+      await dispatch(fetchOffboardingProgress(offboardingId)).unwrap();
+    } catch (progressErr) {
+      // Non-fatal — the step was saved even if progress refresh failed
+      console.warn("Progress refresh failed:", progressErr);
     }
-  };
+
+    showToast("Handover step completed successfully.", "success");
+    setTimeout(() => {
+      navigate(`/admin/employees/offboarding/leave-check?id=${offboardingId}`);
+    }, 1000);
+  } catch (error) {
+    console.error(error);
+    showToast(error || "Failed to save handover details", "error");
+  } finally {
+    setSaving(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gray-50/30 dark:bg-gray-900/40 p-4 sm:p-6 lg:p-8">

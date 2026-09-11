@@ -392,6 +392,7 @@ function App() {
           <Route path="onboarding" element={<Onboarding />} />
           <Route path="attendance" element={<Attendances />} />
           <Route path="documents" element={<Agreements />} />
+          <Route path="documents/add-agreement" element={<AddAgreement />} />
           <Route path="reports" element={<Reports />} />
           <Route path="my-payroll" element={<MyPayroll />} />
           <Route path="settings" element={<Settings />} />

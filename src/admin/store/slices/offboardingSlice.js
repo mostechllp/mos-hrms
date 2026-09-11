@@ -166,6 +166,49 @@ export const deleteOffboarding = createAsyncThunk(
   },
 );
 
+// Save Handover - POST /admin/offboarding/save-handover
+export const saveHandover = createAsyncThunk(
+  "offboarding/saveHandover",
+  async (
+    {
+      offboarding_id,
+      task_and_projects,
+      files_and_contents,
+      reporting_manager_confirmation,
+      notes,
+    },
+    { rejectWithValue },
+  ) => {
+    try {
+      const response = await apiClient.post(
+        "/admin/offboarding/save-handover",
+        {
+          offboarding_id,
+          task_and_projects,
+          files_and_contents,
+          reporting_manager_confirmation,
+          notes,
+        },
+      );
+
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
+        return response.data.data;
+      }
+      return rejectWithValue(
+        response.data?.message || "Failed to save handover details",
+      );
+    } catch (error) {
+      console.error("Save handover error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to save handover details",
+      );
+    }
+  },
+);
+
 // Update Visa Status - POST /admin/offboarding/{id}/visa-status
 export const updateVisaStatus = createAsyncThunk(
   "offboarding/updateVisaStatus",
@@ -682,31 +725,42 @@ const offboardingSlice = createSlice({
         state.error = null;
       })
       .addCase(deleteOffboarding.fulfilled, (state, action) => {
-        state.loading = false;
-        // Remove the deleted offboarding from the list
-        state.offboardings = state.offboardings.filter(
-          (off) => off.id !== action.payload.id,
-        );
-        state.totalCount -= 1;
+  state.offboardings = state.offboardings.filter(
+    (off) => off.id !== action.payload.id,
+  );
+  state.totalCount -= 1;
 
-        // Update stats
-        state.stats = {
-          total: state.offboardings.length,
-          initiated: state.offboardings.filter((o) => o.status === "initiated")
-            .length,
-          inProgress: state.offboardings.filter(
-            (o) => o.status === "in-progress" || o.status === "in_progress",
-          ).length,
-          completed: state.offboardings.filter((o) => o.status === "completed")
-            .length,
-          cancelled: state.offboardings.filter((o) => o.status === "cancelled")
-            .length,
-        };
-      })
+  if (
+    state.currentOffboarding &&
+    state.currentOffboarding.id === action.payload.id
+  ) {
+    state.currentOffboarding = null;
+    state.currentProgress = null;
+  }
+
+  state.stats = {
+    total: state.offboardings.length,
+    initiated: state.offboardings.filter((o) => o.status === "initiated").length,
+    inProgress: state.offboardings.filter(
+      (o) => o.status === "in-progress" || o.status === "in_progress",
+    ).length,
+    completed: state.offboardings.filter((o) => o.status === "completed").length,
+    cancelled: state.offboardings.filter((o) => o.status === "cancelled").length,
+  };
+})
       .addCase(deleteOffboarding.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
+      // Save Handover
+.addCase(saveHandover.fulfilled, (state, action) => {
+  if (
+    state.currentOffboarding &&
+    state.currentOffboarding.id === action.payload.offboarding_id
+  ) {
+    state.currentOffboarding.handover = action.payload;
+  }
+});
   },
 });
 

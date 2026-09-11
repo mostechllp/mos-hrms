@@ -285,7 +285,7 @@ const Projects = () => {
       <div className="flex flex-col md:flex-row gap-3 md:gap-4 justify-between items-center mb-5">
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto flex-1">
-          <div className="relative w-full sm:w-60 flex-shrink-0 z-50">
+          <div className="relative w-full sm:w-60">
             <StatusDropdown
               name="status"
               value={statusFilter}

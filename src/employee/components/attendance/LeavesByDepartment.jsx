@@ -10,6 +10,8 @@ const LeavesByDepartment = ({ leavesByDepartment = {}, userType = "hr" }) => {
     (dept) => leavesByDepartment[dept] && leavesByDepartment[dept].length > 0,
   );
 
+  const canViewEmployee = userType === "hr";
+
   // Get all employees on leave (flattened list for team lead view)
   const allEmployees = departments.flatMap(
     (dept) => leavesByDepartment[dept] || [],
@@ -32,6 +34,23 @@ const LeavesByDepartment = ({ leavesByDepartment = {}, userType = "hr" }) => {
 
       return [...prev, deptName];
     });
+  };
+
+  const formatSession = (session1, session2) => {
+    const s1 = (session1 || "").toLowerCase().trim();
+    const s2 = (session2 || "").toLowerCase().trim();
+
+    // Both present and different → full day (covers morning + afternoon)
+    if (s1 && s2 && s1 !== s2) return "Full Day";
+    // Both present and same
+    if (s1 && s2 && s1 === s2) {
+      return s1.charAt(0).toUpperCase() + s1.slice(1);
+    }
+    // Only one present
+    if (s1) return s1.charAt(0).toUpperCase() + s1.slice(1);
+    if (s2) return s2.charAt(0).toUpperCase() + s2.slice(1);
+    // Neither present
+    return "Full Day";
   };
 
   const formatDate = (dateString) => {
@@ -61,9 +80,10 @@ const LeavesByDepartment = ({ leavesByDepartment = {}, userType = "hr" }) => {
 
   // Navigate to employee profile
   const handleEmployeeClick = (employeeId, e) => {
-    e.stopPropagation(); // PREVENT BUBBLING TO PARENT
+    e.stopPropagation();
+    if (!canViewEmployee) return; // no navigation for non-HR
     if (employeeId) {
-      navigate(getNavigatePath(employeeId));
+      navigate(`/admin/employees/${employeeId}`);
     }
   };
 
@@ -176,8 +196,16 @@ const LeavesByDepartment = ({ leavesByDepartment = {}, userType = "hr" }) => {
                   {displayLeaves.map((leave) => (
                     <div
                       key={leave.id}
-                      onClick={(e) => handleEmployeeClick(leave.employee_id, e)}
-                      className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/20 cursor-pointer transition-colors"
+                      onClick={
+                        canViewEmployee
+                          ? (e) => handleEmployeeClick(leave.employee_id, e)
+                          : undefined
+                      }
+                      className={`flex items-center gap-3 p-3 transition-colors ${
+                        canViewEmployee
+                          ? "hover:bg-gray-50 dark:hover:bg-gray-700/20 cursor-pointer"
+                          : ""
+                      }`}
                     >
                       {/* Employee Avatar */}
                       <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400 font-semibold text-xs flex-shrink-0">
@@ -210,10 +238,17 @@ const LeavesByDepartment = ({ leavesByDepartment = {}, userType = "hr" }) => {
 
                         <div className="text-[10px] text-gray-400 dark:text-gray-500">
                           {formatDate(leave.start_date)}
-
                           {leave.end_date && leave.end_date !== leave.start_date
                             ? ` - ${formatDate(leave.end_date)}`
                             : ""}
+                        </div>
+
+                        {/* Session badge */}
+                        <div className="mt-1">
+                          <span className="inline-block bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap">
+                            <i className="fas fa-clock mr-1 text-[8px]"></i>
+                            {formatSession(leave.session1, leave.session2)}
+                          </span>
                         </div>
                       </div>
                     </div>

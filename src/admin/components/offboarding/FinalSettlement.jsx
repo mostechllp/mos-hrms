@@ -163,7 +163,7 @@ const FinalSettlement = () => {
     overtime: { amount: 0 },
     total_payable: 9900,
     total_deductions: 0,
-    salary_packages: [{ currency: "USD" }]
+    salary_packages: [{ currency: "INR" }]
   };
 
   const totalCustomDeductions = customDeductions.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
