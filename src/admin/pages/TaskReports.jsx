@@ -34,8 +34,7 @@ const TaskReports = () => {
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [remarksModalOpen, setRemarksModalOpen] = useState(false);
   const [remarksText, setRemarksText] = useState("");
-  const [selectedReportForRemarks, setSelectedReportForRemarks] =
-    useState(null);
+  const [selectedReportForRemarks, setSelectedReportForRemarks] = useState(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState(null);
 
@@ -56,12 +55,10 @@ const TaskReports = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingReport, setEditingReport] = useState(null);
 
-  // Fetch employees on mount
   useEffect(() => {
     dispatch(fetchEmployees());
   }, [dispatch]);
 
-  // Fetch reports when page, perPage, or search changes
   useEffect(() => {
     dispatch(
       fetchTaskReports({
@@ -72,7 +69,11 @@ const TaskReports = () => {
     );
   }, [dispatch, currentPage, perPage, searchTerm]);
 
+  // ✅ Unified view handler — used by row click, name click, and eye icon
   const handleView = (report) => {
+    if (!report?.id) {
+      return; // nothing to view
+    }
     setSelectedReport(report);
     setViewModalOpen(true);
   };
@@ -98,7 +99,6 @@ const TaskReports = () => {
     setRemarksModalOpen(false);
     setSelectedReportForRemarks(null);
     setRemarksText("");
-    // Refresh the list
     dispatch(
       fetchTaskReports({
         page: currentPage,
@@ -134,7 +134,6 @@ const TaskReports = () => {
       ...prev,
       [name]: value,
     }));
-    // Clear error for this field
     if (addFormErrors[name]) {
       setAddFormErrors((prev) => ({
         ...prev,
@@ -166,7 +165,6 @@ const TaskReports = () => {
 
     setIsSubmitting(true);
     try {
-      // Find employee name for the payload
       const selectedEmployee = employees.find(
         (emp) => emp.id === parseInt(addFormData.employee_id),
       );
@@ -190,7 +188,6 @@ const TaskReports = () => {
         planForTomorrow: "",
         remarks: "",
       });
-      // Refresh the list
       dispatch(
         fetchTaskReports({
           page: currentPage,
@@ -214,8 +211,7 @@ const TaskReports = () => {
 
   // Calculate stats from fetched data
   const totalReports = totalCount || taskReports.length;
-  const uniqueEmployees = [...new Set(taskReports.map((r) => r.employee))]
-    .length;
+  const uniqueEmployees = [...new Set(taskReports.map((r) => r.employee))].length;
   const today = new Date().toISOString().split("T")[0];
   const todayReports = taskReports.filter((r) => r.date === today).length;
 
@@ -269,100 +265,34 @@ const TaskReports = () => {
             Task Report
           </h2>
         </div>
-        {/* Add Task Report Button */}
         <button
           onClick={handleAddTaskReport}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M12 4v16m8-8H4"
-            />
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
           </svg>
           Add Task Report
         </button>
       </div>
 
-      {/* Dashboard Layout: 2x2 Grid (Left) + 1 Large Card (Right) */}
+      {/* Dashboard Layout */}
       <div className="flex flex-col xl:flex-row gap-5 mb-6">
-        {/* Left: 4 Small Cards */}
+        {/* Left: Small Cards */}
         <div className="xl:w-7/12 grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-5 border border-gray-200 dark:border-gray-700 flex justify-between items-center transition-all hover:-translate-y-0.5 hover:shadow-soft">
-            <div>
-              <div className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1">
-                Total Reports
-              </div>
-              <div
-                className={`text-2xl md:text-3xl font-extrabold ${getStatColor(totalReports, "text-emerald-600 dark:text-emerald-400")}`}
-              >
-                {totalReports}
-              </div>
-            </div>
-            <div className="relative w-12 h-12">
-              <svg
-                className="w-full h-full transform -rotate-90"
-                viewBox="0 0 36 36"
-              >
-                <path
-                  className="text-gray-100 dark:text-gray-700"
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className={getStatSvgColor(totalReports, "text-emerald-500")}
-                  strokeDasharray="75, 100"
-                  strokeLinecap="round"
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-              </svg>
-            </div>
-          </div>
-
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-5 border border-gray-200 dark:border-gray-700 flex justify-between items-center transition-all hover:-translate-y-0.5 hover:shadow-soft">
             <div>
               <div className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1">
                 Employees Reported
               </div>
-              <div
-                className={`text-2xl md:text-3xl font-extrabold ${getStatColor(uniqueEmployees, "text-green-600 dark:text-green-400")}`}
-              >
+              <div className={`text-2xl md:text-3xl font-extrabold ${getStatColor(uniqueEmployees, "text-green-600 dark:text-green-400")}`}>
                 {uniqueEmployees}
               </div>
             </div>
             <div className="relative w-12 h-12">
-              <svg
-                className="w-full h-full transform -rotate-90"
-                viewBox="0 0 36 36"
-              >
-                <path
-                  className="text-gray-100 dark:text-gray-700"
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className={getStatSvgColor(uniqueEmployees, "text-green-500")}
-                  strokeDasharray="100, 100"
-                  strokeLinecap="round"
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path className="text-gray-100 dark:text-gray-700" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path className={getStatSvgColor(uniqueEmployees, "text-green-500")} strokeDasharray="100, 100" strokeLinecap="round" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
               </svg>
             </div>
           </div>
@@ -372,33 +302,14 @@ const TaskReports = () => {
               <div className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1">
                 Today's Reports
               </div>
-              <div
-                className={`text-2xl md:text-3xl font-extrabold ${getStatColor(todayReports, "text-emerald-500 dark:text-emerald-450")}`}
-              >
+              <div className={`text-2xl md:text-3xl font-extrabold ${getStatColor(todayReports, "text-emerald-500 dark:text-emerald-450")}`}>
                 {todayReports}
               </div>
             </div>
             <div className="relative w-12 h-12">
-              <svg
-                className="w-full h-full transform -rotate-90"
-                viewBox="0 0 36 36"
-              >
-                <path
-                  className="text-gray-100 dark:text-gray-700"
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className={getStatSvgColor(todayReports, "text-emerald-400")}
-                  strokeDasharray="60, 100"
-                  strokeLinecap="round"
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path className="text-gray-100 dark:text-gray-700" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path className={getStatSvgColor(todayReports, "text-emerald-400")} strokeDasharray="60, 100" strokeLinecap="round" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
               </svg>
             </div>
           </div>
@@ -408,33 +319,14 @@ const TaskReports = () => {
               <div className="text-[13px] text-gray-500 dark:text-gray-400 font-medium mb-1">
                 With Remarks
               </div>
-              <div
-                className={`text-2xl md:text-3xl font-extrabold ${getStatColor(remarksCount, "text-teal-600 dark:text-teal-400")}`}
-              >
+              <div className={`text-2xl md:text-3xl font-extrabold ${getStatColor(remarksCount, "text-teal-600 dark:text-teal-400")}`}>
                 {remarksCount}
               </div>
             </div>
             <div className="relative w-12 h-12">
-              <svg
-                className="w-full h-full transform -rotate-90"
-                viewBox="0 0 36 36"
-              >
-                <path
-                  className="text-gray-100 dark:text-gray-700"
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className={getStatSvgColor(remarksCount, "text-teal-500")}
-                  strokeDasharray="45, 100"
-                  strokeLinecap="round"
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path className="text-gray-100 dark:text-gray-700" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path className={getStatSvgColor(remarksCount, "text-teal-500")} strokeDasharray="45, 100" strokeLinecap="round" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
               </svg>
             </div>
           </div>
@@ -449,91 +341,37 @@ const TaskReports = () => {
             </h3>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-around h-full py-2">
-            {/* Dynamic SVG Donut Chart */}
             <div className="relative w-32 h-32 flex items-center justify-center mb-4 sm:mb-0">
-              <svg
-                className="w-full h-full transform -rotate-90"
-                viewBox="0 0 36 36"
-              >
-                <path
-                  className="text-gray-100 dark:text-gray-700"
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className={getStatSvgColor(uniqueEmployees, "text-green-500")}
-                  strokeDasharray={`${pctEmployees}, 100`}
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className={getStatSvgColor(todayReports, "text-emerald-400")}
-                  strokeDasharray={`${pctToday}, 100`}
-                  strokeDashoffset={-pctEmployees}
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className={getStatSvgColor(remarksCount, "text-teal-500")}
-                  strokeDasharray={`${pctRemarks}, 100`}
-                  strokeDashoffset={-(pctEmployees + pctToday)}
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path className="text-gray-100 dark:text-gray-700" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path className={getStatSvgColor(uniqueEmployees, "text-green-500")} strokeDasharray={`${pctEmployees}, 100`} strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path className={getStatSvgColor(todayReports, "text-emerald-400")} strokeDasharray={`${pctToday}, 100`} strokeDashoffset={-pctEmployees} strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path className={getStatSvgColor(remarksCount, "text-teal-500")} strokeDasharray={`${pctRemarks}, 100`} strokeDashoffset={-(pctEmployees + pctToday)} strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
               </svg>
               <div className="absolute flex flex-col items-center justify-center z-10">
                 <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">
                   Total
                 </span>
-                <span
-                  className={`text-2xl font-extrabold ${getStatColor(totalReports, "text-[#10B981]")}`}
-                >
+                <span className={`text-2xl font-extrabold ${getStatColor(totalReports, "text-[#10B981]")}`}>
                   {totalReports}
                 </span>
               </div>
             </div>
-            {/* Fake Legend mapping to existing colors from the small cards */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3 text-sm">
-                <span
-                  className={`w-2.5 h-2.5 rounded-full ${getStatBgColor(uniqueEmployees, "bg-green-500")}`}
-                ></span>
-                <span className="text-gray-600 dark:text-gray-300 w-24">
-                  Employees
-                </span>
-                <span className="font-semibold text-gray-800 dark:text-white">
-                  {uniqueEmployees}
-                </span>
+                <span className={`w-2.5 h-2.5 rounded-full ${getStatBgColor(uniqueEmployees, "bg-green-500")}`}></span>
+                <span className="text-gray-600 dark:text-gray-300 w-24">Employees</span>
+                <span className="font-semibold text-gray-800 dark:text-white">{uniqueEmployees}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
-                <span
-                  className={`w-2.5 h-2.5 rounded-full ${getStatBgColor(todayReports, "bg-emerald-400")}`}
-                ></span>
-                <span className="text-gray-600 dark:text-gray-300 w-24">
-                  Today
-                </span>
-                <span className="font-semibold text-gray-800 dark:text-white">
-                  {todayReports}
-                </span>
+                <span className={`w-2.5 h-2.5 rounded-full ${getStatBgColor(todayReports, "bg-emerald-400")}`}></span>
+                <span className="text-gray-600 dark:text-gray-300 w-24">Today</span>
+                <span className="font-semibold text-gray-800 dark:text-white">{todayReports}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
-                <span
-                  className={`w-2.5 h-2.5 rounded-full ${getStatBgColor(remarksCount, "bg-teal-500")}`}
-                ></span>
-                <span className="text-gray-600 dark:text-gray-300 w-24">
-                  Remarks
-                </span>
-                <span className="font-semibold text-gray-800 dark:text-white">
-                  {remarksCount}
-                </span>
+                <span className={`w-2.5 h-2.5 rounded-full ${getStatBgColor(remarksCount, "bg-teal-500")}`}></span>
+                <span className="text-gray-600 dark:text-gray-300 w-24">Remarks</span>
+                <span className="font-semibold text-gray-800 dark:text-white">{remarksCount}</span>
               </div>
             </div>
           </div>
@@ -542,14 +380,12 @@ const TaskReports = () => {
 
       {/* Tasks List Card */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-soft mb-6">
-        {/* Section Header */}
         <div className="px-5 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-[16px] font-semibold text-gray-800 dark:text-white">
             Tasks List
           </h3>
         </div>
 
-        {/* Action Bar (Rows per page & Search) */}
         <div className="px-5 py-4 flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
           <EntriesSelector
             value={perPage}
@@ -558,7 +394,6 @@ const TaskReports = () => {
               setCurrentPage(1);
             }}
           />
-
           <SearchBar
             value={searchTerm}
             onChange={(val) => {
@@ -569,52 +404,31 @@ const TaskReports = () => {
           />
         </div>
 
-        {/* Loading State */}
         {loading && (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
           </div>
         )}
 
-        {/* Table */}
         {!loading && (
           <div className="overflow-x-auto">
             <table className="w-full text-left whitespace-nowrap">
               <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                 <tr>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold w-12 text-center uppercase">
-                    Sl.No.
-                  </th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">
-                    Date
-                  </th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">
-                    Employee Name
-                  </th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">
-                    Tasks Completed
-                  </th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">
-                    Pending Tasks
-                  </th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">
-                    Plan for Tomorrow
-                  </th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">
-                    Remarks
-                  </th>
-                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-right uppercase">
-                    Action
-                  </th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold w-12 text-center uppercase">Sl.No.</th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">Date</th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">Employee Name</th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">Tasks Completed</th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">Pending Tasks</th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">Plan for Tomorrow</th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-left uppercase">Remarks</th>
+                  <th className="px-4 py-3 text-[10px] md:text-xs font-semibold text-right uppercase">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedReports.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan="8"
-                      className="text-center py-12 text-gray-500 text-xs md:text-sm"
-                    >
+                    <td colSpan="8" className="text-center py-12 text-gray-500 text-xs md:text-sm">
                       No task reports found.
                     </td>
                   </tr>
@@ -622,7 +436,9 @@ const TaskReports = () => {
                   paginatedReports.map((report, idx) => (
                     <tr
                       key={report.id}
-                      className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                      // ✅ Row click opens View modal
+                      onClick={() => handleView(report)}
+                      className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                     >
                       <td className="px-4 py-3 text-center text-xs md:text-sm text-gray-600 dark:text-gray-400 font-medium">
                         {start + idx + 1}
@@ -631,18 +447,23 @@ const TaskReports = () => {
                         {report.date}
                       </td>
                       <td className="px-4 py-3 text-xs md:text-sm text-gray-800 dark:text-gray-200 font-semibold">
-                        {report.employee}
+                        {/* ✅ Employee name is a clickable button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleView(report);
+                          }}
+                          className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors"
+                          title={`View ${report.employee}'s task report`}
+                        >
+                          {report.employee}
+                        </button>
                       </td>
-                      <td
-                        className="px-4 py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate"
-                        title={report.tasksCompleted}
-                      >
+                      <td className="px-4 py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={report.tasksCompleted}>
                         {report.tasksCompleted}
                       </td>
-                      <td
-                        className="px-4 py-3 text-xs md:text-sm text-amber-600 dark:text-amber-400 max-w-[200px] truncate"
-                        title={report.pendingTasks}
-                      >
+                      <td className="px-4 py-3 text-xs md:text-sm text-amber-600 dark:text-amber-400 max-w-[200px] truncate" title={report.pendingTasks}>
                         {report.pendingTasks && report.pendingTasks !== "-" ? (
                           <div className="flex items-center gap-1">
                             <i className="fas fa-clock text-xs"></i>
@@ -652,16 +473,10 @@ const TaskReports = () => {
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
-                      <td
-                        className="px-4 py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate"
-                        title={report.planForTomorrow}
-                      >
+                      <td className="px-4 py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={report.planForTomorrow}>
                         {report.planForTomorrow}
                       </td>
-                      <td
-                        className="px-4 py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[150px] truncate"
-                        title={report.remarks}
-                      >
+                      <td className="px-4 py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[150px] truncate" title={report.remarks}>
                         {report.remarks && report.remarks.trim() ? (
                           <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
                             <i className="fas fa-comment text-gray-400 dark:text-gray-500 text-xs"></i>
@@ -672,8 +487,11 @@ const TaskReports = () => {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1 md:gap-2">
-                          {/* View Button */}
+                        {/* ✅ stopPropagation so action buttons don't open the row's modal */}
+                        <div
+                          className="flex items-center justify-end gap-1 md:gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             onClick={() => handleView(report)}
                             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-500 transition-colors"
@@ -681,13 +499,10 @@ const TaskReports = () => {
                           >
                             <i className="fas fa-eye text-xs md:text-sm"></i>
                           </button>
-                          {/* Add/Edit Remarks Button */}
                           <button
                             onClick={() => handleAddRemarks(report)}
                             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-green-500 transition-colors"
-                            title={
-                              report.remarks ? "Edit Remarks" : "Add Remarks"
-                            }
+                            title={report.remarks ? "Edit Remarks" : "Add Remarks"}
                           >
                             <i className="fas fa-comment text-xs md:text-sm"></i>
                           </button>
@@ -701,7 +516,6 @@ const TaskReports = () => {
           </div>
         )}
 
-        {/* Pagination */}
         <div className="px-5 py-3 bg-white dark:bg-gray-800 rounded-b-lg">
           <Pagination
             currentPage={currentPage}
@@ -717,22 +531,11 @@ const TaskReports = () => {
       {addModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full shadow-soft-lg border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]">
-            {/* Header */}
             <div className="px-6 py-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-2xl">
               <h3 className="text-[17px] font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2.5">
                 <span className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs shadow-sm">
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 4v16m8-8H4"
-                    />
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                   </svg>
                 </span>
                 Add Task Report
@@ -746,13 +549,8 @@ const TaskReports = () => {
               </button>
             </div>
 
-            {/* Form */}
-            <form
-              onSubmit={handleAddFormSubmit}
-              className="p-6 overflow-y-auto"
-            >
+            <form onSubmit={handleAddFormSubmit} className="p-6 overflow-y-auto">
               <div className="space-y-4">
-                {/* Employee Selection */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                     Employee <span className="text-red-500">*</span>
@@ -762,9 +560,7 @@ const TaskReports = () => {
                     value={addFormData.employee_id}
                     onChange={handleAddFormChange}
                     className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors ${
-                      addFormErrors.employee_id
-                        ? "border-red-500"
-                        : "border-gray-300 dark:border-gray-600"
+                      addFormErrors.employee_id ? "border-red-500" : "border-gray-300 dark:border-gray-600"
                     }`}
                   >
                     <option value="">Select Employee</option>
@@ -775,13 +571,10 @@ const TaskReports = () => {
                     ))}
                   </select>
                   {addFormErrors.employee_id && (
-                    <p className="mt-1 text-sm text-red-500">
-                      {addFormErrors.employee_id}
-                    </p>
+                    <p className="mt-1 text-sm text-red-500">{addFormErrors.employee_id}</p>
                   )}
                 </div>
 
-                {/* Date - Using DateInput */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                     Date <span className="text-red-500">*</span>
@@ -789,16 +582,9 @@ const TaskReports = () => {
                   <DateInput
                     value={addFormData.date}
                     onChange={(date) => {
-                      setAddFormData((prev) => ({
-                        ...prev,
-                        date: date,
-                      }));
-                      // Clear error for date field
+                      setAddFormData((prev) => ({ ...prev, date: date }));
                       if (addFormErrors.date) {
-                        setAddFormErrors((prev) => ({
-                          ...prev,
-                          date: "",
-                        }));
+                        setAddFormErrors((prev) => ({ ...prev, date: "" }));
                       }
                     }}
                     placeholder="dd/mm/yyyy"
@@ -807,13 +593,10 @@ const TaskReports = () => {
                     className="w-full"
                   />
                   {addFormErrors.date && (
-                    <p className="mt-1 text-sm text-red-500">
-                      {addFormErrors.date}
-                    </p>
+                    <p className="mt-1 text-sm text-red-500">{addFormErrors.date}</p>
                   )}
                 </div>
 
-                {/* Tasks Completed */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                     Tasks Completed <span className="text-red-500">*</span>
@@ -825,19 +608,14 @@ const TaskReports = () => {
                     rows="3"
                     placeholder="List the tasks completed today..."
                     className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white resize-none transition-colors ${
-                      addFormErrors.tasksCompleted
-                        ? "border-red-500"
-                        : "border-gray-300 dark:border-gray-600"
+                      addFormErrors.tasksCompleted ? "border-red-500" : "border-gray-300 dark:border-gray-600"
                     }`}
                   />
                   {addFormErrors.tasksCompleted && (
-                    <p className="mt-1 text-sm text-red-500">
-                      {addFormErrors.tasksCompleted}
-                    </p>
+                    <p className="mt-1 text-sm text-red-500">{addFormErrors.tasksCompleted}</p>
                   )}
                 </div>
 
-                {/* Pending Tasks */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                     Pending Tasks
@@ -852,7 +630,6 @@ const TaskReports = () => {
                   />
                 </div>
 
-                {/* Plan for Tomorrow */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                     Plan for Tomorrow
@@ -867,7 +644,6 @@ const TaskReports = () => {
                   />
                 </div>
 
-                {/* Remarks */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                     Remarks
@@ -883,7 +659,6 @@ const TaskReports = () => {
                 </div>
               </div>
 
-              {/* Footer */}
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   type="button"
@@ -900,42 +675,16 @@ const TaskReports = () => {
                 >
                   {isSubmitting ? (
                     <>
-                      <svg
-                        className="animate-spin h-4 w-4 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
+                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                       Saving...
                     </>
                   ) : (
                     <>
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M5 13l4 4L19 7"
-                        />
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                       </svg>
                       Save Report
                     </>
@@ -951,7 +700,6 @@ const TaskReports = () => {
       {viewModalOpen && selectedReport && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-xl w-full shadow-soft-lg border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]">
-            {/* Header */}
             <div className="px-6 py-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-2xl">
               <h3 className="text-[17px] font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2.5">
                 <span className="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs shadow-sm">
@@ -967,9 +715,7 @@ const TaskReports = () => {
               </button>
             </div>
 
-            {/* Content */}
             <div className="p-6 overflow-y-auto space-y-5">
-              {/* Date & Employee details */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-1">
@@ -989,7 +735,6 @@ const TaskReports = () => {
                 </div>
               </div>
 
-              {/* Tasks Completed */}
               <div>
                 <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-1.5">
                   TASKS COMPLETED
@@ -1001,7 +746,6 @@ const TaskReports = () => {
                 </div>
               </div>
 
-              {/* Plan for Tomorrow */}
               <div>
                 <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-1.5">
                   PLAN FOR TOMORROW
@@ -1013,7 +757,6 @@ const TaskReports = () => {
                 </div>
               </div>
 
-              {/* Comments / Admin Remarks */}
               <div>
                 <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
                   <i className="fas fa-comment text-gray-400"></i>
@@ -1024,16 +767,13 @@ const TaskReports = () => {
                     {selectedReport.remarks && selectedReport.remarks.trim() ? (
                       selectedReport.remarks
                     ) : (
-                      <span className="text-gray-400 italic">
-                        No remarks added yet
-                      </span>
+                      <span className="text-gray-400 italic">No remarks added yet</span>
                     )}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Footer */}
             <div className="px-6 py-4 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-2xl">
               <button
                 onClick={handleViewModalClose}
@@ -1060,7 +800,6 @@ const TaskReports = () => {
       {remarksModalOpen && selectedReportForRemarks && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full shadow-soft-lg border border-gray-200 dark:border-gray-700 p-6 flex flex-col">
-            {/* Header */}
             <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-700 mb-5">
               <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                 <i className="fas fa-comment text-green-500 text-xl"></i>
@@ -1074,9 +813,7 @@ const TaskReports = () => {
               </button>
             </div>
 
-            {/* Content */}
             <div className="space-y-5">
-              {/* Employee & Date container box */}
               <div className="bg-gray-50 dark:bg-gray-700/30 p-4 border border-gray-100 dark:border-gray-700 rounded-2xl">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -1098,7 +835,6 @@ const TaskReports = () => {
                 </div>
               </div>
 
-              {/* Text Area */}
               <div>
                 <label className="text-[14px] font-bold text-gray-700 dark:text-gray-300 mb-2 block">
                   Admin Remarks
@@ -1117,7 +853,6 @@ const TaskReports = () => {
               </div>
             </div>
 
-            {/* Footer with buttons */}
             <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-6 flex justify-end gap-3 bg-white dark:bg-gray-800 rounded-b-xl">
               <button
                 onClick={handleRemarksModalClose}

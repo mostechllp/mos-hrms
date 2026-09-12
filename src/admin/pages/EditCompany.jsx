@@ -47,7 +47,8 @@ const EditCompany = () => {
   });
 
   const companyTypeOptions = [
-    { value: "llp", label: "LLP" },
+    { value: "llp", label: "LLP (Limited Liability Partnership)" },
+    { value: "llc", label: "LLC (Limited Liability Company)" },
     { value: "private_limited", label: "Private Limited (Pvt. Ltd.)" },
     { value: "proprietorship", label: "Proprietorship / Company" },
     { value: "other", label: "Other" },
