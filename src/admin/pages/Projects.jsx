@@ -24,7 +24,7 @@ const Projects = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [viewMode, setViewMode] = useState("grid");
+  const [viewMode, setViewMode] = useState("list");
   const [currentPageState, setCurrentPageState] = useState(1);
   const [perPageState, setPerPageState] = useState(15);
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -256,17 +256,7 @@ const Projects = () => {
 
         {/* View Switcher */}
         <div className="flex items-center bg-gray-100 dark:bg-gray-800 p-1 rounded-full border border-gray-200 dark:border-gray-700">
-          <button
-            onClick={() => setViewMode("grid")}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 shadow-sm ${
-              viewMode === "grid"
-                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                : "bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            }`}
-            title="Grid View"
-          >
-            <i className="fas fa-th-large"></i> Grid
-          </button>
+          
           <button
             onClick={() => setViewMode("list")}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 shadow-sm ${
@@ -277,6 +267,17 @@ const Projects = () => {
             title="List View"
           >
             <i className="fas fa-list"></i> List
+          </button>
+          <button
+            onClick={() => setViewMode("grid")}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 shadow-sm ${
+              viewMode === "grid"
+                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                : "bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            }`}
+            title="Grid View"
+          >
+            <i className="fas fa-th-large"></i> Grid
           </button>
         </div>
       </div>

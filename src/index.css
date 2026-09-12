@@ -303,6 +303,10 @@
   background-color: var(--primary-very-light) !important;
 }
 
+.dark .bg-green-50 {
+  background-color: rgba(46, 204, 113, 0.12) !important;
+}
+
 .bg-gradient-to-r.from-green-500.to-green-600 {
   background: var(--primary-gradient) !important;
   color: var(--primary-contrast) !important;

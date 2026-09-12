@@ -9,28 +9,26 @@ import MissedPunchInModal from "../components/modals/MissedPunchInModal";
 import LateCheckinModal from "../components/modals/LateCheckinModal";
 import EarlyCheckinModal from "../components/modals/EarlyCheckinModal";
 import EditAttendanceRequestModal from "../components/modals/EditAttendanceRequestModal";
-import { 
-  clearAttendanceError, 
-  fetchAttendanceRequests, 
-  updateAttendanceRequestStatus, 
+import {
+  clearAttendanceError,
+  fetchAttendanceRequests,
+  updateAttendanceRequestStatus,
   deleteAttendanceRequest,
   deleteAttendanceRequestAdmin
 } from "../store/slices/attendanceTypeSlice";
 
 const AttendanceRequests = ({ isAdmin = false }) => {
   const dispatch = useDispatch();
-  
-  // Get state from Redux with safe defaults
+
   const attendanceState = useSelector((state) => state.EmpAttendanceType || {});
   const {
     requests: rawRequests,
     loading = false,
     error = null,
   } = attendanceState;
-  
-  // Ensure requests is always an array
+
   const requests = Array.isArray(rawRequests) ? rawRequests : [];
-  
+
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEarlyCheckin, setShowEarlyCheckin] = useState(false);
@@ -43,12 +41,10 @@ const AttendanceRequests = ({ isAdmin = false }) => {
   const [localPagination, setLocalPagination] = useState({ currentPage: 1, perPage: 10 });
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, request: null, action: null });
 
-  // Fetch attendance requests on component mount
   useEffect(() => {
     loadAttendanceRequests();
   }, []);
 
-  // Handle errors
   useEffect(() => {
     if (error) {
       showToast(error, "error");
@@ -66,10 +62,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
 
   const handleStatusUpdate = async (request, status) => {
     try {
-      const payload = {
-        id: request.id,
-        status
-      };
+      const payload = { id: request.id, status };
       await dispatch(updateAttendanceRequestStatus(payload)).unwrap();
       showToast(`Request ${status} successfully`, "success");
       loadAttendanceRequests();
@@ -111,9 +104,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
     if (request.employee?.first_name && request.employee?.last_name) {
       return `${request.employee.first_name} ${request.employee.last_name}`;
     }
-    if (request.employee?.first_name) {
-      return request.employee.first_name;
-    }
+    if (request.employee?.first_name) return request.employee.first_name;
     if (request.employee?.name) return request.employee.name;
     if (request.employee_name) return request.employee_name;
     return "-";
@@ -128,7 +119,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
       early_checkin: "Early Check-in",
       late_checkin: "Late Check-in",
     };
-    return types[type] || type?.replace(/_/g, ' ') || type;
+    return types[type] || type?.replace(/_/g, " ") || type;
   };
 
   const getRequestTypeIcon = (type) => {
@@ -144,19 +135,17 @@ const AttendanceRequests = ({ isAdmin = false }) => {
   };
 
   const getFilteredRequests = () => {
-    // Defensive check - ensure requests is an array
     if (!requests || !Array.isArray(requests) || requests.length === 0) {
       return [];
     }
-    
     let filtered = [...requests];
-    
+
     if (localFilter.status !== "all") {
       filtered = filtered.filter(
         (r) => r.status?.toLowerCase() === localFilter.status.toLowerCase()
       );
     }
-    
+
     if (localFilter.search) {
       const searchLower = localFilter.search.toLowerCase();
       filtered = filtered.filter(
@@ -167,7 +156,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
           getEmployeeName(r).toLowerCase().includes(searchLower)
       );
     }
-    
+
     return filtered;
   };
 
@@ -181,9 +170,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
+        day: "2-digit", month: "short", year: "numeric",
       });
     } catch (error) {
       return "-";
@@ -192,8 +179,8 @@ const AttendanceRequests = ({ isAdmin = false }) => {
 
   const formatTime = (timeString) => {
     if (!timeString) return "-";
-    if (timeString.includes(':')) {
-      const parts = timeString.split(':');
+    if (timeString.includes(":")) {
+      const parts = timeString.split(":");
       return `${parts[0]}:${parts[1]}`;
     }
     return timeString;
@@ -204,45 +191,40 @@ const AttendanceRequests = ({ isAdmin = false }) => {
     try {
       const date = new Date(dateTimeString);
       return date.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
       });
     } catch (error) {
       return "-";
     }
   };
 
+  // ✅ Unified view handler — used by row click, name click, and eye icon
   const handleViewDetails = (request) => {
+    if (!request?.id) return;
     setSelectedRequest(request);
     setShowDetailsModal(true);
   };
 
   const stats = {
     total: requests?.length || 0,
-    pending: (requests || []).filter(r => r.status?.toLowerCase() === "pending").length,
-    approved: (requests || []).filter(r => r.status?.toLowerCase() === "approved").length,
-    rejected: (requests || []).filter(r => r.status?.toLowerCase() === "rejected").length,
+    pending: (requests || []).filter((r) => r.status?.toLowerCase() === "pending").length,
+    approved: (requests || []).filter((r) => r.status?.toLowerCase() === "approved").length,
+    rejected: (requests || []).filter((r) => r.status?.toLowerCase() === "rejected").length,
   };
 
   const openRequestModal = (type) => {
-    switch(type) {
+    switch (type) {
       case "early_check_in":
       case "early_checkin":
-        setShowEarlyCheckin(true);
-        break;
+        setShowEarlyCheckin(true); break;
       case "late_check_in":
       case "late_checkin":
-        setShowLateCheckin(true);
-        break;
+        setShowLateCheckin(true); break;
       case "missed_punch_in":
-        setShowMissedPunchIn(true);
-        break;
+        setShowMissedPunchIn(true); break;
       case "missed_punch_out":
-        setShowMissedPunchOut(true);
-        break;
+        setShowMissedPunchOut(true); break;
       default:
         showToast("Modal for " + type.replace(/_/g, " ") + " is coming soon!", "info");
         break;
@@ -276,7 +258,6 @@ const AttendanceRequests = ({ isAdmin = false }) => {
     loadAttendanceRequests();
   };
 
-  // Show loading state
   if (loading && requests.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -293,58 +274,34 @@ const AttendanceRequests = ({ isAdmin = false }) => {
       {/* Stats Grid */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-5 mb-7">
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
-          <div className="stat-icon w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-2xl mx-auto mb-3">
-            <FiClock />
-          </div>
-          <div className="stat-number text-3xl font-extrabold text-blue-600 dark:text-blue-400">
-            {stats.total}
-          </div>
-          <div className="stat-label text-xs text-[var(--muted)]">
-            Total Requests
-          </div>
+          <div className="stat-icon w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-2xl mx-auto mb-3"><FiClock /></div>
+          <div className="stat-number text-3xl font-extrabold text-blue-600 dark:text-blue-400">{stats.total}</div>
+          <div className="stat-label text-xs text-[var(--muted)]">Total Requests</div>
         </div>
 
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
-          <div className="stat-icon w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-2xl mx-auto mb-3">
-            <FiClock />
-          </div>
-          <div className="stat-number text-3xl font-extrabold text-amber-500">
-            {stats.pending}
-          </div>
-          <div className="stat-label text-xs text-[var(--muted)]">
-            Pending
-          </div>
+          <div className="stat-icon w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-2xl mx-auto mb-3"><FiClock /></div>
+          <div className="stat-number text-3xl font-extrabold text-amber-500">{stats.pending}</div>
+          <div className="stat-label text-xs text-[var(--muted)]">Pending</div>
         </div>
 
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
-          <div className="stat-icon w-12 h-12 rounded-xl bg-green-500/10 text-green-500 flex items-center justify-center text-2xl mx-auto mb-3">
-            <FiClock />
-          </div>
-          <div className="stat-number text-3xl font-extrabold text-green-500">
-            {stats.approved}
-          </div>
-          <div className="stat-label text-xs text-[var(--muted)]">
-            Approved
-          </div>
+          <div className="stat-icon w-12 h-12 rounded-xl bg-green-500/10 text-green-500 flex items-center justify-center text-2xl mx-auto mb-3"><FiClock /></div>
+          <div className="stat-number text-3xl font-extrabold text-green-500">{stats.approved}</div>
+          <div className="stat-label text-xs text-[var(--muted)]">Approved</div>
         </div>
 
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
-          <div className="stat-icon w-12 h-12 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center text-2xl mx-auto mb-3">
-            <FiClock />
-          </div>
-          <div className="stat-number text-3xl font-extrabold text-red-500">
-            {stats.rejected}
-          </div>
-          <div className="stat-label text-xs text-[var(--muted)]">
-            Rejected
-          </div>
+          <div className="stat-icon w-12 h-12 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center text-2xl mx-auto mb-3"><FiClock /></div>
+          <div className="stat-number text-3xl font-extrabold text-red-500">{stats.rejected}</div>
+          <div className="stat-label text-xs text-[var(--muted)]">Rejected</div>
         </div>
       </div>
 
       {/* Header */}
       <div className="attendance-requests-header flex flex-col md:flex-row justify-between items-start md:items-center gap-5 mb-7">
         <h2 className="text-xl md:text-2xl font-semibold bg-gradient-to-r from-[var(--text)] to-green-600 bg-clip-text text-transparent">
-          My Attendance Requests
+          Attendance Requests
         </h2>
       </div>
 
@@ -352,71 +309,53 @@ const AttendanceRequests = ({ isAdmin = false }) => {
       {!isAdmin && (
         <div className="mb-8">
           <h3 className="text-lg font-semibold text-[var(--text)] mb-4">Create New Request</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          <button onClick={() => openRequestModal("early_check_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-orange-500 hover:shadow-md transition-all text-center gap-2 group">
-            <div className="w-10 h-10 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <FiSun className="text-lg" />
-            </div>
-            <span className="text-sm font-medium text-[var(--text)]">Early Check-in</span>
-          </button>
-          
-          <button onClick={() => openRequestModal("late_check_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-purple-500 hover:shadow-md transition-all text-center gap-2 group">
-            <div className="w-10 h-10 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <FiMoon className="text-lg" />
-            </div>
-            <span className="text-sm font-medium text-[var(--text)]">Late Check-in</span>
-          </button>
-          
-          <button onClick={() => openRequestModal("missed_punch_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-center gap-2 group">
-            <div className="w-10 h-10 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <MdFingerprint className="text-lg" />
-            </div>
-            <span className="text-sm font-medium text-[var(--text)]">Missed Punch In</span>
-          </button>
-          
-          <button onClick={() => openRequestModal("missed_punch_out")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-green-500 hover:shadow-md transition-all text-center gap-2 group">
-            <div className="w-10 h-10 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <FiLogIn className="text-lg" />
-            </div>
-            <span className="text-sm font-medium text-[var(--text)]">Missed Punch Out</span>
-          </button>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <button onClick={() => openRequestModal("early_check_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-orange-500 hover:shadow-md transition-all text-center gap-2 group">
+              <div className="w-10 h-10 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform"><FiSun className="text-lg" /></div>
+              <span className="text-sm font-medium text-[var(--text)]">Early Check-in</span>
+            </button>
 
-          <button onClick={() => openRequestModal("missed_punch_full_day")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-red-500 hover:shadow-md transition-all text-center gap-2 group">
-            <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <i className="fas fa-calendar-times text-lg"></i>
-            </div>
-            <span className="text-sm font-medium text-[var(--text)]">Missed Punch (Full Day)</span>
-          </button>
+            <button onClick={() => openRequestModal("late_check_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-purple-500 hover:shadow-md transition-all text-center gap-2 group">
+              <div className="w-10 h-10 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform"><FiMoon className="text-lg" /></div>
+              <span className="text-sm font-medium text-[var(--text)]">Late Check-in</span>
+            </button>
 
-          <button onClick={() => openRequestModal("wfh")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-teal-500 hover:shadow-md transition-all text-center gap-2 group">
-            <div className="w-10 h-10 rounded-full bg-teal-500/10 text-teal-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <i className="fas fa-home text-lg"></i>
-            </div>
-            <span className="text-sm font-medium text-[var(--text)]">Work From Home (WFH)</span>
-          </button>
+            <button onClick={() => openRequestModal("missed_punch_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-center gap-2 group">
+              <div className="w-10 h-10 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform"><MdFingerprint className="text-lg" /></div>
+              <span className="text-sm font-medium text-[var(--text)]">Missed Punch In</span>
+            </button>
 
-          <button onClick={() => openRequestModal("attendance_correction")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-indigo-500 hover:shadow-md transition-all text-center gap-2 group">
-            <div className="w-10 h-10 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <i className="fas fa-user-edit text-lg"></i>
-            </div>
-            <span className="text-sm font-medium text-[var(--text)]">Attendance Correction</span>
-          </button>
+            <button onClick={() => openRequestModal("missed_punch_out")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-green-500 hover:shadow-md transition-all text-center gap-2 group">
+              <div className="w-10 h-10 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center group-hover:scale-110 transition-transform"><FiLogIn className="text-lg" /></div>
+              <span className="text-sm font-medium text-[var(--text)]">Missed Punch Out</span>
+            </button>
 
-          <button onClick={() => openRequestModal("half_day_regularization")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-pink-500 hover:shadow-md transition-all text-center gap-2 group">
-            <div className="w-10 h-10 rounded-full bg-pink-500/10 text-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <i className="fas fa-adjust text-lg"></i>
-            </div>
-            <span className="text-sm font-medium text-[var(--text)]">Half Day Regularization</span>
-          </button>
+            <button onClick={() => openRequestModal("missed_punch_full_day")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-red-500 hover:shadow-md transition-all text-center gap-2 group">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center group-hover:scale-110 transition-transform"><i className="fas fa-calendar-times text-lg"></i></div>
+              <span className="text-sm font-medium text-[var(--text)]">Missed Punch (Full Day)</span>
+            </button>
 
-          <button onClick={() => openRequestModal("shift_change")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-amber-600 hover:shadow-md transition-all text-center gap-2 group">
-            <div className="w-10 h-10 rounded-full bg-amber-600/10 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <i className="fas fa-exchange-alt text-lg"></i>
-            </div>
-            <span className="text-sm font-medium text-[var(--text)]">Shift Change Request</span>
-          </button>
+            <button onClick={() => openRequestModal("wfh")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-teal-500 hover:shadow-md transition-all text-center gap-2 group">
+              <div className="w-10 h-10 rounded-full bg-teal-500/10 text-teal-500 flex items-center justify-center group-hover:scale-110 transition-transform"><i className="fas fa-home text-lg"></i></div>
+              <span className="text-sm font-medium text-[var(--text)]">Work From Home (WFH)</span>
+            </button>
+
+            <button onClick={() => openRequestModal("attendance_correction")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-indigo-500 hover:shadow-md transition-all text-center gap-2 group">
+              <div className="w-10 h-10 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center group-hover:scale-110 transition-transform"><i className="fas fa-user-edit text-lg"></i></div>
+              <span className="text-sm font-medium text-[var(--text)]">Attendance Correction</span>
+            </button>
+
+            <button onClick={() => openRequestModal("half_day_regularization")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-pink-500 hover:shadow-md transition-all text-center gap-2 group">
+              <div className="w-10 h-10 rounded-full bg-pink-500/10 text-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform"><i className="fas fa-adjust text-lg"></i></div>
+              <span className="text-sm font-medium text-[var(--text)]">Half Day Regularization</span>
+            </button>
+
+            <button onClick={() => openRequestModal("shift_change")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-amber-600 hover:shadow-md transition-all text-center gap-2 group">
+              <div className="w-10 h-10 rounded-full bg-amber-600/10 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform"><i className="fas fa-exchange-alt text-lg"></i></div>
+              <span className="text-sm font-medium text-[var(--text)]">Shift Change Request</span>
+            </button>
+          </div>
         </div>
-      </div>
       )}
 
       {/* Status Tabs */}
@@ -472,32 +411,16 @@ const AttendanceRequests = ({ isAdmin = false }) => {
         <table className="attendance-requests-table w-full border-collapse text-xs min-w-[900px]">
           <thead>
             <tr>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
-                #
-              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">#</th>
               {isAdmin && (
-                <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
-                  Employee
-                </th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Employee</th>
               )}
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
-                Type
-              </th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
-                Date
-              </th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
-                Time
-              </th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
-                Reason
-              </th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
-                Status
-              </th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
-                Action
-              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Type</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Date</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Time</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Reason</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Status</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -523,14 +446,27 @@ const AttendanceRequests = ({ isAdmin = false }) => {
               currentRequests.map((request, idx) => (
                 <tr
                   key={request.id}
-                  className="hover:bg-[var(--surface2)] transition-colors"
+                  // ✅ Row click opens Details modal
+                  onClick={() => handleViewDetails(request)}
+                  className="hover:bg-[var(--surface2)] transition-colors cursor-pointer"
                 >
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
                     {start + idx + 1}
                   </td>
                   {isAdmin && (
                     <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
-                      {getEmployeeName(request)}
+                      {/* ✅ Employee name is a clickable button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewDetails(request);
+                        }}
+                        className="text-left font-medium text-[var(--text)] hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
+                        title={`View ${getEmployeeName(request)}'s request`}
+                      >
+                        {getEmployeeName(request)}
+                      </button>
                     </td>
                   )}
                   <td className="py-3.5 px-4 border-b border-[var(--border)]">
@@ -554,7 +490,11 @@ const AttendanceRequests = ({ isAdmin = false }) => {
                     <StatusBadge status={request.status} />
                   </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)]">
-                    <div className="flex items-center gap-1">
+                    {/* ✅ stopPropagation so action buttons don't open row modal */}
+                    <div
+                      className="flex items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
                         onClick={() => handleViewDetails(request)}
                         className="p-1.5 rounded-lg hover:bg-[var(--surface2)] text-blue-500 transition-colors"
@@ -562,18 +502,18 @@ const AttendanceRequests = ({ isAdmin = false }) => {
                       >
                         <FiEye className="text-sm" />
                       </button>
-                      
-                      {isAdmin && request.status === 'pending' && (
+
+                      {isAdmin && request.status === "pending" && (
                         <>
                           <button
-                            onClick={() => openConfirmModal(request, 'approved')}
+                            onClick={() => openConfirmModal(request, "approved")}
                             className="p-1.5 rounded-lg hover:bg-green-500/10 text-green-500 transition-colors"
                             title="Approve"
                           >
                             <FiCheck className="text-sm" />
                           </button>
                           <button
-                            onClick={() => openConfirmModal(request, 'rejected')}
+                            onClick={() => openConfirmModal(request, "rejected")}
                             className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors"
                             title="Reject"
                           >
@@ -582,8 +522,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
                         </>
                       )}
 
-                      {/* Edit and Delete for both Admin and Employee */}
-                      {((!isAdmin && request.status !== 'approved') || isAdmin) && (
+                      {((!isAdmin && request.status !== "approved") || isAdmin) && (
                         <>
                           <button
                             onClick={() => handleEdit(request)}
@@ -593,7 +532,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
                             <FiEdit2 className="text-sm" />
                           </button>
                           <button
-                            onClick={() => openConfirmModal(request, 'delete')}
+                            onClick={() => openConfirmModal(request, "delete")}
                             className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors"
                             title="Delete"
                           >
@@ -659,11 +598,15 @@ const AttendanceRequests = ({ isAdmin = false }) => {
           <div className="bg-[var(--surface)] max-w-md w-full rounded-2xl p-6 shadow-xl border border-[var(--border)]" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-[var(--text)]">Request Details</h3>
-              <button onClick={() => setShowDetailsModal(false)} className="text-[var(--muted)] hover:text-[var(--text)]">
-                ✕
-              </button>
+              <button onClick={() => setShowDetailsModal(false)} className="text-[var(--muted)] hover:text-[var(--text)]">✕</button>
             </div>
             <div className="space-y-3">
+              {isAdmin && (
+                <div className="flex py-2 border-b border-[var(--border)]">
+                  <span className="font-semibold text-[var(--text)] w-28">Employee:</span>
+                  <span className="text-[var(--text-secondary)]">{getEmployeeName(selectedRequest)}</span>
+                </div>
+              )}
               <div className="flex py-2 border-b border-[var(--border)]">
                 <span className="font-semibold text-[var(--text)] w-28">Type:</span>
                 <span className="text-[var(--text-secondary)]">{getRequestTypeLabel(selectedRequest.type)}</span>
@@ -702,22 +645,10 @@ const AttendanceRequests = ({ isAdmin = false }) => {
       )}
 
       {/* Modals */}
-      <EarlyCheckinModal
-        isOpen={showEarlyCheckin} 
-        onClose={handleModalClose}
-      />
-      <LateCheckinModal
-        isOpen={showLateCheckin} 
-        onClose={handleModalClose}
-      />
-      <MissedPunchInModal 
-        isOpen={showMissedPunchIn} 
-        onClose={handleModalClose}
-      />
-      <MissedPunchOutModal
-        isOpen={showMissedPunchOut} 
-        onClose={handleModalClose}
-      />
+      <EarlyCheckinModal isOpen={showEarlyCheckin} onClose={handleModalClose} />
+      <LateCheckinModal isOpen={showLateCheckin} onClose={handleModalClose} />
+      <MissedPunchInModal isOpen={showMissedPunchIn} onClose={handleModalClose} />
+      <MissedPunchOutModal isOpen={showMissedPunchOut} onClose={handleModalClose} />
       <EditAttendanceRequestModal
         isOpen={showEditModal}
         onClose={() => {
@@ -733,15 +664,15 @@ const AttendanceRequests = ({ isAdmin = false }) => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1100] flex items-center justify-center p-4" onClick={() => setConfirmModal({ isOpen: false, request: null, action: null })}>
           <div className="bg-[var(--surface)] max-w-sm w-full rounded-2xl p-6 shadow-xl border border-[var(--border)] text-center" onClick={(e) => e.stopPropagation()}>
             <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4 ${
-              confirmModal.action === 'approved' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+              confirmModal.action === "approved" ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
             }`}>
-              {confirmModal.action === 'approved' ? <FiCheck className="text-3xl" /> : 
-               confirmModal.action === 'delete' ? <FiTrash2 className="text-3xl" /> : 
+              {confirmModal.action === "approved" ? <FiCheck className="text-3xl" /> :
+               confirmModal.action === "delete" ? <FiTrash2 className="text-3xl" /> :
                <FiX className="text-3xl" />}
             </div>
             <h3 className="text-xl font-bold text-[var(--text)] mb-2">Confirm Action</h3>
             <p className="text-[var(--text-secondary)] mb-6">
-              Are you sure you want to {confirmModal.action === 'delete' ? 'delete' : confirmModal.action === 'approved' ? 'approve' : 'deny'} this attendance request? This action cannot be undone.
+              Are you sure you want to {confirmModal.action === "delete" ? "delete" : confirmModal.action === "approved" ? "approve" : "deny"} this attendance request? This action cannot be undone.
             </p>
             <div className="flex justify-center gap-3">
               <button
@@ -752,14 +683,14 @@ const AttendanceRequests = ({ isAdmin = false }) => {
               </button>
               <button
                 onClick={() => {
-                  if (confirmModal.action === 'delete') {
+                  if (confirmModal.action === "delete") {
                     handleDelete(confirmModal.request);
                   } else {
                     handleStatusUpdate(confirmModal.request, confirmModal.action);
                   }
                 }}
                 className={`px-5 py-2.5 rounded-xl text-white transition-all font-medium ${
-                  confirmModal.action === 'approved' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'
+                  confirmModal.action === "approved" ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"
                 }`}
               >
                 Proceed

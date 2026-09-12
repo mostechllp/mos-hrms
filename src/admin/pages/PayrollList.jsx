@@ -1,3 +1,5 @@
+// src/admin/pages/PayrollList.jsx
+
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -32,41 +34,22 @@ import apiClient from "../../utils/apiClient";
 // Helper function to get avatar URL
 const getAvatarUrl = (avatarPath) => {
   if (!avatarPath) return null;
-
   if (avatarPath.startsWith("http://") || avatarPath.startsWith("https://")) {
     return avatarPath;
   }
-
   const baseUrl =
     import.meta.env.VITE_API_URL?.replace("/api", "") || window.location.origin;
-
-  if (avatarPath.startsWith("avatars/")) {
-    return `${baseUrl}/storage/${avatarPath}`;
-  }
-  if (avatarPath.startsWith("storage/")) {
-    return `${baseUrl}/${avatarPath}`;
-  }
-  if (avatarPath.startsWith("/storage/")) {
-    return `${baseUrl}${avatarPath}`;
-  }
-
+  if (avatarPath.startsWith("avatars/")) return `${baseUrl}/storage/${avatarPath}`;
+  if (avatarPath.startsWith("storage/")) return `${baseUrl}/${avatarPath}`;
+  if (avatarPath.startsWith("/storage/")) return `${baseUrl}${avatarPath}`;
   return `${baseUrl}/storage/${avatarPath}`;
 };
 
 // Month number to name mapping
 const monthNumberToName = {
-  1: "January",
-  2: "February",
-  3: "March",
-  4: "April",
-  5: "May",
-  6: "June",
-  7: "July",
-  8: "August",
-  9: "September",
-  10: "October",
-  11: "November",
-  12: "December",
+  1: "January", 2: "February", 3: "March", 4: "April",
+  5: "May", 6: "June", 7: "July", 8: "August",
+  9: "September", 10: "October", 11: "November", 12: "December",
 };
 
 const PayrollList = () => {
@@ -74,10 +57,8 @@ const PayrollList = () => {
   const dispatch = useDispatch();
   const { year, month } = useParams();
 
-  // Get month name from number
   const monthName = month ? monthNumberToName[parseInt(month)] : "";
-  const displayTitle =
-    monthName && year ? `${monthName} ${year}` : "All Payrolls";
+  const displayTitle = monthName && year ? `${monthName} ${year}` : "All Payrolls";
 
   const [entries, setEntries] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
@@ -103,37 +84,22 @@ const PayrollList = () => {
     }
   }, [dispatch, year, month]);
 
-  // ✅ FIX: Ensure we always have arrays
   const safeEmployees = Array.isArray(employees) ? employees : [];
-  const safePayrollEntries = Array.isArray(payrollEntries)
-    ? payrollEntries
-    : [];
+  const safePayrollEntries = Array.isArray(payrollEntries) ? payrollEntries : [];
 
-  // Prepare table data - combine employees with payroll entries or use employees as base
   const tableData =
     safePayrollEntries.length > 0 ? safePayrollEntries : safeEmployees;
 
-  // ✅ FIX: Filter data with safe array check
   const filteredData = tableData.filter((item) => {
     if (!item) return false;
     const searchMatch =
       searchTerm === "" ||
-      (item.first_name?.toLowerCase() || "").includes(
-        searchTerm.toLowerCase(),
-      ) ||
-      (item.last_name?.toLowerCase() || "").includes(
-        searchTerm.toLowerCase(),
-      ) ||
-      (item.employee_id?.toLowerCase() || "").includes(
-        searchTerm.toLowerCase(),
-      ) ||
+      (item.first_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (item.last_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (item.employee_id?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
       (item.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (item.employee_name?.toLowerCase() || "").includes(
-        searchTerm.toLowerCase(),
-      ) ||
-      (item.employee_code?.toLowerCase() || "").includes(
-        searchTerm.toLowerCase(),
-      );
+      (item.employee_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (item.employee_code?.toLowerCase() || "").includes(searchTerm.toLowerCase());
 
     const statusMatch =
       statusFilter === "all" ||
@@ -157,13 +123,11 @@ const PayrollList = () => {
     (item) => item.status === "pending" || !item.status,
   ).length;
 
-  // Calculate total amount
   const totalAmount = filteredData.reduce((acc, item) => {
     const salary = item.gross_salary || item.salary || 0;
     return acc + Number(salary);
   }, 0);
 
-  // Format currency
   const formatCurrency = (amount) => {
     if (!amount || isNaN(amount)) return "₹0.00";
     return new Intl.NumberFormat("en-IN", {
@@ -174,7 +138,6 @@ const PayrollList = () => {
     }).format(amount);
   };
 
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     try {
@@ -189,17 +152,19 @@ const PayrollList = () => {
     }
   };
 
-  // Handle View
+  // ✅ Handle View — used for row click & name click
   const handleView = (item) => {
+    if (!item?.id) {
+      showToast("Payroll record not available for viewing", "error");
+      return;
+    }
     navigate(`/admin/payroll/details/${item.id}`);
   };
 
-  // Handle Edit
   const handleEdit = (item) => {
     navigate(`/admin/payroll/edit/${item.id}`);
   };
 
-  // Handle Generate Payslip
   const handleGeneratePayslip = async (item) => {
     try {
       showToast("Downloading payslip...", "success");
@@ -214,21 +179,16 @@ const PayrollList = () => {
     }
   };
 
-  // Handle Delete Click
   const handleDeleteClick = (item) => {
     setSelectedPayroll(item);
     setShowDeleteModal(true);
   };
 
-  // Handle Delete Confirm
   const handleDeleteConfirm = async () => {
     if (!selectedPayroll) return;
-
     setDeleteLoading(true);
     try {
-      const response = await apiClient.delete(
-        `/admin/payroll/${selectedPayroll.id}`,
-      );
+      const response = await apiClient.delete(`/admin/payroll/${selectedPayroll.id}`);
       if (response.data?.success) {
         showToast("Payroll deleted successfully!", "success");
         setShowDeleteModal(false);
@@ -239,10 +199,7 @@ const PayrollList = () => {
           dispatch(fetchPayrollEntries({ year }));
         }
       } else {
-        showToast(
-          response.data?.message || "Failed to delete payroll",
-          "error",
-        );
+        showToast(response.data?.message || "Failed to delete payroll", "error");
       }
     } catch (error) {
       console.error("Error deleting payroll:", error);
@@ -255,21 +212,19 @@ const PayrollList = () => {
     }
   };
 
-  // Render loading state
+  // Loading state
   if (employeesLoading || entriesLoading) {
     return (
       <div className="min-h-screen bg-[#f9fafb] dark:bg-gray-900 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-          <p className="text-gray-500 dark:text-gray-400">
-            Loading payroll data...
-          </p>
+          <p className="text-gray-500 dark:text-gray-400">Loading payroll data...</p>
         </div>
       </div>
     );
   }
 
-  // Render error state
+  // Error state
   if (error) {
     return (
       <div className="min-h-screen bg-[#f9fafb] dark:bg-gray-900 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
@@ -319,9 +274,7 @@ const PayrollList = () => {
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
               Pending
             </p>
-            <h3 className="text-2xl font-black text-amber-500">
-              {pendingCount}
-            </h3>
+            <h3 className="text-2xl font-black text-amber-500">{pendingCount}</h3>
           </div>
 
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
@@ -432,29 +385,15 @@ const PayrollList = () => {
                   <tr>
                     <th className="px-3 py-2 whitespace-nowrap">SL NO</th>
                     <th className="px-3 py-2 whitespace-nowrap">EMPLOYEE</th>
-                    <th className="px-3 py-2 whitespace-nowrap">
-                      MONTH / YEAR
-                    </th>
-                    <th className="px-3 py-2 whitespace-nowrap text-right">
-                      GROSS SALARY
-                    </th>
-                    <th className="px-3 py-2 whitespace-nowrap text-right">
-                      OVERTIME
-                    </th>
-                    <th className="px-3 py-2 whitespace-nowrap text-right">
-                      DEDUCTIONS
-                    </th>
-                    <th className="px-3 py-2 whitespace-nowrap text-right">
-                      NET PAY
-                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap">MONTH / YEAR</th>
+                    <th className="px-3 py-2 whitespace-nowrap text-right">GROSS SALARY</th>
+                    <th className="px-3 py-2 whitespace-nowrap text-right">OVERTIME</th>
+                    <th className="px-3 py-2 whitespace-nowrap text-right">DEDUCTIONS</th>
+                    <th className="px-3 py-2 whitespace-nowrap text-right">NET PAY</th>
                     <th className="px-3 py-2 whitespace-nowrap">CURRENCY</th>
                     <th className="px-3 py-2 whitespace-nowrap">STATUS</th>
-                    <th className="px-3 py-2 whitespace-nowrap">
-                      PAYMENT DATE
-                    </th>
-                    <th className="px-3 py-2 whitespace-nowrap text-center">
-                      ACTIONS
-                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap">PAYMENT DATE</th>
+                    <th className="px-3 py-2 whitespace-nowrap text-center">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -475,14 +414,14 @@ const PayrollList = () => {
                     const currency = item.currency || "INR";
                     const paymentDate = item.payment_date || "N/A";
 
-                    const avatarUrl = item.avatar
-                      ? getAvatarUrl(item.avatar)
-                      : null;
+                    const avatarUrl = item.avatar ? getAvatarUrl(item.avatar) : null;
 
                     return (
                       <tr
                         key={item.id || index}
-                        className="border-t border-gray-100 dark:border-gray-700/80 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                        // ✅ Row is clickable → opens payroll details
+                        onClick={() => handleView(item)}
+                        className="border-t border-gray-100 dark:border-gray-700/80 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                       >
                         <td className="px-3 py-2 whitespace-nowrap font-medium text-gray-900 dark:text-white text-center">
                           {startIndex + index + 1}
@@ -507,9 +446,18 @@ const PayrollList = () => {
                               </div>
                             )}
                             <div className="flex flex-col min-w-0">
-                              <span className="font-semibold text-gray-800 dark:text-white text-sm truncate max-w-[120px]">
+                              {/* ✅ Employee Name is a clickable button */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleView(item);
+                                }}
+                                className="text-left font-semibold text-gray-800 dark:text-white text-sm truncate max-w-[120px] hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors"
+                                title={`View payroll of ${employeeName}`}
+                              >
                                 {employeeName}
-                              </span>
+                              </button>
                             </div>
                           </div>
                         </td>
@@ -552,7 +500,11 @@ const PayrollList = () => {
                           {formatDate(paymentDate)}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
-                          <div className="flex items-center justify-center gap-1">
+                          {/* ✅ stopPropagation so action buttons don't trigger row click */}
+                          <div
+                            className="flex items-center justify-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               onClick={() => handleView(item)}
                               className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
@@ -603,9 +555,7 @@ const PayrollList = () => {
               </p>
               <div className="flex gap-1">
                 <button
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(prev - 1, 1))
-                  }
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
                   className="px-3 py-1 border border-gray-200 dark:border-gray-600 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
@@ -638,7 +588,15 @@ const PayrollList = () => {
         }}
         onConfirm={handleDeleteConfirm}
         title="Delete Payroll"
-        message={`Are you sure you want to delete payroll record for ${selectedPayroll?.employee_name || selectedPayroll?.first_name || "this employee"} for ${selectedPayroll?.month ? `${monthNumberToName[selectedPayroll.month] || selectedPayroll.month}/${selectedPayroll.year}` : ""}? This action cannot be undone.`}
+        message={`Are you sure you want to delete payroll record for ${
+          selectedPayroll?.employee_name ||
+          selectedPayroll?.first_name ||
+          "this employee"
+        } for ${
+          selectedPayroll?.month
+            ? `${monthNumberToName[selectedPayroll.month] || selectedPayroll.month}/${selectedPayroll.year}`
+            : ""
+        }? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         loading={deleteLoading}

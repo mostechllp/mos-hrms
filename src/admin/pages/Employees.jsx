@@ -1,6 +1,8 @@
+// src/admin/pages/Employees.jsx
+
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import SearchBar from "../components/common/SearchBar";
 import EntriesSelector from "../components/common/EntriesSelector";
 import { showToast } from "../../components/common/Toast";
@@ -14,6 +16,7 @@ import ConfirmModal from "../components/common/ConfirmModal";
 
 const Employees = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate(); // ✅ added for row navigation
   const { employees = [], loading } = useSelector(
     (state) => state.employees || { employees: [] },
   );
@@ -24,24 +27,10 @@ const Employees = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
-  // Remove sidebar related state
-  // const [sidebarOpen, setSidebarOpen] = useState(false);
-  // const [isMobile, setIsMobile] = useState(false);
-
   // Confirm modal states
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
-  // Remove mobile check useEffect - now handled by AdminLayout
-  // useEffect(() => {
-  //   const checkMobile = () => {
-  //     setIsMobile(window.innerWidth < 768);
-  //   };
-  //   checkMobile();
-  //   window.addEventListener("resize", checkMobile);
-  //   return () => window.removeEventListener("resize", checkMobile);
-  // }, []);
 
   useEffect(() => {
     dispatch(fetchEmployees());
@@ -74,7 +63,6 @@ const Employees = () => {
 
   // Reset to first page when filters change
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [statusFilter, searchTerm, perPage]);
 
@@ -84,6 +72,12 @@ const Employees = () => {
 
   const handleStatusFilter = (status) => {
     setStatusFilter(status);
+  };
+
+  // ✅ Navigate to employee details
+  const handleViewEmployee = (emp) => {
+    dispatch({ type: "employees/clearCurrentEmployee" });
+    navigate(`/admin/employees/${emp.id}`);
   };
 
   const handleDeleteClick = (employee) => {
@@ -127,12 +121,9 @@ const Employees = () => {
   ).length;
 
   return (
-    // Remove the outer div with Sidebar and flex layout
-    // Just return the main content directly
     <div className="w-full overflow-x-hidden">
-      {/* Stats Cards - Responsive Grid */}
+      {/* Stats Cards */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-        {/* Active Employees Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
           <div className="flex justify-between items-start mb-2 md:mb-3">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
@@ -147,7 +138,6 @@ const Employees = () => {
           </div>
         </div>
 
-        {/* Inactive Employees Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
           <div className="flex justify-between items-start mb-2 md:mb-3">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
@@ -162,7 +152,6 @@ const Employees = () => {
           </div>
         </div>
 
-        {/* Total Employees Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
           <div className="flex justify-between items-start mb-2 md:mb-3">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
@@ -177,7 +166,6 @@ const Employees = () => {
           </div>
         </div>
 
-        {/* Onboarding Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
           <div className="flex justify-between items-start mb-2 md:mb-3">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
@@ -193,56 +181,29 @@ const Employees = () => {
         </div>
       </div>
 
-      {/* Header with Filters - Responsive */}
+      {/* Header with Filters */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
         <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
           Employee Directory
         </h2>
         <div className="flex gap-2 w-full sm:w-auto">
-          <button
-            onClick={() => handleStatusFilter("all")}
-            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${
-              statusFilter === "all"
-                ? "bg-green-500 text-white shadow-md"
-                : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => handleStatusFilter("Active")}
-            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${
-              statusFilter === "Active"
-                ? "bg-green-500 text-white shadow-md"
-                : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
-          >
-            Active
-          </button>
-          <button
-            onClick={() => handleStatusFilter("Inactive")}
-            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${
-              statusFilter === "Inactive"
-                ? "bg-green-500 text-white shadow-md"
-                : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
-          >
-            Inactive
-          </button>
-          <button
-            onClick={() => handleStatusFilter("Onboarding")}
-            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${
-              statusFilter === "Onboarding"
-                ? "bg-green-500 text-white shadow-md"
-                : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
-          >
-            Onboarding
-          </button>
+          {["all", "Active", "Inactive", "Onboarding"].map((status) => (
+            <button
+              key={status}
+              onClick={() => handleStatusFilter(status)}
+              className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all ${
+                statusFilter === status
+                  ? "bg-green-500 text-white shadow-md"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+            >
+              {status === "all" ? "All" : status}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Actions Bar - Fully Responsive */}
+      {/* Actions Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-5">
         <EntriesSelector
           value={perPage}
@@ -272,7 +233,7 @@ const Employees = () => {
         </div>
       </div>
 
-      {/* Employees Table - Horizontal Scroll on Mobile */}
+      {/* Employees Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
         <div className="min-w-[800px] md:min-w-0">
           <table className="w-full border-collapse">
@@ -303,7 +264,6 @@ const Employees = () => {
                 pageEmployees.map((emp, idx) => {
                   // Helper function to get photo URL
                   const getEmployeePhoto = () => {
-                    // Check multiple possible photo fields
                     const photoValue =
                       emp.avatar ||
                       emp.avatar_path ||
@@ -314,20 +274,21 @@ const Employees = () => {
 
                     if (!photoValue) return null;
 
-                    // Handle object type avatar
                     if (typeof photoValue === "object" && photoValue.path) {
                       const baseUrl =
                         import.meta.env.VITE_API_URL?.replace("/api", "") || "";
                       return `${baseUrl}/storage/${photoValue.path}`;
                     }
 
-                    // Handle string paths
                     if (typeof photoValue === "string") {
                       if (photoValue.startsWith("/tmp/")) {
                         const baseUrl =
                           import.meta.env.VITE_API_URL?.replace("/api", "") ||
                           "";
-                        return `${baseUrl}/storage/temp/${photoValue.replace("/tmp/", "")}`;
+                        return `${baseUrl}/storage/temp/${photoValue.replace(
+                          "/tmp/",
+                          "",
+                        )}`;
                       }
                       if (photoValue.startsWith("data:")) return photoValue;
                       if (photoValue.startsWith("http")) return photoValue;
@@ -347,7 +308,9 @@ const Employees = () => {
                   return (
                     <tr
                       key={emp.id}
-                      className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                      // ✅ Row is clickable → opens employee view/details
+                      onClick={() => handleViewEmployee(emp)}
+                      className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                     >
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
                         {start + idx + 1}
@@ -374,9 +337,18 @@ const Employees = () => {
                           >
                             {emp.name?.charAt(0) || "?"}
                           </div>
-                          <span className="text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          {/* ✅ Employee Name is a clickable button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewEmployee(emp);
+                            }}
+                            className="text-left text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
+                            title={`View ${emp.name}'s details`}
+                          >
                             {emp.name}
-                          </span>
+                          </button>
                         </div>
                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
@@ -386,7 +358,11 @@ const Employees = () => {
                         {emp.department}
                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3">
-                        <label className="inline-flex items-center gap-1 md:gap-2 cursor-pointer">
+                        {/* ✅ stopPropagation so status toggle doesn't open details */}
+                        <label
+                          className="inline-flex items-center gap-1 md:gap-2 cursor-pointer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <div className="relative">
                             <input
                               type="checkbox"
@@ -412,7 +388,11 @@ const Employees = () => {
                         </label>
                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3">
-                        <div className="flex gap-1 md:gap-2">
+                        {/* ✅ stopPropagation so action buttons don't trigger row click */}
+                        <div
+                          className="flex gap-1 md:gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Link
                             to={`/admin/employees/${emp.id}`}
                             className="p-1.5 rounded-lg hover:bg-gray-100 text-blue-500 transition-colors"
@@ -423,7 +403,6 @@ const Employees = () => {
                           <Link
                             to={`/admin/employees/edit/${emp.id}`}
                             onClick={() => {
-                              // Clear current employee data before navigating
                               dispatch({
                                 type: "employees/clearCurrentEmployee",
                               });
@@ -460,7 +439,7 @@ const Employees = () => {
         </div>
       </div>
 
-      {/* Pagination - Only show if there are items */}
+      {/* Pagination */}
       {totalFiltered > 0 && (
         <Pagination
           currentPage={currentPage}
