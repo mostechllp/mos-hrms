@@ -21,7 +21,6 @@ const Header = ({ onMenuClick }) => {
     (state) => state.notifications,
   );
 
-  // Get user's display name
   const getUserName = () => {
     if (user?.name) return user.name;
     if (user?.employee?.name) return user.employee.name;
@@ -29,37 +28,29 @@ const Header = ({ onMenuClick }) => {
     return "HR Admin";
   };
 
-  // Get user's email
   const getUserEmail = () => {
     if (user?.email) return user.email;
     if (user?.username) return user.username;
     return "admin@example.com";
   };
 
-  // Get user's avatar
   const getUserAvatar = () => {
     if (avatarError) return null;
-    
     const avatar = user?.avatar;
     if (!avatar) return null;
-    
     const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin;
-    
     if (typeof avatar === 'object' && avatar.path) {
       return `${baseUrl}/storage/${avatar.path}`;
     }
-    
     if (typeof avatar === 'string') {
       if (avatar.startsWith('http')) return avatar;
       if (avatar.startsWith('/storage/')) return `${baseUrl}${avatar}`;
       if (avatar.startsWith('storage/')) return `${baseUrl}/${avatar}`;
       return `${baseUrl}/storage/${avatar}`;
     }
-    
     return null;
   };
 
-  // Get user initials for avatar fallback
   const getUserInitials = () => {
     const name = getUserName();
     if (name && name !== "HR Admin") {
@@ -68,9 +59,8 @@ const Header = ({ onMenuClick }) => {
     return "U";
   };
 
-  // Get page title based on current route (same as before)
   const getPageTitle = () => {
-    // ... (keep your existing getPageTitle function)
+    // ... keep your existing
   };
 
   useEffect(() => {
@@ -143,47 +133,54 @@ const Header = ({ onMenuClick }) => {
 
   const getNotificationUI = (notif) => {
     const title = (notif.title || notif.type || "Notification").toLowerCase();
-    
+
     if (title.includes("probation") || title.includes("alert")) {
       return {
         type: notif.title || "Probation Alert",
-        typeColor: "text-[#7B61FF] bg-[#F4F0FF]",
+        // ✅ dark variants added
+        typeColor:
+          "text-[#7B61FF] bg-[#F4F0FF] dark:text-[#B8A7FF] dark:bg-[#7B61FF]/15",
         icon: "fas fa-clock",
-        iconColor: "text-[#F2994A]",
+        iconColor: "text-[#F2994A] dark:text-[#FFB870]",
       };
     } else if (title.includes("document") || title.includes("expiry")) {
       return {
         type: notif.title || "Document Expiry",
-        typeColor: "text-[#F2994A] bg-[#FFF6ED]",
+        // ✅ dark variants added
+        typeColor:
+          "text-[#F2994A] bg-[#FFF6ED] dark:text-[#FFB870] dark:bg-[#F2994A]/15",
         icon: "fas fa-file-alt",
-        iconColor: "text-[#F2994A]",
+        iconColor: "text-[#F2994A] dark:text-[#FFB870]",
       };
     } else if (title.includes("leave")) {
       return {
         type: "leave_request",
         alertType: notif.title || "Leave Request",
-        typeColor: "text-green-500 bg-green-50",
+        // ✅ dark variants added
+        typeColor:
+          "text-green-600 bg-green-50 dark:text-green-300 dark:bg-green-500/15",
         icon: "fas fa-calendar-alt",
-        iconColor: "text-green-500",
+        iconColor: "text-green-500 dark:text-green-400",
       };
     }
-    
+
     return {
       type: notif.title || "Notification",
-      typeColor: "text-gray-700 bg-gray-100",
+      // ✅ dark variants added
+      typeColor:
+        "text-gray-700 bg-gray-100 dark:text-gray-200 dark:bg-gray-700",
       icon: "fas fa-bell",
-      iconColor: "text-gray-500",
+      iconColor: "text-gray-500 dark:text-gray-400",
     };
   };
 
-  const displayNotifications = (notifications || []).slice(0, 5); // Show latest 5 in dropdown
+  const displayNotifications = (notifications || []).slice(0, 5);
 
   return (
     <>
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 md:px-6 py-2 md:py-3 sticky top-0 z-40">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Mobile menu button */}
             <button
               onClick={onMenuClick}
               className="md:hidden w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center"
@@ -200,7 +197,7 @@ const Header = ({ onMenuClick }) => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
-            <div className="hidden md:block bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-full text-xs font-medium">
+            <div className="hidden md:block bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-full text-xs font-medium text-gray-700 dark:text-gray-200">
               <i className="far fa-calendar-alt mr-2"></i>
               <span>{currentDate}</span>
             </div>
@@ -220,11 +217,13 @@ const Header = ({ onMenuClick }) => {
               </button>
 
               {showNotifications && (
+                // ✅ Notification dropdown panel with proper dark bg
                 <div className="absolute top-12 right-0 w-[420px] bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden">
+                  {/* Header */}
                   <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800">
                     <div className="flex items-center gap-2">
                       <i className="fas fa-bell text-green-500 text-lg"></i>
-                      <h3 className="font-bold text-gray-800 dark:text-gray-200 text-lg">
+                      <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg">
                         Notifications
                       </h3>
                       <span className="bg-[#FF5A5F] text-white text-[11px] font-bold px-2 py-0.5 rounded-full ml-1">
@@ -233,11 +232,13 @@ const Header = ({ onMenuClick }) => {
                     </div>
                     <button
                       onClick={handleMarkAllRead}
-                      className="text-sm font-medium text-green-500 hover:text-green-600"
+                      className="text-sm font-medium text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300"
                     >
                       Mark all as read
                     </button>
                   </div>
+
+                  {/* Notifications list */}
                   <div className="max-h-[400px] overflow-y-auto">
                     {displayNotifications.length === 0 ? (
                       <div className="p-8 text-center text-gray-500 dark:text-gray-400">
@@ -250,29 +251,37 @@ const Header = ({ onMenuClick }) => {
                         return (
                           <div
                             key={notification.id}
-                            className={`p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors ${
+                            className={`p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors flex gap-3 ${
                               !notification.read
-                                ? "bg-green-50 dark:bg-green-900/20"
-                                : "bg-white dark:bg-gray-800"
-                            } hover:bg-green-50 dark:hover:bg-gray-700 flex gap-3`}
+                                ? // ✅ Unread: soft green tint in light, deeper green tint in dark
+                                  "bg-green-50 dark:bg-green-900/25"
+                                : // Read: plain surfaces
+                                  "bg-white dark:bg-gray-800"
+                            } hover:bg-green-50 dark:hover:bg-gray-700/60`}
                             onClick={() => handleMarkAsRead(notification.id)}
                           >
                             <div className="mt-0.5">
                               <i className={`${ui.icon} ${ui.iconColor} text-base`}></i>
                             </div>
-                            <div className="flex-1">
-                              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold mb-2 ${ui.typeColor}`}>
+                            <div className="flex-1 min-w-0">
+                              <span
+                                className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold mb-2 ${ui.typeColor}`}
+                              >
                                 {ui.type}
                               </span>
-                              <p className="text-[14px] leading-relaxed text-[#344054] dark:text-gray-300">
+                              {/* ✅ Message text — high contrast in both modes */}
+                              <p className="text-[14px] leading-relaxed text-gray-700 dark:text-gray-100 break-words">
                                 {notification.message}
                               </p>
                               <div className="flex items-center gap-2 mt-2">
-                                <span className="text-xs font-medium text-[#98A2B3] dark:text-gray-500">
-                                  {notification.time || notification.created_at || "Just now"}
+                                {/* ✅ Timestamp — readable in dark mode */}
+                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                  {notification.time ||
+                                    notification.created_at ||
+                                    "Just now"}
                                 </span>
                                 {!notification.read && (
-                                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400"></div>
                                 )}
                               </div>
                             </div>
@@ -281,13 +290,15 @@ const Header = ({ onMenuClick }) => {
                       })
                     )}
                   </div>
-                  <div className="p-4 bg-white dark:bg-gray-800 text-center rounded-b-2xl">
+
+                  {/* Footer */}
+                  <div className="p-4 bg-white dark:bg-gray-800 text-center rounded-b-2xl border-t border-gray-100 dark:border-gray-700">
                     <button
                       onClick={() => {
                         setShowNotifications(false);
                         navigate("/admin/notifications");
                       }}
-                      className="text-sm font-bold text-green-500 hover:text-green-600"
+                      className="text-sm font-bold text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300"
                     >
                       View all notifications
                     </button>
@@ -334,7 +345,7 @@ const Header = ({ onMenuClick }) => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+                      <h4 className="font-semibold text-gray-800 dark:text-gray-100 truncate">
                         {userName}
                       </h4>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -378,7 +389,6 @@ const Header = ({ onMenuClick }) => {
         </div>
       </header>
 
-      {/* Logout Confirmation Modal */}
       <ConfirmModal
         isOpen={showLogoutConfirm}
         onClose={() => setShowLogoutConfirm(false)}

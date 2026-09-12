@@ -1,3 +1,5 @@
+// src/admin/pages/Organizations.jsx
+
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
@@ -33,28 +35,31 @@ const Organizations = () => {
   // Helper function to get full logo URL
   const getLogoUrl = (logoPath) => {
     if (!logoPath) return null;
-    
-    // If it's already a full URL, return it
-    if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) {
+    if (logoPath.startsWith("http://") || logoPath.startsWith("https://")) {
       return logoPath;
     }
-    
-    // Get base URL from environment or window location
-    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
-    
-    // Remove leading slash if present and construct full URL
-    const cleanPath = logoPath.startsWith('/') ? logoPath.slice(1) : logoPath;
+    const baseUrl =
+      import.meta.env.VITE_API_URL?.replace("/api", "") ||
+      "http://localhost:8000";
+    const cleanPath = logoPath.startsWith("/") ? logoPath.slice(1) : logoPath;
     return `${baseUrl}/storage/${cleanPath}`;
   };
 
   // Helper function to check if organization has multiple companies
   const hasMultipleCompanies = (org) => {
-    // Check both possible field names and formats
     if (org.has_multiple_companies !== undefined) {
-      return org.has_multiple_companies === true || org.has_multiple_companies === 1 || org.has_multiple_companies === "1";
+      return (
+        org.has_multiple_companies === true ||
+        org.has_multiple_companies === 1 ||
+        org.has_multiple_companies === "1"
+      );
     }
     if (org.multi_company !== undefined) {
-      return org.multi_company === "Yes" || org.multi_company === true || org.multi_company === 1;
+      return (
+        org.multi_company === "Yes" ||
+        org.multi_company === true ||
+        org.multi_company === 1
+      );
     }
     return false;
   };
@@ -102,6 +107,7 @@ const Organizations = () => {
     setSelectedOrg(null);
   };
 
+  // ✅ Opens company details for the organization
   const handleManageCompanies = (org) => {
     navigate(`/admin/organizations/${org.id}/companies`, {
       state: { organization: org },
@@ -132,7 +138,7 @@ const Organizations = () => {
         </div>
       </div>
 
-      {/* No Organization State - Show Add Button */}
+      {/* No Organization State */}
       {!hasOrganization ? (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 md:p-12 text-center shadow-soft">
           <div className="flex flex-col items-center justify-center">
@@ -250,11 +256,13 @@ const Organizations = () => {
                     {pageOrganizations.map((org) => {
                       const logoUrl = getLogoUrl(org.logo);
                       const isMultiCompany = hasMultipleCompanies(org);
-                      
+
                       return (
                         <tr
                           key={org.id}
-                          className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                          // ✅ Row is now clickable → opens company details
+                          onClick={() => handleManageCompanies(org)}
+                          className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                         >
                           <td className="px-3 md:px-4 py-2 md:py-3">
                             {logoUrl ? (
@@ -264,8 +272,9 @@ const Organizations = () => {
                                 className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-cover"
                                 onError={(e) => {
                                   e.target.onerror = null;
-                                  e.target.style.display = 'none';
-                                  e.target.parentElement.innerHTML = '<div class="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center text-white"><i class="fas fa-building text-sm md:text-lg"></i></div>';
+                                  e.target.style.display = "none";
+                                  e.target.parentElement.innerHTML =
+                                    '<div class="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center text-white"><i class="fas fa-building text-sm md:text-lg"></i></div>';
                                 }}
                               />
                             ) : (
@@ -275,7 +284,17 @@ const Organizations = () => {
                             )}
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
-                            {org.name}
+                            {/* ✅ Name is a clickable styled link */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleManageCompanies(org);
+                              }}
+                              className="text-left hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
+                              title={`View companies of ${org.name}`}
+                            >
+                              {org.name}
+                            </button>
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
                             {org.phone}
@@ -284,17 +303,23 @@ const Organizations = () => {
                             {org.email}
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                            {org.address || '-'}
+                            {org.address || "-"}
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
                             {org.createdAt}
                           </td>
                           <td className="px-3 md:px-4 py-2 md:py-3">
-                            <div className="flex gap-1 md:gap-2">
-                              {/* Only show Manage Companies button if organization has multiple companies */}
+                            {/* ✅ stopPropagation on action buttons so they don't trigger row click */}
+                            <div
+                              className="flex gap-1 md:gap-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               {isMultiCompany && (
                                 <button
-                                  onClick={() => handleManageCompanies(org)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleManageCompanies(org);
+                                  }}
                                   className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-500 dark:text-blue-400 transition-colors"
                                   title="Manage Companies"
                                 >
@@ -303,13 +328,17 @@ const Organizations = () => {
                               )}
                               <Link
                                 to={`/admin/organizations/edit-organization/${org.id}`}
+                                onClick={(e) => e.stopPropagation()}
                                 className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 dark:text-amber-400 transition-colors"
                                 title="Edit"
                               >
                                 <i className="fas fa-edit text-xs md:text-sm"></i>
                               </Link>
                               <button
-                                onClick={() => handleDeleteClick(org)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteClick(org);
+                                }}
                                 className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 dark:text-red-400 transition-colors"
                                 title="Delete"
                               >

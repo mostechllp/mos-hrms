@@ -1,3 +1,5 @@
+// src/admin/pages/Leaves.jsx
+
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
@@ -41,14 +43,12 @@ const Leaves = () => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Get base URL from environment
   const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
 
   useEffect(() => {
     dispatch(fetchLeaves());
   }, [dispatch]);
 
-  // Handle errors
   useEffect(() => {
     if (error) {
       showToast(error, "error");
@@ -59,21 +59,11 @@ const Leaves = () => {
   // Get full document URL
   const getDocumentUrl = (documentPath) => {
     if (!documentPath) return null;
-    
-    // If it's already a full URL
-    if (documentPath.startsWith('http://') || documentPath.startsWith('https://')) {
+    if (documentPath.startsWith("http://") || documentPath.startsWith("https://")) {
       return documentPath;
     }
-    
-    // If it starts with storage/ or /storage/
-    if (documentPath.startsWith('storage/')) {
-      return `${baseUrl}/${documentPath}`;
-    }
-    if (documentPath.startsWith('/storage/')) {
-      return `${baseUrl}${documentPath}`;
-    }
-    
-    // If it's a path like "leaves/documents/filename.pdf"
+    if (documentPath.startsWith("storage/")) return `${baseUrl}/${documentPath}`;
+    if (documentPath.startsWith("/storage/")) return `${baseUrl}${documentPath}`;
     return `${baseUrl}/storage/${documentPath}`;
   };
 
@@ -103,12 +93,8 @@ const Leaves = () => {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (leave) =>
-          (leave.employee?.first_name || "")
-            .toLowerCase()
-            .includes(searchLower) ||
-          (leave.employee?.name || "")
-            .toLowerCase()
-            .includes(searchLower) ||
+          (leave.employee?.first_name || "").toLowerCase().includes(searchLower) ||
+          (leave.employee?.name || "").toLowerCase().includes(searchLower) ||
           (leave.leave_type?.name || leave.type || "")
             .toLowerCase()
             .includes(searchLower) ||
@@ -170,12 +156,16 @@ const Leaves = () => {
     setActionLoading(false);
   };
 
+  // ✅ Unified view handler — used by row click, name click, and eye icon
   const handleView = async (leave) => {
+    if (!leave?.id) {
+      showToast("Leave record not available", "error");
+      return;
+    }
     setLoading(true);
     try {
-      // Fetch the full leave details by ID using the thunk
       const result = await dispatch(fetchLeaveById(leave.id));
-      
+
       if (fetchLeaveById.fulfilled.match(result)) {
         setSelectedLeave(result.payload);
         setShowModal(true);
@@ -194,13 +184,12 @@ const Leaves = () => {
       showToast("No document available", "info");
       return;
     }
-    
     const fullUrl = getDocumentUrl(docUrl);
     console.log("Opening document:", fullUrl);
     window.open(fullUrl, "_blank");
   };
 
-  // Calculate stats
+  // Stats
   const leavesArray = Array.isArray(leaves) ? leaves : [];
   const total = leavesArray.length;
   const pending = leavesArray.filter(
@@ -227,26 +216,24 @@ const Leaves = () => {
     }
   };
 
-  // Format date - handles YYYY-MM-DD format
   const formatDate = (dateString) => {
     if (!dateString) return "-";
     try {
-      // If it's in YYYY-MM-DD format
-      if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const [year, month, day] = dateString.split('-');
+      if (typeof dateString === "string" && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = dateString.split("-");
         const date = new Date(year, month - 1, day);
-        return date.toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
+        return date.toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
         });
       }
       const date = new Date(dateString);
       if (!isNaN(date.getTime())) {
-        return date.toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
+        return date.toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
         });
       }
       return dateString;
@@ -422,13 +409,26 @@ const Leaves = () => {
                 pageLeaves.map((leave, idx) => (
                   <tr
                     key={leave.id}
-                    className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    // ✅ Row is clickable → opens leave details modal
+                    onClick={() => handleView(leave)}
+                    className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                   >
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center">
                       {start + idx + 1}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
-                      {getEmployeeName(leave)}
+                      {/* ✅ Employee name is a clickable button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleView(leave);
+                        }}
+                        className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
+                        title={`View ${getEmployeeName(leave)}'s leave request`}
+                      >
+                        {getEmployeeName(leave)}
+                      </button>
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       {leave.leave_type?.name || leave.type || "-"}
@@ -452,17 +452,23 @@ const Leaves = () => {
                             : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
                         }`}
                       >
-                        {leave.claim_salary === 1 || leave.claim_salary === "1" || leave.claimSalary === "Yes"
+                        {leave.claim_salary === 1 ||
+                        leave.claim_salary === "1" ||
+                        leave.claimSalary === "Yes"
                           ? "Yes"
                           : "No"}
                       </span>
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
                       {leave.document_path || leave.document || leave.doc ? (
+                        // ✅ stopPropagation so doc view doesn't open the row's modal
                         <button
-                          onClick={() =>
-                            handleViewDocument(leave.document_path || leave.document || leave.doc)
-                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewDocument(
+                              leave.document_path || leave.document || leave.doc,
+                            );
+                          }}
                           className="text-blue-500 hover:text-blue-600 text-xs md:text-sm flex items-center gap-1"
                         >
                           <i className="fas fa-file-pdf text-xs md:text-sm"></i>
@@ -486,17 +492,26 @@ const Leaves = () => {
                       </span>
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                      {leave.processed_by || leave.processedBy || leave.approver?.username || "-"}
+                      {leave.processed_by ||
+                        leave.processedBy ||
+                        leave.approver?.username ||
+                        "-"}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
-                      <div className="flex gap-1 md:gap-2">
+                      {/* ✅ stopPropagation so action buttons don't trigger row click */}
+                      <div
+                        className="flex gap-1 md:gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           onClick={() => handleView(leave)}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-500 transition-colors"
                           title="View Details"
                           disabled={loading}
                         >
-                          <i className={`fas fa-eye text-xs md:text-sm ${loading ? 'fa-spin' : ''}`}></i>
+                          <i
+                            className={`fas fa-eye text-xs md:text-sm ${loading ? "fa-spin" : ""}`}
+                          ></i>
                         </button>
                         <button
                           onClick={() => {
@@ -567,9 +582,9 @@ const Leaves = () => {
         onViewDocument={handleViewDocument}
       />
 
-      <AddLeaveModal 
-        isOpen={showAddModal} 
-        onClose={() => setShowAddModal(false)} 
+      <AddLeaveModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
       />
 
       <EditLeaveModal
@@ -603,11 +618,7 @@ const Leaves = () => {
         }
         confirmText={actionType === "approve" ? "Approve" : "Reject"}
         loading={actionLoading}
-        variant={
-          actionType === "approve"
-          ? "success"
-          : "danger"
-        }
+        variant={actionType === "approve" ? "success" : "danger"}
       >
         {actionType === "reject" && (
           <div className="mt-4">
