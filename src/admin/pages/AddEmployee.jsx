@@ -1,4 +1,4 @@
-// src/admin/pages/AddEmployee.js - Full code with Aadhaar and PAN photo uploads
+// src/admin/pages/AddEmployee.jsx - Full code with dark mode support
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -29,7 +29,7 @@ const AddEmployee = () => {
   const [, setVisitedSteps] = useState([0]);
   const [stepErrors, setStepErrors] = useState({});
   const [uploadingFiles, setUploadingFiles] = useState({});
-  // Document file states
+
   const [documents, setDocuments] = useState({
     avatar: null,
     avatarFile: null,
@@ -46,7 +46,6 @@ const AddEmployee = () => {
     educational_1st_page: null,
     educational_2nd_page: null,
     home_country_id_proof: null,
-    // India-specific documents - using correct column names
     aadhar_photo: null,
     pan_photo: null,
     voter_id: null,
@@ -69,7 +68,6 @@ const AddEmployee = () => {
   const [empIdMode, setEmpIdMode] = useState("auto");
   const [manualEmpId, setManualEmpId] = useState("");
 
-  // Fetch data from slices
   const { organizations = [] } = useSelector(
     (state) => state.organizations || {},
   );
@@ -80,7 +78,6 @@ const AddEmployee = () => {
   const { departments = [] } = useSelector((state) => state.departments || {});
   const { roles = [] } = useSelector((state) => state.roles || {});
 
-  // Initialize useForm with updated validation
   const {
     control,
     handleSubmit,
@@ -130,7 +127,6 @@ const AddEmployee = () => {
       other_number: "",
       home_country_number: "",
       role: "",
-      // India-specific fields - using correct column names
       aadhar_number: "",
       pan_number: "",
       voter_id_number: "",
@@ -150,7 +146,6 @@ const AddEmployee = () => {
     mode: "onChange",
   });
 
-  // UseFieldArray for special days
   const { fields, append, remove } = useFieldArray({
     control,
     name: "special_days",
@@ -169,7 +164,6 @@ const AddEmployee = () => {
   const eidIssued = watch("eid_issued_date");
   const eidExpiry = watch("eid_expiry_date");
 
-  // Generate Employee ID function
   const generateEmployeeId = (dob, joiningDate) => {
     if (!dob || !joiningDate) return "";
 
@@ -211,7 +205,6 @@ const AddEmployee = () => {
     }
   }, [watchDob, watchJoiningDate, setValue, empIdMode]);
 
-  // Fetch initial data
   useEffect(() => {
     dispatch(fetchOrganizations());
     dispatch(fetchDesignations());
@@ -219,7 +212,6 @@ const AddEmployee = () => {
     dispatch(fetchRoles());
   }, [dispatch]);
 
-  // Fetch companies when organization changes
   useEffect(() => {
     if (watchOrganizationId) {
       const org = organizations.find(
@@ -240,7 +232,6 @@ const AddEmployee = () => {
     }
   }, [watchOrganizationId, organizations, dispatch, setValue]);
 
-  // Get company details when company_id changes
   useEffect(() => {
     if (watchCompanyId && companies.length > 0) {
       const company = companies.find(
@@ -248,16 +239,13 @@ const AddEmployee = () => {
       );
       setSelectedCompanyDetails(company || null);
 
-      // Check for both "AE" and "UAE"
       const companyCountry = company?.country || company?.raw?.country || "UAE";
       const normalizedCountry = companyCountry === "AE" ? "UAE" : companyCountry;
 
       setSelectedCountry(normalizedCountry);
       setCountryConfig(getCountryConfig(normalizedCountry));
 
-      // Handle trade license based on country
       if (normalizedCountry === "India") {
-        // Reset UAE fields for India
         setValue("visa_number", "");
         setValue("visa_type", "");
         setValue("visa_issued_date", "");
@@ -270,7 +258,6 @@ const AddEmployee = () => {
         setValue("labor_expiry_date", "");
         setIsSkilled(false);
       } else {
-        // UAE - handle trade license
         if (company && company.raw?.trade_license === "freezone") {
           setValue("labor_number", "");
           setValue("labor_issued_date", "");
@@ -348,7 +335,6 @@ const AddEmployee = () => {
         if (selectedCountry === "UAE") {
           return ["passport_issued_date", "passport_expiry_date"];
         } else {
-          // India - validate PAN and other required identity docs
           const fields = ["pan_number"];
           countryConfig.identityDocuments.forEach((doc) => {
             if (doc.required) {
@@ -389,7 +375,6 @@ const AddEmployee = () => {
     }
   };
 
-  // Document upload component
   const DocumentUpload = ({
     fieldKey,
     label,
@@ -401,13 +386,15 @@ const AddEmployee = () => {
     const isUploading = uploadingFiles[fieldKey];
 
     return (
-      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/30">
-        <label className="block text-sm font-semibold text-gray-700 mb-3">
+      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/30 dark:bg-gray-700/30">
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
           <i className={`${icon} text-green-500 mr-2`}></i>
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
           {!required && (
-            <span className="text-xs text-gray-400 ml-2">(Optional)</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+              (Optional)
+            </span>
           )}
         </label>
         <div className="flex items-center gap-3 flex-wrap">
@@ -425,7 +412,7 @@ const AddEmployee = () => {
             type="button"
             disabled={isUploading}
             onClick={() => document.getElementById(fileInputId).click()}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors flex items-center gap-2 disabled:opacity-60"
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-60"
           >
             {isUploading ? (
               <>
@@ -437,7 +424,7 @@ const AddEmployee = () => {
               </>
             )}
           </button>
-          <span className="text-sm text-gray-500 truncate flex-1">
+          <span className="text-sm text-gray-500 dark:text-gray-400 truncate flex-1">
             {isUploading
               ? "Uploading file..."
               : documents[fieldKey]
@@ -450,7 +437,7 @@ const AddEmployee = () => {
             <img
               src={documentPreviews[fieldKey]}
               alt={label}
-              className="h-20 w-20 object-cover rounded-lg border border-gray-200"
+              className="h-20 w-20 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
             />
             <button
               type="button"
@@ -458,7 +445,7 @@ const AddEmployee = () => {
                 setDocuments({ ...documents, [fieldKey]: null });
                 setDocumentPreviews({ ...documentPreviews, [fieldKey]: null });
               }}
-              className="mt-2 text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
+              className="mt-2 text-xs text-red-500 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1"
             >
               <i className="fas fa-trash"></i> Remove
             </button>
@@ -466,8 +453,8 @@ const AddEmployee = () => {
         )}
         {documentPreviews[fieldKey] === "pdf" && (
           <div className="mt-3">
-            <div className="h-20 w-20 bg-red-100 rounded-lg flex items-center justify-center border border-gray-200">
-              <i className="fas fa-file-pdf text-red-500 text-3xl"></i>
+            <div className="h-20 w-20 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-600">
+              <i className="fas fa-file-pdf text-red-500 dark:text-red-400 text-3xl"></i>
             </div>
             <button
               type="button"
@@ -475,13 +462,13 @@ const AddEmployee = () => {
                 setDocuments({ ...documents, [fieldKey]: null });
                 setDocumentPreviews({ ...documentPreviews, [fieldKey]: null });
               }}
-              className="mt-2 text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
+              className="mt-2 text-xs text-red-500 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1"
             >
               <i className="fas fa-trash"></i> Remove
             </button>
           </div>
         )}
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
           <i className="fas fa-info-circle mr-1"></i> Max size: 5MB. Allowed:
           JPG, PNG, PDF
         </p>
@@ -545,7 +532,6 @@ const AddEmployee = () => {
 
   const handleNext = async () => {
     const fieldsToValidate = getStepFields(currentStep);
-
     const isValid = await trigger(fieldsToValidate);
 
     if (isValid) {
@@ -602,7 +588,6 @@ const AddEmployee = () => {
 
     const formData = new FormData();
 
-    // Basic required fields
     formData.append("first_name", data.first_name);
     formData.append("last_name", data.last_name || "");
 
@@ -658,18 +643,43 @@ const AddEmployee = () => {
     formData.append("dob", dob);
     formData.append("joining_date", joiningDate);
 
-    // Append 9 new date fields
-    formData.append("probation_start_date", convertDateToBackend(data.probation_start_date) || "");
-    formData.append("probation_end_date", convertDateToBackend(data.probation_end_date) || "");
-    formData.append("confirmation_date", convertDateToBackend(data.confirmation_date) || "");
-    formData.append("contract_start_date", convertDateToBackend(data.contract_start_date) || "");
-    formData.append("contract_end_date", convertDateToBackend(data.contract_end_date) || "");
-    formData.append("notice_period_start_date", convertDateToBackend(data.notice_period_start_date) || "");
-    formData.append("last_working_day", convertDateToBackend(data.last_working_day) || "");
-    formData.append("resignation_date", convertDateToBackend(data.resignation_date) || "");
-    formData.append("relieving_date", convertDateToBackend(data.relieving_date) || "");
+    formData.append(
+      "probation_start_date",
+      convertDateToBackend(data.probation_start_date) || "",
+    );
+    formData.append(
+      "probation_end_date",
+      convertDateToBackend(data.probation_end_date) || "",
+    );
+    formData.append(
+      "confirmation_date",
+      convertDateToBackend(data.confirmation_date) || "",
+    );
+    formData.append(
+      "contract_start_date",
+      convertDateToBackend(data.contract_start_date) || "",
+    );
+    formData.append(
+      "contract_end_date",
+      convertDateToBackend(data.contract_end_date) || "",
+    );
+    formData.append(
+      "notice_period_start_date",
+      convertDateToBackend(data.notice_period_start_date) || "",
+    );
+    formData.append(
+      "last_working_day",
+      convertDateToBackend(data.last_working_day) || "",
+    );
+    formData.append(
+      "resignation_date",
+      convertDateToBackend(data.resignation_date) || "",
+    );
+    formData.append(
+      "relieving_date",
+      convertDateToBackend(data.relieving_date) || "",
+    );
 
-    // Special days
     if (data.special_days && data.special_days.length > 0) {
       const validSpecialDays = data.special_days.filter(
         (day) => day.name && day.name.trim() !== "" && day.date,
@@ -696,9 +706,7 @@ const AddEmployee = () => {
       }
     }
 
-    // Country-specific fields
     if (selectedCountry === "UAE") {
-      // Passport fields
       formData.append("passport_full_name", data.passport_full_name || "");
       formData.append("passport_number", data.passport_number || "");
       formData.append(
@@ -715,7 +723,6 @@ const AddEmployee = () => {
       formData.append("mother_name", data.mother_name || "");
       formData.append("address", data.address || "");
 
-      // Visa fields
       formData.append("visa_number", data.visa_number || "");
       formData.append("visa_type", data.visa_type || "");
       formData.append(
@@ -727,7 +734,6 @@ const AddEmployee = () => {
         convertDateToBackend(data.visa_expiry_date) || "",
       );
 
-      // Labor fields
       if (selectedCompanyDetails?.raw?.trade_license === "mainland") {
         formData.append("labor_number", data.labor_number || "");
         formData.append(
@@ -744,7 +750,6 @@ const AddEmployee = () => {
         formData.append("labor_expiry_date", "");
       }
 
-      // EID fields
       formData.append("eid_number", data.eid_number || "");
       formData.append(
         "eid_issued_date",
@@ -755,7 +760,6 @@ const AddEmployee = () => {
         convertDateToBackend(data.eid_expiry_date) || "",
       );
     } else {
-      // India - send empty strings for UAE fields
       formData.append("passport_full_name", "");
       formData.append("passport_number", "");
       formData.append("passport_issued_date", "");
@@ -775,13 +779,16 @@ const AddEmployee = () => {
       formData.append("eid_number", "");
       formData.append("eid_issued_date", "");
       formData.append("eid_expiry_date", "");
-      
-      // India-specific fields
-      if (data.aadhar_number) formData.append("aadhar_number", data.aadhar_number);
+
+      if (data.aadhar_number)
+        formData.append("aadhar_number", data.aadhar_number);
       if (data.pan_number) formData.append("pan_number", data.pan_number);
-      if (data.voter_id_number) formData.append("voter_id_number", data.voter_id_number);
-      if (data.driving_license_number) formData.append("driving_license_number", data.driving_license_number);
-      if (data.passport_india_number) formData.append("passport_india_number", data.passport_india_number);
+      if (data.voter_id_number)
+        formData.append("voter_id_number", data.voter_id_number);
+      if (data.driving_license_number)
+        formData.append("driving_license_number", data.driving_license_number);
+      if (data.passport_india_number)
+        formData.append("passport_india_number", data.passport_india_number);
     }
 
     formData.append(
@@ -796,15 +803,11 @@ const AddEmployee = () => {
     formData.append("home_country_number", data.home_country_number || "");
     formData.append("role_id", data.role || "");
 
-    // ============ Documents ============
-
-    // Avatar
     if (documents.avatar) {
       formData.append("avatar", documents.avatar);
     }
 
     if (selectedCountry === "UAE") {
-      // UAE document fields
       const uaeDocumentFields = [
         "passport_1st_page",
         "passport_2nd_page",
@@ -826,7 +829,6 @@ const AddEmployee = () => {
         }
       });
     } else {
-      // India document fields - using correct column names
       const indiaDocumentFields = [
         "aadhar_photo",
         "pan_photo",
@@ -845,23 +847,21 @@ const AddEmployee = () => {
       });
     }
 
-    // Additional documents
-   // Additional documents
-if (additionalDocuments.length > 0) {
-  additionalDocuments.forEach((doc, index) => {
-    formData.append(
-      `additional_documents[${index}][document_name]`,
-      doc.name,
-    );
-    formData.append(
-      `additional_documents[${index}][filename]`,
-      doc.filename,
-    );
-    if (doc.file) {
-      formData.append(`additional_documents[${index}][file]`, doc.file);
+    if (additionalDocuments.length > 0) {
+      additionalDocuments.forEach((doc, index) => {
+        formData.append(
+          `additional_documents[${index}][document_name]`,
+          doc.name,
+        );
+        formData.append(
+          `additional_documents[${index}][filename]`,
+          doc.filename,
+        );
+        if (doc.file) {
+          formData.append(`additional_documents[${index}][file]`, doc.file);
+        }
+      });
     }
-  });
-}
 
     const result = await dispatch(addEmployee(formData));
 
@@ -911,7 +911,6 @@ if (additionalDocuments.length > 0) {
 
         const filename = extractFilename(result.path);
 
-        let preview = null;
         if (docData.file.type.startsWith("image/")) {
           const reader = new FileReader();
           reader.onload = (e) => {
@@ -950,7 +949,6 @@ if (additionalDocuments.length > 0) {
     }
   };
 
-  // Validation rules
   const validationRules = {
     first_name: {
       required: "First name is required",
@@ -1005,7 +1003,6 @@ if (additionalDocuments.length > 0) {
     },
   };
 
-  // Date validation functions
   const validateIssueDate = (issueDate, expiryDate, fieldName) => {
     if (!issueDate) return true;
     const today = new Date();
@@ -1046,12 +1043,12 @@ if (additionalDocuments.length > 0) {
       <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
         <Link
           to="/admin/employees"
-          className="text-green-500 hover:text-green-600 font-medium"
+          className="text-green-500 hover:text-green-600 dark:hover:text-green-400 font-medium"
         >
           Employees
         </Link>
-        <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
-        <span className="text-gray-500">Add Employee</span>
+        <i className="fas fa-chevron-right text-gray-400 dark:text-gray-500 text-[10px] md:text-xs"></i>
+        <span className="text-gray-500 dark:text-gray-400">Add Employee</span>
       </div>
 
       {/* Page Header */}
@@ -1059,11 +1056,11 @@ if (additionalDocuments.length > 0) {
         <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 bg-clip-text text-transparent dark:from-gray-200 dark:to-green-400">
           <i className="fas fa-user-plus mr-2"></i> Add New Employee
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Fill in the employee details below
         </p>
         {selectedCountry && (
-          <p className="text-xs text-blue-600 mt-1">
+          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
             <i className="fas fa-info-circle mr-1"></i>
             Country: <span className="font-semibold">{selectedCountry}</span> -
             {selectedCountry === "UAE"
@@ -1085,10 +1082,10 @@ if (additionalDocuments.length > 0) {
                 currentStep === index
                   ? "bg-green-500 text-white shadow-md"
                   : stepErrors[index]
-                    ? "bg-red-50 text-red-600 border border-red-300"
+                    ? "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700"
                     : index < currentStep
-                      ? "text-green-500"
-                      : "text-gray-500 bg-gray-100"
+                      ? "text-green-500 dark:text-green-400"
+                      : "text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700"
               }`}
             >
               <i className={`${step.icon} mr-1 text-xs md:text-sm`}></i>
@@ -1105,7 +1102,7 @@ if (additionalDocuments.length > 0) {
       </div>
 
       {/* Form Container */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 lg:p-8 shadow-soft">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 md:p-6 lg:p-8 shadow-soft">
         <form
           onSubmit={(e) => {
             if (currentStep !== steps.length - 1) {
@@ -1117,8 +1114,8 @@ if (additionalDocuments.length > 0) {
         >
           <div className="space-y-8">
             {stepErrors[currentStep] && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-                <p className="text-xs md:text-sm text-red-600">
+              <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-3 py-2">
+                <p className="text-xs md:text-sm text-red-600 dark:text-red-400">
                   <i className="fas fa-exclamation-circle mr-1"></i>
                   Please complete required fields in this section.
                 </p>
@@ -1130,12 +1127,12 @@ if (additionalDocuments.length > 0) {
               <div>
                 <div className="form-section-title mb-4 md:mb-6">
                   <i className="fas fa-user-circle text-green-500 mr-2"></i>
-                  <h3 className="text-base md:text-lg font-bold text-gray-800">
+                  <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-100">
                     Basic Information
                   </h3>
                 </div>
                 {stepErrors[0] && (
-                  <p className="text-xs md:text-sm text-red-500 mb-4">
+                  <p className="text-xs md:text-sm text-red-500 dark:text-red-400 mb-4">
                     <i className="fas fa-exclamation-triangle mr-1"></i>
                     Please fill all mandatory fields in this section.
                   </p>
@@ -1143,7 +1140,7 @@ if (additionalDocuments.length > 0) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                   {/* First Name */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-user text-green-500 mr-1"></i> First
                       Name <span className="text-red-500">*</span>
                     </label>
@@ -1156,11 +1153,15 @@ if (additionalDocuments.length > 0) {
                           <input
                             {...field}
                             type="text"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.first_name ? "border-red-500 focus:border-red-500" : "border-gray-200 focus:border-green-500 focus:ring-green-500/20"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all focus:outline-none focus:ring-2 ${
+                              errors.first_name
+                                ? "border-red-500 focus:border-red-500"
+                                : "border-gray-200 dark:border-gray-600 focus:border-green-500 focus:ring-green-500/20"
+                            }`}
                             placeholder="Enter first name"
                           />
                           {errors.first_name && (
-                            <p className="mt-1 text-xs text-red-500">
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                               {errors.first_name.message}
                             </p>
                           )}
@@ -1171,7 +1172,7 @@ if (additionalDocuments.length > 0) {
 
                   {/* Last Name */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-user text-green-500 mr-1"></i> Last
                       Name
                     </label>
@@ -1182,7 +1183,7 @@ if (additionalDocuments.length > 0) {
                         <input
                           {...field}
                           type="text"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                           placeholder="Enter last name"
                         />
                       )}
@@ -1191,7 +1192,7 @@ if (additionalDocuments.length > 0) {
 
                   {/* Organization */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-building text-green-500 mr-1"></i>{" "}
                       Organization <span className="text-red-500">*</span>
                     </label>
@@ -1203,7 +1204,11 @@ if (additionalDocuments.length > 0) {
                         <>
                           <select
                             {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.organization_id ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 transition-all focus:outline-none focus:ring-2 ${
+                              errors.organization_id
+                                ? "border-red-500"
+                                : "border-gray-200 dark:border-gray-600 focus:border-green-500"
+                            }`}
                           >
                             <option value="">Select Organization</option>
                             {organizations.map((org) => (
@@ -1213,7 +1218,7 @@ if (additionalDocuments.length > 0) {
                             ))}
                           </select>
                           {errors.organization_id && (
-                            <p className="mt-1 text-xs text-red-500">
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                               {errors.organization_id.message}
                             </p>
                           )}
@@ -1224,7 +1229,7 @@ if (additionalDocuments.length > 0) {
 
                   {/* Company */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-building text-green-500 mr-1"></i>{" "}
                       Company
                       {selectedOrgDetails?.multi_company === "Yes" && (
@@ -1247,11 +1252,15 @@ if (additionalDocuments.length > 0) {
                             disabled={
                               selectedOrgDetails?.multi_company !== "Yes"
                             }
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 transition-all focus:outline-none focus:ring-2 ${
                               selectedOrgDetails?.multi_company !== "Yes"
                                 ? "opacity-50 cursor-not-allowed"
                                 : ""
-                            } ${errors.company_id ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            } ${
+                              errors.company_id
+                                ? "border-red-500"
+                                : "border-gray-200 dark:border-gray-600 focus:border-green-500"
+                            }`}
                           >
                             <option value="">
                               {selectedOrgDetails?.multi_company === "Yes"
@@ -1264,7 +1273,7 @@ if (additionalDocuments.length > 0) {
                               <option key={company.id} value={company.id}>
                                 {company.company_name || company.name}
                                 {company.raw?.trade_license && (
-                                  <span className="text-xs text-gray-500 ml-1">
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
                                     ({company.raw?.trade_license})
                                   </span>
                                 )}
@@ -1272,7 +1281,7 @@ if (additionalDocuments.length > 0) {
                             ))}
                           </select>
                           {errors.company_id && (
-                            <p className="mt-1 text-xs text-red-500">
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                               {errors.company_id.message}
                             </p>
                           )}
@@ -1286,20 +1295,30 @@ if (additionalDocuments.length > 0) {
                     selectedCompanyDetails.raw?.trade_license && (
                       <div className="md:col-span-2">
                         <div
-                          className={`p-3 rounded-lg ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "bg-blue-50 border border-blue-200" : "bg-yellow-50 border border-yellow-200"}`}
+                          className={`p-3 rounded-lg ${
+                            selectedCompanyDetails.raw?.trade_license ===
+                            "mainland"
+                              ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                              : "bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800"
+                          }`}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <i
-                              className={`fas ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "fa-building" : "fa-globe"} ${selectedCompanyDetails.raw?.trade_license === "mainland" ? "text-blue-600" : "text-yellow-600"}`}
+                              className={`fas ${
+                                selectedCompanyDetails.raw?.trade_license ===
+                                "mainland"
+                                  ? "fa-building text-blue-600 dark:text-blue-400"
+                                  : "fa-globe text-yellow-600 dark:text-yellow-400"
+                              }`}
                             ></i>
-                            <span className="text-sm font-semibold text-gray-700">
+                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                               Company Trade License:{" "}
                               <span
                                 className={
                                   selectedCompanyDetails.raw?.trade_license ===
                                   "mainland"
-                                    ? "text-blue-600"
-                                    : "text-yellow-600"
+                                    ? "text-blue-600 dark:text-blue-400"
+                                    : "text-yellow-600 dark:text-yellow-400"
                                 }
                               >
                                 {selectedCompanyDetails.raw?.trade_license.toUpperCase()}
@@ -1307,7 +1326,7 @@ if (additionalDocuments.length > 0) {
                             </span>
                             {selectedCompanyDetails.raw?.trade_license ===
                               "mainland" && (
-                              <span className="text-xs text-gray-600 ml-2">
+                              <span className="text-xs text-gray-600 dark:text-gray-400 ml-2">
                                 <i className="fas fa-info-circle mr-1"></i>
                                 Labor details are required for Mainland
                                 companies
@@ -1315,7 +1334,7 @@ if (additionalDocuments.length > 0) {
                             )}
                             {selectedCompanyDetails.raw?.trade_license ===
                               "freezone" && (
-                              <span className="text-xs text-gray-600 ml-2">
+                              <span className="text-xs text-gray-600 dark:text-gray-400 ml-2">
                                 <i className="fas fa-info-circle mr-1"></i>
                                 Labor details are not required for Freezone
                                 companies
@@ -1328,7 +1347,7 @@ if (additionalDocuments.length > 0) {
 
                   {/* Department */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-diagram-project text-green-500 mr-1"></i>{" "}
                       Department <span className="text-red-500">*</span>
                     </label>
@@ -1340,7 +1359,11 @@ if (additionalDocuments.length > 0) {
                         <>
                           <select
                             {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:ring-2 ${errors.department_id ? "border-red-500" : "border-gray-200 focus:border-green-500 focus:ring-green-500/20"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 ${
+                              errors.department_id
+                                ? "border-red-500"
+                                : "border-gray-200 dark:border-gray-600 focus:border-green-500 focus:ring-green-500/20"
+                            }`}
                           >
                             <option value="">Select Department</option>
                             {departments.map((dept) => (
@@ -1350,7 +1373,7 @@ if (additionalDocuments.length > 0) {
                             ))}
                           </select>
                           {errors.department_id && (
-                            <p className="mt-1 text-xs text-red-500">
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                               {errors.department_id.message}
                             </p>
                           )}
@@ -1361,7 +1384,7 @@ if (additionalDocuments.length > 0) {
 
                   {/* Designation */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
                       Designation <span className="text-red-500">*</span>
                     </label>
@@ -1373,7 +1396,11 @@ if (additionalDocuments.length > 0) {
                         <>
                           <select
                             {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:ring-2 ${errors.designation_id ? "border-red-500" : "border-gray-200 focus:border-green-500 focus:ring-green-500/20"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 ${
+                              errors.designation_id
+                                ? "border-red-500"
+                                : "border-gray-200 dark:border-gray-600 focus:border-green-500 focus:ring-green-500/20"
+                            }`}
                           >
                             <option value="">Select Designation</option>
                             {designations.map((desig) => (
@@ -1383,7 +1410,7 @@ if (additionalDocuments.length > 0) {
                             ))}
                           </select>
                           {errors.designation_id && (
-                            <p className="mt-1 text-xs text-red-500">
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                               {errors.designation_id.message}
                             </p>
                           )}
@@ -1394,7 +1421,7 @@ if (additionalDocuments.length > 0) {
 
                   {/* User Type */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-user-tag text-green-500 mr-1"></i>{" "}
                       User Type <span className="text-red-500">*</span>
                     </label>
@@ -1406,7 +1433,11 @@ if (additionalDocuments.length > 0) {
                         <>
                           <select
                             {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.type ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 transition-all focus:outline-none focus:ring-2 ${
+                              errors.type
+                                ? "border-red-500"
+                                : "border-gray-200 dark:border-gray-600 focus:border-green-500"
+                            }`}
                           >
                             {userTypeOptions.map((type) => (
                               <option key={type} value={type}>
@@ -1416,7 +1447,7 @@ if (additionalDocuments.length > 0) {
                             ))}
                           </select>
                           {errors.type && (
-                            <p className="mt-1 text-xs text-red-500">
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                               {errors.type.message}
                             </p>
                           )}
@@ -1427,7 +1458,7 @@ if (additionalDocuments.length > 0) {
 
                   {/* Gender */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-venus-mars text-green-500 mr-1"></i>{" "}
                       Gender
                     </label>
@@ -1437,7 +1468,7 @@ if (additionalDocuments.length > 0) {
                       render={({ field }) => (
                         <select
                           {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                         >
                           <option value="">Select Gender</option>
                           {genderOptions.map((gender) => (
@@ -1453,7 +1484,7 @@ if (additionalDocuments.length > 0) {
                   {/* Nationality */}
                   {countryConfig.showNationality && (
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-globe-asia text-green-500 mr-1"></i>{" "}
                         Nationality
                       </label>
@@ -1463,7 +1494,7 @@ if (additionalDocuments.length > 0) {
                         render={({ field }) => (
                           <select
                             {...field}
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                           >
                             <option value="">Select Nationality</option>
                             {nationalityOptions.map((nationality) => (
@@ -1479,7 +1510,7 @@ if (additionalDocuments.length > 0) {
 
                   {/* Marital Status */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-user-friends text-green-500 mr-1"></i>{" "}
                       Marital Status
                     </label>
@@ -1489,7 +1520,7 @@ if (additionalDocuments.length > 0) {
                       render={({ field }) => (
                         <select
                           {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                         >
                           <option value="">Select Marital Status</option>
                           {maritalStatusOptions.map((status) => (
@@ -1504,7 +1535,7 @@ if (additionalDocuments.length > 0) {
 
                   {/* Special Days */}
                   <div className="md:col-span-2">
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                       <i className="fas fa-gift text-green-500 mr-1"></i>{" "}
                       Special Days
                     </label>
@@ -1521,14 +1552,14 @@ if (additionalDocuments.length > 0) {
                                     {...field}
                                     type="text"
                                     placeholder="e.g., Birthday / Anniversary"
-                                    className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:outline-none ${
+                                    className={`w-full px-3 py-2 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none ${
                                       errors?.special_days?.[index]?.name
                                         ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
-                                        : "border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                                        : "border-gray-200 dark:border-gray-600 focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                                     }`}
                                   />
                                   {errors?.special_days?.[index]?.name && (
-                                    <p className="mt-1 text-xs text-red-500">
+                                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                                       {errors.special_days[index].name.message}
                                     </p>
                                   )}
@@ -1546,12 +1577,10 @@ if (additionalDocuments.length > 0) {
                                     type="special_day"
                                     {...field}
                                     placeholder="dd/mm/yyyy"
-                                    error={
-                                      !!errors?.special_days?.[index]?.date
-                                    }
+                                    error={!!errors?.special_days?.[index]?.date}
                                   />
                                   {errors?.special_days?.[index]?.date && (
-                                    <p className="mt-1 text-xs text-red-500">
+                                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                                       {errors.special_days[index].date.message}
                                     </p>
                                   )}
@@ -1563,7 +1592,7 @@ if (additionalDocuments.length > 0) {
                             <button
                               type="button"
                               onClick={() => remove(index)}
-                              className="p-2 text-red-500 hover:text-red-600 transition-colors"
+                              className="p-2 text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                             >
                               <i className="fas fa-trash"></i>
                             </button>
@@ -1573,13 +1602,13 @@ if (additionalDocuments.length > 0) {
                       <button
                         type="button"
                         onClick={() => append({ name: "", date: "" })}
-                        className="text-green-500 hover:text-green-600 text-sm font-semibold flex items-center gap-2 mt-2"
+                        className="text-green-500 hover:text-green-600 dark:hover:text-green-400 text-sm font-semibold flex items-center gap-2 mt-2"
                       >
                         <i className="fas fa-plus-circle"></i>
                         Add Special Day
                       </button>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
                       <i className="fas fa-info-circle mr-1"></i> Add special
                       occasions like birthday, anniversary, etc.
                     </p>
@@ -1587,7 +1616,7 @@ if (additionalDocuments.length > 0) {
 
                   {/* Employee ID Section */}
                   <div className="md:col-span-2">
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                       <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
                       Employee ID <span className="text-red-500">*</span>
                     </label>
@@ -1611,7 +1640,7 @@ if (additionalDocuments.length > 0) {
                           }}
                           className="mr-2 text-green-500 focus:ring-green-500"
                         />
-                        <span className="text-sm text-gray-700">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
                           Auto Generate
                         </span>
                       </label>
@@ -1627,7 +1656,7 @@ if (additionalDocuments.length > 0) {
                           }}
                           className="mr-2 text-green-500 focus:ring-green-500"
                         />
-                        <span className="text-sm text-gray-700">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
                           Manual Entry
                         </span>
                       </label>
@@ -1644,13 +1673,13 @@ if (additionalDocuments.length > 0) {
                               type="text"
                               readOnly
                               disabled
-                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 border border-gray-200 rounded-lg text-sm md:text-base text-gray-600 cursor-not-allowed"
+                              className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-600 dark:text-gray-400 cursor-not-allowed"
                               placeholder="Will be auto-generated after entering DOB & Joining Date"
                             />
                           )}
                         />
                         {watchDob && watchJoiningDate && (
-                          <p className="mt-1 text-xs text-green-600">
+                          <p className="mt-1 text-xs text-green-600 dark:text-green-400">
                             <i className="fas fa-check-circle mr-1"></i>
                             Employee ID generated based on DOB and Joining Date
                           </p>
@@ -1667,10 +1696,10 @@ if (additionalDocuments.length > 0) {
                             setManualEmpId(e.target.value);
                             setValue("employee_id", e.target.value);
                           }}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                           placeholder="Enter custom Employee ID (e.g., EMP001)"
                         />
-                        <p className="mt-1 text-xs text-gray-400">
+                        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
                           <i className="fas fa-info-circle mr-1"></i>
                           Enter a unique employee ID (min 3 characters)
                         </p>
@@ -1680,7 +1709,7 @@ if (additionalDocuments.length > 0) {
 
                   {/* Date of Birth */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-calendar text-green-500 mr-1"></i>{" "}
                       Date of Birth <span className="text-red-500">*</span>
                     </label>
@@ -1697,7 +1726,7 @@ if (additionalDocuments.length > 0) {
                             error={!!errors.dob}
                           />
                           {errors.dob && (
-                            <p className="mt-1 text-xs text-red-500">
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                               {errors.dob.message}
                             </p>
                           )}
@@ -1708,7 +1737,7 @@ if (additionalDocuments.length > 0) {
 
                   {/* Joining Date */}
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-calendar-alt text-green-500 mr-1"></i>{" "}
                       Joining Date <span className="text-red-500">*</span>
                     </label>
@@ -1724,7 +1753,7 @@ if (additionalDocuments.length > 0) {
                             error={!!errors.joining_date}
                           />
                           {errors.joining_date && (
-                            <p className="mt-1 text-xs text-red-500">
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                               {errors.joining_date.message}
                             </p>
                           )}
@@ -1734,10 +1763,10 @@ if (additionalDocuments.length > 0) {
                   </div>
 
                   {/* Employment Timeline & Dates Section Header */}
-                  <div className="md:col-span-2 border-t border-gray-200 pt-6 mt-2">
+                  <div className="md:col-span-2 border-t border-gray-200 dark:border-gray-700 pt-6 mt-2">
                     <div className="form-section-title mb-4 md:mb-6">
                       <i className="fas fa-calendar-alt text-green-500 mr-2"></i>
-                      <h3 className="text-base md:text-lg font-bold text-gray-800">
+                      <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-100">
                         Employment Timeline & Dates
                       </h3>
                     </div>
@@ -1746,7 +1775,7 @@ if (additionalDocuments.length > 0) {
                   <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
                     {/* Probation Start Date */}
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-calendar-day text-green-500 mr-1"></i>{" "}
                         Probation Start Date
                       </label>
@@ -1765,7 +1794,7 @@ if (additionalDocuments.length > 0) {
 
                     {/* Probation End Date */}
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-calendar-check text-green-500 mr-1"></i>{" "}
                         Probation End Date
                       </label>
@@ -1784,7 +1813,7 @@ if (additionalDocuments.length > 0) {
 
                     {/* Confirmation Date */}
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-user-check text-green-500 mr-1"></i>{" "}
                         Confirmation Date
                       </label>
@@ -1803,7 +1832,7 @@ if (additionalDocuments.length > 0) {
 
                     {/* Contract Start Date */}
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-file-signature text-green-500 mr-1"></i>{" "}
                         Contract Start Date
                       </label>
@@ -1822,7 +1851,7 @@ if (additionalDocuments.length > 0) {
 
                     {/* Contract End Date */}
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-file-contract text-green-500 mr-1"></i>{" "}
                         Contract End Date
                       </label>
@@ -1841,7 +1870,7 @@ if (additionalDocuments.length > 0) {
 
                     {/* Resignation Date */}
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-envelope-open text-green-500 mr-1"></i>{" "}
                         Resignation Date
                       </label>
@@ -1860,7 +1889,7 @@ if (additionalDocuments.length > 0) {
 
                     {/* Notice Period Start Date */}
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-hourglass-start text-green-500 mr-1"></i>{" "}
                         Notice Period Start Date
                       </label>
@@ -1879,7 +1908,7 @@ if (additionalDocuments.length > 0) {
 
                     {/* Last Working Day (LWD) */}
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-business-time text-green-500 mr-1"></i>{" "}
                         Last Working Day (LWD)
                       </label>
@@ -1898,7 +1927,7 @@ if (additionalDocuments.length > 0) {
 
                     {/* Relieving Date */}
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-door-open text-green-500 mr-1"></i>{" "}
                         Relieving Date
                       </label>
@@ -1918,11 +1947,11 @@ if (additionalDocuments.length > 0) {
 
                   {/* Passport Size Photo */}
                   <div className="md:col-span-2">
-                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/30 mb-4">
-                      <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/30 dark:bg-gray-700/30 mb-4">
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                         <i className="fas fa-camera text-green-500 mr-2"></i>
                         Passport Size Photo
-                        <span className="text-xs text-gray-400 ml-2">
+                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
                           (Optional)
                         </span>
                       </label>
@@ -1952,7 +1981,7 @@ if (additionalDocuments.length > 0) {
                           onClick={() =>
                             document.getElementById("doc_avatar").click()
                           }
-                          className="h-40 w-32 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:border-green-400 transition-colors flex items-center justify-center overflow-hidden"
+                          className="h-40 w-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/40 hover:border-green-400 dark:hover:border-green-500 transition-colors flex items-center justify-center overflow-hidden"
                           aria-label="Upload passport size photo"
                         >
                           {documentPreviews.avatar ? (
@@ -1962,7 +1991,7 @@ if (additionalDocuments.length > 0) {
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            <div className="text-center text-gray-400">
+                            <div className="text-center text-gray-400 dark:text-gray-500">
                               <i className="far fa-user text-3xl mb-2"></i>
                               <p className="text-lg leading-none">Photo</p>
                             </div>
@@ -1974,16 +2003,16 @@ if (additionalDocuments.length > 0) {
                             onClick={() =>
                               document.getElementById("doc_avatar").click()
                             }
-                            className="px-4 py-2 bg-white border border-green-200 text-green-600 rounded-full text-sm font-semibold hover:bg-green-50 transition-colors flex items-center gap-2"
+                            className="px-4 py-2 bg-white dark:bg-gray-700 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 rounded-full text-sm font-semibold hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center gap-2"
                           >
                             <i className="fas fa-upload"></i> Upload Photo
                           </button>
-                          <p className="text-sm text-gray-500 mt-2 truncate">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 truncate">
                             {documents.avatar
                               ? documents.avatar.name || "Photo selected"
                               : "No photo chosen"}
                           </p>
-                          <p className="text-xs text-gray-400 mt-2">
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
                             <i className="fas fa-info-circle mr-1"></i>{" "}
                             Accepted: JPG, PNG, GIF. Max 2MB. Recommended size:
                             35mm x 45mm (passport size).
@@ -2000,7 +2029,7 @@ if (additionalDocuments.length > 0) {
                               avatar: null,
                             });
                           }}
-                          className="mt-2 text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
+                          className="mt-2 text-xs text-red-500 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1"
                         >
                           <i className="fas fa-trash"></i> Remove
                         </button>
@@ -2011,7 +2040,7 @@ if (additionalDocuments.length > 0) {
                   {/* Employee Category - Skilled/Unskilled */}
                   {countryConfig.showSkilledUnskilled && (
                     <div className="md:col-span-2">
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                         <i className="fas fa-graduation-cap text-green-500 mr-1"></i>
                         Employee Category{" "}
                         <span className="text-red-500">*</span>
@@ -2026,7 +2055,9 @@ if (additionalDocuments.length > 0) {
                             onChange={() => setIsSkilled(true)}
                             className="mr-2 text-green-500 focus:ring-green-500"
                           />
-                          <span className="text-sm text-gray-700">Skilled</span>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            Skilled
+                          </span>
                         </label>
                         <label className="flex items-center">
                           <input
@@ -2037,12 +2068,12 @@ if (additionalDocuments.length > 0) {
                             onChange={() => setIsSkilled(false)}
                             className="mr-2 text-green-500 focus:ring-green-500"
                           />
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
                             Unskilled
                           </span>
                         </label>
                       </div>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                         <i className="fas fa-info-circle mr-1"></i>
                         Skilled employees need to provide educational documents
                       </p>
@@ -2053,8 +2084,8 @@ if (additionalDocuments.length > 0) {
                   {isSkilled === true && (
                     <>
                       <div className="md:col-span-2">
-                        <div className="border-t border-gray-200 pt-4 mt-2">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
                             <i className="fas fa-graduation-cap text-green-500 mr-2"></i>
                             Educational Documents
                           </h4>
@@ -2085,16 +2116,16 @@ if (additionalDocuments.length > 0) {
 
                   {/* Additional Documents */}
                   <div className="md:col-span-2">
-                    <div className="border-t border-gray-200 pt-4 mt-4">
+                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
                       <div className="flex justify-between items-center mb-3">
-                        <h4 className="text-sm font-semibold text-gray-700 flex items-center">
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center">
                           <i className="fas fa-folder-open text-green-500 mr-2"></i>
                           Additional Documents
                         </h4>
                         <button
                           type="button"
                           onClick={() => setShowDocumentModal(true)}
-                          className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 transition-colors flex items-center gap-2"
+                          className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 dark:hover:bg-green-700 transition-colors flex items-center gap-2"
                         >
                           <i className="fas fa-plus-circle"></i>
                           Add Document
@@ -2106,14 +2137,14 @@ if (additionalDocuments.length > 0) {
                           {additionalDocuments.map((doc, index) => (
                             <div
                               key={index}
-                              className="border border-gray-200 rounded-lg p-3 bg-gray-50"
+                              className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/40"
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
-                                  <p className="text-sm font-semibold text-gray-700 truncate">
+                                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">
                                     {doc.name}
                                   </p>
-                                  <p className="text-xs text-gray-500 mt-1">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     {doc.file?.name || "Document uploaded"}
                                   </p>
                                 </div>
@@ -2126,7 +2157,7 @@ if (additionalDocuments.length > 0) {
                                       );
                                     setAdditionalDocuments(updatedDocs);
                                   }}
-                                  className="text-red-500 hover:text-red-600 ml-2"
+                                  className="text-red-500 hover:text-red-600 dark:hover:text-red-400 ml-2"
                                 >
                                   <i className="fas fa-trash"></i>
                                 </button>
@@ -2139,20 +2170,20 @@ if (additionalDocuments.length > 0) {
                                 />
                               )}
                               {doc.preview === "pdf" && (
-                                <div className="mt-2 h-16 w-16 bg-red-100 rounded-lg flex items-center justify-center">
-                                  <i className="fas fa-file-pdf text-red-500 text-2xl"></i>
+                                <div className="mt-2 h-16 w-16 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                                  <i className="fas fa-file-pdf text-red-500 dark:text-red-400 text-2xl"></i>
                                 </div>
                               )}
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                          <i className="fas fa-file-upload text-gray-400 text-4xl mb-2"></i>
-                          <p className="text-sm text-gray-500">
+                        <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-600">
+                          <i className="fas fa-file-upload text-gray-400 dark:text-gray-500 text-4xl mb-2"></i>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
                             No additional documents added
                           </p>
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                             Click the "Add Document" button to upload additional
                             documents
                           </p>
@@ -2160,8 +2191,6 @@ if (additionalDocuments.length > 0) {
                       )}
                     </div>
                   </div>
-
-
                 </div>
               </div>
             </div>
@@ -2169,11 +2198,10 @@ if (additionalDocuments.length > 0) {
             {/* Step 1 - Identity Documents */}
             <div className={currentStep === 1 ? "block" : "hidden"}>
               {selectedCountry === "UAE" ? (
-                /* UAE - Passport Information */
                 <div>
                   <div className="form-section-title mb-4 md:mb-6">
                     <i className="fas fa-passport text-green-500 mr-2"></i>
-                    <h3 className="text-base md:text-lg font-bold text-gray-800">
+                    <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-100">
                       Passport Information
                       {countryConfig.passportRequired && (
                         <span className="text-red-500 ml-2">*</span>
@@ -2182,7 +2210,7 @@ if (additionalDocuments.length > 0) {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                     <div className="md:col-span-2">
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-user-tag text-green-500 mr-1"></i>{" "}
                         Passport Full Name
                       </label>
@@ -2193,7 +2221,7 @@ if (additionalDocuments.length > 0) {
                           <input
                             {...field}
                             type="text"
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                             placeholder="Enter name as per passport"
                           />
                         )}
@@ -2201,7 +2229,7 @@ if (additionalDocuments.length > 0) {
                     </div>
 
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-hashtag text-green-500 mr-1"></i>{" "}
                         Passport Number
                       </label>
@@ -2212,7 +2240,7 @@ if (additionalDocuments.length > 0) {
                           <input
                             {...field}
                             type="text"
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                             placeholder="Enter passport number"
                           />
                         )}
@@ -2220,7 +2248,7 @@ if (additionalDocuments.length > 0) {
                     </div>
 
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-globe text-green-500 mr-1"></i>{" "}
                         Issued From
                       </label>
@@ -2231,7 +2259,7 @@ if (additionalDocuments.length > 0) {
                           <input
                             {...field}
                             type="text"
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                             placeholder="Enter issuing country/city"
                           />
                         )}
@@ -2239,7 +2267,7 @@ if (additionalDocuments.length > 0) {
                     </div>
 
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
                         Issued Date
                       </label>
@@ -2262,7 +2290,7 @@ if (additionalDocuments.length > 0) {
                               error={!!errors.passport_issued_date}
                             />
                             {errors.passport_issued_date && (
-                              <p className="mt-1 text-xs text-red-500">
+                              <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                                 {errors.passport_issued_date.message}
                               </p>
                             )}
@@ -2272,7 +2300,7 @@ if (additionalDocuments.length > 0) {
                     </div>
 
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
                         Expiry Date
                       </label>
@@ -2295,7 +2323,7 @@ if (additionalDocuments.length > 0) {
                               error={!!errors.passport_expiry_date}
                             />
                             {errors.passport_expiry_date && (
-                              <p className="mt-1 text-xs text-red-500">
+                              <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                                 {errors.passport_expiry_date.message}
                               </p>
                             )}
@@ -2305,7 +2333,7 @@ if (additionalDocuments.length > 0) {
                     </div>
 
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-map-pin text-green-500 mr-1"></i>{" "}
                         Place of Birth
                       </label>
@@ -2316,7 +2344,7 @@ if (additionalDocuments.length > 0) {
                           <input
                             {...field}
                             type="text"
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                             placeholder="Enter place of birth"
                           />
                         )}
@@ -2324,7 +2352,7 @@ if (additionalDocuments.length > 0) {
                     </div>
 
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-father text-green-500 mr-1"></i>{" "}
                         Father's Name
                       </label>
@@ -2335,7 +2363,7 @@ if (additionalDocuments.length > 0) {
                           <input
                             {...field}
                             type="text"
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                             placeholder="Enter father's name"
                           />
                         )}
@@ -2343,7 +2371,7 @@ if (additionalDocuments.length > 0) {
                     </div>
 
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-mother text-green-500 mr-1"></i>{" "}
                         Mother's Name
                       </label>
@@ -2354,7 +2382,7 @@ if (additionalDocuments.length > 0) {
                           <input
                             {...field}
                             type="text"
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                             placeholder="Enter mother's name"
                           />
                         )}
@@ -2362,7 +2390,7 @@ if (additionalDocuments.length > 0) {
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-map-marker-alt text-green-500 mr-1"></i>{" "}
                         Address
                       </label>
@@ -2373,7 +2401,7 @@ if (additionalDocuments.length > 0) {
                           <textarea
                             {...field}
                             rows="2"
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                             placeholder="Enter full address"
                           ></textarea>
                         )}
@@ -2381,8 +2409,8 @@ if (additionalDocuments.length > 0) {
                     </div>
 
                     <div className="md:col-span-2">
-                      <div className="border-t border-gray-200 pt-4 mt-2">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
                           <i className="fas fa-passport text-green-500 mr-2"></i>
                           Passport Documents
                         </h4>
@@ -2413,11 +2441,10 @@ if (additionalDocuments.length > 0) {
                   </div>
                 </div>
               ) : (
-                /* India - Identity Documents */
                 <div>
                   <div className="form-section-title mb-4 md:mb-6">
                     <i className="fas fa-id-card text-green-500 mr-2"></i>
-                    <h3 className="text-base md:text-lg font-bold text-gray-800">
+                    <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-100">
                       Identity Documents
                       <span className="text-xs text-red-500 ml-2">
                         * PAN Card is mandatory
@@ -2425,10 +2452,9 @@ if (additionalDocuments.length > 0) {
                     </h3>
                   </div>
 
-                  {/* Aadhaar and PAN number fields */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 mb-6">
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-id-card text-green-500 mr-1"></i>
                         Aadhaar Number
                       </label>
@@ -2439,19 +2465,19 @@ if (additionalDocuments.length > 0) {
                           <input
                             {...field}
                             type="text"
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                             placeholder="Enter 12-digit Aadhaar number"
                           />
                         )}
                       />
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                         <i className="fas fa-info-circle mr-1"></i>
                         Enter 12-digit Aadhaar number
                       </p>
                     </div>
 
                     <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-id-card text-green-500 mr-1"></i>
                         PAN Number <span className="text-red-500">*</span>
                       </label>
@@ -2470,25 +2496,29 @@ if (additionalDocuments.length > 0) {
                             <input
                               {...field}
                               type="text"
-                              className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:ring-2 ${errors.pan_number ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                              className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 ${
+                                errors.pan_number
+                                  ? "border-red-500"
+                                  : "border-gray-200 dark:border-gray-600 focus:border-green-500"
+                              }`}
                               placeholder="Enter 10-digit PAN (e.g., ABCDE1234F)"
                             />
                             {errors.pan_number && (
-                              <p className="mt-1 text-xs text-red-500">
+                              <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                                 {errors.pan_number.message}
                               </p>
                             )}
                           </>
                         )}
                       />
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                         <i className="fas fa-info-circle mr-1"></i>
                         10-digit alphanumeric (e.g., ABCDE1234F)
                       </p>
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-map-marker-alt text-green-500 mr-1"></i>{" "}
                         Address
                       </label>
@@ -2499,7 +2529,7 @@ if (additionalDocuments.length > 0) {
                           <textarea
                             {...field}
                             rows="2"
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                             placeholder="Enter full address"
                           ></textarea>
                         )}
@@ -2507,7 +2537,6 @@ if (additionalDocuments.length > 0) {
                     </div>
                   </div>
 
-                  {/* Document uploads for India - Aadhaar and PAN photos */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <DocumentUpload
                       fieldKey="aadhar_photo"
@@ -2522,7 +2551,6 @@ if (additionalDocuments.length > 0) {
                       required={false}
                     />
                     {countryConfig.identityDocuments.map((doc) => {
-                      // Skip aadhar_photo and pan_photo as we already added them above
                       if (doc.key === "aadhar_photo" || doc.key === "pan_photo") {
                         return null;
                       }
@@ -2544,20 +2572,18 @@ if (additionalDocuments.length > 0) {
             {/* Step 2 - Visa, Labor & EID */}
             <div className={currentStep === 2 ? "block" : "hidden"}>
               {selectedCountry === "UAE" ? (
-                /* UAE - Visa, Labor & EID */
                 <div>
                   <div className="form-section-title mb-4 md:mb-6">
                     <i className="fas fa-file-contract text-green-500 mr-2"></i>
-                    <h3 className="text-base md:text-lg font-bold text-gray-800">
+                    <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-100">
                       Visa, Labor & Emirates ID
                     </h3>
                   </div>
                   <div className="space-y-6">
-                    {/* Labor Section - Only for Mainland companies */}
                     {selectedCompanyDetails?.raw?.trade_license ===
                       "mainland" && (
-                      <div className="border border-gray-200 rounded-lg p-4 md:p-5">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5">
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center">
                           <i className="fas fa-briefcase text-green-500 mr-2"></i>
                           Labor Details
                           <span className="text-xs text-red-500 ml-2">
@@ -2566,7 +2592,7 @@ if (additionalDocuments.length > 0) {
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                           <div>
-                            <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                               <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
                               Labor Number{" "}
                               <span className="text-red-500">*</span>
@@ -2586,11 +2612,15 @@ if (additionalDocuments.length > 0) {
                                   <input
                                     {...field}
                                     type="text"
-                                    className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:ring-2 ${errors.labor_number ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                                    className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 ${
+                                      errors.labor_number
+                                        ? "border-red-500"
+                                        : "border-gray-200 dark:border-gray-600 focus:border-green-500"
+                                    }`}
                                     placeholder="Enter Labor Number"
                                   />
                                   {errors.labor_number && (
-                                    <p className="mt-1 text-xs text-red-500">
+                                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                                       {errors.labor_number.message}
                                     </p>
                                   )}
@@ -2600,7 +2630,7 @@ if (additionalDocuments.length > 0) {
                           </div>
 
                           <div>
-                            <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                               <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
                               Labor Issued Date{" "}
                               <span className="text-red-500">*</span>
@@ -2629,7 +2659,7 @@ if (additionalDocuments.length > 0) {
                                     error={!!errors.labor_issued_date}
                                   />
                                   {errors.labor_issued_date && (
-                                    <p className="mt-1 text-xs text-red-500">
+                                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                                       {errors.labor_issued_date.message}
                                     </p>
                                   )}
@@ -2639,7 +2669,7 @@ if (additionalDocuments.length > 0) {
                           </div>
 
                           <div>
-                            <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                            <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                               <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
                               Labor Expiry Date{" "}
                               <span className="text-red-500">*</span>
@@ -2668,7 +2698,7 @@ if (additionalDocuments.length > 0) {
                                     error={!!errors.labor_expiry_date}
                                   />
                                   {errors.labor_expiry_date && (
-                                    <p className="mt-1 text-xs text-red-500">
+                                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                                       {errors.labor_expiry_date.message}
                                     </p>
                                   )}
@@ -2680,15 +2710,14 @@ if (additionalDocuments.length > 0) {
                       </div>
                     )}
 
-                    {/* Visa Section */}
-                    <div className="border border-gray-200 rounded-lg p-4 md:p-5">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5">
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center">
                         <i className="fas fa-passport text-green-500 mr-2"></i>
                         Visa Details
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                         <div className="md:col-span-2">
-                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                             <i className="fas fa-list text-green-500 mr-1"></i>{" "}
                             Type of Visa
                           </label>
@@ -2698,7 +2727,7 @@ if (additionalDocuments.length > 0) {
                             render={({ field }) => (
                               <select
                                 {...field}
-                                className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                                className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                               >
                                 <option value="">Select Type of Visa</option>
                                 {visaTypeOptions.map((option) => (
@@ -2715,7 +2744,7 @@ if (additionalDocuments.length > 0) {
                         </div>
 
                         <div>
-                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                             <i className="fas fa-id-card text-green-500 mr-1"></i>{" "}
                             Visa Number
                           </label>
@@ -2726,7 +2755,7 @@ if (additionalDocuments.length > 0) {
                               <input
                                 {...field}
                                 type="text"
-                                className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                                className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                                 placeholder="Enter Visa Number"
                               />
                             )}
@@ -2734,7 +2763,7 @@ if (additionalDocuments.length > 0) {
                         </div>
 
                         <div>
-                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                             <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
                             Visa Issued Date
                           </label>
@@ -2757,7 +2786,7 @@ if (additionalDocuments.length > 0) {
                                   error={!!errors.visa_issued_date}
                                 />
                                 {errors.visa_issued_date && (
-                                  <p className="mt-1 text-xs text-red-500">
+                                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                                     {errors.visa_issued_date.message}
                                   </p>
                                 )}
@@ -2767,7 +2796,7 @@ if (additionalDocuments.length > 0) {
                         </div>
 
                         <div>
-                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                             <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
                             Visa Expiry Date
                           </label>
@@ -2790,7 +2819,7 @@ if (additionalDocuments.length > 0) {
                                   error={!!errors.visa_expiry_date}
                                 />
                                 {errors.visa_expiry_date && (
-                                  <p className="mt-1 text-xs text-red-500">
+                                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                                     {errors.visa_expiry_date.message}
                                   </p>
                                 )}
@@ -2801,15 +2830,14 @@ if (additionalDocuments.length > 0) {
                       </div>
                     </div>
 
-                    {/* EID Section */}
-                    <div className="border border-gray-200 rounded-lg p-4 md:p-5">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5">
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center">
                         <i className="fas fa-id-card text-green-500 mr-2"></i>
                         Emirates ID (EID)
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                         <div className="md:col-span-2">
-                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                             <i className="fas fa-qrcode text-green-500 mr-1"></i>{" "}
                             EID Number
                           </label>
@@ -2820,7 +2848,7 @@ if (additionalDocuments.length > 0) {
                               <input
                                 {...field}
                                 type="text"
-                                className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                                className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                                 placeholder="Enter EID number (e.g., 784-2024-1234567-8)"
                               />
                             )}
@@ -2828,7 +2856,7 @@ if (additionalDocuments.length > 0) {
                         </div>
 
                         <div>
-                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                             <i className="fas fa-calendar-plus text-green-500 mr-1"></i>{" "}
                             EID Issued Date
                           </label>
@@ -2851,7 +2879,7 @@ if (additionalDocuments.length > 0) {
                                   error={!!errors.eid_issued_date}
                                 />
                                 {errors.eid_issued_date && (
-                                  <p className="mt-1 text-xs text-red-500">
+                                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                                     {errors.eid_issued_date.message}
                                   </p>
                                 )}
@@ -2861,7 +2889,7 @@ if (additionalDocuments.length > 0) {
                         </div>
 
                         <div>
-                          <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                          <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                             <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
                             EID Expiry Date
                           </label>
@@ -2884,7 +2912,7 @@ if (additionalDocuments.length > 0) {
                                   error={!!errors.eid_expiry_date}
                                 />
                                 {errors.eid_expiry_date && (
-                                  <p className="mt-1 text-xs text-red-500">
+                                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                                     {errors.eid_expiry_date.message}
                                   </p>
                                 )}
@@ -2895,10 +2923,9 @@ if (additionalDocuments.length > 0) {
                       </div>
                     </div>
 
-                    {/* Supporting Documents Section */}
                     <div>
-                      <div className="border-t border-gray-200 pt-4 mt-2">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
                           <i className="fas fa-file-contract text-green-500 mr-2"></i>
                           Supporting Documents
                         </h4>
@@ -2939,25 +2966,24 @@ if (additionalDocuments.length > 0) {
                   </div>
                 </div>
               ) : (
-                /* India - No fields message */
                 <div>
                   <div className="form-section-title mb-4 md:mb-6">
                     <i className="fas fa-file-contract text-green-500 mr-2"></i>
-                    <h3 className="text-base md:text-lg font-bold text-gray-800">
+                    <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-100">
                       Visa, Labor & EID
                     </h3>
                   </div>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
-                    <i className="fas fa-check-circle text-blue-500 text-4xl mb-3"></i>
-                    <h4 className="text-lg font-semibold text-blue-700 mb-2">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-8 text-center">
+                    <i className="fas fa-check-circle text-blue-500 dark:text-blue-400 text-4xl mb-3"></i>
+                    <h4 className="text-lg font-semibold text-blue-700 dark:text-blue-300 mb-2">
                       No UAE Documents Required
                     </h4>
-                    <p className="text-sm text-blue-600">
-                      For Indian employees, Visa, Labor, and Emirates ID documents 
-                      are not required. These documents are specific to UAE-based 
-                      employees.
+                    <p className="text-sm text-blue-600 dark:text-blue-400">
+                      For Indian employees, Visa, Labor, and Emirates ID
+                      documents are not required. These documents are specific
+                      to UAE-based employees.
                     </p>
-                    <p className="text-xs text-blue-500 mt-3">
+                    <p className="text-xs text-blue-500 dark:text-blue-400 mt-3">
                       <i className="fas fa-info-circle mr-1"></i>
                       You can proceed to the next step.
                     </p>
@@ -2971,13 +2997,13 @@ if (additionalDocuments.length > 0) {
               <div>
                 <div className="form-section-title mb-4 md:mb-6">
                   <i className="fas fa-address-card text-green-500 mr-2"></i>
-                  <h3 className="text-base md:text-lg font-bold text-gray-800">
+                  <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-100">
                     Contact Information & Others
                   </h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-users text-green-500 mr-1"></i>{" "}
                       Dependents
                     </label>
@@ -2989,7 +3015,7 @@ if (additionalDocuments.length > 0) {
                           {...field}
                           type="number"
                           min="0"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                           placeholder="Number of dependents"
                         />
                       )}
@@ -2997,7 +3023,7 @@ if (additionalDocuments.length > 0) {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-phone text-green-500 mr-1"></i>{" "}
                       Company Mobile Number
                     </label>
@@ -3008,7 +3034,7 @@ if (additionalDocuments.length > 0) {
                         <input
                           {...field}
                           type="tel"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                           placeholder="Enter company mobile number"
                         />
                       )}
@@ -3016,7 +3042,7 @@ if (additionalDocuments.length > 0) {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-phone text-green-500 mr-1"></i>{" "}
                       Personal Number
                     </label>
@@ -3027,7 +3053,7 @@ if (additionalDocuments.length > 0) {
                         <input
                           {...field}
                           type="tel"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                           placeholder="Enter personal phone number"
                         />
                       )}
@@ -3035,7 +3061,7 @@ if (additionalDocuments.length > 0) {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-phone-alt text-green-500 mr-1"></i>{" "}
                       Other Number
                     </label>
@@ -3046,7 +3072,7 @@ if (additionalDocuments.length > 0) {
                         <input
                           {...field}
                           type="tel"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                           placeholder="Enter alternate number"
                         />
                       )}
@@ -3054,7 +3080,7 @@ if (additionalDocuments.length > 0) {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-globe text-green-500 mr-1"></i> Home
                       Country Number
                     </label>
@@ -3065,7 +3091,7 @@ if (additionalDocuments.length > 0) {
                         <input
                           {...field}
                           type="tel"
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                           placeholder="Enter home country number"
                         />
                       )}
@@ -3073,7 +3099,7 @@ if (additionalDocuments.length > 0) {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-envelope text-green-500 mr-1"></i>{" "}
                       Company Email
                     </label>
@@ -3086,11 +3112,15 @@ if (additionalDocuments.length > 0) {
                           <input
                             {...field}
                             type="email"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.company_email ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all focus:outline-none focus:ring-2 ${
+                              errors.company_email
+                                ? "border-red-500"
+                                : "border-gray-200 dark:border-gray-600 focus:border-green-500"
+                            }`}
                             placeholder="name@company.com (Optional)"
                           />
                           {errors.company_email && (
-                            <p className="mt-1 text-xs text-red-500">
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                               {errors.company_email.message}
                             </p>
                           )}
@@ -3100,7 +3130,7 @@ if (additionalDocuments.length > 0) {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-envelope text-green-500 mr-1"></i>{" "}
                       Personal Email <span className="text-red-500">*</span>
                     </label>
@@ -3113,11 +3143,15 @@ if (additionalDocuments.length > 0) {
                           <input
                             {...field}
                             type="email"
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border rounded-lg text-sm md:text-base text-gray-800 transition-all focus:outline-none focus:ring-2 ${errors.personal_email ? "border-red-500" : "border-gray-200 focus:border-green-500"}`}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all focus:outline-none focus:ring-2 ${
+                              errors.personal_email
+                                ? "border-red-500"
+                                : "border-gray-200 dark:border-gray-600 focus:border-green-500"
+                            }`}
                             placeholder="name@gmail.com"
                           />
                           {errors.personal_email && (
-                            <p className="mt-1 text-xs text-red-500">
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                               {errors.personal_email.message}
                             </p>
                           )}
@@ -3127,7 +3161,7 @@ if (additionalDocuments.length > 0) {
                   </div>
 
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-user-tag text-green-500 mr-1"></i>{" "}
                       Role <span className="text-red-500">*</span>
                     </label>
@@ -3138,7 +3172,7 @@ if (additionalDocuments.length > 0) {
                       render={({ field }) => (
                         <select
                           {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base text-gray-800 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                         >
                           <option value="">Select Role</option>
                           {roles.map((role) => (
@@ -3156,12 +3190,12 @@ if (additionalDocuments.length > 0) {
           </div>
 
           {/* Navigation Buttons */}
-          <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 mt-8 pt-6 border-t border-gray-200">
+          <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
             {currentStep > 0 && (
               <button
                 type="button"
                 onClick={handlePrevious}
-                className="px-6 py-2.5 rounded-full font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+                className="px-6 py-2.5 rounded-full font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center justify-center gap-2"
               >
                 <i className="fas fa-arrow-left"></i>
                 <span>Previous</span>
@@ -3172,7 +3206,7 @@ if (additionalDocuments.length > 0) {
               <button
                 type="button"
                 onClick={handleNext}
-                className="px-6 py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2"
+                className="px-6 py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 dark:hover:bg-green-700 transition-all flex items-center justify-center gap-2"
               >
                 <span>Next</span>
                 <i className="fas fa-arrow-right"></i>
@@ -3181,7 +3215,7 @@ if (additionalDocuments.length > 0) {
               <button
                 type="submit"
                 disabled={loading}
-                className="px-6 py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                className="px-6 py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 dark:hover:bg-green-700 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
                 {loading ? (
                   <>

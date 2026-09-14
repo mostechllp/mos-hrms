@@ -393,6 +393,10 @@ function App() {
           <Route path="attendance" element={<Attendances />} />
           <Route path="documents" element={<Agreements />} />
           <Route path="documents/add-agreement" element={<AddAgreement />} />
+          <Route
+            path="documents/edit-agreement/:id"
+            element={<EditAgreement />}
+          />
           <Route path="reports" element={<Reports />} />
           <Route path="my-payroll" element={<MyPayroll />} />
           <Route path="settings" element={<Settings />} />

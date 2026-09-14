@@ -829,22 +829,40 @@ const EditAgreement = () => {
                 </div>
 
                 {/* Expiry Date Field */}
-                <div>
-                  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                    <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
-                    Expiry Date
-                  </label>
-                  <DateInput
-                    value={formData.expiryDate}
-                    onChange={handleDateChange}
-                    placeholder="dd/mm/yyyy"
-                    type="general"
-                  />
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                    <i className="fas fa-info-circle mr-1"></i>
-                    Expiry date must be a future date
-                  </p>
-                </div>
+<div>
+  <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+    <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
+    Expiry Date
+  </label>
+
+  {/* ✅ Relative wrapper so we can position the clear button */}
+  <div className="relative">
+    <DateInput
+      value={formData.expiryDate}
+      onChange={handleDateChange}
+      placeholder="dd/mm/yyyy"
+      type="general"
+    />
+
+    {/* ✅ Clear (×) button — only shows when a date is set */}
+    {formData.expiryDate && (
+      <button
+        type="button"
+        onClick={() => handleDateChange("")}
+        title="Clear expiry date"
+        aria-label="Clear expiry date"
+        className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-6 h-6 flex items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 hover:text-red-600 dark:hover:text-red-300 transition-colors"
+      >
+        <i className="fas fa-times text-[10px]"></i>
+      </button>
+    )}
+  </div>
+
+  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+    <i className="fas fa-info-circle mr-1"></i>
+    Expiry date must be a future date
+  </p>
+</div>
               </div>
             </div>
           </div>
