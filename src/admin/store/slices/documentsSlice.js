@@ -18,10 +18,27 @@ const transformDocumentForAPI = (formData, file, isUpdate = false) => {
     formDataToSend.append("folder_id", "");
   }
 
-  // Handle expiry_date - only send if valid
-  if (formData.expiry_date && formData.expiry_date !== "") {
-    formDataToSend.append("expiry_date", formData.expiry_date);
-  }
+// Handle expiry_date - send empty string if not present (so backend can clear it)
+console.log("🔍 expiry_date debug:", {
+  value: formData.expiry_date,
+  type: typeof formData.expiry_date,
+  isEmpty: formData.expiry_date === "",
+  isNull: formData.expiry_date === null,
+});
+
+// Handle expiry_date - send empty string if not present (so backend can clear it)
+if (formData.expiry_date && formData.expiry_date !== "") {
+  formDataToSend.append("expiry_date", formData.expiry_date);
+} else {
+  formDataToSend.append("expiry_date", "");
+}
+// ✅ Diagnostic
+console.log("[SLICE] expiry_date appended?", formDataToSend.has("expiry_date"), 
+            "value =", JSON.stringify(formDataToSend.get("expiry_date")));
+
+// Confirm what's in the FormData
+console.log("✅ FormData has expiry_date:", formDataToSend.has("expiry_date"));
+console.log("✅ FormData expiry_date value:", JSON.stringify(formDataToSend.get("expiry_date")));
 
   // Handle party_id - send null or empty string if not present
   if (formData.party_id && formData.party_id !== "") {

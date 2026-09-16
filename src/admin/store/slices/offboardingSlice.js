@@ -6,12 +6,10 @@ export const initiateOffboarding = createAsyncThunk(
   "offboarding/initiate",
   async (offboardingData, { rejectWithValue }) => {
     try {
-
       const response = await apiClient.post(
         "/admin/offboarding/initiate",
         offboardingData,
       );
-
 
       if (
         response.data &&
@@ -48,7 +46,6 @@ export const fetchAllOffboarding = createAsyncThunk(
 
       const response = await apiClient.get(`/admin/offboarding?${params}`);
 
-
       if (response.data && response.data.status === "success") {
         return response.data.data;
       } else {
@@ -70,7 +67,6 @@ export const fetchOffboardingById = createAsyncThunk(
   "offboarding/fetchById",
   async (id, { rejectWithValue }) => {
     try {
-
       const response = await apiClient.get(`/admin/offboarding/${id}`);
 
       if (response.data && response.data.status === "success") {
@@ -94,9 +90,7 @@ export const fetchOffboardingProgress = createAsyncThunk(
   "offboarding/fetchProgress",
   async (id, { rejectWithValue }) => {
     try {
-
       const response = await apiClient.get(`/admin/offboarding/${id}/progress`);
-
 
       // Check for status === "success" instead of success === true
       if (response.data && response.data.status === "success") {
@@ -120,11 +114,13 @@ export const updateOffboarding = createAsyncThunk(
   "offboarding/update",
   async ({ id, data }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put(`/admin/offboarding/update-initiate`, {
-        ...data,
-        offboarding_id: id
-      });
-
+      const response = await apiClient.put(
+        `/admin/offboarding/update-initiate`,
+        {
+          ...data,
+          offboarding_id: id,
+        },
+      );
 
       if (response.data && response.data.status === "success") {
         return response.data.data;
@@ -148,7 +144,6 @@ export const deleteOffboarding = createAsyncThunk(
   async (id, { rejectWithValue }) => {
     try {
       const response = await apiClient.delete(`/admin/offboarding/${id}`);
-
 
       if (response.data && response.data.status === "success") {
         return { id, message: response.data.message };
@@ -209,6 +204,180 @@ export const saveHandover = createAsyncThunk(
   },
 );
 
+// ----------------------------------------------------
+// LEAVE VERIFICATION
+// ----------------------------------------------------
+
+// Fetch Leave Verification - GET /admin/offboarding/{id}/leave-verification
+export const fetchLeaveVerification = createAsyncThunk(
+  "offboarding/fetchLeaveVerification",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(
+        `/admin/offboarding/${id}/leave-verification`,
+      );
+
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
+        return response.data.data;
+      }
+      return rejectWithValue(
+        response.data?.message || "Failed to fetch leave verification",
+      );
+    } catch (error) {
+      console.error("Fetch leave verification error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch leave verification",
+      );
+    }
+  },
+);
+
+// Update Leave Verification - POST /admin/offboarding/{id}/leave-verification
+export const updateLeaveVerification = createAsyncThunk(
+  "offboarding/updateLeaveVerification",
+  async ({ id, leaveData }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post(
+        `/admin/offboarding/${id}/leave-verification`,
+        leaveData,
+      );
+
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
+        return { id, ...response.data.data };
+      }
+      return rejectWithValue(
+        response.data?.message || "Failed to update leave verification",
+      );
+    } catch (error) {
+      console.error("Update leave verification error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update leave verification",
+      );
+    }
+  },
+);
+
+// Save Leave Verification - POST /admin/offboarding/save-leave-verification
+export const saveLeaveVerification = createAsyncThunk(
+  "offboarding/saveLeaveVerification",
+  async (leaveData, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post(
+        "/admin/offboarding/save-leave-verification",
+        leaveData,
+      );
+
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
+        return response.data.data;
+      }
+      return rejectWithValue(
+        response.data?.message || "Failed to save leave verification",
+      );
+    } catch (error) {
+      console.error("Save leave verification error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to save leave verification",
+      );
+    }
+  },
+);
+
+// ----------------------------------------------------
+// ACCESS REMOVAL
+// ----------------------------------------------------
+
+// Save Access Removal - POST /admin/offboarding/save-access-removal
+export const saveAccessRemoval = createAsyncThunk(
+  "offboarding/saveAccessRemoval",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post(
+        "/admin/offboarding/save-access-removal",
+        payload,
+      );
+
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
+        return response.data.data;
+      }
+      return rejectWithValue(
+        response.data?.message || "Failed to save access removal",
+      );
+    } catch (error) {
+      console.error("Save access removal error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to save access removal",
+      );
+    }
+  },
+);
+
+// Fetch Access Removal - GET /admin/offboarding/{id}/access-removal
+export const fetchAccessRemoval = createAsyncThunk(
+  "offboarding/fetchAccessRemoval",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(
+        `/admin/offboarding/${id}/access-removal`,
+      );
+
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
+        return response.data.data;
+      }
+      return rejectWithValue(
+        response.data?.message || "Failed to fetch access removal",
+      );
+    } catch (error) {
+      console.error("Fetch access removal error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch access removal",
+      );
+    }
+  },
+);
+
+// Update Access Removal - POST /admin/offboarding/{id}/access-removal
+export const updateAccessRemoval = createAsyncThunk(
+  "offboarding/updateAccessRemoval",
+  async ({ id, data }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post(
+        `/admin/offboarding/${id}/access-removal`,
+        data,
+      );
+
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
+        return response.data.data ? { id, ...response.data.data } : { id };
+      }
+      return rejectWithValue(
+        response.data?.message || "Failed to update access removal",
+      );
+    } catch (error) {
+      console.error("Update access removal error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update access removal",
+      );
+    }
+  },
+);
+
 // Update Visa Status - POST /admin/offboarding/{id}/visa-status
 export const updateVisaStatus = createAsyncThunk(
   "offboarding/updateVisaStatus",
@@ -219,7 +388,10 @@ export const updateVisaStatus = createAsyncThunk(
         visaData,
       );
 
-      if (response.data && (response.data.status === "success" || response.data.success === true)) {
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
         return response.data.data ? { id, ...response.data.data } : { id };
       } else {
         return rejectWithValue(
@@ -245,8 +417,10 @@ export const updateChecklist = createAsyncThunk(
         checklistData,
       );
 
-
-      if (response.data && (response.data.status === "success" || response.data.success === true)) {
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
         return response.data.data ? { id, ...response.data.data } : { id };
       } else {
         return rejectWithValue(
@@ -272,8 +446,10 @@ export const updateAssets = createAsyncThunk(
         assetsData,
       );
 
-
-      if (response.data && (response.data.status === "success" || response.data.success === true)) {
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
         return response.data.data ? { id, ...response.data.data } : { id };
       } else {
         return rejectWithValue(
@@ -299,7 +475,10 @@ export const submitInterview = createAsyncThunk(
         interviewData,
       );
 
-      if (response.data && (response.data.status === "success" || response.data.success === true)) {
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
         return response.data.data ? { id, ...response.data.data } : { id };
       } else {
         return rejectWithValue(
@@ -315,6 +494,33 @@ export const submitInterview = createAsyncThunk(
   },
 );
 
+// Fetch Settlement - GET /admin/offboarding/{id}/settlement
+export const fetchSettlement = createAsyncThunk(
+  "offboarding/fetchSettlement",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(
+        `/admin/offboarding/${id}/settlement`,
+      );
+
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
+        return response.data.data;
+      }
+      return rejectWithValue(
+        response.data?.message || "Failed to fetch settlement",
+      );
+    } catch (error) {
+      console.error("Fetch settlement error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch settlement",
+      );
+    }
+  },
+);
+
 // Update Settlement - POST /admin/offboarding/{id}/settlement
 export const updateSettlement = createAsyncThunk(
   "offboarding/updateSettlement",
@@ -324,7 +530,6 @@ export const updateSettlement = createAsyncThunk(
         `/admin/offboarding/${id}/settlement`,
         settlementData,
       );
-
 
       if (response.data && response.data.status === "success") {
         return response.data.data;
@@ -352,7 +557,6 @@ export const generateLetters = createAsyncThunk(
         lettersData,
       );
 
-
       if (response.data && response.data.status === "success") {
         return response.data.data;
       } else {
@@ -375,7 +579,6 @@ export const cancelOffboarding = createAsyncThunk(
   async (id, { rejectWithValue }) => {
     try {
       const response = await apiClient.delete(`/admin/offboarding/${id}`);
-
 
       if (response.data && response.data.status === "success") {
         return { id, message: response.data.message };
@@ -403,7 +606,6 @@ export const saveOffboardingDraft = createAsyncThunk(
         draftData,
       );
 
-
       if (response.data && response.data.status === "success") {
         return response.data.data;
       } else {
@@ -425,23 +627,27 @@ export const completeOffboarding = createAsyncThunk(
   "offboarding/completeOffboarding",
   async (id, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post(`/admin/offboarding/${id}/complete`);
-      
+      const response = await apiClient.post(
+        `/admin/offboarding/${id}/complete`,
+      );
 
-      if (response.data && (response.data.status === "success" || response.data.success === true)) {
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
         return { id, ...response.data.data };
       } else {
         return rejectWithValue(
-          response.data?.message || "Failed to complete offboarding"
+          response.data?.message || "Failed to complete offboarding",
         );
       }
     } catch (error) {
       console.error("Complete offboarding error:", error.response?.data);
       return rejectWithValue(
-        error.response?.data?.message || "Failed to complete offboarding"
+        error.response?.data?.message || "Failed to complete offboarding",
       );
     }
-  }
+  },
 );
 
 // ----------------------------------------------------
@@ -450,7 +656,11 @@ export const completeOffboarding = createAsyncThunk(
 const initialState = {
   offboardings: [],
   currentOffboarding: null,
-  currentProgress: null, // Add progress state
+  currentProgress: null,
+  leaveVerification: null,
+  accessRemoval: null, 
+  settlement: null,         
+  calculatedSettlement: null,
   currentStep: 1,
   loading: false,
   error: null,
@@ -501,6 +711,7 @@ const offboardingSlice = createSlice({
     clearCurrentOffboarding: (state) => {
       state.currentOffboarding = null;
       state.currentProgress = null;
+      state.leaveVerification = null;
       state.currentStep = 1;
     },
     clearError: (state) => {
@@ -661,14 +872,24 @@ const offboardingSlice = createSlice({
       })
 
       // Update Settlement
+            // Update Settlement
       .addCase(updateSettlement.fulfilled, (state, action) => {
         if (
           state.currentOffboarding &&
+          action.payload &&
           state.currentOffboarding.id === action.payload.id
         ) {
           state.currentOffboarding.settlement = action.payload.settlement;
           state.currentOffboarding.settlement_status =
             action.payload.settlement_status;
+        }
+
+        // Also store the freshly returned settlement if present
+        if (action.payload?.settlement) {
+          state.settlement = action.payload.settlement;
+        }
+        if (action.payload?.calculated_settlement) {
+          state.calculatedSettlement = action.payload.calculated_settlement;
         }
       })
 
@@ -725,42 +946,116 @@ const offboardingSlice = createSlice({
         state.error = null;
       })
       .addCase(deleteOffboarding.fulfilled, (state, action) => {
-  state.offboardings = state.offboardings.filter(
-    (off) => off.id !== action.payload.id,
-  );
-  state.totalCount -= 1;
+        state.offboardings = state.offboardings.filter(
+          (off) => off.id !== action.payload.id,
+        );
+        state.totalCount -= 1;
 
-  if (
-    state.currentOffboarding &&
-    state.currentOffboarding.id === action.payload.id
-  ) {
-    state.currentOffboarding = null;
-    state.currentProgress = null;
-  }
+        if (
+          state.currentOffboarding &&
+          state.currentOffboarding.id === action.payload.id
+        ) {
+          state.currentOffboarding = null;
+          state.currentProgress = null;
+        }
 
-  state.stats = {
-    total: state.offboardings.length,
-    initiated: state.offboardings.filter((o) => o.status === "initiated").length,
-    inProgress: state.offboardings.filter(
-      (o) => o.status === "in-progress" || o.status === "in_progress",
-    ).length,
-    completed: state.offboardings.filter((o) => o.status === "completed").length,
-    cancelled: state.offboardings.filter((o) => o.status === "cancelled").length,
-  };
-})
+        state.stats = {
+          total: state.offboardings.length,
+          initiated: state.offboardings.filter((o) => o.status === "initiated")
+            .length,
+          inProgress: state.offboardings.filter(
+            (o) => o.status === "in-progress" || o.status === "in_progress",
+          ).length,
+          completed: state.offboardings.filter((o) => o.status === "completed")
+            .length,
+          cancelled: state.offboardings.filter((o) => o.status === "cancelled")
+            .length,
+        };
+      })
       .addCase(deleteOffboarding.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
       // Save Handover
-.addCase(saveHandover.fulfilled, (state, action) => {
-  if (
-    state.currentOffboarding &&
-    state.currentOffboarding.id === action.payload.offboarding_id
-  ) {
-    state.currentOffboarding.handover = action.payload;
-  }
-});
+      .addCase(saveHandover.fulfilled, (state, action) => {
+        if (
+          state.currentOffboarding &&
+          state.currentOffboarding.id === action.payload.offboarding_id
+        ) {
+          state.currentOffboarding.handover = action.payload;
+        }
+      })
+      // Fetch Leave Verification
+      .addCase(fetchLeaveVerification.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchLeaveVerification.fulfilled, (state, action) => {
+        state.loading = false;
+        state.leaveVerification = action.payload;
+      })
+      .addCase(fetchLeaveVerification.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Update Leave Verification
+      .addCase(updateLeaveVerification.fulfilled, (state, action) => {
+        state.leaveVerification = action.payload;
+      })
+
+      // Save Leave Verification
+      .addCase(saveLeaveVerification.fulfilled, (state, action) => {
+        state.leaveVerification = action.payload;
+      })
+            // Save Access Removal
+      .addCase(saveAccessRemoval.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(saveAccessRemoval.fulfilled, (state, action) => {
+        state.loading = false;
+        state.accessRemoval = action.payload;
+      })
+      .addCase(saveAccessRemoval.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Fetch Access Removal
+      .addCase(fetchAccessRemoval.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchAccessRemoval.fulfilled, (state, action) => {
+        state.loading = false;
+        state.accessRemoval = action.payload;
+      })
+      .addCase(fetchAccessRemoval.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Update Access Removal
+      .addCase(updateAccessRemoval.fulfilled, (state, action) => {
+        state.accessRemoval = action.payload;
+      })
+            // Fetch Settlement
+      .addCase(fetchSettlement.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchSettlement.fulfilled, (state, action) => {
+        state.loading = false;
+        // action.payload = { settlement, calculated_settlement }
+        state.settlement = action.payload?.settlement || null;
+        state.calculatedSettlement =
+          action.payload?.calculated_settlement || null;
+      })
+      .addCase(fetchSettlement.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
   },
 });
 

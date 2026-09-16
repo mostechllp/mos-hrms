@@ -16,6 +16,10 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, './src/shared'), 
     }
   },
+  build: {
+    sourcemap: true,     // ← enable
+    minify: false,       // ← disable minify for the debug build
+  },
   optimizeDeps: {
     include: ['leaflet']
   }

@@ -1,7 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { NavLink, useNavigate } from "react-router-dom";
-import { markAsRead, markAllRead, markNotificationAsRead, markAllNotificationsAsRead, fetchNotifications } from "../../store/slices/notificationSlice";
+import {
+  markAsRead,
+  markAllRead,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  fetchNotifications,
+} from "../../store/slices/notificationSlice";
 import { logoutUser } from "../../store/slices/authSlice";
 import ConfirmModal from "./ConfirmModal";
 
@@ -38,14 +44,16 @@ const Header = ({ onMenuClick }) => {
     if (avatarError) return null;
     const avatar = user?.avatar;
     if (!avatar) return null;
-    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin;
-    if (typeof avatar === 'object' && avatar.path) {
+    const baseUrl =
+      import.meta.env.VITE_API_URL?.replace("/api", "") ||
+      window.location.origin;
+    if (typeof avatar === "object" && avatar.path) {
       return `${baseUrl}/storage/${avatar.path}`;
     }
-    if (typeof avatar === 'string') {
-      if (avatar.startsWith('http')) return avatar;
-      if (avatar.startsWith('/storage/')) return `${baseUrl}${avatar}`;
-      if (avatar.startsWith('storage/')) return `${baseUrl}/${avatar}`;
+    if (typeof avatar === "string") {
+      if (avatar.startsWith("http")) return avatar;
+      if (avatar.startsWith("/storage/")) return `${baseUrl}${avatar}`;
+      if (avatar.startsWith("storage/")) return `${baseUrl}/${avatar}`;
       return `${baseUrl}/storage/${avatar}`;
     }
     return null;
@@ -137,40 +145,36 @@ const Header = ({ onMenuClick }) => {
     if (title.includes("probation") || title.includes("alert")) {
       return {
         type: notif.title || "Probation Alert",
-        // ✅ dark variants added
+        // ✅ solid dark background — no washed-out translucency
         typeColor:
-          "text-[#7B61FF] bg-[#F4F0FF] dark:text-[#B8A7FF] dark:bg-[#7B61FF]/15",
+          "text-[#7B61FF] bg-[#F4F0FF] dark:text-white dark:bg-purple-600",
         icon: "fas fa-clock",
-        iconColor: "text-[#F2994A] dark:text-[#FFB870]",
+        iconColor: "text-[#F2994A] dark:text-orange-300",
       };
     } else if (title.includes("document") || title.includes("expiry")) {
       return {
         type: notif.title || "Document Expiry",
-        // ✅ dark variants added
         typeColor:
-          "text-[#F2994A] bg-[#FFF6ED] dark:text-[#FFB870] dark:bg-[#F2994A]/15",
+          "text-[#F2994A] bg-[#FFF6ED] dark:text-white dark:bg-orange-600",
         icon: "fas fa-file-alt",
-        iconColor: "text-[#F2994A] dark:text-[#FFB870]",
+        iconColor: "text-[#F2994A] dark:text-orange-300",
       };
     } else if (title.includes("leave")) {
       return {
         type: "leave_request",
         alertType: notif.title || "Leave Request",
-        // ✅ dark variants added
         typeColor:
-          "text-green-600 bg-green-50 dark:text-green-300 dark:bg-green-500/15",
+          "text-green-600 bg-green-50 dark:text-white dark:bg-green-600",
         icon: "fas fa-calendar-alt",
-        iconColor: "text-green-500 dark:text-green-400",
+        iconColor: "text-green-500 dark:text-green-300",
       };
     }
 
     return {
       type: notif.title || "Notification",
-      // ✅ dark variants added
-      typeColor:
-        "text-gray-700 bg-gray-100 dark:text-gray-200 dark:bg-gray-700",
+      typeColor: "text-gray-700 bg-gray-100 dark:text-white dark:bg-gray-600",
       icon: "fas fa-bell",
-      iconColor: "text-gray-500 dark:text-gray-400",
+      iconColor: "text-gray-500 dark:text-gray-300",
     };
   };
 
@@ -179,34 +183,38 @@ const Header = ({ onMenuClick }) => {
   return (
     <>
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 md:px-6 py-2 md:py-3 sticky top-0 z-40">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-2 flex-nowrap">
+          {/* LEFT */}
+          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-shrink">
             <button
               onClick={onMenuClick}
-              className="md:hidden w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center"
+              className="md:hidden w-9 h-9 md:w-10 md:h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0"
               aria-label="Toggle menu"
             >
-              <i className="fas fa-bars text-gray-600 dark:text-gray-300 text-lg"></i>
+              <i className="fas fa-bars text-gray-600 dark:text-gray-300 text-base md:text-lg"></i>
             </button>
 
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
+            <div className="min-w-0">
+              <h1 className="text-sm md:text-lg font-bold text-gray-800 dark:text-gray-200 truncate">
                 {getPageTitle()}
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="hidden md:block bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-full text-xs font-medium text-gray-700 dark:text-gray-200">
+          {/* RIGHT */}
+          <div className="flex items-center gap-1.5 md:gap-3 flex-nowrap flex-shrink-0">
+            {/* Date badge (desktop only) */}
+            <div className="hidden lg:block bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-full text-xs font-medium text-gray-700 dark:text-gray-200 flex-shrink-0">
               <i className="far fa-calendar-alt mr-2"></i>
               <span>{currentDate}</span>
             </div>
 
             {/* Notification Bell */}
-            <div className="relative" ref={notificationRef}>
+            <div className="relative flex-shrink-0" ref={notificationRef}>
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="relative w-9 h-9 md:w-10 md:h-10 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full flex items-center justify-center"
+                aria-label="Notifications"
               >
                 <i className="fas fa-bell text-gray-600 dark:text-gray-300 text-sm md:text-base"></i>
                 {unreadCount > 0 && (
@@ -217,29 +225,37 @@ const Header = ({ onMenuClick }) => {
               </button>
 
               {showNotifications && (
-                // ✅ Notification dropdown panel with proper dark bg
-                <div className="absolute top-12 right-0 w-[420px] bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden">
+                <div
+                  className="
+                    fixed sm:absolute
+                    left-3 right-3 sm:left-auto sm:right-0
+                    top-16 sm:top-12
+                    sm:w-[380px] md:w-[420px]
+                    max-w-[calc(100vw-24px)]
+                    bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden
+                  "
+                >
                   {/* Header */}
-                  <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800">
-                    <div className="flex items-center gap-2">
-                      <i className="fas fa-bell text-green-500 text-lg"></i>
-                      <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg">
+                  <div className="p-3 md:p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <i className="fas fa-bell text-green-500 text-base md:text-lg flex-shrink-0"></i>
+                      <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm md:text-lg truncate">
                         Notifications
                       </h3>
-                      <span className="bg-[#FF5A5F] text-white text-[11px] font-bold px-2 py-0.5 rounded-full ml-1">
+                      <span className="bg-[#FF5A5F] text-white text-[10px] md:text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
                         {unreadCount} unread
                       </span>
                     </div>
                     <button
                       onClick={handleMarkAllRead}
-                      className="text-sm font-medium text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300"
+                      className="text-xs md:text-sm font-medium text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 flex-shrink-0 whitespace-nowrap"
                     >
                       Mark all as read
                     </button>
                   </div>
 
                   {/* Notifications list */}
-                  <div className="max-h-[400px] overflow-y-auto">
+                  <div className="max-h-[60vh] sm:max-h-[400px] overflow-y-auto">
                     {displayNotifications.length === 0 ? (
                       <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                         <i className="fas fa-bell-slash text-3xl mb-2 opacity-50"></i>
@@ -248,39 +264,44 @@ const Header = ({ onMenuClick }) => {
                     ) : (
                       displayNotifications.map((notification) => {
                         const ui = getNotificationUI(notification);
+                        const isUnread = !notification.read;
                         return (
                           <div
                             key={notification.id}
-                            className={`p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors flex gap-3 ${
-                              !notification.read
-                                ? // ✅ Unread: soft green tint in light, deeper green tint in dark
-                                  "bg-green-50 dark:bg-green-900/25"
-                                : // Read: plain surfaces
-                                  "bg-white dark:bg-gray-800"
-                            } hover:bg-green-50 dark:hover:bg-gray-700/60`}
+                            className={`p-3 md:p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors flex gap-2 md:gap-3 ${
+                              isUnread
+                                ? "bg-emerald-50 dark:bg-emerald-950/60"
+                                : "bg-white dark:bg-gray-800"
+                            } hover:bg-emerald-100 dark:hover:bg-emerald-900/40`}
                             onClick={() => handleMarkAsRead(notification.id)}
                           >
-                            <div className="mt-0.5">
-                              <i className={`${ui.icon} ${ui.iconColor} text-base`}></i>
+                            <div className="mt-0.5 flex-shrink-0">
+                              <i
+                                className={`${ui.icon} ${ui.iconColor} text-sm md:text-base`}
+                              ></i>
                             </div>
                             <div className="flex-1 min-w-0">
                               <span
-                                className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold mb-2 ${ui.typeColor}`}
+                                className={`inline-block px-2 py-0.5 rounded-full text-[10px] md:text-[11px] font-semibold mb-1.5 ${ui.typeColor}`}
                               >
                                 {ui.type}
                               </span>
-                              {/* ✅ Message text — high contrast in both modes */}
-                              <p className="text-[14px] leading-relaxed text-gray-700 dark:text-gray-100 break-words">
+                              <p
+                                className={`text-[13px] md:text-[14px] leading-relaxed break-words ${
+                                  isUnread
+                                    ? "text-gray-900 dark:text-gray-100 font-medium"
+                                    : "text-gray-700 dark:text-gray-200"
+                                }`}
+                              >
                                 {notification.message}
                               </p>
-                              <div className="flex items-center gap-2 mt-2">
-                                {/* ✅ Timestamp — readable in dark mode */}
-                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <span className="text-[11px] md:text-xs font-medium text-gray-500 dark:text-gray-400">
                                   {notification.time ||
                                     notification.created_at ||
                                     "Just now"}
                                 </span>
-                                {!notification.read && (
+                                {isUnread && (
                                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400"></div>
                                 )}
                               </div>
@@ -292,13 +313,13 @@ const Header = ({ onMenuClick }) => {
                   </div>
 
                   {/* Footer */}
-                  <div className="p-4 bg-white dark:bg-gray-800 text-center rounded-b-2xl border-t border-gray-100 dark:border-gray-700">
+                  <div className="p-3 md:p-4 bg-white dark:bg-gray-800 text-center border-t border-gray-100 dark:border-gray-700">
                     <button
                       onClick={() => {
                         setShowNotifications(false);
                         navigate("/admin/notifications");
                       }}
-                      className="text-sm font-bold text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300"
+                      className="text-xs md:text-sm font-bold text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300"
                     >
                       View all notifications
                     </button>
@@ -308,10 +329,11 @@ const Header = ({ onMenuClick }) => {
             </div>
 
             {/* Profile Avatar */}
-            <div className="relative" ref={profileRef}>
+            <div className="relative flex-shrink-0" ref={profileRef}>
               <button
                 onClick={() => setShowProfile(!showProfile)}
                 className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden shadow-md ring-2 ring-transparent hover:ring-green-500 transition-all"
+                aria-label="Profile menu"
               >
                 {userAvatar ? (
                   <img
@@ -328,7 +350,7 @@ const Header = ({ onMenuClick }) => {
               </button>
 
               {showProfile && (
-                <div className="absolute top-12 right-0 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-soft-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+                <div className="fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-16 sm:top-12 sm:w-64 max-w-[calc(100vw-24px)] bg-white dark:bg-gray-800 rounded-2xl shadow-soft-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
                   <div className="p-4 flex gap-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-r from-green-500 to-green-600 flex-shrink-0">
                       {userAvatar ? (

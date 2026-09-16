@@ -26,6 +26,7 @@ import moduleReducer from "../admin/store/slices/moduleSlice";
 import reportReducer from "../admin/store/slices/reportSlice";
 import payrollReducer from "../admin/store/slices/payrollSlice";
 import publicHolidayReducer from "../admin/store/slices/publicHolidaySlice";
+import warningReducer from "../admin/store/slices/warningSlice";
 
 
 // Employee reducers
@@ -70,6 +71,7 @@ export const store = configureStore({
     reports: reportReducer,
     payroll: payrollReducer,
     publicHolidays: publicHolidayReducer,
+    warnings: warningReducer,
 
     // Employee
     EmpLeaves: leavesReducer,
