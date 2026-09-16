@@ -23,7 +23,17 @@ const ADMIN_ROUTE_MAP = {
   "my-tasks": "/admin/my-tasks",
   organizations: "/admin/organizations",
   "my-payroll": "/employee/my-payroll",
-  warnings: "/admin/warnings", // ← ADDED
+  warnings: "/admin/warnings",
+  // CRM
+  "crm-dashboard": "/admin/crm/dashboard",
+  "crm-leads": "/admin/crm/leads",
+  "crm-customers": "/admin/crm/customers",
+  "crm-opportunities": "/admin/crm/opportunities",
+  "crm-activities": "/admin/crm/activities",
+  "crm-quotations": "/admin/crm/quotations",
+  "crm-products": "/admin/crm/products",
+  "crm-reports": "/admin/crm/reports",
+  "crm-settings": "/admin/crm/settings",
 };
 
 const EMPLOYEE_ROUTE_MAP = {
@@ -46,7 +56,17 @@ const EMPLOYEE_ROUTE_MAP = {
   "my-tasks": "/employee/my-tasks",
   organizations: "/employee/organizations",
   "my-payroll": "/employee/my-payroll",
-  warnings: "/employee/warnings", // ← ADDED
+  warnings: "/employee/warnings",
+  // CRM
+  "crm-dashboard": "/employee/crm/dashboard",
+  "crm-leads": "/employee/crm/leads",
+  "crm-customers": "/employee/crm/customers",
+  "crm-opportunities": "/employee/crm/opportunities",
+  "crm-activities": "/employee/crm/activities",
+  "crm-quotations": "/employee/crm/quotations",
+  "crm-products": "/employee/crm/products",
+  "crm-reports": "/employee/crm/reports",
+  "crm-settings": "/employee/crm/settings",
 };
 
 const ICON_MAP = {
@@ -70,38 +90,59 @@ const ICON_MAP = {
   "my-tasks": "fas fa-user-check",
   organizations: "fas fa-building",
   "my-payroll": "fas fa-file-invoice-dollar",
-  warnings: "fas fa-triangle-exclamation", // ← ADDED
+  warnings: "fas fa-triangle-exclamation",
+  // CRM
+  "crm-dashboard": "fas fa-gauge-high",
+  "crm-leads": "fas fa-user-tag",
+  "crm-customers": "fas fa-address-book",
+  "crm-opportunities": "fas fa-bullseye",
+  "crm-activities": "fas fa-phone-volume",
+  "crm-quotations": "fas fa-file-invoice",
+  "crm-products": "fas fa-box-open",
+  "crm-reports": "fas fa-chart-pie",
+  "crm-settings": "fas fa-sliders",
 };
 
-// Configuration for parent menus and their children
+// ============================================================
+// PARENT MENU CONFIG
+// ------------------------------------------------------------
+// Gated by a single permission key (or any of several). If the
+// user has read access to that key, the whole group renders.
+//
+// `expandOnHover: false` keeps the group collapsed until the
+// user clicks its header — regardless of the sidebar's
+// hover-expand behaviour.
+// ============================================================
 const PARENT_MENU_CONFIG = {
-  leaves: {
-    label: "Leaves",
-    icon: "fas fa-calendar-check",
-    children: ["leaves", "my-leaves"],
-    roles: ["HR Manager", "hr manager", "HR"],
-    order: 999,
-  },
-  tasks: {
-    label: "Tasks",
-    icon: "fas fa-tasks",
-    children: ["task-reports", "my-tasks"],
-    roles: ["HR Manager", "hr manager", "HR"],
-    order: 1000,
+  crm: {
+    label: "CRM",
+    icon: "fas fa-handshake",
+    permissionKeys: ["crm", "crm-dashboard"],
+    expandOnHover: false, // only expands on click
+    children: [
+      { slug: "crm-dashboard", label: "Dashboard", path: ADMIN_ROUTE_MAP["crm-dashboard"], employeePath: EMPLOYEE_ROUTE_MAP["crm-dashboard"] },
+      { slug: "crm-leads", label: "Leads", path: ADMIN_ROUTE_MAP["crm-leads"], employeePath: EMPLOYEE_ROUTE_MAP["crm-leads"] },
+      { slug: "crm-customers", label: "Customers", path: ADMIN_ROUTE_MAP["crm-customers"], employeePath: EMPLOYEE_ROUTE_MAP["crm-customers"] },
+      { slug: "crm-opportunities", label: "Opportunities", path: ADMIN_ROUTE_MAP["crm-opportunities"], employeePath: EMPLOYEE_ROUTE_MAP["crm-opportunities"] },
+      { slug: "crm-activities", label: "Activities", path: ADMIN_ROUTE_MAP["crm-activities"], employeePath: EMPLOYEE_ROUTE_MAP["crm-activities"] },
+      { slug: "crm-quotations", label: "Quotations", path: ADMIN_ROUTE_MAP["crm-quotations"], employeePath: EMPLOYEE_ROUTE_MAP["crm-quotations"] },
+      { slug: "crm-products", label: "Products & Services", path: ADMIN_ROUTE_MAP["crm-products"], employeePath: EMPLOYEE_ROUTE_MAP["crm-products"] },
+      { slug: "crm-reports", label: "Reports", path: ADMIN_ROUTE_MAP["crm-reports"], employeePath: EMPLOYEE_ROUTE_MAP["crm-reports"] },
+      { slug: "crm-settings", label: "CRM Settings", path: ADMIN_ROUTE_MAP["crm-settings"], employeePath: EMPLOYEE_ROUTE_MAP["crm-settings"] },
+    ],
+    order: 20,
   },
 };
 
-// Define which modules are children (for filtering)
-const ALL_CHILDREN = Object.values(PARENT_MENU_CONFIG).flatMap(
-  (config) => config.children,
+const ALL_PARENT_CHILD_SLUGS = Object.values(PARENT_MENU_CONFIG).flatMap((c) =>
+  c.children.map((child) => child.slug),
 );
 
-// Define order of standalone modules
 const MODULE_ORDER = {
   dashboard: 1,
   onboarding: 2,
   employees: 3,
-  warnings: 4, // ← ADDED (right after Employees, before Offboarding)
+  warnings: 4,
   offboarding: 5,
   projects: 6,
   "project-tasks": 7,
@@ -116,10 +157,7 @@ const MODULE_ORDER = {
   "my-payroll": 16,
 };
 
-// Child modules that should be hidden for Admin/Super Admin
 const HIDDEN_FOR_ADMIN = ["my-leaves", "task-reports", "my-tasks"];
-
-// Modules that are always shown regardless of permissions (for admin users)
 const ALWAYS_SHOWN_MODULES = ["projects", "project-tasks"];
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -132,9 +170,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      if (!mobile) {
-        setIsOpen(false);
-      }
+      if (!mobile) setIsOpen(false);
     };
     checkMobile();
     window.addEventListener("resize", checkMobile);
@@ -142,39 +178,37 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   }, [setIsOpen]);
 
   useEffect(() => {
-    if (isMobile) {
-      setIsOpen(false);
-    }
+    if (isMobile) setIsOpen(false);
   }, [location, isMobile, setIsOpen]);
 
-  const activeRouteMap =
-    user?.type === "admin" ? ADMIN_ROUTE_MAP : EMPLOYEE_ROUTE_MAP;
-
-  const userRole = user?.role?.name;
-  const isHR =
-    userRole && ["HR Manager", "hr manager", "HR"].includes(userRole);
-  const hasAllPermissions = user?.permissions?.all === true;
   const isAdmin = user?.type === "admin";
-
+  const activeRouteMap = isAdmin ? ADMIN_ROUTE_MAP : EMPLOYEE_ROUTE_MAP;
   const permissions = user?.permissions || {};
+  const hasAllPermissions = user?.permissions?.all === true;
 
+  // ---- Permission helpers ----
   const hasReadPermission = (slug) => {
     if (hasAllPermissions) return true;
     if (isAdmin && ALWAYS_SHOWN_MODULES.includes(slug)) return true;
-    const modulePermission = permissions[slug];
-    if (modulePermission) {
-      return modulePermission.read === true;
-    }
-    return false;
+    const p = permissions[slug];
+    return p ? p.read === true : false;
+  };
+
+  const canAccessParent = (config) => {
+    if (hasAllPermissions) return true;
+    const keys = config.permissionKeys || [];
+    return keys.some((key) => {
+      const p = permissions[key];
+      return p && p.read === true;
+    });
   };
 
   const shouldShowForAdmin = (slug) => {
-    if (hasAllPermissions) {
-      return !HIDDEN_FOR_ADMIN.includes(slug);
-    }
+    if (hasAllPermissions) return !HIDDEN_FOR_ADMIN.includes(slug);
     return true;
   };
 
+  // ---- Flat module list (permission-filtered) ----
   const allModules = (user?.sidebar_modules || [])
     .filter((mod) => {
       if (mod.status !== "active" || !activeRouteMap[mod.slug]) return false;
@@ -184,61 +218,43 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     })
     .map((mod) => mod.slug);
 
+  // ---- Build nav items ----
   const buildNavItems = () => {
-    const navItems = [];
     const processedSlugs = new Set();
     const parentItems = [];
     const standaloneItems = [];
 
-    if (isHR && !hasAllPermissions) {
-      Object.entries(PARENT_MENU_CONFIG).forEach(([parentKey, config]) => {
-        const hasRoleAccess = config.roles.some((role) => userRole === role);
-        if (!hasRoleAccess) return;
+    Object.entries(PARENT_MENU_CONFIG).forEach(([parentKey, config]) => {
+      if (!canAccessParent(config)) return;
 
-        const hasAllChildren = config.children.every((child) => {
-          return allModules.includes(child) && hasReadPermission(child);
-        });
+      const children = config.children.map((child) => ({
+        slug: child.slug,
+        label: child.label,
+        path: isAdmin ? child.path : child.employeePath,
+        icon: ICON_MAP[child.slug] || "fas fa-circle",
+      }));
 
-        if (hasAllChildren) {
-          const children = config.children.map((childSlug) => {
-            const module = user?.sidebar_modules?.find(
-              (m) => m.slug === childSlug,
-            );
-            let moduleName = module?.name || childSlug;
-            if (moduleName === "My Tasks" || childSlug === "my-tasks") {
-              moduleName = "Task Reports";
-            }
+      const isActive = children.some(
+        (child) => location.pathname === child.path,
+      );
 
-            return {
-              slug: childSlug,
-              label: moduleName,
-              path: activeRouteMap[childSlug],
-              icon: ICON_MAP[childSlug] || "fas fa-circle",
-            };
-          });
-
-          const isActive = children.some(
-            (child) => location.pathname === child.path,
-          );
-
-          parentItems.push({
-            type: "parent",
-            slug: parentKey,
-            label: config.label,
-            icon: config.icon,
-            children: children,
-            isActive: isActive,
-            order: config.order || 500,
-          });
-
-          children.forEach((child) => processedSlugs.add(child.slug));
-        }
+      parentItems.push({
+        type: "parent",
+        slug: parentKey,
+        label: config.label,
+        icon: config.icon,
+        children,
+        isActive,
+        order: config.order || 500,
+        expandOnHover: config.expandOnHover !== false, // default true
       });
-    }
+
+      children.forEach((c) => processedSlugs.add(c.slug));
+    });
 
     allModules.forEach((slug) => {
       if (processedSlugs.has(slug)) return;
-      if (isHR && !hasAllPermissions && ALL_CHILDREN.includes(slug)) return;
+      if (ALL_PARENT_CHILD_SLUGS.includes(slug)) return;
 
       const module = user?.sidebar_modules?.find((m) => m.slug === slug);
       let moduleName = module?.name || slug;
@@ -249,14 +265,13 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       if (slug === "project-tasks") {
         moduleName = "Project Tasks";
       }
-      // ← ADDED: friendlier display name for warnings
       if (slug === "warnings") {
-        moduleName = user?.type === "admin" ? "Warnings" : "My Warnings";
+        moduleName = isAdmin ? "Warnings" : "My Warnings";
       }
 
       standaloneItems.push({
         type: "single",
-        slug: slug,
+        slug,
         label: moduleName,
         path: activeRouteMap[slug],
         icon: ICON_MAP[slug] || "fas fa-circle",
@@ -266,21 +281,28 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
     const allItems = [...standaloneItems, ...parentItems];
     allItems.sort((a, b) => (a.order || 0) - (b.order || 0));
-
     return allItems;
   };
 
   const navItems = buildNavItems();
 
   const toggleMenu = (slug) => {
-    setExpandedMenus((prev) => ({
-      ...prev,
-      [slug]: !prev[slug],
-    }));
+    setExpandedMenus((prev) => ({ ...prev, [slug]: !prev[slug] }));
   };
 
-  const isMenuExpanded = (slug) => {
-    if (isMobile) return expandedMenus[slug] || false;
+  // ------------------------------------------------------------
+  // Per-parent expansion rule:
+  //  - On mobile: always driven by `expandedMenus` (click).
+  //  - On desktop:
+  //      * if the parent has `expandOnHover === false`, only
+  //        expands when the user has clicked it.
+  //      * otherwise it follows the sidebar's hover-expand state.
+  // ------------------------------------------------------------
+  const isMenuExpanded = (parentItem) => {
+    if (isMobile) return expandedMenus[parentItem.slug] || false;
+    if (parentItem.expandOnHover === false) {
+      return expandedMenus[parentItem.slug] || false;
+    }
     return isOpen;
   };
 
@@ -321,14 +343,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         <nav className="flex-1 overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent hover:scrollbar-thumb-gray-600">
           {navItems.map((item) => {
             if (item.type === "parent") {
-              const expanded = isMenuExpanded(item.slug);
-
+              const expanded = isMenuExpanded(item);
               return (
                 <div key={item.slug} className="mb-1">
                   <div
-                    onClick={() => {
-                      toggleMenu(item.slug);
-                    }}
+                    onClick={() => toggleMenu(item.slug)}
                     className={`
                       flex items-center gap-3 px-5 py-3 mx-2 rounded-xl 
                       transition-all duration-200 cursor-pointer select-none
@@ -358,15 +377,13 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     )}
                   </div>
 
-                  {(isMobile ? expandedMenus[item.slug] : expanded) && (
+                  {expanded && (
                     <div className="ml-6 mt-1 space-y-1 border-l-2 border-gray-700/50 pl-2">
                       {item.children.map((child) => (
                         <NavLink
                           key={child.slug}
                           to={child.path}
-                          onClick={() => {
-                            if (isMobile) setIsOpen(false);
-                          }}
+                          onClick={() => isMobile && setIsOpen(false)}
                           className={({ isActive }) =>
                             `flex items-center gap-3 px-5 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer ${
                               isActive
@@ -375,11 +392,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                             }`
                           }
                         >
-                          <i
-                            className={
-                              child.icon + " w-6 text-sm flex-shrink-0"
-                            }
-                          ></i>
+                          <i className={`${child.icon} w-6 text-sm flex-shrink-0`}></i>
                           <span className="text-sm">{child.label}</span>
                         </NavLink>
                       ))}

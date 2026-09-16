@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { X, AlertTriangle, Send, Loader } from "lucide-react";
+import { X, AlertTriangle, Save, Loader, Mail } from "lucide-react";
 import { showToast } from "../../../components/common/Toast";
 import {
   createWarning,
@@ -22,7 +22,6 @@ const WarningModal = ({ isOpen, onClose, warning = null, employees = [] }) => {
   const [issuedDate, setIssuedDate] = useState(
     new Date().toISOString().split("T")[0],
   );
-  const [sendEmailNow, setSendEmailNow] = useState(true);
 
   // Hydrate on open
   useEffect(() => {
@@ -36,14 +35,12 @@ const WarningModal = ({ isOpen, onClose, warning = null, employees = [] }) => {
         warning.issued_date?.split("T")[0] ||
           new Date().toISOString().split("T")[0],
       );
-      setSendEmailNow(false); // don't re-send on edit unless user asks
     } else {
       setEmployeeId("");
       setTitle("");
       setSubject("");
       setDescription("");
       setIssuedDate(new Date().toISOString().split("T")[0]);
-      setSendEmailNow(true);
     }
   }, [isOpen, warning, isEdit]);
 
@@ -86,7 +83,7 @@ const WarningModal = ({ isOpen, onClose, warning = null, employees = [] }) => {
       subject: subject.trim(),
       description: description.trim(),
       issued_date: issuedDate,
-      ...(isEdit ? {} : { send_email: sendEmailNow }),
+      // No send_email flag — email is sent separately from the Warnings list.
     };
 
     try {
@@ -98,9 +95,7 @@ const WarningModal = ({ isOpen, onClose, warning = null, employees = [] }) => {
       } else {
         await dispatch(createWarning(payload)).unwrap();
         showToast(
-          sendEmailNow
-            ? "Warning created and email sent"
-            : "Warning created successfully",
+          "Warning created. Use the mail icon to send it to the employee.",
           "success",
         );
       }
@@ -232,26 +227,16 @@ const WarningModal = ({ isOpen, onClose, warning = null, employees = [] }) => {
             />
           </div>
 
-          {/* Send email toggle (create only) */}
+          {/* Info note */}
           {!isEdit && (
-            <label className="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
-              <input
-                type="checkbox"
-                checked={sendEmailNow}
-                onChange={(e) => setSendEmailNow(e.target.checked)}
-                disabled={submitting}
-                className="mt-0.5 w-4 h-4 rounded accent-amber-500"
-              />
-              <div>
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                  Send email notification immediately
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  The employee will receive the warning by email right away.
-                  You can also send it later from the warnings list.
-                </p>
-              </div>
-            </label>
+            <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40 rounded-lg">
+              <Mail className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 dark:text-amber-300">
+                The warning will be created but the email will not be sent
+                automatically. You can send it from the Warnings list using
+                the mail icon.
+              </p>
+            </div>
           )}
         </div>
 
@@ -275,7 +260,7 @@ const WarningModal = ({ isOpen, onClose, warning = null, employees = [] }) => {
               </>
             ) : (
               <>
-                <Send className="w-4 h-4" />
+                <Save className="w-4 h-4" />
                 {isEdit ? "Update Warning" : "Create Warning"}
               </>
             )}
