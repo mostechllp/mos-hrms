@@ -149,6 +149,9 @@ const AttendanceRequests = lazy(
 const MyPayroll = lazy(
   () => import("./employee/pages/MyPayroll"),
 );
+const Warnings = lazy(
+  () => import("./admin/pages/Warnings"),
+);
 
 // Custom wrapper for lazy-loaded components
 const LazyWrapper = ({ children }) => {
@@ -347,6 +350,7 @@ function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="role-management" element={<RoleManagement />} />
           <Route path="modules" element={<ModuleManagement />} />
+          <Route path="warnings" element={<Warnings />} />
         </Route>
 
         {/* Employee Routes - Layout wrapper */}
@@ -458,6 +462,7 @@ function App() {
             path="organizations/:organizationId/edit-company/:id"
             element={<EditCompany />}
           />
+          <Route path="warnings" element={<Warnings />} />
         </Route>
 
         <Route

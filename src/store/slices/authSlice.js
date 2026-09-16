@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import apiClient from "../../utils/apiClient"; 
+import apiClient from "../../utils/apiClient";
 
 // Update the loginUser thunk
 export const loginUser = createAsyncThunk(
@@ -7,7 +7,7 @@ export const loginUser = createAsyncThunk(
   async ({ email, password, agreeToTerms }, { rejectWithValue }) => {
     try {
       const response = await apiClient.post("/auth/login", {
-        username: email,  
+        username: email,
         password,
         agreeToTerms
       });
@@ -67,7 +67,7 @@ export const initializeAuth = createAsyncThunk(
     if (!token) return rejectWithValue("No token");
 
     try {
-      const response = await apiClient.get("/auth/me"); // or whatever your verify endpoint is
+      const response = await apiClient.get("/auth/me");
       return response.data.data;
     } catch {
       // Token is invalid/expired — clear everything
@@ -79,6 +79,91 @@ export const initializeAuth = createAsyncThunk(
       localStorage.removeItem("employee-token");
       localStorage.removeItem("employee-user");
       return rejectWithValue("Invalid token");
+    }
+  }
+);
+
+// ===== ADDED: Request Password Reset =====
+export const requestPasswordReset = createAsyncThunk(
+  "auth/requestPasswordReset",
+  async ({ email }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post("/auth/forgot-password", {
+        email,
+      });
+
+      if (
+        response.data?.status === "success" ||
+        response.data?.success
+      ) {
+        return {
+          message:
+            response.data?.message ||
+            "Password reset code sent to your email",
+        };
+      }
+
+      return rejectWithValue(
+        response.data?.message || "Failed to send reset code"
+      );
+    } catch (error) {
+      console.error(
+        "Request password reset error:",
+        error.response?.data
+      );
+
+      return rejectWithValue(
+        error.response?.data?.message ||
+          "Failed to send reset code. Please try again."
+      );
+    }
+  }
+);
+
+// ===== ADDED: Reset Password =====
+export const resetPassword = createAsyncThunk(
+  "auth/resetPassword",
+  async ({ email, code, password, passwordConfirmation }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post("/auth/reset-password", {
+        email,
+        code,
+        password,
+        password_confirmation: passwordConfirmation,
+      });
+
+      if (
+        response.data?.status === "success" ||
+        response.data?.success
+      ) {
+        return {
+          message:
+            response.data?.message ||
+            "Password reset successfully",
+        };
+      }
+
+      return rejectWithValue(
+        response.data?.message || "Failed to reset password"
+      );
+    } catch (error) {
+      console.error(
+        "Reset password error:",
+        error.response?.data
+      );
+
+      if (error.response?.data?.errors) {
+        const messages = Object.values(error.response.data.errors)
+          .flat()
+          .join(", ");
+
+        return rejectWithValue(messages);
+      }
+
+      return rejectWithValue(
+        error.response?.data?.message ||
+          "Failed to reset password. Please try again."
+      );
     }
   }
 );
@@ -95,10 +180,10 @@ export const updateUserProfile = createAsyncThunk(
 
       if (response.data.status === "success") {
         const updatedUser = response.data.data || response.data.user;
-        
+
         // Get current user from state
         const currentUser = getState().auth.user;
-        
+
         // Merge the updated data
         const newUserData = {
           ...currentUser,
@@ -106,10 +191,10 @@ export const updateUserProfile = createAsyncThunk(
           name: updatedUser.name || updatedUser.employee?.name || profileData.fullName,
           email: updatedUser.email || profileData.email,
         };
-        
+
         // Update localStorage with complete user data
         localStorage.setItem("user-data", JSON.stringify(newUserData));
-        
+
         // Update role-specific storage
         const userType = localStorage.getItem("user-type");
         if (userType === "admin") {
@@ -117,7 +202,7 @@ export const updateUserProfile = createAsyncThunk(
         } else if (userType === "employee") {
           localStorage.setItem("employee-user", JSON.stringify(newUserData));
         }
-        
+
         return newUserData;
       } else {
         return rejectWithValue(response.data.message || "Profile update failed");
@@ -137,13 +222,13 @@ export const fetchCurrentUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await apiClient.get("/employee/profile");
-      
+
       if (response.data.status === "success") {
         const userData = response.data.data || response.data.user;
-        
+
         // Update localStorage
         localStorage.setItem("user-data", JSON.stringify(userData));
-        
+
         // Update role-specific storage
         const userType = localStorage.getItem("user-type");
         if (userType === "admin") {
@@ -151,7 +236,7 @@ export const fetchCurrentUser = createAsyncThunk(
         } else if (userType === "employee") {
           localStorage.setItem("employee-user", JSON.stringify(userData));
         }
-        
+
         return userData;
       }
       return rejectWithValue("Failed to fetch user data");
@@ -182,6 +267,11 @@ const initialState = {
   error: null,
   profileUpdateLoading: false,
   profileUpdateError: null,
+  // ===== ADDED: Reset password state =====
+  resetSuccess: false,
+  resetMessage: "",
+  resetError: null,
+  // ===== END ADDED =====
 };
 
 const authSlice = createSlice({
@@ -205,7 +295,7 @@ const authSlice = createSlice({
     updateUserState: (state, action) => {
       state.user = { ...state.user, ...action.payload };
       localStorage.setItem("user-data", JSON.stringify(state.user));
-      
+
       // Update role-specific storage
       const userType = localStorage.getItem("user-type");
       if (userType === "admin") {
@@ -214,7 +304,7 @@ const authSlice = createSlice({
         localStorage.setItem("employee-user", JSON.stringify(state.user));
       }
     },
-     updateUser: (state, action) => {
+    updateUser: (state, action) => {
       const updatedUser = action.payload;
       state.user = {
         ...state.user,
@@ -225,7 +315,7 @@ const authSlice = createSlice({
       };
       // Update localStorage
       localStorage.setItem("user-data", JSON.stringify(state.user));
-      
+
       // Update role-specific storage
       const userType = localStorage.getItem("user-type");
       if (userType === "admin") {
@@ -234,6 +324,13 @@ const authSlice = createSlice({
         localStorage.setItem("employee-user", JSON.stringify(state.user));
       }
     },
+    // ===== ADDED: Clear reset state =====
+    clearResetState: (state) => {
+      state.resetSuccess = false;
+      state.resetMessage = "";
+      state.resetError = null;
+    },
+    // ===== END ADDED =====
   },
   extraReducers: (builder) => {
     builder
@@ -284,6 +381,11 @@ const authSlice = createSlice({
         state.error = null;
         state.profileUpdateLoading = false;
         state.profileUpdateError = null;
+        // ===== ADDED =====
+        state.resetSuccess = false;
+        state.resetMessage = "";
+        state.resetError = null;
+        // ===== END ADDED =====
       })
       // Update Profile
       .addCase(updateUserProfile.pending, (state) => {
@@ -311,16 +413,62 @@ const authSlice = createSlice({
       })
       .addCase(fetchCurrentUser.rejected, (state) => {
         state.loading = false;
+      })
+
+      // ===== ADDED: Request Password Reset =====
+      .addCase(requestPasswordReset.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.resetSuccess = false;
+        state.resetMessage = "";
+        state.resetError = null;
+      })
+      .addCase(requestPasswordReset.fulfilled, (state, action) => {
+        state.loading = false;
+        state.resetSuccess = true;
+        state.resetMessage = action.payload.message;
+        state.resetError = null;
+      })
+      .addCase(requestPasswordReset.rejected, (state, action) => {
+        state.loading = false;
+        state.resetSuccess = false;
+        state.resetMessage = "";
+        state.resetError = action.payload || "Failed to send reset code";
+        state.error = action.payload || "Failed to send reset code";
+      })
+
+      // ===== ADDED: Reset Password =====
+      .addCase(resetPassword.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.resetSuccess = false;
+        state.resetMessage = "";
+        state.resetError = null;
+      })
+      .addCase(resetPassword.fulfilled, (state, action) => {
+        state.loading = false;
+        state.resetSuccess = true;
+        state.resetMessage = action.payload.message;
+        state.resetError = null;
+      })
+      .addCase(resetPassword.rejected, (state, action) => {
+        state.loading = false;
+        state.resetSuccess = false;
+        state.resetMessage = "";
+        state.resetError = action.payload || "Failed to reset password";
+        state.error = action.payload || "Failed to reset password";
       });
+      // ===== END ADDED =====
   },
 });
 
-export const { 
-  clearError, 
-  setRememberMe, 
-  clearProfileUpdateError, 
-  updateUserState ,
-  updateUser  
+export const {
+  clearError,
+  setRememberMe,
+  clearProfileUpdateError,
+  updateUserState,
+  updateUser,
+  clearResetState,   // ADDED
 } = authSlice.actions;
 
 export default authSlice.reducer;
