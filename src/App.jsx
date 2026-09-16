@@ -51,9 +51,7 @@ const EmployeeDetailsReport = lazy(
 const AttendanceReport = lazy(
   () => import("./admin/components/reports/AttendanceReport"),
 );
-const TaskReport = lazy(
-  () => import("./admin/components/reports/TaskReport"),
-);
+const TaskReport = lazy(() => import("./admin/components/reports/TaskReport"));
 const LeaveRequestReport = lazy(
   () => import("./admin/components/reports/LeaveRequestsReports"),
 );
@@ -114,9 +112,7 @@ const FinalSettlement = lazy(
 const LettersAndClearance = lazy(
   () => import("./admin/components/offboarding/LettersAndClearance"),
 );
-const Handover = lazy(
-  () => import("./admin/components/offboarding/Handover"),
-);
+const Handover = lazy(() => import("./admin/components/offboarding/Handover"));
 const LeaveCheck = lazy(
   () => import("./admin/components/offboarding/LeaveCheck"),
 );
@@ -134,6 +130,25 @@ const ProjectTasks = lazy(
 const ProjectsTasks = lazy(() => import("./admin/pages/ProjectTasks"));
 const Notifications = lazy(() => import("./admin/pages/Notifications"));
 
+const CrmDashboard = lazy(() => import("./admin/pages/CRM/CrmDashboard"));
+const CrmLeads = lazy(() => import("./admin/pages/CRM/Leads"));
+const AddLead = lazy(() => import("./admin/pages/CRM/AddLead"));
+const LeadDetail = lazy(() => import("./admin/pages/CRM/LeadDetail"));
+const CrmCustomers = lazy(() => import("./admin/pages/CRM/Customers"));
+const AddCustomer = lazy(() => import("./admin/pages/CRM/AddCustomer"));
+const CustomerDetail = lazy(() => import("./admin/pages/CRM/CustomerDetail"));
+const CrmOpportunities = lazy(() => import("./admin/pages/CRM/Opportunities"));
+const AddOpportunity = lazy(() => import("./admin/pages/CRM/AddOpportunity"));
+const OpportunityDetail = lazy(
+  () => import("./admin/pages/CRM/OpportunityDetail"),
+);
+const CrmActivities = lazy(() => import("./admin/pages/CRM/Activities"));
+const CrmQuotations = lazy(() => import("./admin/pages/CRM/Quotations"));
+const AddQuotation = lazy(() => import("./admin/pages/CRM/AddQuotation"));
+const CrmProducts = lazy(() => import("./admin/pages/CRM/Products"));
+const CrmReports = lazy(() => import("./admin/pages/CRM/CrmReports"));
+const CrmSettings = lazy(() => import("./admin/pages/CRM/CrmSettings"));
+
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
 const EmployeeLeaves = lazy(() => import("./employee/pages/Leaves"));
@@ -142,16 +157,14 @@ const EmployeeProfile = lazy(() => import("./employee/pages/Profile"));
 const EmployeeWFH = lazy(() => import("./employee/pages/WFH"));
 const EmployeeTaskReports = lazy(() => import("./employee/pages/TaskReports"));
 const EmployeeTasks = lazy(() => import("./employee/pages/Tasks"));
-const EmployeeNotifications = lazy(() => import("./employee/pages/Notifications"));
+const EmployeeNotifications = lazy(
+  () => import("./employee/pages/Notifications"),
+);
 const AttendanceRequests = lazy(
   () => import("./employee/pages/AttendanceRequests"),
 );
-const MyPayroll = lazy(
-  () => import("./employee/pages/MyPayroll"),
-);
-const Warnings = lazy(
-  () => import("./admin/pages/Warnings"),
-);
+const MyPayroll = lazy(() => import("./employee/pages/MyPayroll"));
+const Warnings = lazy(() => import("./admin/pages/Warnings"));
 
 // Custom wrapper for lazy-loaded components
 const LazyWrapper = ({ children }) => {
@@ -258,8 +271,14 @@ function App() {
             element={<LettersAndClearance />}
           />
           <Route path="employees/offboarding/handover" element={<Handover />} />
-          <Route path="employees/offboarding/leave-check" element={<LeaveCheck />} />
-          <Route path="employees/offboarding/access-removal" element={<AccessRemoval />} />
+          <Route
+            path="employees/offboarding/leave-check"
+            element={<LeaveCheck />}
+          />
+          <Route
+            path="employees/offboarding/access-removal"
+            element={<AccessRemoval />}
+          />
           <Route path="employees/edit/:id" element={<EditEmployee />} />
           <Route path="employees/:id" element={<EmployeeDetails />} />
           <Route path="organizations" element={<Organizations />} />
@@ -345,12 +364,52 @@ function App() {
           <Route path="payroll/edit/:id" element={<EditPayroll />} />
           <Route path="payroll/:year/:month" element={<PayrollList />} />
           <Route path="wfh" element={<AdminWFH />} />
-          <Route path="attendance-requests" element={<AttendanceRequests isAdmin={true} />} /> 
-          <Route path="wfh-requests" element={<AdminWFH />} />  
+          <Route
+            path="attendance-requests"
+            element={<AttendanceRequests isAdmin={true} />}
+          />
+          <Route path="wfh-requests" element={<AdminWFH />} />
           <Route path="settings" element={<Settings />} />
           <Route path="role-management" element={<RoleManagement />} />
           <Route path="modules" element={<ModuleManagement />} />
           <Route path="warnings" element={<Warnings />} />
+
+          <Route path="crm/dashboard" element={<CrmDashboard />} />
+          <Route path="crm">
+            <Route path="dashboard" element={<CrmDashboard />} />
+            <Route path="leads" element={<CrmLeads />} />
+            <Route path="leads/new" element={<AddLead />} />
+            <Route path="leads/:leadId" element={<LeadDetail />} />
+            <Route path="leads/:leadId/edit" element={<AddLead />} />
+            <Route path="customers" element={<CrmCustomers />} />
+            <Route path="customers/new" element={<AddCustomer />} />
+            <Route path="customers/:customerId" element={<CustomerDetail />} />
+            <Route
+              path="customers/:customerId/edit"
+              element={<AddCustomer />}
+            />
+            <Route path="opportunities" element={<CrmOpportunities />} />
+            <Route path="opportunities/new" element={<AddOpportunity />} />
+            <Route
+              path="opportunities/:opportunityId"
+              element={<OpportunityDetail />}
+            />
+            <Route
+              path="opportunities/:opportunityId/edit"
+              element={<AddOpportunity />}
+            />
+            <Route path="activities" element={<CrmActivities />} />
+            <Route path="quotations" element={<CrmQuotations />} />
+            <Route path="quotations/new" element={<AddQuotation />} />
+            <Route path="quotations/:quotationId" element={<AddQuotation />} />
+            <Route
+              path="quotations/:quotationId/edit"
+              element={<AddQuotation />}
+            />
+            <Route path="products" element={<CrmProducts />} />
+            <Route path="reports" element={<CrmReports />} />
+            <Route path="settings" element={<CrmSettings />} />
+          </Route>
         </Route>
 
         {/* Employee Routes - Layout wrapper */}
@@ -392,7 +451,7 @@ function App() {
           <Route path="employees/add-employee" element={<AddEmployee />} />
           <Route path="employees/edit/:id" element={<EditEmployee />} />
           <Route path="employees/:id" element={<EmployeeDetails />} />
-          
+
           <Route path="onboarding" element={<Onboarding />} />
           <Route path="attendance" element={<Attendances />} />
           <Route path="documents" element={<Agreements />} />
