@@ -473,16 +473,16 @@ const EditAgreement = () => {
           Documents
         </Link>
         <i className="fas fa-chevron-right text-gray-400 text-[10px] md:text-xs"></i>
-        <span className="text-gray-500 dark:text-gray-400">Edit Agreement</span>
+        <span className="text-gray-500 dark:text-gray-400">Edit Document</span>
       </div>
 
       {/* Page Header */}
       <div className="mb-4 md:mb-6">
         <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-green-600 dark:from-gray-200 dark:to-green-400 bg-clip-text text-transparent">
-          <i className="fas fa-edit mr-2"></i> Edit Agreement
+          <i className="fas fa-edit mr-2"></i> Edit Document
         </h2>
         <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Update agreement details
+          Update document details
         </p>
       </div>
 
@@ -509,7 +509,7 @@ const EditAgreement = () => {
                       {currentFileName}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Agreement Name:{" "}
+                      Document Name:{" "}
                       <span className="font-semibold text-green-600 dark:text-green-400">
                         {formData.name || "Not set"}
                       </span>
@@ -594,14 +594,14 @@ const EditAgreement = () => {
             <div className="flex items-center gap-2 pb-3 border-b-2 border-green-100 dark:border-green-900/30 mb-4 md:mb-6">
               <i className="fas fa-info-circle text-green-500 text-base md:text-lg"></i>
               <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
-                Agreement Details
+                Document Details
               </h3>
             </div>
 
             <div className="space-y-4 md:space-y-5">
               <div>
                 <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                  <i className="fas fa-tag text-green-500 mr-1"></i> Agreement
+                  <i className="fas fa-tag text-green-500 mr-1"></i> Document
                   Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -610,7 +610,7 @@ const EditAgreement = () => {
                   value={formData.name}
                   onChange={handleChange}
                   className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                  placeholder="Enter agreement name"
+                  placeholder="Enter document name"
                   required
                 />
                 {autoUpdateName && replaceFile && (
@@ -889,7 +889,7 @@ const EditAgreement = () => {
               ) : (
                 <>
                   <i className="fas fa-save text-xs md:text-sm"></i>{" "}
-                  <span>Update Agreement</span>
+                  <span>Update Document</span>
                 </>
               )}
             </button>

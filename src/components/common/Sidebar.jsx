@@ -16,13 +16,14 @@ const ADMIN_ROUTE_MAP = {
   "task-reports": "/admin/task-reports",
   reports: "/admin/reports",
   projects: "/admin/projects",
-  "project-tasks": "/admin/project-tasks", // NEW: Project Tasks route
+  "project-tasks": "/admin/project-tasks",
   payroll: "/admin/payroll",
   roles: "/admin/role-management",
   settings: "/admin/settings",
   "my-tasks": "/admin/my-tasks",
   organizations: "/admin/organizations",
   "my-payroll": "/employee/my-payroll",
+  warnings: "/admin/warnings", // ← ADDED
 };
 
 const EMPLOYEE_ROUTE_MAP = {
@@ -35,7 +36,7 @@ const EMPLOYEE_ROUTE_MAP = {
   "task-reports": "/employee/task-reports",
   reports: "/employee/reports",
   projects: "/employee/projects",
-  "project-tasks": "/employee/project-tasks", // NEW: Project Tasks route
+  "project-tasks": "/employee/project-tasks",
   settings: "/employee/settings",
   leaves: "/employee/leave-management",
   "my-leaves": "/employee/leaves",
@@ -44,7 +45,8 @@ const EMPLOYEE_ROUTE_MAP = {
   roles: "/employee/role-management",
   "my-tasks": "/employee/my-tasks",
   organizations: "/employee/organizations",
-   "my-payroll": "/employee/my-payroll",
+  "my-payroll": "/employee/my-payroll",
+  warnings: "/employee/warnings", // ← ADDED
 };
 
 const ICON_MAP = {
@@ -59,7 +61,7 @@ const ICON_MAP = {
   leaves: "fas fa-calendar-check",
   "my-leaves": "fas fa-calendar-alt",
   "task-reports": "fas fa-tasks",
-  "project-tasks": "fa-solid fa-diagram-project", // NEW: Project Tasks icon
+  "project-tasks": "fa-solid fa-diagram-project",
   reports: "fas fa-chart-bar",
   projects: "fas fa-folder",
   payroll: "fas fa-file-invoice-dollar",
@@ -68,6 +70,7 @@ const ICON_MAP = {
   "my-tasks": "fas fa-user-check",
   organizations: "fas fa-building",
   "my-payroll": "fas fa-file-invoice-dollar",
+  warnings: "fas fa-triangle-exclamation", // ← ADDED
 };
 
 // Configuration for parent menus and their children
@@ -89,25 +92,28 @@ const PARENT_MENU_CONFIG = {
 };
 
 // Define which modules are children (for filtering)
-const ALL_CHILDREN = Object.values(PARENT_MENU_CONFIG).flatMap(config => config.children);
+const ALL_CHILDREN = Object.values(PARENT_MENU_CONFIG).flatMap(
+  (config) => config.children,
+);
 
 // Define order of standalone modules
 const MODULE_ORDER = {
   dashboard: 1,
   onboarding: 2,
   employees: 3,
-  offboarding: 4,
-  projects: 5,
-  "project-tasks": 6, // NEW: Project Tasks order
-  attendance: 7,
-  documents: 8,
-  reports: 9,
-  settings: 10,
-  roles: 11,
-  payroll: 12,
-  leaves: 13,
-  organization: 14,
-  "my-payroll": 15,
+  warnings: 4, // ← ADDED (right after Employees, before Offboarding)
+  offboarding: 5,
+  projects: 6,
+  "project-tasks": 7,
+  attendance: 8,
+  documents: 9,
+  reports: 10,
+  settings: 11,
+  roles: 12,
+  payroll: 13,
+  leaves: 14,
+  organization: 15,
+  "my-payroll": 16,
 };
 
 // Child modules that should be hidden for Admin/Super Admin
@@ -141,89 +147,68 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     }
   }, [location, isMobile, setIsOpen]);
 
-  const activeRouteMap = user?.type === 'admin' ? ADMIN_ROUTE_MAP : EMPLOYEE_ROUTE_MAP;
-  
-  // Check if user has a specific role
-  const userRole = user?.role?.name;
-  const isHR = userRole && ["HR Manager", "hr manager", "HR"].includes(userRole);
-  const hasAllPermissions = user?.permissions?.all === true;
-  const isAdmin = user?.type === 'admin';
+  const activeRouteMap =
+    user?.type === "admin" ? ADMIN_ROUTE_MAP : EMPLOYEE_ROUTE_MAP;
 
-  // Get permissions from user object
+  const userRole = user?.role?.name;
+  const isHR =
+    userRole && ["HR Manager", "hr manager", "HR"].includes(userRole);
+  const hasAllPermissions = user?.permissions?.all === true;
+  const isAdmin = user?.type === "admin";
+
   const permissions = user?.permissions || {};
 
-  // Check if user has read permission for a module
   const hasReadPermission = (slug) => {
-    // If user has 'all' permission (Super Admin), allow all
     if (hasAllPermissions) return true;
-    
-    // Always show certain modules for admin users
     if (isAdmin && ALWAYS_SHOWN_MODULES.includes(slug)) return true;
-    
-    // Check specific permission for the module
     const modulePermission = permissions[slug];
     if (modulePermission) {
       return modulePermission.read === true;
     }
-    
-    // If no permission found, default to false
     return false;
   };
 
-  // Check if module should be shown for Admin
   const shouldShowForAdmin = (slug) => {
-    // If user has all permissions, hide child modules
     if (hasAllPermissions) {
       return !HIDDEN_FOR_ADMIN.includes(slug);
     }
     return true;
   };
 
-  // Get all available modules from API and filter by permissions
   const allModules = (user?.sidebar_modules || [])
     .filter((mod) => {
-      // Must be active and have a route
       if (mod.status !== "active" || !activeRouteMap[mod.slug]) return false;
-      
-      // Check if user has read permission for this module
       if (!hasReadPermission(mod.slug)) return false;
-      
-      // For Admin with all permissions, hide child modules
       if (!shouldShowForAdmin(mod.slug)) return false;
-      
       return true;
     })
     .map((mod) => mod.slug);
 
-  // Build navigation with submenus
   const buildNavItems = () => {
     const navItems = [];
     const processedSlugs = new Set();
     const parentItems = [];
     const standaloneItems = [];
 
-    // Only create parent menus for HR (not for Admin with all permissions)
     if (isHR && !hasAllPermissions) {
-      // Check each parent menu configuration
       Object.entries(PARENT_MENU_CONFIG).forEach(([parentKey, config]) => {
-        // Check if user has permission to see this parent menu
-        const hasRoleAccess = config.roles.some(role => userRole === role);
+        const hasRoleAccess = config.roles.some((role) => userRole === role);
         if (!hasRoleAccess) return;
 
-        // Check if ALL children exist AND have read permission
-        const hasAllChildren = config.children.every(child => {
+        const hasAllChildren = config.children.every((child) => {
           return allModules.includes(child) && hasReadPermission(child);
         });
-        
+
         if (hasAllChildren) {
-          // Create parent menu with all children
-          const children = config.children.map(childSlug => {
-            const module = user?.sidebar_modules?.find(m => m.slug === childSlug);
+          const children = config.children.map((childSlug) => {
+            const module = user?.sidebar_modules?.find(
+              (m) => m.slug === childSlug,
+            );
             let moduleName = module?.name || childSlug;
             if (moduleName === "My Tasks" || childSlug === "my-tasks") {
               moduleName = "Task Reports";
             }
-            
+
             return {
               slug: childSlug,
               label: moduleName,
@@ -232,7 +217,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             };
           });
 
-          const isActive = children.some(child => location.pathname === child.path);
+          const isActive = children.some(
+            (child) => location.pathname === child.path,
+          );
 
           parentItems.push({
             type: "parent",
@@ -244,29 +231,27 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             order: config.order || 500,
           });
 
-          // Mark children as processed
-          children.forEach(child => processedSlugs.add(child.slug));
+          children.forEach((child) => processedSlugs.add(child.slug));
         }
       });
     }
 
-    // Add all standalone modules
     allModules.forEach((slug) => {
-      // Skip if already processed (already in a parent menu)
       if (processedSlugs.has(slug)) return;
-      
-      // For HR without all permissions, skip children that are in parent menus
       if (isHR && !hasAllPermissions && ALL_CHILDREN.includes(slug)) return;
 
-      const module = user?.sidebar_modules?.find(m => m.slug === slug);
+      const module = user?.sidebar_modules?.find((m) => m.slug === slug);
       let moduleName = module?.name || slug;
-      
-      // Custom display names for specific modules
+
       if (moduleName === "My Tasks" || slug === "my-tasks") {
         moduleName = "Task Reports";
       }
       if (slug === "project-tasks") {
-        moduleName = "Project Tasks"; // NEW: Custom name for project tasks
+        moduleName = "Project Tasks";
+      }
+      // ← ADDED: friendlier display name for warnings
+      if (slug === "warnings") {
+        moduleName = user?.type === "admin" ? "Warnings" : "My Warnings";
       }
 
       standaloneItems.push({
@@ -279,7 +264,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       });
     });
 
-    // Combine and sort by order
     const allItems = [...standaloneItems, ...parentItems];
     allItems.sort((a, b) => (a.order || 0) - (b.order || 0));
 
@@ -289,9 +273,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const navItems = buildNavItems();
 
   const toggleMenu = (slug) => {
-    setExpandedMenus(prev => ({
+    setExpandedMenus((prev) => ({
       ...prev,
-      [slug]: !prev[slug]
+      [slug]: !prev[slug],
     }));
   };
 
@@ -304,7 +288,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   return (
     <>
-      {/* Mobile overlay */}
       {isMobile && isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
@@ -312,20 +295,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={`
           fixed top-0 left-0 h-full bg-gray-900 z-50 transition-all duration-300
           flex flex-col
-          ${isMobile
-            ? `${isOpen ? "translate-x-0" : "-translate-x-full"} w-64`
-            : "w-[72px] hover:w-64 group"
+          ${
+            isMobile
+              ? `${isOpen ? "translate-x-0" : "-translate-x-full"} w-64`
+              : "w-[72px] hover:w-64 group"
           }
         `}
         onMouseEnter={() => !isMobile && setIsOpen(true)}
         onMouseLeave={() => !isMobile && setIsOpen(false)}
       >
-        {/* Logo Section */}
         <div className="flex-shrink-0 py-5 px-4 border-b border-white/10 flex justify-center items-center">
           <img
             src="https://violet-leopard-500489.hostingersite.com/hr/public/assets/images/hr-logo2.jpg"
@@ -336,27 +318,25 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           />
         </div>
 
-        {/* Navigation Section */}
         <nav className="flex-1 overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent hover:scrollbar-thumb-gray-600">
           {navItems.map((item) => {
             if (item.type === "parent") {
               const expanded = isMenuExpanded(item.slug);
-              
+
               return (
                 <div key={item.slug} className="mb-1">
-                  {/* Parent Menu Item */}
                   <div
                     onClick={() => {
-                      if (isMobile) {
-                        toggleMenu(item.slug);
-                      } else {
-                        toggleMenu(item.slug);
-                      }
+                      toggleMenu(item.slug);
                     }}
                     className={`
                       flex items-center gap-3 px-5 py-3 mx-2 rounded-xl 
                       transition-all duration-200 cursor-pointer select-none
-                      ${item.isActive ? "bg-green-500/20 text-white" : "text-gray-400 hover:text-white hover:bg-white/10"}
+                      ${
+                        item.isActive
+                          ? "bg-green-500/20 text-white"
+                          : "text-gray-400 hover:text-white hover:bg-white/10"
+                      }
                     `}
                   >
                     <i className={item.icon + " w-6 text-lg flex-shrink-0"}></i>
@@ -370,11 +350,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                       {item.label}
                     </span>
                     {(isMobile || showChevron) && (
-                      <i className={`fas fa-chevron-${expanded ? "up" : "down"} text-xs transition-transform duration-200 flex-shrink-0`}></i>
+                      <i
+                        className={`fas fa-chevron-${
+                          expanded ? "up" : "down"
+                        } text-xs transition-transform duration-200 flex-shrink-0`}
+                      ></i>
                     )}
                   </div>
 
-                  {/* Submenu Items */}
                   {(isMobile ? expandedMenus[item.slug] : expanded) && (
                     <div className="ml-6 mt-1 space-y-1 border-l-2 border-gray-700/50 pl-2">
                       {item.children.map((child) => (
@@ -392,7 +375,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                             }`
                           }
                         >
-                          <i className={child.icon + " w-6 text-sm flex-shrink-0"}></i>
+                          <i
+                            className={
+                              child.icon + " w-6 text-sm flex-shrink-0"
+                            }
+                          ></i>
                           <span className="text-sm">{child.label}</span>
                         </NavLink>
                       ))}
@@ -402,12 +389,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               );
             }
 
-            // Single menu item
             return (
               <NavLink
                 key={item.slug}
                 to={item.path}
-                end={item.path === "/admin/employees" || item.path === "/admin/dashboard" || item.path === "/employee/dashboard"}
+                end={
+                  item.path === "/admin/employees" ||
+                  item.path === "/admin/dashboard" ||
+                  item.path === "/employee/dashboard"
+                }
                 onClick={() => isMobile && setIsOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-5 py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden ${
