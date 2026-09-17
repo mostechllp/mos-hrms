@@ -49,10 +49,9 @@ const LettersAndClearance = () => {
   const [generatingLetter, setGeneratingLetter] = useState(null);
   const [lettersIssued, setLettersIssued] = useState(false);
 
-  const {
-    currentOffboarding,
-    loading: offboardingLoading,
-  } = useSelector((state) => state.offboarding);
+  const { currentOffboarding, loading: offboardingLoading } = useSelector(
+    (state) => state.offboarding,
+  );
   const { currentEmployee } = useSelector((state) => state.employees);
 
   // ------------------------------------------------------------
@@ -211,24 +210,21 @@ const LettersAndClearance = () => {
                   ad.document_type === d.document_type ||
                   ad.letter_type === d.document_type,
               );
+              const apiStatus = String(apiDoc.status || "").toLowerCase();
               if (
                 apiDoc &&
-                (apiDoc.status === "Uploaded" ||
-                  apiDoc.status === "uploaded" ||
-                  apiDoc.file_path ||
+                (apiStatus === "uploaded" ||
                   apiDoc.document_path ||
                   apiDoc.document_url)
               ) {
                 return {
                   ...d,
-                  status: "Uploaded",
+                  status: "Uploaded", // normalize to the shape the UI expects
                   file_name:
-                    apiDoc.file_name || apiDoc.title || "Uploaded Document",
-                  file_path:
-                    apiDoc.document_url ||
-                    apiDoc.document_path ||
-                    apiDoc.file_path ||
-                    apiDoc.url,
+                    apiDoc.file_name ||
+                    apiDoc.document_path?.split("/").pop() ||
+                    "Uploaded Document",
+                  file_path: apiDoc.document_url || apiDoc.document_path,
                   uploaded_at:
                     apiDoc.uploaded_at ||
                     apiDoc.updated_at ||
@@ -253,7 +249,7 @@ const LettersAndClearance = () => {
   }, [currentEmployee]);
 
   const pendingUploads = uploadDocuments.filter(
-    (doc) => doc.status === "Pending",
+    (doc) => String(doc.status).toLowerCase() !== "uploaded",
   ).length;
   const allLettersGenerated = lettersToGenerate.every((l) => l.generated);
 
@@ -501,18 +497,18 @@ const LettersAndClearance = () => {
         response.data?.status === "success" ||
         response.data?.success === true
       ) {
+        const uploaded = response.data.data || response.data;
         setUploadDocuments((prev) =>
           prev.map((d) =>
             d.id === docId
               ? {
                   ...d,
                   file_name: file.name,
-                  file_path:
-                    response.data.file_path ||
-                    response.data.data?.file_path ||
-                    response.data.data?.url,
+                  // API uses `document_url` for the full URL and
+                  // `document_path` for the relative storage path.
+                  file_path: uploaded.document_url || uploaded.document_path,
                   status: "Uploaded",
-                  uploaded_at: new Date().toISOString(),
+                  uploaded_at: uploaded.updated_at || new Date().toISOString(),
                 }
               : d,
           ),
@@ -532,18 +528,18 @@ const LettersAndClearance = () => {
     }
   };
 
-  const handleDownloadUploadedDoc = (doc) => {
-    if (doc.file_path) {
-      window.open(
-        doc.file_path.startsWith("http")
-          ? doc.file_path
-          : getStorageUrl(doc.file_path),
-        "_blank",
-      );
-    } else {
-      showToast("No file available for download", "info");
-    }
-  };
+ const handleDownloadUploadedDoc = (doc) => {
+  if (doc.file_path) {
+    window.open(
+      doc.file_path.startsWith("http")
+        ? doc.file_path
+        : getStorageUrl(doc.file_path),
+      "_blank",
+    );
+  } else {
+    showToast("No file available for download", "info");
+  }
+};
 
   // ------------------------------------------------------------
   // Complete the letters step, then complete offboarding
@@ -551,77 +547,77 @@ const LettersAndClearance = () => {
   // POST /admin/offboarding/{id}/complete
   // ------------------------------------------------------------
   const handleSubmitAll = async () => {
-  if (!lettersIssued) {
-    showToast(
-      "Please confirm that letters are issued to the employee",
-      "warning",
-    );
-    return;
-  }
-
-  const missingRequiredLetters = lettersToGenerate.filter(
-    (l) => l.required && !l.generated,
-  );
-  if (missingRequiredLetters.length > 0) {
-    showToast(
-      "Please generate all required letters before completing.",
-      "error",
-    );
-    return;
-  }
-
-  setIsCompleting(true);
-
-  try {
-    const idToUse = offboardingId || localStorage.getItem("offboarding_id");
-
-    // ─────────────────────────────────────────────
-    // 1) Mark letters step complete
-    // ─────────────────────────────────────────────
-    await apiClient.post(`/admin/offboarding/${idToUse}/letters/complete`);
-
-    // ─────────────────────────────────────────────
-    // 2) Refresh progress so letters step is "done"
-    // ─────────────────────────────────────────────
-    await dispatch(fetchOffboardingProgress(idToUse)).unwrap();
-
-    // ─────────────────────────────────────────────
-    // 3) Mark the whole offboarding complete
-    // ─────────────────────────────────────────────
-    await apiClient.post(`/admin/offboarding/${idToUse}/complete`);
-
-    // ─────────────────────────────────────────────
-    // 4) Refresh progress one more time (final state)
-    // ─────────────────────────────────────────────
-    await dispatch(fetchOffboardingProgress(idToUse)).unwrap();
-
-    showToast("Offboarding completed successfully!", "success");
-
-    setTimeout(() => {
-      navigate("/admin/employees/offboarding");
-    }, 1500);
-  } catch (error) {
-    console.error("Complete offboarding error:", error);
-
-    // Try to figure out which step failed so we can give a clearer message
-    const endpoint = error.config?.url || "";
-    let msg = error.response?.data?.message || error.message;
-
-    if (!msg) {
-      if (endpoint.includes("/letters/complete")) {
-        msg = "Failed to mark letters step as complete. Please try again.";
-      } else if (endpoint.includes("/complete")) {
-        msg = "Failed to complete offboarding. Please try again.";
-      } else {
-        msg = "Failed to complete offboarding. Please try again.";
-      }
+    if (!lettersIssued) {
+      showToast(
+        "Please confirm that letters are issued to the employee",
+        "warning",
+      );
+      return;
     }
 
-    showToast(msg, "error");
-  } finally {
-    setIsCompleting(false);
-  }
-};
+    const missingRequiredLetters = lettersToGenerate.filter(
+      (l) => l.required && !l.generated,
+    );
+    if (missingRequiredLetters.length > 0) {
+      showToast(
+        "Please generate all required letters before completing.",
+        "error",
+      );
+      return;
+    }
+
+    setIsCompleting(true);
+
+    try {
+      const idToUse = offboardingId || localStorage.getItem("offboarding_id");
+
+      // ─────────────────────────────────────────────
+      // 1) Mark letters step complete
+      // ─────────────────────────────────────────────
+      await apiClient.post(`/admin/offboarding/${idToUse}/letters/complete`);
+
+      // ─────────────────────────────────────────────
+      // 2) Refresh progress so letters step is "done"
+      // ─────────────────────────────────────────────
+      await dispatch(fetchOffboardingProgress(idToUse)).unwrap();
+
+      // ─────────────────────────────────────────────
+      // 3) Mark the whole offboarding complete
+      // ─────────────────────────────────────────────
+      await apiClient.post(`/admin/offboarding/${idToUse}/complete`);
+
+      // ─────────────────────────────────────────────
+      // 4) Refresh progress one more time (final state)
+      // ─────────────────────────────────────────────
+      await dispatch(fetchOffboardingProgress(idToUse)).unwrap();
+
+      showToast("Offboarding completed successfully!", "success");
+
+      setTimeout(() => {
+        navigate("/admin/employees/offboarding");
+      }, 1500);
+    } catch (error) {
+      console.error("Complete offboarding error:", error);
+
+      // Try to figure out which step failed so we can give a clearer message
+      const endpoint = error.config?.url || "";
+      let msg = error.response?.data?.message || error.message;
+
+      if (!msg) {
+        if (endpoint.includes("/letters/complete")) {
+          msg = "Failed to mark letters step as complete. Please try again.";
+        } else if (endpoint.includes("/complete")) {
+          msg = "Failed to complete offboarding. Please try again.";
+        } else {
+          msg = "Failed to complete offboarding. Please try again.";
+        }
+      }
+
+      showToast(msg, "error");
+    } finally {
+      setIsCompleting(false);
+    }
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "";

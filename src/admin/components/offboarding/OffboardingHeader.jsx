@@ -15,36 +15,102 @@ const STEPS = [
 const OffboardingHeader = ({ currentStep }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentProgress, currentOffboarding } = useSelector((state) => state.offboarding);
+  const { currentProgress, currentOffboarding } = useSelector(
+    (state) => state.offboarding,
+  );
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const getOffboardingId = () => {
     const urlParams = new URLSearchParams(location.search);
-    return location.state?.id || urlParams.get('id') || localStorage.getItem("offboarding_id");
+    return (
+      location.state?.id ||
+      urlParams.get("id") ||
+      localStorage.getItem("offboarding_id")
+    );
   };
-  
-  const combinedStatus = currentProgress?.status ?? currentOffboarding?.status;
-  
+
+  // ─────────────────────────────────────────────────────────────
+  // Derive the highest completed step from the progress response.
+  // Prefer the structured `steps[]` array; fall back to
+  // `current_status` string matching only if `steps` is missing.
+  // ─────────────────────────────────────────────────────────────
+  const STEP_KEY_TO_ID = {
+    initiation: 1,
+    handover: 2,
+    leave_check: 3,
+    access: 4,
+    access_removal: 4,
+    settlement: 5,
+    documentation: 6,
+    letters: 6,
+  };
+
   let apiCalculatedStep = null;
-  if (combinedStatus) {
-     if (combinedStatus === "completed" || currentProgress?.progress_percentage === 100) apiCalculatedStep = 7;
-     else if (combinedStatus.includes("initiation")) apiCalculatedStep = 1;
-     else if (combinedStatus.includes("handover")) apiCalculatedStep = 2;
-     else if (combinedStatus.includes("leave")) apiCalculatedStep = 3;
-     else if (combinedStatus.includes("access")) apiCalculatedStep = 4;
-     else if (combinedStatus.includes("settlement")) apiCalculatedStep = 5;
-     else if (combinedStatus.includes("documentation") || combinedStatus.includes("letter")) apiCalculatedStep = 6;
+
+  // 1) Structured path — use `steps[]`
+  if (
+    Array.isArray(currentProgress?.steps) &&
+    currentProgress.steps.length > 0
+  ) {
+    const completedIds = currentProgress.steps
+      .filter((s) => s.status === "completed")
+      .map((s) => STEP_KEY_TO_ID[s.key])
+      .filter(Boolean);
+
+    const inProgressId = currentProgress.steps
+      .find((s) => s.status === "in_progress");
+    const inProgressIdx = inProgressId
+      ? STEP_KEY_TO_ID[inProgressId.key]
+      : null;
+
+    if (completedIds.length > 0) {
+      // maxAllowedStep = the highest completed step + 1 (that's the step
+      // the user should be on now).
+      const maxCompleted = Math.max(...completedIds);
+      apiCalculatedStep =
+        maxCompleted >= 6 ? 7 : Math.max(maxCompleted + 1, inProgressIdx || 0);
+    } else if (inProgressIdx) {
+      apiCalculatedStep = inProgressIdx;
+    }
   }
 
-  const maxAllowedStep = apiCalculatedStep ? apiCalculatedStep : currentStep;
+  // 2) Fallback — string match on current_status
+  if (apiCalculatedStep == null) {
+    const combinedStatus =
+      currentProgress?.current_status ??   // ← FIXED: was `currentProgress.status`
+      currentOffboarding?.status ??
+      "";
+
+    if (
+      combinedStatus === "completed" ||
+      currentProgress?.progress_percentage === 100
+    ) {
+      apiCalculatedStep = 7;
+    } else if (combinedStatus.includes("initiation")) {
+      apiCalculatedStep = 1;
+    } else if (combinedStatus.includes("handover")) {
+      apiCalculatedStep = 2;
+    } else if (combinedStatus.includes("leave")) {
+      apiCalculatedStep = 3;
+    } else if (combinedStatus.includes("access")) {
+      apiCalculatedStep = 4;
+    } else if (combinedStatus.includes("settlement")) {
+      apiCalculatedStep = 5;
+    } else if (
+      combinedStatus.includes("documentation") ||
+      combinedStatus.includes("letter")
+    ) {
+      apiCalculatedStep = 6;
+    }
+  }
+
+  const maxAllowedStep = apiCalculatedStep || currentStep;
 
   // Allow clicking any step so users can view fields without filling out the previous step
   const canNavigateToStep = (stepId) => {
