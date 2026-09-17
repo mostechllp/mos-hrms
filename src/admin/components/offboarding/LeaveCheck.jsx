@@ -70,16 +70,33 @@ const LeaveCheck = () => {
 
   // ─── Hydrate form state from saved verification ────────────────
   useEffect(() => {
-    if (savedVerification) {
-      setEncashmentRequired(savedVerification.encashment_required ?? true);
-      setLeaveChecked(
-        savedVerification.leave_checked ??
-          savedVerification.leave_history_verified ??
-          false,
-      );
-      setNotes(savedVerification.notes || "");
-    }
-  }, [savedVerification]);
+  if (savedVerification) {
+    // API uses `process_for_encashment`; fall back to `encashment_required`
+    // and only then to `true` if neither key exists at all.
+    const encashment =
+      savedVerification.process_for_encashment ??
+      savedVerification.encashment_required;
+
+    setEncashmentRequired(
+      typeof encashment === "boolean" ? encashment : true,
+    );
+
+    // API uses `leave_history_verified`; fall back to `leave_checked`
+    setLeaveChecked(
+      Boolean(
+        savedVerification.leave_history_verified ??
+          savedVerification.leave_checked,
+      ),
+    );
+
+    // API uses `remarks`; fall back to `notes`
+    setNotes(
+      savedVerification.remarks ??
+        savedVerification.notes ??
+        "",
+    );
+  }
+}, [savedVerification]);
 
   // ─── Error toast ────────────────────────────────────────────────
   useEffect(() => {
