@@ -24,6 +24,7 @@ import {
   ShieldOff,
   FolderMinus,
   Trash2,
+  Play,
 } from "lucide-react";
 import { showToast } from "../../components/common/Toast";
 import { fetchEmployees } from "../store/slices/employeeSlice";
@@ -35,32 +36,49 @@ import {
 } from "../store/slices/offboardingSlice";
 
 // Helper function to get step name based on 6-stage SOP
-const getStepName = (stepKey) => {
+const getStepName = (status) => {
+  if (!status) return "Unknown";
+  const step = String(status)
+    .toLowerCase()
+    .replace(/^pending_/, "");
   const stepMap = {
     initiation: "Exit Initiation",
+    initiated: "Exit Initiation",
     handover: "Handover",
     leave_check: "Leave Check",
+    access: "Access Removal",
     access_removal: "Access Removal",
     settlement: "FnF Settlement",
     documentation: "Documentation",
+    letters: "Documentation",
+    completed: "Completed",
+    cancelled: "Cancelled",
   };
-  return stepMap[stepKey] || stepKey || "Unknown";
+  return stepMap[step] || stepMap[status.toLowerCase()] || status;
 };
 
-const getStepIcon = (stepKey) => {
-  switch (stepKey) {
+const getStepIcon = (status) => {
+  const step = String(status || "")
+    .toLowerCase()
+    .replace(/^pending_/, "");
+  switch (step) {
     case "initiation":
+    case "initiated":
       return <UserPlus size={14} />;
     case "handover":
       return <FolderMinus size={14} />;
     case "leave_check":
       return <Calendar size={14} />;
+    case "access":
     case "access_removal":
       return <ShieldOff size={14} />;
     case "settlement":
       return <DollarSign size={14} />;
     case "documentation":
+    case "letters":
       return <FileText size={14} />;
+    case "completed":
+      return <CheckCircle2 size={14} />;
     default:
       return <Clock size={14} />;
   }
@@ -83,7 +101,6 @@ const OffboardingDashboard = () => {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [selectedOffboarding, setSelectedOffboarding] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  
 
   const { offboardings, loading: offboardingLoading } = useSelector(
     (state) => state.offboarding,
@@ -180,7 +197,11 @@ const OffboardingDashboard = () => {
           lastDay: off.last_working_day,
           status: off.status,
           currentStep: off.current_step || "initiation",
-          progressPercentage: progress?.progress_percentage || 0,
+          progressPercentage:
+            progress?.progress_percentage ??
+            (progress?.completed_steps && progress?.total_steps
+              ? (progress.completed_steps / progress.total_steps) * 100
+              : 0),
           completedSteps: progress?.completed_steps || 0,
           totalSteps: 6, // Updated to 6
         };
@@ -190,6 +211,13 @@ const OffboardingDashboard = () => {
       setLoading(false);
     }
   }, [offboardings, offboardingLoading, employeeMap, progressData]);
+
+  const getStatusLabel = (status) => {
+    if (!status) return "In Progress";
+    return String(status)
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
 
   const handleDeleteClick = (item) => {
     setSelectedOffboarding(item);
@@ -267,9 +295,14 @@ const OffboardingDashboard = () => {
   ];
 
   const getStatusColor = (status) => {
-    if (status === "completed")
+    const s = String(status || "").toLowerCase();
+    if (s === "completed")
       return "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400";
-    if (status === "initiated")
+    if (s === "cancelled")
+      return "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400";
+    if (s.startsWith("pending_"))
+      return "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400";
+    if (s === "initiated" || s === "initiation")
       return "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400";
     return "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400";
   };
@@ -284,24 +317,31 @@ const OffboardingDashboard = () => {
   };
 
   const handleContinue = (offboarding) => {
-    const step = offboarding.currentStep;
-    if (step === "initiation" || step === "initiated") {
-      navigate(`/admin/employees/offboarding-initiation?id=${offboarding.id}`);
-    } else if (step === "handover") {
-      navigate(`/admin/employees/offboarding/handover?id=${offboarding.id}`);
-    } else if (step === "leave_check") {
-      navigate(`/admin/employees/offboarding/leave-check?id=${offboarding.id}`);
-    } else if (step === "access_removal") {
-      navigate(
-        `/admin/employees/offboarding/access-removal?id=${offboarding.id}`,
-      );
-    } else if (step === "settlement") {
-      navigate(`/admin/employees/final-settlement?id=${offboarding.id}`);
-    } else if (step === "documentation") {
-      navigate(`/admin/employees/letters-and-clearance?id=${offboarding.id}`);
-    } else {
-      navigate(`/admin/employees/offboarding-initiation?id=${offboarding.id}`);
-    }
+    const raw = (offboarding.status || "").toLowerCase();
+
+    // Normalise: status comes in as "pending_access" / "pending_handover" etc.,
+    // and can also be "initiated" / "completed" / "cancelled".
+    // Strip the "pending_" prefix so all we match on is the step name.
+    const step = raw.replace(/^pending_/, "");
+
+    const routes = {
+      initiation: `/admin/employees/offboarding-initiation?id=${offboarding.id}`,
+      initiated: `/admin/employees/offboarding-initiation?id=${offboarding.id}`,
+      handover: `/admin/employees/offboarding/handover?id=${offboarding.id}`,
+      leave_check: `/admin/employees/offboarding/leave-check?id=${offboarding.id}`,
+      access: `/admin/employees/offboarding/access-removal?id=${offboarding.id}`,
+      access_removal: `/admin/employees/offboarding/access-removal?id=${offboarding.id}`,
+      settlement: `/admin/employees/final-settlement?id=${offboarding.id}`,
+      documentation: `/admin/employees/letters-and-clearance?id=${offboarding.id}`,
+      letters: `/admin/employees/letters-and-clearance?id=${offboarding.id}`,
+    };
+
+    const target =
+      routes[step] ||
+      routes[raw] ||
+      `/admin/employees/offboarding-initiation?id=${offboarding.id}`;
+
+    navigate(target);
   };
 
   if (loading || offboardingLoading) {
@@ -420,8 +460,7 @@ const OffboardingDashboard = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                        {getStepIcon(item.currentStep)}{" "}
-                        {getStepName(item.currentStep)}
+                        {getStepIcon(item.status)} {getStepName(item.status)}
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -429,7 +468,7 @@ const OffboardingDashboard = () => {
                         <div
                           className="h-full bg-green-500"
                           style={{
-                            width: `${(item.completedSteps / item.totalSteps) * 100}%`,
+                            width: `${item.progressPercentage ?? (item.completedSteps / item.totalSteps) * 100}%`,
                           }}
                         />
                       </div>
@@ -438,7 +477,7 @@ const OffboardingDashboard = () => {
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(item.status)}`}
                       >
-                        {item.status || "In Progress"}
+                        {getStatusLabel(item.status)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -446,8 +485,9 @@ const OffboardingDashboard = () => {
                         <button
                           onClick={() => handleContinue(item)}
                           className="text-sm font-semibold text-green-600 hover:text-green-700"
+                          title="continue"
                         >
-                          Continue
+                          <Play/>
                         </button>
                         {item.status !== "completed" && (
                           <button
