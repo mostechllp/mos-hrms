@@ -161,6 +161,59 @@ export const deleteOffboarding = createAsyncThunk(
   },
 );
 
+// Fetch Handover - GET /admin/offboarding/{id}/handover
+export const fetchHandover = createAsyncThunk(
+  "offboarding/fetchHandover",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(`/admin/offboarding/${id}/handover`);
+
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
+        return response.data.data;
+      }
+      return rejectWithValue(
+        response.data?.message || "Failed to fetch handover",
+      );
+    } catch (error) {
+      console.error("Fetch handover error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch handover",
+      );
+    }
+  },
+);
+
+// Update Handover - POST /admin/offboarding/{id}/handover
+export const updateHandover = createAsyncThunk(
+  "offboarding/updateHandover",
+  async ({ id, data }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post(
+        `/admin/offboarding/${id}/handover`,
+        data,
+      );
+
+      if (
+        response.data &&
+        (response.data.status === "success" || response.data.success === true)
+      ) {
+        return response.data.data ? { id, ...response.data.data } : { id };
+      }
+      return rejectWithValue(
+        response.data?.message || "Failed to update handover",
+      );
+    } catch (error) {
+      console.error("Update handover error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update handover",
+      );
+    }
+  },
+);
+
 // Save Handover - POST /admin/offboarding/save-handover
 export const saveHandover = createAsyncThunk(
   "offboarding/saveHandover",
@@ -658,9 +711,10 @@ const initialState = {
   currentOffboarding: null,
   currentProgress: null,
   leaveVerification: null,
-  accessRemoval: null, 
-  settlement: null,         
+  accessRemoval: null,
+  settlement: null,
   calculatedSettlement: null,
+  handover: null,
   currentStep: 1,
   loading: false,
   error: null,
@@ -712,6 +766,10 @@ const offboardingSlice = createSlice({
       state.currentOffboarding = null;
       state.currentProgress = null;
       state.leaveVerification = null;
+      state.accessRemoval = null;
+      state.settlement = null;
+      state.calculatedSettlement = null;
+      state.handover = null;
       state.currentStep = 1;
     },
     clearError: (state) => {
@@ -765,17 +823,19 @@ const offboardingSlice = createSlice({
         state.currentPage = apiData.current_page || 1;
         state.perPage = apiData.per_page || 10;
 
+        const list = state.offboardings;
+        const isInProgress = (s) =>
+          typeof s === "string" &&
+          (s.startsWith("pending_") ||
+            s === "in-progress" ||
+            s === "in_progress");
+
         state.stats = {
-          total: state.offboardings.length,
-          initiated: state.offboardings.filter((o) => o.status === "initiated")
-            .length,
-          inProgress: state.offboardings.filter(
-            (o) => o.status === "in-progress" || o.status === "in_progress",
-          ).length,
-          completed: state.offboardings.filter((o) => o.status === "completed")
-            .length,
-          cancelled: state.offboardings.filter((o) => o.status === "cancelled")
-            .length,
+          total: list.length,
+          initiated: list.filter((o) => o.status === "initiated").length,
+          inProgress: list.filter((o) => isInProgress(o.status)).length,
+          completed: list.filter((o) => o.status === "completed").length,
+          cancelled: list.filter((o) => o.status === "cancelled").length,
         };
       })
       .addCase(fetchAllOffboarding.rejected, (state, action) => {
@@ -792,16 +852,27 @@ const offboardingSlice = createSlice({
         state.loading = false;
         state.currentOffboarding = action.payload;
 
+        // Normalise: strip "pending_" prefix so the same map handles
+        // both "handover" and "pending_handover".
+        const raw = (action.payload.current_step || action.payload.status || "")
+          .toString()
+          .toLowerCase()
+          .replace(/^pending_/, "");
+
         const stepMap = {
           initiation: 1,
-          visa_cancellation: 2,
-          checklist: 3,
-          assets: 4,
-          exit_interview: 5,
-          settlement: 6,
-          letters: 7,
+          initiated: 1,
+          handover: 2,
+          leave_check: 3,
+          access: 4,
+          access_removal: 4,
+          settlement: 5,
+          documentation: 6,
+          letters: 6,
+          completed: 7,
         };
-        state.currentStep = stepMap[action.payload.current_step] || 1;
+
+        state.currentStep = stepMap[raw] || 1;
       })
       .addCase(fetchOffboardingById.rejected, (state, action) => {
         state.loading = false;
@@ -872,7 +943,7 @@ const offboardingSlice = createSlice({
       })
 
       // Update Settlement
-            // Update Settlement
+      // Update Settlement
       .addCase(updateSettlement.fulfilled, (state, action) => {
         if (
           state.currentOffboarding &&
@@ -959,20 +1030,56 @@ const offboardingSlice = createSlice({
           state.currentProgress = null;
         }
 
+        const list = state.offboardings;
+        const isInProgress = (s) =>
+          typeof s === "string" &&
+          (s.startsWith("pending_") ||
+            s === "in-progress" ||
+            s === "in_progress");
+
         state.stats = {
-          total: state.offboardings.length,
-          initiated: state.offboardings.filter((o) => o.status === "initiated")
-            .length,
-          inProgress: state.offboardings.filter(
-            (o) => o.status === "in-progress" || o.status === "in_progress",
-          ).length,
-          completed: state.offboardings.filter((o) => o.status === "completed")
-            .length,
-          cancelled: state.offboardings.filter((o) => o.status === "cancelled")
-            .length,
+          total: list.length,
+          initiated: list.filter((o) => o.status === "initiated").length,
+          inProgress: list.filter((o) => isInProgress(o.status)).length,
+          completed: list.filter((o) => o.status === "completed").length,
+          cancelled: list.filter((o) => o.status === "cancelled").length,
         };
       })
       .addCase(deleteOffboarding.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Fetch Handover
+      .addCase(fetchHandover.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchHandover.fulfilled, (state, action) => {
+        state.loading = false;
+        state.handover = action.payload || null;
+      })
+      .addCase(fetchHandover.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Update Handover
+      .addCase(updateHandover.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateHandover.fulfilled, (state, action) => {
+        state.loading = false;
+        state.handover = action.payload;
+        if (
+          state.currentOffboarding &&
+          state.currentOffboarding.id === action.payload.id
+        ) {
+          state.currentOffboarding.handover = action.payload;
+        }
+      })
+      .addCase(updateHandover.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -1008,7 +1115,7 @@ const offboardingSlice = createSlice({
       .addCase(saveLeaveVerification.fulfilled, (state, action) => {
         state.leaveVerification = action.payload;
       })
-            // Save Access Removal
+      // Save Access Removal
       .addCase(saveAccessRemoval.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -1040,7 +1147,7 @@ const offboardingSlice = createSlice({
       .addCase(updateAccessRemoval.fulfilled, (state, action) => {
         state.accessRemoval = action.payload;
       })
-            // Fetch Settlement
+      // Fetch Settlement
       .addCase(fetchSettlement.pending, (state) => {
         state.loading = true;
         state.error = null;

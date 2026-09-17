@@ -56,6 +56,9 @@ const Warnings = () => {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
+  const [confirmEmailOpen, setConfirmEmailOpen] = useState(false);
+  const [pendingEmailWarning, setPendingEmailWarning] = useState(null);
+
   const { currentWarning } = useSelector((state) => state.warnings);
 
   // Initial + reactive fetch
@@ -111,6 +114,27 @@ const Warnings = () => {
     const val = e.target.value;
     setEmployeeFilter(val);
     dispatch(setFilters({ employeeId: val || null }));
+  };
+
+  // Triggered by the mail icon / modal button — opens confirmation
+  const handleSendEmailClick = (w) => {
+    closeDetails();
+    setPendingEmailWarning(w);
+    setConfirmEmailOpen(true);
+  };
+
+  // Actually fires the send after user confirms
+  const handleConfirmSendEmail = async () => {
+    if (!pendingEmailWarning) return;
+    try {
+      await dispatch(sendWarningEmail(pendingEmailWarning.id)).unwrap();
+      showToast("Warning email sent successfully", "success");
+      setConfirmEmailOpen(false);
+      setPendingEmailWarning(null);
+    } catch (error) {
+      showToast(error || "Failed to send warning email", "error");
+      // Keep the modal open so the user can retry
+    }
   };
 
   const openCreate = () => {
@@ -328,7 +352,7 @@ const Warnings = () => {
                           <Pencil size={14} />
                         </button>
                         <button
-                          onClick={() => handleSendEmail(w)}
+                          onClick={() => handleSendEmailClick(w)}
                           disabled={sendingEmailId === w.id}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-indigo-500 transition-colors disabled:opacity-50"
                           title={isEmailSent(w) ? "Resend email" : "Send email"}
@@ -548,9 +572,7 @@ const Warnings = () => {
                 Close
               </button>
               <button
-                onClick={() => {
-                  handleSendEmail(currentWarning);
-                }}
+                onClick={() => handleSendEmailClick(currentWarning)}
                 disabled={sendingEmailId === currentWarning.id}
                 className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
@@ -575,6 +597,30 @@ const Warnings = () => {
         confirmText="Delete"
         loading={submitting}
         variant="danger"
+      />
+      {/* Send email confirmation */}
+      <ConfirmModal
+        isOpen={confirmEmailOpen}
+        onClose={() => {
+          setConfirmEmailOpen(false);
+          setPendingEmailWarning(null);
+        }}
+        onConfirm={handleConfirmSendEmail}
+        title={
+          isEmailSent(pendingEmailWarning)
+            ? "Resend Warning Email"
+            : "Send Warning Email"
+        }
+        message={
+          pendingEmailWarning
+            ? isEmailSent(pendingEmailWarning)
+              ? `Are you sure you want to resend the warning "${pendingEmailWarning.title}" to ${getEmployeeName(pendingEmailWarning)}? The previous email was already sent.`
+              : `Are you sure you want to send the warning "${pendingEmailWarning.title}" to ${getEmployeeName(pendingEmailWarning)}?`
+            : ""
+        }
+        confirmText={isEmailSent(pendingEmailWarning) ? "Resend" : "Send"}
+        loading={sendingEmailId === pendingEmailWarning?.id}
+        variant="success"
       />
     </div>
   );
