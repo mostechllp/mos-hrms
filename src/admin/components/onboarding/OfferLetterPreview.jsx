@@ -16,6 +16,21 @@ import {
 } from "../../store/slices/onboardingSlice";
 import jsPDF from "jspdf";
 
+// Accent color used for the header rule under the logo (PDF + print)
+const ACCENT_COLOR = "#020c4d";
+
+// Convert "#020c4d" → [2, 12, 77] for jsPDF's setDrawColor
+const hexToRgbArray = (hex) => {
+  const h = String(hex).trim().replace("#", "");
+  const full =
+    h.length === 3
+      ? h.split("").map((c) => c + c).join("")
+      : h.padEnd(6, "0").slice(0, 6);
+  const num = parseInt(full, 16);
+  if (isNaN(num)) return [2, 12, 77];
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+};
+
 const OfferLetterPreview = () => {
   const dispatch = useDispatch();
 
@@ -142,8 +157,6 @@ const OfferLetterPreview = () => {
   };
 
   // ── Generate the FULL multi-page offer letter content ──
-  // Page 1: main offer letter
-  // Pages 2+: annexures (A through L)
   const generateContent = ({
     empName,
     designation,
@@ -155,7 +168,6 @@ const OfferLetterPreview = () => {
     department,
   }) => {
     const today = new Date().toLocaleDateString("en-GB");
-    const joinDateShort = formatDate(joiningDate) || "[Joining Date]";
     const joinDateLong = formatDateLong(joiningDate) || "[Joining Date]";
 
     const basic = Number(basicSalary) || 0;
@@ -525,6 +537,9 @@ ANNEXURES
   const downloadPDF = async () => {
     setIsGenerating(true);
     try {
+      // #020c4d → [2, 12, 77] for jsPDF
+      const [r, g, b] = hexToRgbArray(ACCENT_COLOR);
+
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -539,8 +554,6 @@ ANNEXURES
       const lineHeight = 6.2;
 
       const logo = await loadLogoDataUrl();
-
-      let isFirstPage = true;
 
       // Helper: draw header (logo + title + rule) on the current page
       const drawHeader = (compact = false) => {
@@ -582,8 +595,9 @@ ANNEXURES
           { align: "center" },
         );
 
+        // ── Accent rule under logo — #020c4d ──
         const ruleY = titleY + 9;
-        doc.setDrawColor(46, 204, 113);
+        doc.setDrawColor(r, g, b);
         doc.setLineWidth(0.8);
         doc.line(margin, ruleY, pageWidth - margin, ruleY);
 
@@ -593,16 +607,12 @@ ANNEXURES
       let y = drawHeader(false);
 
       // ── Split content into logical blocks ──
-      // A "block" = a heading or a paragraph line.
-      // We keep headings with the first following paragraph to avoid orphans.
       const lines = content.split("\n");
 
       const isHeading = (line) => {
         const t = line.trim();
         if (!t) return false;
-        // Markdown-style headings
         if (/^#{1,6}\s+/.test(t)) return true;
-        // ALL-CAPS lines longer than 3 chars
         if (t === t.toUpperCase() && t.length > 3 && /[A-Z]/.test(t)) {
           return true;
         }
@@ -616,32 +626,25 @@ ANNEXURES
         const raw = lines[i];
         const line = raw.trim();
 
-        // Explicit page break
         if (isPageBreak(raw)) {
           doc.addPage();
-          isFirstPage = false;
           y = drawHeader(true);
           i++;
           continue;
         }
 
-        // Blank line → small spacing
         if (!line) {
           y += 3;
           i++;
           continue;
         }
 
-        // Handle heading
         if (isHeading(raw)) {
-          // Convert markdown heading to plain text
           let text = line.replace(/^#{1,6}\s+/, "");
           const level = (raw.match(/^(#{1,6})/) || [, "##"])[1].length;
 
-          // If not enough room for heading + at least 2 lines, page break
           if (y > bottomLimit - lineHeight * 3) {
             doc.addPage();
-            isFirstPage = false;
             y = drawHeader(true);
           }
 
@@ -663,12 +666,10 @@ ANNEXURES
           continue;
         }
 
-        // Regular paragraph — split to width
         const wrapped = doc.splitTextToSize(line, maxLineWidth);
         wrapped.forEach((wl) => {
           if (y > bottomLimit) {
             doc.addPage();
-            isFirstPage = false;
             y = drawHeader(true);
           }
           doc.text(wl, margin, y);
@@ -701,7 +702,6 @@ ANNEXURES
 
     const doc = iframe.contentDocument || iframe.contentWindow.document;
 
-    // Convert the markdown-ish content into HTML paragraphs & headings
     const html = content
       .split("\n")
       .map((line) => {
@@ -710,7 +710,6 @@ ANNEXURES
         if (trimmed === "--- PAGE BREAK ---")
           return `<div style="page-break-after: always;"></div>`;
 
-        // Markdown headings
         const md = trimmed.match(/^(#{1,6})\s+(.*)$/);
         if (md) {
           const level = md[1].length;
@@ -719,7 +718,6 @@ ANNEXURES
           return `<h${level} style="margin: 18px 0 8px; font-size: ${size}px; font-weight: 700; color: #1f2937;">${text}</h${level}>`;
         }
 
-        // ALL-CAPS headings
         if (
           trimmed === trimmed.toUpperCase() &&
           trimmed.length > 3 &&
@@ -728,7 +726,6 @@ ANNEXURES
           return `<h3 style="margin: 18px 0 8px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: #1f2937;">${trimmed}</h3>`;
         }
 
-        // Bullets
         if (/^[-*]\s+/.test(trimmed)) {
           const text = trimmed.replace(/^[-*]\s+/, "");
           return `<li style="margin: 0 0 6px; line-height: 1.6; font-size: 13.5px; color: #1f2937;">${text}</li>`;
@@ -752,7 +749,7 @@ ANNEXURES
             }
             .letterhead {
               text-align: center;
-              border-bottom: 2px solid #2ecc71;
+              border-bottom: 2px solid ${ACCENT_COLOR};
               padding-bottom: 14px;
               margin-bottom: 24px;
             }
