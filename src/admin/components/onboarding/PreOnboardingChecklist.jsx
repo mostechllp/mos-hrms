@@ -1,26 +1,81 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   FiChevronLeft,
   FiChevronRight,
   FiCheckSquare,
-  FiSquare,
   FiList,
   FiCheckCircle,
+  FiSave,
 } from "react-icons/fi";
 import {
   setStep,
   updatePreOnboardingChecklist,
+  fetchChecklist,
+  saveChecklist,
+  fetchOnboardingProgress, // <── ADD
 } from "../../store/slices/onboardingSlice";
+import { showToast } from "../../components/common/Toast";
 import DateInput from "../common/DateInput";
 
 const PreOnboardingChecklist = () => {
   const dispatch = useDispatch();
-  const checklist =
-    useSelector((state) => state.onboarding?.preOnboardingChecklist) || {};
+  const { id: routeId } = useParams();
+  const [searchParams] = useSearchParams();
+  const queryId = searchParams.get("id");
 
-  const handleNext = () => {
-    dispatch(setStep(7));
+  const onboardingState = useSelector((state) => state.onboarding) || {};
+  const {
+    preOnboardingChecklist: checklist = {},
+    employeeDetails = {},
+    checklistSaving = false,
+    checklistLoading = false,
+  } = onboardingState;
+
+  // ── Resolve user id (same chain as other steps) ──
+  const storedUserId = (() => {
+    try {
+      return localStorage.getItem("onboarding_user_id");
+    } catch (_) {
+      return null;
+    }
+  })();
+
+  const resolvedUserId =
+    routeId ||
+    queryId ||
+    employeeDetails?.userId ||
+    storedUserId ||
+    null;
+
+  // ── Fetch checklist on mount ──
+  useEffect(() => {
+    if (!resolvedUserId) return;
+    dispatch(fetchChecklist(resolvedUserId));
+  }, [dispatch, resolvedUserId]);
+
+  const handleNext = async () => {
+    if (!resolvedUserId) {
+      showToast("Missing user id — cannot save checklist", "error");
+      return;
+    }
+    try {
+      await dispatch(
+        saveChecklist({
+          userId: resolvedUserId,
+          data: checklist,
+        }),
+      ).unwrap();
+
+      // ── Refresh onboarding progress ──
+      dispatch(fetchOnboardingProgress(resolvedUserId));
+
+      showToast("Checklist saved successfully!", "success");
+      dispatch(setStep(7));
+    } catch (err) {
+      showToast(err || "Failed to save checklist", "error");
+    }
   };
 
   const handleBack = () => {
@@ -65,12 +120,20 @@ const PreOnboardingChecklist = () => {
       onClick={onChange}
     >
       <div
-        className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors ${checked ? "bg-green-500 text-white border-green-500" : "border-2 border-gray-300 dark:border-gray-600"}`}
+        className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
+          checked
+            ? "bg-green-500 text-white border-green-500"
+            : "border-2 border-gray-300 dark:border-gray-600"
+        }`}
       >
         {checked && <FiCheckSquare size={16} />}
       </div>
       <span
-        className={`text-sm font-medium ${checked ? "text-gray-900 dark:text-white" : "text-gray-600 dark:text-gray-400"}`}
+        className={`text-sm font-medium ${
+          checked
+            ? "text-gray-900 dark:text-white"
+            : "text-gray-600 dark:text-gray-400"
+        }`}
       >
         {label}
       </span>
@@ -456,9 +519,18 @@ const PreOnboardingChecklist = () => {
 
           <button
             onClick={handleNext}
-            className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-semibold transition-all shadow-md hover:shadow-lg"
+            disabled={checklistSaving || checklistLoading}
+            className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Continue to Review <FiChevronRight />
+            {checklistSaving ? (
+              <>
+                <FiSave className="animate-pulse" /> Saving...
+              </>
+            ) : (
+              <>
+                Save & Continue <FiChevronRight />
+              </>
+            )}
           </button>
         </div>
       </div>
