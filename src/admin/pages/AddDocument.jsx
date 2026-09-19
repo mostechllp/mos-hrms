@@ -1,5 +1,10 @@
-import { useState, useRef, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect, useMemo } from "react";
+import {
+  Link,
+  useNavigate,
+  useLocation,
+  useSearchParams,
+} from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { showToast } from "../../components/common/Toast";
 import {
@@ -12,9 +17,56 @@ import { clearError } from "../store/slices/authSlice";
 import AddFolderModal from "../components/documents/AddFolderModal";
 import DateInput from "../components/common/DateInput";
 
+// ───────────────────────────────────────────────────────────────
+// Build a nested tree from the flat folders list.
+// Each node: { id, name, parent_id, children: [] }
+// ───────────────────────────────────────────────────────────────
+const buildFolderTree = (folders) => {
+  const byId = new Map();
+  folders.forEach((f) =>
+    byId.set(f.id, { ...f, children: [] }),
+  );
+
+  const roots = [];
+  folders.forEach((f) => {
+    const node = byId.get(f.id);
+    if (f.parent_id == null) {
+      roots.push(node);
+    } else {
+      const parent = byId.get(f.parent_id);
+      if (parent) parent.children.push(node);
+      else roots.push(node); // orphan — treat as root
+    }
+  });
+
+  // Sort alphabetically at every level for consistency
+  const sortRec = (nodes) => {
+    nodes.sort((a, b) => a.name.localeCompare(b.name));
+    nodes.forEach((n) => sortRec(n.children));
+  };
+  sortRec(roots);
+
+  return roots;
+};
+
+// Flatten a tree into indented rows for the dropdown
+const flattenTree = (nodes, depth = 0, acc = []) => {
+  nodes.forEach((node) => {
+    acc.push({ ...node, depth });
+    flattenTree(node.children, depth + 1, acc);
+  });
+  return acc;
+};
+
 const AddDocument = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const basePath = location.pathname.split("/")[1] || "admin";
+  const preselectedFolderId = searchParams.get("folder_id");
+
   const {
     shareableUsers = [],
     folders = [],
@@ -23,21 +75,25 @@ const AddDocument = () => {
   } = useSelector(
     (state) => state.documents || { shareableUsers: [], folders: [] },
   );
+
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedShareWith, setSelectedShareWith] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showFolderDropdown, setShowFolderDropdown] = useState(false);
   const fileInputRef = useRef(null);
   const dropdownRef = useRef(null);
+  const folderDropdownRef = useRef(null);
 
   // Modal states
   const [showFolderModal, setShowFolderModal] = useState(false);
+  const [folderModalParentId, setFolderModalParentId] = useState(null);
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     type: "",
-    folder_id: null,
+    folder_id: preselectedFolderId ? preselectedFolderId : null,
     expiry_date: "",
   });
 
@@ -46,6 +102,14 @@ const AddDocument = () => {
     dispatch(fetchDocumentFolders());
     dispatch(fetchParties());
   }, [dispatch]);
+
+  // Apply preselected folder once folders load
+  useEffect(() => {
+    if (preselectedFolderId && folders.length > 0 && !formData.folder_id) {
+      setFormData((prev) => ({ ...prev, folder_id: preselectedFolderId }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedFolderId, folders]);
 
   useEffect(() => {
     if (error) {
@@ -56,11 +120,7 @@ const AddDocument = () => {
 
   const handleChange = (e) => {
     const { id, value } = e.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [id]: id === "folder_id" ? Number(value) : value,
-    }));
+    setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
   const handleFileSelect = (e) => {
@@ -73,7 +133,10 @@ const AddDocument = () => {
       }
       setSelectedFile(file);
       if (!formData.name) {
-        setFormData({ ...formData, name: file.name.replace(/\.[^/.]+$/, "") });
+        setFormData((prev) => ({
+          ...prev,
+          name: file.name.replace(/\.[^/.]+$/, ""),
+        }));
       }
     }
   };
@@ -111,7 +174,10 @@ const AddDocument = () => {
       }
       setSelectedFile(file);
       if (!formData.name) {
-        setFormData({ ...formData, name: file.name.replace(/\.[^/.]+$/, "") });
+        setFormData((prev) => ({
+          ...prev,
+          name: file.name.replace(/\.[^/.]+$/, ""),
+        }));
       }
     }
   };
@@ -135,16 +201,23 @@ const AddDocument = () => {
   };
 
   const handleFolderAdded = (newFolder) => {
-    if (newFolder.id) {
-      setFormData({ ...formData, folder_id: newFolder.id });
+    if (newFolder?.id) {
+      setFormData((prev) => ({ ...prev, folder_id: newFolder.id }));
     }
-    dispatch(fetchDocumentFolders()); // Refresh folders list
+    dispatch(fetchDocumentFolders());
   };
 
+  // Close both dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
+      }
+      if (
+        folderDropdownRef.current &&
+        !folderDropdownRef.current.contains(event.target)
+      ) {
+        setShowFolderDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -193,22 +266,30 @@ const AddDocument = () => {
         "success",
       );
       setTimeout(() => {
-        navigate("/admin/agreements");
+        navigate(`/${basePath}/documents`);
       }, 1200);
     } else {
       showToast(result.payload || "Failed to upload document", "error");
     }
   };
 
+  // Build tree and flattened rows for the folder dropdown
+  const folderRows = useMemo(
+    () => flattenTree(buildFolderTree(folders)),
+    [folders],
+  );
+
+  const selectedFolder = folders.find(
+    (f) => String(f.id) === String(formData.folder_id),
+  );
+
   return (
-    // Remove the outer div with Sidebar and flex layout
-    // Just return the main content directly
     <div className="w-full overflow-x-hidden">
       <div className="max-w-4xl mx-auto w-full">
         {/* Breadcrumbs */}
         <div className="flex items-center gap-2 text-xs md:text-sm mb-4 md:mb-6 flex-wrap">
           <Link
-            to="/admin/agreements"
+            to={`/${basePath}/documents`}
             className="text-green-500 hover:text-green-600 font-medium"
           >
             Documents
@@ -298,6 +379,7 @@ const AddDocument = () => {
               </div>
 
               <div className="space-y-4 md:space-y-5">
+                {/* Document Name */}
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                     <i className="fas fa-tag text-green-500 mr-1"></i> Document
@@ -314,6 +396,7 @@ const AddDocument = () => {
                   />
                 </div>
 
+                {/* Document Type */}
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                     <i className="fas fa-tag text-green-500 mr-1"></i> Document
@@ -339,6 +422,7 @@ const AddDocument = () => {
                   </div>
                 </div>
 
+                {/* Description */}
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                     <i className="fas fa-align-left text-green-500 mr-1"></i>{" "}
@@ -354,6 +438,7 @@ const AddDocument = () => {
                   ></textarea>
                 </div>
 
+                {/* Share With */}
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                     <i className="fas fa-share-alt text-green-500 mr-1"></i>{" "}
@@ -401,7 +486,6 @@ const AddDocument = () => {
 
                     {showDropdown && (
                       <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-soft-lg z-10 max-h-80 overflow-y-auto">
-                        {/* Shareable Users Section */}
                         {shareableUsers.length > 0 && (
                           <div>
                             <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50">
@@ -440,44 +524,135 @@ const AddDocument = () => {
                   </div>
                 </div>
 
+                {/* Folder + Expiry Date */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                  {/* ─── Custom Folder Dropdown ─── */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-folder text-green-500 mr-1"></i>{" "}
                       Folder <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative">
-                      <select
-                        id="folder_id"
-                        value={formData.folder_id}
-                        onChange={handleChange}
-                        className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 appearance-none pr-10"
-                        required
+                    <div className="relative" ref={folderDropdownRef}>
+                      {/* Trigger */}
+                      <div
+                        onClick={() => setShowFolderDropdown((v) => !v)}
+                        className="flex items-center justify-between w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base cursor-pointer hover:border-green-500 transition-colors"
                       >
-                        <option value="">Select Folder</option>
-                        {folders.length > 0 ? (
-                          folders.map((folder) => (
-                            <option key={folder.id} value={folder.id}>
-                              {folder.name}
-                            </option>
-                          ))
-                        ) : (
-                          <option value="">Select Folder</option>
-                        )}
-                      </select>
+                        <span
+                          className={
+                            selectedFolder
+                              ? "text-gray-800 dark:text-gray-200 truncate"
+                              : "text-gray-500 dark:text-gray-400"
+                          }
+                        >
+                          {selectedFolder ? (
+                            <>
+                              <i className="fas fa-folder text-amber-500 mr-2"></i>
+                              {selectedFolder.full_path || selectedFolder.name}
+                            </>
+                          ) : folderRows.length === 0 ? (
+                            "No folders yet — click + to create one"
+                          ) : (
+                            "Select Folder"
+                          )}
+                        </span>
+                        <i
+                          className={`fas fa-chevron-down text-gray-400 text-xs md:text-sm transition-transform ml-2 flex-shrink-0 ${
+                            showFolderDropdown ? "rotate-180" : ""
+                          }`}
+                        ></i>
+                      </div>
 
-                      {/* Add Folder Button */}
+                      {/* Add folder button — kept separate so it doesn't open dropdown */}
                       <button
                         type="button"
-                        onClick={() => setShowFolderModal(true)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 hover:text-green-600"
-                        title="Create New Folder"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFolderModalParentId(formData.folder_id || null);
+                          setShowFolderModal(true);
+                        }}
+                        className="absolute right-10 top-1/2 -translate-y-1/2 text-green-500 hover:text-green-600"
+                        title={
+                          formData.folder_id
+                            ? "Create subfolder inside selected folder"
+                            : "Create new folder"
+                        }
                       >
                         <i className="fas fa-plus-circle text-lg"></i>
                       </button>
+
+                      {/* Dropdown panel */}
+                      {showFolderDropdown && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-soft-lg z-20 max-h-72 overflow-y-auto">
+                          {folderRows.length === 0 ? (
+                            <div className="px-4 py-6 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                              <i className="fas fa-folder-open text-2xl mb-2 block text-gray-300"></i>
+                              No folders yet. Click the{" "}
+                              <span className="text-green-500 font-semibold">
+                                +
+                              </span>{" "}
+                              button to create one.
+                            </div>
+                          ) : (
+                            folderRows.map((row) => {
+                              const isSelected =
+                                String(formData.folder_id) === String(row.id);
+                              const isRoot = row.depth === 0;
+
+                              return (
+                                <div
+                                  key={row.id}
+                                  onClick={() => {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      folder_id: row.id,
+                                    }));
+                                    setShowFolderDropdown(false);
+                                  }}
+                                  className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
+                                    isSelected
+                                      ? "bg-green-50 dark:bg-green-900/20"
+                                      : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                  }`}
+                                  style={{
+                                    paddingLeft: `${12 + row.depth * 20}px`,
+                                  }}
+                                >
+                                  {/* Tree connector for subfolders */}
+                                  {!isRoot && (
+                                    <span className="text-gray-300 dark:text-gray-600 select-none text-xs">
+                                      └
+                                    </span>
+                                  )}
+                                  <i
+                                    className={`${
+                                      isRoot
+                                        ? "fas fa-folder text-amber-500"
+                                        : "fas fa-folder-open text-amber-400"
+                                    } text-sm`}
+                                  ></i>
+                                  <span
+                                    className={`flex-1 truncate text-xs md:text-sm ${
+                                      isRoot
+                                        ? "font-semibold text-gray-800 dark:text-gray-200"
+                                        : "text-gray-600 dark:text-gray-400"
+                                    }`}
+                                  >
+                                    {row.name}
+                                  </span>
+                                  {isSelected && (
+                                    <i className="fas fa-check text-green-500 text-xs"></i>
+                                  )}
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
+                  {/* Expiry Date */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-calendar-times text-green-500 mr-1"></i>{" "}
@@ -500,7 +675,7 @@ const AddDocument = () => {
             {/* Form Actions */}
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 md:pt-6 border-t border-gray-200 dark:border-gray-700">
               <Link
-                to="/admin/agreements"
+                to={`/${basePath}/documents`}
                 className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
               >
                 <i className="fas fa-times text-xs md:text-sm"></i>
@@ -528,11 +703,15 @@ const AddDocument = () => {
         </div>
       </div>
 
-      {/* Modals */}
+      {/* Modal */}
       <AddFolderModal
         isOpen={showFolderModal}
-        onClose={() => setShowFolderModal(false)}
+        onClose={() => {
+          setShowFolderModal(false);
+          setFolderModalParentId(null);
+        }}
         onFolderAdded={handleFolderAdded}
+        parentId={folderModalParentId}
       />
     </div>
   );

@@ -10,6 +10,7 @@ import {
   Trash2,
   Mail,
   AlertTriangle,
+  Paperclip,
 } from "lucide-react";
 import { showToast } from "../../components/common/Toast";
 import Pagination from "../components/common/Paginations";
@@ -106,6 +107,18 @@ const Warnings = () => {
     if (avatar.startsWith("http")) return avatar;
     const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
     return `${baseUrl}/storage/${avatar}`;
+  };
+
+  const getAttachmentUrl = (path) => {
+    if (!path) return "";
+    if (String(path).startsWith("http")) return path;
+    const baseUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
+    return `${baseUrl}/storage/${path}`;
+  };
+
+  const getAttachmentName = (path) => {
+    if (!path) return "";
+    return String(path).split("/").pop();
   };
 
   const isEmailSent = (w) => Boolean(w?.email_sent_at) || w?.status === "sent";
@@ -267,6 +280,9 @@ const Warnings = () => {
                   ISSUED
                 </th>
                 <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  ATTACHMENT
+                </th>
+                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
                   EMAIL
                 </th>
                 <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
@@ -320,6 +336,29 @@ const Warnings = () => {
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400">
                       {formatDate(w.issued_date)}
+                    </td>
+                    <td className="px-3 md:px-4 py-2 md:py-3">
+                      {w.attachment || w.attachment_url ? (
+                        <a
+                          href={getAttachmentUrl(
+                            w.attachment || w.attachment_url,
+                          )}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] md:text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+                          title={getAttachmentName(
+                            w.attachment || w.attachment_url,
+                          )}
+                        >
+                          <Paperclip size={12} />
+                          <span className="hidden sm:inline">View</span>
+                        </a>
+                      ) : (
+                        <span className="text-[10px] md:text-xs text-gray-400">
+                          —
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
                       <span
@@ -378,7 +417,7 @@ const Warnings = () => {
               ) : (
                 <tr>
                   <td
-                    colSpan="6"
+                    colSpan="7"
                     className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                   >
                     {loading ? "Loading warnings..." : "No warnings found"}
@@ -544,6 +583,68 @@ const Warnings = () => {
                   </p>
                 </div>
               </div>
+
+              {/* Attachment */}
+              {/* Attachment */}
+              {(currentWarning.attachment || currentWarning.attachment_url) && (
+                <>
+                  <div className="h-px bg-gray-100 dark:bg-gray-700 w-full my-5" />
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                      Attachment
+                    </p>
+                    <a
+                      href={getAttachmentUrl(
+                        currentWarning.attachment ||
+                          currentWarning.attachment_url,
+                      )}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block p-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 rounded-xl hover:border-amber-400 transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                          <Paperclip className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate group-hover:text-amber-600">
+                            {getAttachmentName(
+                              currentWarning.attachment ||
+                                currentWarning.attachment_url,
+                            )}
+                          </p>
+                          <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+                            View attachment →
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Inline image preview if it's an image */}
+                      {/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(
+                        String(
+                          currentWarning.attachment ||
+                            currentWarning.attachment_url,
+                        ),
+                      ) && (
+                        <img
+                          src={getAttachmentUrl(
+                            currentWarning.attachment ||
+                              currentWarning.attachment_url,
+                          )}
+                          alt={getAttachmentName(
+                            currentWarning.attachment ||
+                              currentWarning.attachment_url,
+                          )}
+                          className="mt-3 max-h-56 w-auto rounded-lg border border-gray-200 dark:border-gray-700 object-contain bg-white dark:bg-gray-800"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                        />
+                      )}
+                    </a>
+                  </div>
+                </>
+              )}
 
               {/* Optional: issued by */}
               {currentWarning.creator && (
