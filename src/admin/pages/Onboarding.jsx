@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   UserPlus,
@@ -39,7 +39,12 @@ const STEP_KEY_TO_WIZARD_STEP = {
 
 const OnboardingDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
+
+  // ── Detect which layout we're in ──
+  const isEmployee = location.pathname.startsWith("/employee");
+  const base = isEmployee ? "/employee" : "/admin";
 
   const [stats, setStats] = useState({
     activeOnboarding: 0,
@@ -74,8 +79,11 @@ const OnboardingDashboard = () => {
       const results = await Promise.allSettled(
         onboardingEmployees.map((emp) => {
           const userId = emp.userId || emp.user_id || emp.id;
+          // Use the base prefix so employee context hits an employee endpoint if it exists.
+          // If your backend only has /admin/..., replace with the correct employee endpoint
+          // or keep /admin if employees are permitted to call it.
           return apiClient
-            .get(`/admin/employees/onboard/progress/${userId}`)
+            .get(`${base}/employees/onboard/progress/${userId}`)
             .then((res) => res.data?.data ?? res.data)
             .then((data) => ({ emp, progress: data }))
             .catch(() => ({ emp, progress: null }));
@@ -209,13 +217,13 @@ const OnboardingDashboard = () => {
 
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employees, employeesLoading]);
+  }, [employees, employeesLoading, base]);
 
   // ── Continue: resume where the user left off ──
   const handleContinue = (employee) => {
     if (employee.percentage >= 100) {
       navigate(
-        `/admin/employees/onboarding-initiation?step=7&id=${employee.userId}`,
+        `${base}/employees/onboarding-initiation?step=7&id=${employee.userId}`,
       );
       return;
     }
@@ -226,15 +234,14 @@ const OnboardingDashboard = () => {
         : STEP_KEY_TO_WIZARD_STEP[employee.currentStepKey] || 2;
 
     navigate(
-      `/admin/employees/onboarding-initiation?step=${step}&id=${employee.userId}`,
+      `${base}/employees/onboarding-initiation?step=${step}&id=${employee.userId}`,
     );
   };
 
   // ── View details (for completed onboarding) ──
   const handleViewDetails = (employee) => {
-    // Use employee id if available, fall back to userId
     const targetId = employee.id || employee.userId;
-    navigate(`/admin/employees/${targetId}`);
+    navigate(`${base}/employees/${targetId}`);
   };
 
   // ── Delete handlers ──
@@ -271,7 +278,7 @@ const OnboardingDashboard = () => {
       description:
         "Start the onboarding process for a new employee. Fill in personal details, job information, and visa requirements.",
       icon: <UserPlus size={28} />,
-      path: "/admin/employees/onboarding-initiation",
+      path: `${base}/employees/onboarding-initiation`,
       color: "blue",
       bgClass:
         "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400",
@@ -286,7 +293,7 @@ const OnboardingDashboard = () => {
       description:
         "Manually add employee details including personal information, contact details, and employment terms.",
       icon: <PlusCircle size={28} />,
-      path: "/admin/employees/add-employee",
+      path: `${base}/employees/add-employee`,
       color: "purple",
       bgClass:
         "bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400",

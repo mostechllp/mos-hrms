@@ -141,9 +141,9 @@ const RequestLeave = () => {
   useEffect(() => {
     if (leaveTypes.length > 0 && isFirstLoad) {
       const firstLeaveType = leaveTypes[0];
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        leave_type_id: firstLeaveType.id.toString()
+        leave_type_id: firstLeaveType.id.toString(),
       }));
       setIsFirstLoad(false);
     }
@@ -159,7 +159,12 @@ const RequestLeave = () => {
   // Calculate days when dates change - EXCLUDING SUNDAYS
   useEffect(() => {
     calculateDays();
-  }, [formData.start_date, formData.end_date, formData.start_session, formData.end_session]);
+  }, [
+    formData.start_date,
+    formData.end_date,
+    formData.start_session,
+    formData.end_session,
+  ]);
 
   /**
    * Parse date from DD/MM/YYYY or YYYY-MM-DD format
@@ -168,19 +173,19 @@ const RequestLeave = () => {
    */
   const parseDate = (dateStr) => {
     if (!dateStr) return null;
-    
+
     // If already in YYYY-MM-DD format
     if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const [year, month, day] = dateStr.split('-');
+      const [year, month, day] = dateStr.split("-");
       return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
     }
-    
+
     // If in DD/MM/YYYY format
     if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-      const [day, month, year] = dateStr.split('/');
+      const [day, month, year] = dateStr.split("/");
       return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
     }
-    
+
     // Try to parse as date string
     const date = new Date(dateStr);
     return isNaN(date.getTime()) ? null : date;
@@ -194,20 +199,20 @@ const RequestLeave = () => {
    */
   const getWorkingDaysExcludingSundays = (startDate, endDate) => {
     if (!startDate || !endDate) return 0;
-    
+
     try {
       const from = new Date(startDate);
       const to = new Date(endDate);
-      
+
       // Set time to avoid timezone issues
       from.setHours(0, 0, 0, 0);
       to.setHours(0, 0, 0, 0);
-      
+
       if (from > to) return 0;
-      
+
       let count = 0;
       const current = new Date(from);
-      
+
       while (current <= to) {
         // Sunday is 0, so exclude Sundays
         if (current.getDay() !== 0) {
@@ -215,7 +220,7 @@ const RequestLeave = () => {
         }
         current.setDate(current.getDate() + 1);
       }
-      
+
       return count;
     } catch (error) {
       console.error("Error calculating working days:", error);
@@ -228,25 +233,25 @@ const RequestLeave = () => {
       // Parse dates properly
       const from = parseDate(formData.start_date);
       const to = parseDate(formData.end_date);
-      
+
       if (!from || !to) {
         setTotalDays(0);
         return;
       }
-      
+
       from.setHours(0, 0, 0, 0);
       to.setHours(0, 0, 0, 0);
-      
+
       if (to >= from) {
         // Get working days excluding Sundays
         let days = getWorkingDaysExcludingSundays(from, to);
-        
+
         // If no working days, set to 0
         if (days === 0) {
           setTotalDays(0);
           return;
         }
-        
+
         // Adjust for sessions
         if (formData.start_session === "afternoon") {
           days = days - 0.5;
@@ -254,12 +259,12 @@ const RequestLeave = () => {
         if (formData.end_session === "morning") {
           days = days - 0.5;
         }
-        
+
         // Ensure minimum is 0.5 if there's any leave
         if (days < 0.5 && days > 0) {
           days = 0.5;
         }
-        
+
         setTotalDays(days);
       } else {
         setTotalDays(0);
@@ -333,13 +338,13 @@ const RequestLeave = () => {
 
     const formDataToSend = new FormData();
     // Convert dates to YYYY-MM-DD for the API
-    const startDateFormatted = formData.start_date.includes('/') 
-      ? formData.start_date.split('/').reverse().join('-')
+    const startDateFormatted = formData.start_date.includes("/")
+      ? formData.start_date.split("/").reverse().join("-")
       : formData.start_date;
-    const endDateFormatted = formData.end_date.includes('/')
-      ? formData.end_date.split('/').reverse().join('-')
+    const endDateFormatted = formData.end_date.includes("/")
+      ? formData.end_date.split("/").reverse().join("-")
       : formData.end_date;
-      
+
     formDataToSend.append("leave_type_id", formData.leave_type_id);
     formDataToSend.append("start_date", startDateFormatted);
     formDataToSend.append("end_date", endDateFormatted);
@@ -369,31 +374,35 @@ const RequestLeave = () => {
 
   // Get balance for selected leave type
   const getSelectedLeaveBalance = () => {
-    if (!formData.leave_type_id)
+    if (!formData.leave_type_id) {
       return { allocated: 0, used: 0, pending: 0, remaining: 0 };
+    }
 
     const selectedType = leaveTypes.find(
       (lt) => lt.id === parseInt(formData.leave_type_id),
     );
-    if (selectedType) {
-      const balance = leaveBalances[selectedType.name];
-      if (balance) {
-        return {
-          allocated: balance.allocated || 0,
-          used: balance.taken || balance.used || 0,
-          pending: balance.pending || 0,
-          remaining: balance.remaining || 0,
-        };
-      }
+    if (!selectedType) {
+      return { allocated: 0, used: 0, pending: 0, remaining: 0 };
     }
-    return { allocated: 0, used: 0, pending: 0, remaining: 0 };
+
+    const balance = leaveBalances[selectedType.name];
+    if (!balance) {
+      return { allocated: 0, used: 0, pending: 0, remaining: 0 };
+    }
+
+    return {
+      allocated: Number(balance.allocated ?? balance.allocated_days ?? 0) || 0,
+      used: Number(balance.used ?? balance.taken ?? 0) || 0,
+      pending: Number(balance.pending ?? 0) || 0,
+      remaining: Number(balance.remaining ?? 0) || 0,
+    };
   };
 
   const selectedBalance = getSelectedLeaveBalance();
-  const remaining = selectedBalance?.remaining ?? 0;
-  const usedLeaves = selectedBalance?.taken ?? 0;
-  const pendingLeaves = selectedBalance?.pending ?? 0;
-  const allocatedLeaves = selectedBalance?.allocated ?? 0;
+  const remaining = selectedBalance.remaining ?? 0;
+  const usedLeaves = selectedBalance.used ?? 0;
+  const pendingLeaves = selectedBalance.pending ?? 0;
+  const allocatedLeaves = selectedBalance.allocated ?? 0;
   const exceedsBalance = totalDays > remaining && remaining >= 0;
 
   const getMinEndDate = () => {
@@ -490,9 +499,7 @@ const RequestLeave = () => {
                 })}
               </select>
               {loadingLeaveTypes && (
-                <p className="text-xs text-gray-400">
-                  Loading leave types...
-                </p>
+                <p className="text-xs text-gray-400">Loading leave types...</p>
               )}
               <p className="text-xs text-gray-400 mt-1">
                 <i className="fas fa-info-circle mr-1"></i>

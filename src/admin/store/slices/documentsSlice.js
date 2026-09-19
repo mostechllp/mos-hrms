@@ -18,27 +18,37 @@ const transformDocumentForAPI = (formData, file, isUpdate = false) => {
     formDataToSend.append("folder_id", "");
   }
 
-// Handle expiry_date - send empty string if not present (so backend can clear it)
-console.log("🔍 expiry_date debug:", {
-  value: formData.expiry_date,
-  type: typeof formData.expiry_date,
-  isEmpty: formData.expiry_date === "",
-  isNull: formData.expiry_date === null,
-});
+  // Handle expiry_date - send empty string if not present (so backend can clear it)
+  console.log("🔍 expiry_date debug:", {
+    value: formData.expiry_date,
+    type: typeof formData.expiry_date,
+    isEmpty: formData.expiry_date === "",
+    isNull: formData.expiry_date === null,
+  });
 
-// Handle expiry_date - send empty string if not present (so backend can clear it)
-if (formData.expiry_date && formData.expiry_date !== "") {
-  formDataToSend.append("expiry_date", formData.expiry_date);
-} else {
-  formDataToSend.append("expiry_date", "");
-}
-// ✅ Diagnostic
-console.log("[SLICE] expiry_date appended?", formDataToSend.has("expiry_date"), 
-            "value =", JSON.stringify(formDataToSend.get("expiry_date")));
+  // Handle expiry_date - send empty string if not present (so backend can clear it)
+  if (formData.expiry_date && formData.expiry_date !== "") {
+    formDataToSend.append("expiry_date", formData.expiry_date);
+  } else {
+    formDataToSend.append("expiry_date", "");
+  }
+  // ✅ Diagnostic
+  console.log(
+    "[SLICE] expiry_date appended?",
+    formDataToSend.has("expiry_date"),
+    "value =",
+    JSON.stringify(formDataToSend.get("expiry_date")),
+  );
 
-// Confirm what's in the FormData
-console.log("✅ FormData has expiry_date:", formDataToSend.has("expiry_date"));
-console.log("✅ FormData expiry_date value:", JSON.stringify(formDataToSend.get("expiry_date")));
+  // Confirm what's in the FormData
+  console.log(
+    "✅ FormData has expiry_date:",
+    formDataToSend.has("expiry_date"),
+  );
+  console.log(
+    "✅ FormData expiry_date value:",
+    JSON.stringify(formDataToSend.get("expiry_date")),
+  );
 
   // Handle party_id - send null or empty string if not present
   if (formData.party_id && formData.party_id !== "") {
@@ -309,23 +319,21 @@ export const uploadToTemp = createAsyncThunk(
 // Get document folders
 export const fetchDocumentFolders = createAsyncThunk(
   "documents/fetchFolders",
-  async (_, { rejectWithValue }) => {
+  async (parentId = null, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get("/admin/folders");
+      const url =
+        parentId == null
+          ? "/admin/folders"
+          : `/admin/folders?parent_id=${parentId}`;
+      const response = await apiClient.get(url);
 
-      // Handle paginated response: { data: { data: [...] } }
-      if (response.data?.data?.data) {
-        return response.data.data.data;
-      }
-      // Handle: { data: [...] }
-      if (response.data?.data && Array.isArray(response.data.data)) {
-        return response.data.data;
-      }
-      // Handle direct array
-      if (Array.isArray(response.data)) {
-        return response.data;
-      }
-      return [];
+      let data = [];
+      if (response.data?.data?.data) data = response.data.data.data;
+      else if (Array.isArray(response.data?.data)) data = response.data.data;
+      else if (Array.isArray(response.data)) data = response.data;
+
+      const key = parentId == null ? "root" : String(parentId);
+      return { key, folders: data };
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch folders",
@@ -334,11 +342,11 @@ export const fetchDocumentFolders = createAsyncThunk(
   },
 );
 
-// Folder CRUD operations
 export const addDocumentFolder = createAsyncThunk(
   "documents/addFolder",
   async (folderData, { rejectWithValue }) => {
     try {
+      // folderData = { name, parent_id? }
       const response = await apiClient.post("/admin/folders", folderData);
       return response.data.data || response.data;
     } catch (error) {
@@ -365,9 +373,11 @@ export const deleteDocumentFolder = createAsyncThunk(
 
 export const updateDocumentFolder = createAsyncThunk(
   "documents/updateFolder",
-  async ({ id, name }, { rejectWithValue }) => {
+  async ({ id, name, parent_id }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put(`/admin/folders/${id}`, { name });
+      const payload = { name };
+      if (parent_id !== undefined) payload.parent_id = parent_id;
+      const response = await apiClient.put(`/admin/folders/${id}`, payload);
       return response.data.data || response.data;
     } catch (error) {
       return rejectWithValue(
@@ -480,6 +490,7 @@ const documentsSlice = createSlice({
   initialState: {
     documents: [],
     currentDocument: null,
+    foldersByParent: {},
     folders: [],
     parties: [],
     shareableUsers: [],
@@ -567,9 +578,15 @@ const documentsSlice = createSlice({
       })
 
       // Fetch folders
-      .addCase(fetchDocumentFolders.fulfilled, (state, action) => {
-        state.folders = action.payload;
-      })
+    .addCase(fetchDocumentFolders.fulfilled, (state, action) => {
+  const { key, folders } = action.payload;
+  state.foldersByParent[key] = folders;   // ← MUST be an assignment (replace)
+
+  // Merge into flat list, dedupe by id
+  const byId = new Map();
+  [...state.folders, ...folders].forEach((f) => byId.set(f.id, f));
+  state.folders = Array.from(byId.values());
+})
 
       // Fetch shareable users
       .addCase(fetchShareableUsers.fulfilled, (state, action) => {
@@ -613,21 +630,48 @@ const documentsSlice = createSlice({
 
       // Add folder
       .addCase(addDocumentFolder.fulfilled, (state, action) => {
-        state.folders.push(action.payload);
+        const folder = action.payload;
+        const key =
+          folder.parent_id == null ? "root" : String(folder.parent_id);
+        const list = state.foldersByParent[key];
+        if (list) {
+          // Avoid duplicates if backend list already contains it
+          if (!list.some((f) => String(f.id) === String(folder.id))) {
+            list.push(folder);
+          }
+        } else {
+          state.foldersByParent[key] = [folder];
+        }
+        if (!state.folders.some((f) => String(f.id) === String(folder.id))) {
+          state.folders.push(folder);
+        }
       })
       .addCase(updateDocumentFolder.fulfilled, (state, action) => {
-        const index = state.folders.findIndex(
-          (folder) => folder.id === action.payload.id,
+        const updated = action.payload;
+
+        // Update flat list
+        const idx = state.folders.findIndex(
+          (f) => String(f.id) === String(updated.id),
         );
-        if (index !== -1) {
-          state.folders[index] = action.payload;
-        }
+        if (idx !== -1)
+          state.folders[idx] = { ...state.folders[idx], ...updated };
+
+        // Update per-level cache
+        Object.keys(state.foldersByParent).forEach((key) => {
+          const list = state.foldersByParent[key];
+          const i = list.findIndex((f) => String(f.id) === String(updated.id));
+          if (i !== -1) list[i] = { ...list[i], ...updated };
+        });
       })
       // Delete folder
       .addCase(deleteDocumentFolder.fulfilled, (state, action) => {
-        state.folders = state.folders.filter(
-          (folder) => String(folder.id) !== String(action.payload),
-        );
+        const deletedId = String(action.payload);
+        state.folders = state.folders.filter((f) => String(f.id) !== deletedId);
+        Object.keys(state.foldersByParent).forEach((key) => {
+          state.foldersByParent[key] = state.foldersByParent[key].filter(
+            (f) => String(f.id) !== deletedId,
+          );
+        });
       });
   },
 });
