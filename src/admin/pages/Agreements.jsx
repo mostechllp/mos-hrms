@@ -11,7 +11,6 @@ import {
   fetchDocuments,
   deleteDocument,
   clearError,
-  fetchDocumentFolders,
   deleteDocumentFolder,
 } from "@admin/store/slices/documentsSlice";
 import useFolderTree from "../hooks/useFolderTree";
@@ -34,6 +33,20 @@ const Agreements = () => {
   // ── Navigation state ──
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [breadcrumbStack, setBreadcrumbStack] = useState([]);
+
+  // ── View mode (grid / list) ──
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window === "undefined") return "grid";
+    return window.localStorage.getItem("agreements:viewMode") || "grid";
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("agreements:viewMode", viewMode);
+    } catch {
+      // ignore
+    }
+  }, [viewMode]);
 
   // ── Table / search ──
   const [searchTerm, setSearchTerm] = useState("");
@@ -69,14 +82,12 @@ const Agreements = () => {
     }
   }, [error, dispatch]);
 
-  // Load subfolders whenever we enter a folder
   useEffect(() => {
     if (currentFolderId != null) {
       ensureLoaded(currentFolderId);
     }
   }, [currentFolderId, ensureLoaded]);
 
-  // ── Folder lists ──
   const currentFolders =
     currentFolderId == null ? childrenOf(null) : childrenOf(currentFolderId);
 
@@ -86,14 +97,12 @@ const Agreements = () => {
         null
       : null;
 
-  // ── Document counts ──
   const documentCountFor = useCallback(
     (folderId) =>
       documents.filter((d) => String(d.folder_id) === String(folderId)).length,
     [documents],
   );
 
-  // ── Navigation ──
   const openFolder = (folder) => {
     setCurrentFolderId(folder.id);
     setBreadcrumbStack((prev) => {
@@ -266,7 +275,6 @@ const Agreements = () => {
     return "";
   };
 
-  // ── Stats ──
   const total = documents.length;
   const today = new Date();
   const thirtyDaysFromNow = new Date();
@@ -287,8 +295,17 @@ const Agreements = () => {
     : 0;
 
   const isAtRoot = currentFolderId == null;
-  const hasSubfolders = currentFolders.length > 0;
   const hasDocuments = folderDocuments.length > 0;
+
+  // Breadcrumb path (used for Upload Document link)
+  const breadcrumbPath = breadcrumbStack.map((f) => f.name).join(" / ");
+
+  // Upload document link
+  const uploadLink = isAtRoot
+    ? `/${basePath}/documents/add-agreement`
+    : `/${basePath}/documents/add-agreement?folder_id=${currentFolderId}&folder_path=${encodeURIComponent(
+        breadcrumbPath,
+      )}`;
 
   return (
     <div className="w-full overflow-x-hidden">
@@ -314,32 +331,60 @@ const Agreements = () => {
         />
       </div>
 
-      {/* Header */}
+      {/* Header with view toggle + actions */}
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4 md:mb-6">
         <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
           {isAtRoot ? "All Folders" : currentFolder?.name || "Folder"}
         </h2>
 
-        {/* Context actions: only inside a folder */}
-        {!isAtRoot && (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* View mode toggle */}
+          <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full p-0.5">
             <button
-              onClick={() => openAddFolder(currentFolderId)}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+              type="button"
+              onClick={() => setViewMode("grid")}
+              className={`px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold flex items-center gap-1.5 transition-all ${
+                viewMode === "grid"
+                  ? "bg-white dark:bg-gray-700 text-green-600 shadow-sm"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+              title="Grid view"
             >
-              <i className="fas fa-folder-plus text-green-500"></i> Add
-              Subfolder
+              <i className="fas fa-th-large text-xs"></i>
+              <span className="hidden sm:inline">Grid</span>
             </button>
-            <Link
-              to={`/${basePath}/documents/add-agreement?folder_id=${currentFolderId}&folder_path=${encodeURIComponent(
-                breadcrumbStack.map((f) => f.name).join(" / "),
-              )}`}
-              className="bg-green-500 hover:bg-green-600 text-white px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              className={`px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold flex items-center gap-1.5 transition-all ${
+                viewMode === "list"
+                  ? "bg-white dark:bg-gray-700 text-green-600 shadow-sm"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+              title="List view"
             >
-              <i className="fas fa-plus-circle"></i> Upload Document
-            </Link>
+              <i className="fas fa-list text-xs"></i>
+              <span className="hidden sm:inline">List</span>
+            </button>
           </div>
-        )}
+
+          {/* Add Folder — always visible */}
+          <button
+            onClick={() => openAddFolder(isAtRoot ? null : currentFolderId)}
+            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+          >
+            <i className="fas fa-folder-plus text-green-500"></i>
+            {isAtRoot ? "Add Folder" : "Add Subfolder"}
+          </button>
+
+          {/* Upload Document — always visible */}
+          <Link
+            to={uploadLink}
+            className="bg-green-500 hover:bg-green-600 text-white px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
+          >
+            <i className="fas fa-plus-circle"></i> Upload Document
+          </Link>
+        </div>
       </div>
 
       {/* Breadcrumb */}
@@ -366,36 +411,67 @@ const Agreements = () => {
         </div>
       )}
 
-      {/* ── FOLDER GRID (root or inside a folder) ── */}
+      {/* ── FOLDER GRID / LIST ── */}
       {currentFolders.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 mb-6">
-          {currentFolders.map((folder) => {
-            const docCount = documentCountFor(folder.id);
-            return (
-              <FolderTile
-                key={folder.id}
-                folder={folder}
-                docCount={docCount}
-                onClick={() => openFolder(folder)}
-                onEdit={() => openEditFolder(folder)}
-                onDelete={() => handleFolderDeleteClick(folder)}
-              />
-            );
-          })}
+        <>
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 mb-6">
+              {currentFolders.map((folder) => {
+                const docCount = documentCountFor(folder.id);
+                return (
+                  <FolderTile
+                    key={folder.id}
+                    folder={folder}
+                    docCount={docCount}
+                    onClick={() => openFolder(folder)}
+                    onEdit={() => openEditFolder(folder)}
+                    onDelete={() => handleFolderDeleteClick(folder)}
+                  />
+                );
+              })}
 
-          {/* Inline add-tile when not at root (root has big empty state below) */}
-          {!isAtRoot && (
-            <button
-              onClick={() => openAddFolder(currentFolderId)}
-              className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-green-300 dark:border-green-800 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30 transition-all min-h-[110px]"
-            >
-              <i className="fas fa-plus text-xl"></i>
-              <span className="text-xs md:text-sm font-semibold">
-                New Subfolder
-              </span>
-            </button>
+              {!isAtRoot && (
+                <button
+                  onClick={() => openAddFolder(currentFolderId)}
+                  className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 border-dashed border-green-300 dark:border-green-800 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30 transition-all min-h-[140px]"
+                >
+                  <i className="fas fa-plus text-2xl"></i>
+                  <span className="text-xs md:text-sm font-semibold">
+                    New Subfolder
+                  </span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 mb-6">
+              {currentFolders.map((folder) => {
+                const docCount = documentCountFor(folder.id);
+                return (
+                  <FolderRowItem
+                    key={folder.id}
+                    folder={folder}
+                    docCount={docCount}
+                    onClick={() => openFolder(folder)}
+                    onEdit={() => openEditFolder(folder)}
+                    onDelete={() => handleFolderDeleteClick(folder)}
+                  />
+                );
+              })}
+
+              {!isAtRoot && (
+                <button
+                  onClick={() => openAddFolder(currentFolderId)}
+                  className="flex items-center gap-3 p-3 md:p-4 rounded-xl border-2 border-dashed border-green-300 dark:border-green-800 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30 transition-all"
+                >
+                  <i className="fas fa-plus text-lg"></i>
+                  <span className="text-xs md:text-sm font-semibold">
+                    New Subfolder
+                  </span>
+                </button>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
 
       {/* ── EMPTY STATE at root ── */}
@@ -410,17 +486,25 @@ const Agreements = () => {
           <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-5 text-center max-w-sm">
             Create your first folder to start organizing documents.
           </p>
-          <button
-            onClick={() => openAddFolder(null)}
-            className="bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
-          >
-            <i className="fas fa-folder-plus"></i> Create Folder
-          </button>
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button
+              onClick={() => openAddFolder(null)}
+              className="bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
+            >
+              <i className="fas fa-folder-plus"></i> Create Folder
+            </button>
+            <Link
+              to={`/${basePath}/documents/add-agreement`}
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-5 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+            >
+              <i className="fas fa-plus-circle text-green-500"></i> Upload
+              Document
+            </Link>
+          </div>
         </div>
       )}
 
-      {/* ── EMPTY STATE inside a folder with no subfolders ── */}
-      {/* ── EMPTY STATE inside a folder (no subfolders AND no documents) ── */}
+      {/* ── EMPTY STATE inside a folder with no subfolders and no documents ── */}
       {!isAtRoot && currentFolders.length === 0 && !hasDocuments && (
         <div className="flex flex-col items-center justify-center py-10 px-4 bg-gray-50 dark:bg-gray-900/40 border border-dashed border-gray-200 dark:border-gray-700 rounded-2xl mb-6">
           <div className="w-14 h-14 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center mb-3 shadow-sm">
@@ -438,9 +522,7 @@ const Agreements = () => {
               Subfolder
             </button>
             <Link
-              to={`/${basePath}/documents/add-agreement?folder_id=${currentFolderId}&folder_path=${encodeURIComponent(
-                breadcrumbStack.map((f) => f.name).join(" / "),
-              )}`}
+              to={uploadLink}
               className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-xs md:text-sm font-semibold flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
             >
               <i className="fas fa-plus-circle"></i> Upload Document
@@ -654,14 +736,15 @@ const StatCard = ({ icon, color, value, label }) => (
   </div>
 );
 
+/* ── GRID folder tile ── */
 const FolderTile = ({ folder, docCount, onClick, onEdit, onDelete }) => (
   <div
     onClick={onClick}
-    className="group relative flex flex-col items-start gap-2 p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-green-400 hover:-translate-y-0.5 hover:shadow-soft cursor-pointer transition-all min-h-[110px]"
+    className="group relative flex flex-col p-4 md:p-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-green-400 hover:-translate-y-1 hover:shadow-lg cursor-pointer transition-all min-h-[140px]"
   >
-    <div className="flex items-center justify-between w-full">
-      <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
-        <i className="fas fa-folder text-amber-500"></i>
+    <div className="flex items-start justify-between w-full mb-3">
+      <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+        <i className="fas fa-folder text-amber-500 text-xl"></i>
       </div>
 
       {/* Hover actions */}
@@ -689,11 +772,11 @@ const FolderTile = ({ folder, docCount, onClick, onEdit, onDelete }) => (
       </div>
     </div>
 
-    <div className="w-full min-w-0">
-      <div className="text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
+    <div className="w-full min-w-0 flex-1">
+      <div className="text-sm md:text-base font-bold text-gray-800 dark:text-gray-200 truncate">
         {folder.name}
       </div>
-      <div className="text-[10px] md:text-xs text-gray-400 mt-0.5 flex items-center gap-2">
+      <div className="text-[10px] md:text-xs text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
         {folder.has_children && (
           <span>
             <i className="fas fa-folder-tree mr-1 text-green-500"></i>
@@ -703,7 +786,7 @@ const FolderTile = ({ folder, docCount, onClick, onEdit, onDelete }) => (
         {docCount > 0 && (
           <span>
             <i className="fas fa-file-alt mr-1"></i>
-            {docCount}
+            {docCount} {docCount === 1 ? "file" : "files"}
           </span>
         )}
         {!folder.has_children && docCount === 0 && <span>Empty</span>}
@@ -713,6 +796,64 @@ const FolderTile = ({ folder, docCount, onClick, onEdit, onDelete }) => (
     {/* Chevron indicator */}
     <div className="absolute bottom-3 right-3 text-gray-300 group-hover:text-green-500 transition-colors">
       <i className="fas fa-chevron-right text-xs"></i>
+    </div>
+  </div>
+);
+
+/* ── LIST folder row ── */
+const FolderRowItem = ({ folder, docCount, onClick, onEdit, onDelete }) => (
+  <div
+    onClick={onClick}
+    className="group flex items-center gap-3 p-3 md:p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-green-400 hover:shadow-soft cursor-pointer transition-all"
+  >
+    <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center flex-shrink-0">
+      <i className="fas fa-folder text-amber-500"></i>
+    </div>
+
+    <div className="flex-1 min-w-0">
+      <div className="text-xs md:text-sm font-bold text-gray-800 dark:text-gray-200 truncate">
+        {folder.name}
+      </div>
+      <div className="text-[10px] md:text-xs text-gray-400 mt-0.5 flex items-center gap-2 flex-wrap">
+        {folder.has_children && (
+          <span>
+            <i className="fas fa-folder-tree mr-1 text-green-500"></i>
+            Has subfolders
+          </span>
+        )}
+        {docCount > 0 && (
+          <span>
+            <i className="fas fa-file-alt mr-1"></i>
+            {docCount} {docCount === 1 ? "file" : "files"}
+          </span>
+        )}
+        {!folder.has_children && docCount === 0 && <span>Empty</span>}
+      </div>
+    </div>
+
+    {/* Actions */}
+    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit();
+        }}
+        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500"
+        title="Rename"
+      >
+        <i className="fas fa-edit text-xs"></i>
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500"
+        title="Delete"
+      >
+        <i className="fas fa-trash text-xs"></i>
+      </button>
+      <i className="fas fa-chevron-right text-gray-300 group-hover:text-green-500 text-xs ml-1"></i>
     </div>
   </div>
 );

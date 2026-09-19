@@ -342,6 +342,21 @@ export const fetchDocumentFolders = createAsyncThunk(
   },
 );
 
+export const fetchFolderById = createAsyncThunk(
+  "documents/fetchFolderById",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(`/admin/folders/${id}`);
+      const data = response.data?.data || response.data;
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch folder",
+      );
+    }
+  },
+);
+
 export const addDocumentFolder = createAsyncThunk(
   "documents/addFolder",
   async (folderData, { rejectWithValue }) => {
