@@ -39,7 +39,8 @@ const getAvatarUrl = (avatarPath) => {
   }
   const baseUrl =
     import.meta.env.VITE_API_URL?.replace("/api", "") || window.location.origin;
-  if (avatarPath.startsWith("avatars/")) return `${baseUrl}/storage/${avatarPath}`;
+  if (avatarPath.startsWith("avatars/"))
+    return `${baseUrl}/storage/${avatarPath}`;
   if (avatarPath.startsWith("storage/")) return `${baseUrl}/${avatarPath}`;
   if (avatarPath.startsWith("/storage/")) return `${baseUrl}${avatarPath}`;
   return `${baseUrl}/storage/${avatarPath}`;
@@ -47,9 +48,18 @@ const getAvatarUrl = (avatarPath) => {
 
 // Month number to name mapping
 const monthNumberToName = {
-  1: "January", 2: "February", 3: "March", 4: "April",
-  5: "May", 6: "June", 7: "July", 8: "August",
-  9: "September", 10: "October", 11: "November", 12: "December",
+  1: "January",
+  2: "February",
+  3: "March",
+  4: "April",
+  5: "May",
+  6: "June",
+  7: "July",
+  8: "August",
+  9: "September",
+  10: "October",
+  11: "November",
+  12: "December",
 };
 
 const PayrollList = () => {
@@ -58,9 +68,10 @@ const PayrollList = () => {
   const { year, month } = useParams();
 
   const monthName = month ? monthNumberToName[parseInt(month)] : "";
-  const displayTitle = monthName && year ? `${monthName} ${year}` : "All Payrolls";
+  const displayTitle =
+    monthName && year ? `${monthName} ${year}` : "All Payrolls";
 
-  const [entries, setEntries] = useState(5);
+  const [entries, setEntries] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -85,7 +96,9 @@ const PayrollList = () => {
   }, [dispatch, year, month]);
 
   const safeEmployees = Array.isArray(employees) ? employees : [];
-  const safePayrollEntries = Array.isArray(payrollEntries) ? payrollEntries : [];
+  const safePayrollEntries = Array.isArray(payrollEntries)
+    ? payrollEntries
+    : [];
 
   const tableData =
     safePayrollEntries.length > 0 ? safePayrollEntries : safeEmployees;
@@ -94,12 +107,22 @@ const PayrollList = () => {
     if (!item) return false;
     const searchMatch =
       searchTerm === "" ||
-      (item.first_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (item.last_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (item.employee_id?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (item.first_name?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase(),
+      ) ||
+      (item.last_name?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase(),
+      ) ||
+      (item.employee_id?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase(),
+      ) ||
       (item.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (item.employee_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (item.employee_code?.toLowerCase() || "").includes(searchTerm.toLowerCase());
+      (item.employee_name?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase(),
+      ) ||
+      (item.employee_code?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase(),
+      );
 
     const statusMatch =
       statusFilter === "all" ||
@@ -123,19 +146,45 @@ const PayrollList = () => {
     (item) => item.status === "pending" || !item.status,
   ).length;
 
-  const totalAmount = filteredData.reduce((acc, item) => {
-    const salary = item.gross_salary || item.salary || 0;
-    return acc + Number(salary);
-  }, 0);
+  // Currency-aware formatter — falls back to the default currency when a row has none
+  const DEFAULT_CURRENCY = "INR";
 
-  const formatCurrency = (amount) => {
-    if (!amount || isNaN(amount)) return "₹0.00";
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+  const getCurrencySymbol = (code) => {
+    const map = {
+      AED: "AED ",
+      INR: "₹",
+      USD: "$",
+      EUR: "€",
+      GBP: "£",
+      PHP: "₱",
+      LKR: "₨",
+    };
+    return map[code] || `${code} `;
+  };
+
+  const formatCurrency = (amount, currencyCode = DEFAULT_CURRENCY) => {
+    const currency = currencyCode || DEFAULT_CURRENCY;
+    const numeric = Number(amount);
+
+    // Handle null/undefined/NaN
+    if (!amount || isNaN(numeric) || numeric === 0) {
+      return `${getCurrencySymbol(currency)}0.00`;
+    }
+
+    // Prefer Intl for proper grouping — fallback to plain if the code is invalid
+    try {
+      return new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(numeric);
+    } catch {
+      return `${getCurrencySymbol(currency)}${numeric.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    }
   };
 
   const formatDate = (dateString) => {
@@ -165,6 +214,19 @@ const PayrollList = () => {
     navigate(`/admin/payroll/edit/${item.id}`);
   };
 
+  // Per-currency totals across the filtered rows
+const totalsByCurrency = filteredData.reduce((acc, item) => {
+  const rowCurrency = item.currency || DEFAULT_CURRENCY;
+  const salary = Number(item.gross_salary || item.salary || 0);
+  acc[rowCurrency] = (acc[rowCurrency] || 0) + salary;
+  return acc;
+}, {});
+
+// Sorted list of { currency, total } for stable rendering order
+const currencyTotals = Object.entries(totalsByCurrency)
+  .map(([code, total]) => ({ code, total }))
+  .sort((a, b) => a.code.localeCompare(b.code));
+
   const handleGeneratePayslip = async (item) => {
     try {
       showToast("Downloading payslip...", "success");
@@ -188,7 +250,9 @@ const PayrollList = () => {
     if (!selectedPayroll) return;
     setDeleteLoading(true);
     try {
-      const response = await apiClient.delete(`/admin/payroll/${selectedPayroll.id}`);
+      const response = await apiClient.delete(
+        `/admin/payroll/${selectedPayroll.id}`,
+      );
       if (response.data?.success) {
         showToast("Payroll deleted successfully!", "success");
         setShowDeleteModal(false);
@@ -199,7 +263,10 @@ const PayrollList = () => {
           dispatch(fetchPayrollEntries({ year }));
         }
       } else {
-        showToast(response.data?.message || "Failed to delete payroll", "error");
+        showToast(
+          response.data?.message || "Failed to delete payroll",
+          "error",
+        );
       }
     } catch (error) {
       console.error("Error deleting payroll:", error);
@@ -218,7 +285,9 @@ const PayrollList = () => {
       <div className="min-h-screen bg-[#f9fafb] dark:bg-gray-900 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-          <p className="text-gray-500 dark:text-gray-400">Loading payroll data...</p>
+          <p className="text-gray-500 dark:text-gray-400">
+            Loading payroll data...
+          </p>
         </div>
       </div>
     );
@@ -260,32 +329,53 @@ const PayrollList = () => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              Total Payrolls
-            </p>
-            <h3 className="text-2xl font-black text-blue-600 dark:text-blue-400">
-              {totalPayrolls}
-            </h3>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+  {/* Total Payrolls */}
+  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
+    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+      Total Payrolls
+    </p>
+    <h3 className="text-2xl font-black text-blue-600 dark:text-blue-400">
+      {totalPayrolls}
+    </h3>
+  </div>
 
-          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              Pending
-            </p>
-            <h3 className="text-2xl font-black text-amber-500">{pendingCount}</h3>
-          </div>
+  {/* Pending */}
+  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
+    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+      Pending
+    </p>
+    <h3 className="text-2xl font-black text-amber-500">
+      {pendingCount}
+    </h3>
+  </div>
 
-          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              INR Total
-            </p>
-            <h3 className="text-xl font-black text-blue-500">
-              {formatCurrency(totalAmount)}
-            </h3>
-          </div>
-        </div>
+  {/* One card per currency */}
+  {currencyTotals.length === 0 ? (
+    <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
+      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+        Total
+      </p>
+      <h3 className="text-xl font-black text-blue-500">
+        {formatCurrency(0, DEFAULT_CURRENCY)}
+      </h3>
+    </div>
+  ) : (
+    currencyTotals.map(({ code, total }) => (
+      <div
+        key={code}
+        className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4"
+      >
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+          {code} Total
+        </p>
+        <h3 className="text-xl font-black text-blue-500">
+          {formatCurrency(total, code)}
+        </h3>
+      </div>
+    ))
+  )}
+</div>
 
         {/* List Section Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-1">
@@ -321,9 +411,9 @@ const PayrollList = () => {
                 }}
                 className="border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-sm px-2 py-1 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none font-semibold text-gray-700 dark:text-gray-200"
               >
-                <option value="5">5</option>
                 <option value="10">10</option>
                 <option value="25">25</option>
+                <option value="50">50</option>
               </select>
             </div>
 
@@ -385,15 +475,29 @@ const PayrollList = () => {
                   <tr>
                     <th className="px-3 py-2 whitespace-nowrap">SL NO</th>
                     <th className="px-3 py-2 whitespace-nowrap">EMPLOYEE</th>
-                    <th className="px-3 py-2 whitespace-nowrap">MONTH / YEAR</th>
-                    <th className="px-3 py-2 whitespace-nowrap text-right">GROSS SALARY</th>
-                    <th className="px-3 py-2 whitespace-nowrap text-right">OVERTIME</th>
-                    <th className="px-3 py-2 whitespace-nowrap text-right">DEDUCTIONS</th>
-                    <th className="px-3 py-2 whitespace-nowrap text-right">NET PAY</th>
+                    <th className="px-3 py-2 whitespace-nowrap">
+                      MONTH / YEAR
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap text-right">
+                      GROSS SALARY
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap text-right">
+                      OVERTIME
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap text-right">
+                      DEDUCTIONS
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap text-right">
+                      NET PAY
+                    </th>
                     <th className="px-3 py-2 whitespace-nowrap">CURRENCY</th>
                     <th className="px-3 py-2 whitespace-nowrap">STATUS</th>
-                    <th className="px-3 py-2 whitespace-nowrap">PAYMENT DATE</th>
-                    <th className="px-3 py-2 whitespace-nowrap text-center">ACTIONS</th>
+                    <th className="px-3 py-2 whitespace-nowrap">
+                      PAYMENT DATE
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap text-center">
+                      ACTIONS
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -414,7 +518,9 @@ const PayrollList = () => {
                     const currency = item.currency || "INR";
                     const paymentDate = item.payment_date || "N/A";
 
-                    const avatarUrl = item.avatar ? getAvatarUrl(item.avatar) : null;
+                    const avatarUrl = item.avatar
+                      ? getAvatarUrl(item.avatar)
+                      : null;
 
                     return (
                       <tr
@@ -465,16 +571,16 @@ const PayrollList = () => {
                           {displayTitle}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap font-mono text-gray-700 dark:text-gray-300 text-right text-sm">
-                          {formatCurrency(grossSalary)}
+                          {formatCurrency(grossSalary, currency)}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap font-mono text-gray-700 dark:text-gray-300 text-right text-sm">
-                          {formatCurrency(overtime)}
+                          {formatCurrency(overtime, currency)}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap font-mono text-gray-700 dark:text-gray-300 text-right text-sm">
-                          {formatCurrency(deductions)}
+                          {formatCurrency(deductions, currency)}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap font-mono font-bold text-gray-900 dark:text-white text-right text-sm">
-                          {formatCurrency(netPay)}
+                          {formatCurrency(netPay, currency)}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap font-mono text-gray-700 dark:text-gray-300 text-sm">
                           {currency}
@@ -555,7 +661,9 @@ const PayrollList = () => {
               </p>
               <div className="flex gap-1">
                 <button
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
                   disabled={currentPage === 1}
                   className="px-3 py-1 border border-gray-200 dark:border-gray-600 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >

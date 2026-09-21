@@ -91,6 +91,8 @@ function EditPayroll() {
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [selectedEmployeeCode, setSelectedEmployeeCode] = useState("");
+  const [currency, setCurrency] = useState("AED");
+  const [paymentCycle, setPaymentCycle] = useState("Monthly");
   const [employeeId, setEmployeeId] = useState("");
   const [employeeName, setEmployeeName] = useState("");
   const [organizationId, setOrganizationId] = useState("");
@@ -106,7 +108,7 @@ function EditPayroll() {
   const [paymentMode, setPaymentMode] = useState(null);
   const [totalWorkingDays, setTotalWorkingDays] = useState("");
   const [daysPresent, setDaysPresent] = useState("");
-  
+
   // Payroll draft ID from API
   const [payrollDraftId, setPayrollDraftId] = useState(null);
 
@@ -130,7 +132,7 @@ function EditPayroll() {
       is_statutory: "no",
     },
   ]);
-  
+
   // Leave Deductions from API
   const [leaveDeductions, setLeaveDeductions] = useState(null);
   const [leaveDeductionsLoading, setLeaveDeductionsLoading] = useState(false);
@@ -150,6 +152,20 @@ function EditPayroll() {
     { id: 4, label: "Deductions" },
     { id: 5, label: "Summary" },
   ];
+
+  const getCurrencySymbol = (code) => {
+    const map = {
+      AED: "AED",
+      INR: "₹",
+      USD: "$",
+      EUR: "€",
+      GBP: "£",
+      PHP: "₱",
+      LKR: "₨",
+    };
+    return map[code] || code;
+  };
+  const currencySymbol = getCurrencySymbol(currency);
 
   // Month name to number mapping
   const monthNames = {
@@ -204,7 +220,7 @@ function EditPayroll() {
     if (currentPayroll) {
       const payroll = currentPayroll;
       const stepData = payroll.step_data || {};
-      
+
       // Get step data
       const step1 = stepData.step_1 || {};
       const step2 = stepData.step_2 || {};
@@ -220,10 +236,32 @@ function EditPayroll() {
         setEmployeeId(emp.employee_code || payroll.employee_id);
         setEmployeeName(emp.name || payroll.employee_name);
         setDepartment(emp.department?.name || payroll.department?.name || "");
-        setDesignation(emp.designation?.name || payroll.designation?.name || "");
+        setDesignation(
+          emp.designation?.name || payroll.designation?.name || "",
+        );
         setEmploymentType(emp.employee_type || "");
-        setOrganizationName(emp.organization?.name || payroll.organization?.name || "");
-        
+        setOrganizationName(
+          emp.organization?.name || payroll.organization?.name || "",
+        );
+
+        // Currency & payment cycle — from payroll, step data, or employee
+        const payrollCurrency =
+          payroll.currency ||
+          step2.currency ||
+          step5.summary?.currency ||
+          step5.currency ||
+          emp?.currency ||
+          null;
+        if (payrollCurrency) setCurrency(payrollCurrency);
+
+        const payrollPaymentCycle =
+          payroll.payment_cycle ||
+          step2.payment_cycle ||
+          step5.payment_cycle ||
+          emp?.payment_cycle ||
+          null;
+        if (payrollPaymentCycle) setPaymentCycle(payrollPaymentCycle);
+
         // Try to find employee in list
         if (emp.id) {
           setSelectedEmployee(emp.id.toString());
@@ -231,16 +269,24 @@ function EditPayroll() {
       }
 
       // Populate pay period
-      const monthNum = payroll.pay_period_month || payroll.month || step1.pay_period_month;
+      const monthNum =
+        payroll.pay_period_month || payroll.month || step1.pay_period_month;
       if (monthNum) {
         setPayPeriodMonth(monthNumbersToName[monthNum] || "");
       }
-      setPayPeriodYear(payroll.pay_period_year || payroll.year || step1.pay_period_year || "");
+      setPayPeriodYear(
+        payroll.pay_period_year || payroll.year || step1.pay_period_year || "",
+      );
       setPeriodStart(step1.period_start || payroll.period_start || "");
       setPeriodEnd(step1.period_end || payroll.period_end || "");
       setPaymentDate(step1.payment_date || payroll.payment_date || "");
       setPaymentMode(step1.payment_mode || payroll.payment_mode || null);
-      setTotalWorkingDays(step1.total_working_days || payroll.total_days || payroll.working_days || "");
+      setTotalWorkingDays(
+        step1.total_working_days ||
+          payroll.total_days ||
+          payroll.working_days ||
+          "",
+      );
       setDaysPresent(step1.days_present || payroll.days_present || "");
 
       // Populate Step 2 - Salary Components
@@ -257,16 +303,20 @@ function EditPayroll() {
       }
 
       // Populate Step 4 - Deductions
-      const manualDeductions = step4.manual_deductions || step5.manual_deductions_details || [];
+      const manualDeductions =
+        step4.manual_deductions || step5.manual_deductions_details || [];
       if (manualDeductions.length > 0) {
-        setDeductions(manualDeductions.map((d, index) => ({
-          ...d,
-          id: index + 1,
-          amount: d.amount || 0,
-        })));
+        setDeductions(
+          manualDeductions.map((d, index) => ({
+            ...d,
+            id: index + 1,
+            amount: d.amount || 0,
+          })),
+        );
       }
 
-      const leaveDed = step4.leave_deductions || step5.leave_deductions_details || null;
+      const leaveDed =
+        step4.leave_deductions || step5.leave_deductions_details || null;
       if (leaveDed) {
         setLeaveDeductions(leaveDed);
       }
@@ -315,7 +365,7 @@ function EditPayroll() {
           }
           await fetchSalaryComponents(result.id);
           await fetchLeaveDeductions(result.id);
-          
+
           // Save step 1 immediately after employee selection
           await saveStepToAPI(1);
         }
@@ -345,7 +395,7 @@ function EditPayroll() {
 
     // Prepare step data based on current step
     let stepData = {};
-    
+
     switch (step) {
       case 1:
         stepData = {
@@ -359,11 +409,13 @@ function EditPayroll() {
           days_present: parseInt(daysPresent) || 0,
         };
         break;
-      
+
       case 2:
         stepData = {
           pay_period_month: monthNumber,
           pay_period_year: year,
+          currency: currency,
+          payment_cycle: paymentCycle,
           salary_components: salaryComponents.map((comp) => ({
             id: comp.id,
             component_name: comp.component_name,
@@ -375,7 +427,7 @@ function EditPayroll() {
           ),
         };
         break;
-      
+
       case 3:
         stepData = {
           pay_period_month: monthNumber,
@@ -384,7 +436,7 @@ function EditPayroll() {
           total_overtime_amount: totalOvertimeAmount,
         };
         break;
-      
+
       case 4:
         const totalManualDeductions = deductions.reduce(
           (sum, d) => sum + parseFloat(d.amount || 0),
@@ -403,19 +455,21 @@ function EditPayroll() {
           leave_deductions: leaveDeductions,
         };
         break;
-      
+
       case 5:
         const totalManualDeductionsSummary = deductions.reduce(
           (sum, d) => sum + parseFloat(d.amount || 0),
           0,
         );
-        const totalLeaveDeductionsSummary = leaveDeductions?.lop_deduction_amount || 0;
-        const totalAllDeductionsSummary = totalManualDeductionsSummary + totalLeaveDeductionsSummary;
+        const totalLeaveDeductionsSummary =
+          leaveDeductions?.lop_deduction_amount || 0;
+        const totalAllDeductionsSummary =
+          totalManualDeductionsSummary + totalLeaveDeductionsSummary;
         const totalSalary = salaryComponents.reduce(
           (sum, comp) => sum + (parseFloat(comp.value) || 0),
           0,
         );
-        
+
         stepData = {
           pay_period_month: monthNumber,
           pay_period_year: year,
@@ -425,7 +479,8 @@ function EditPayroll() {
             manual_deductions: totalManualDeductionsSummary,
             leave_deductions: totalLeaveDeductionsSummary,
             total_deductions: totalAllDeductionsSummary,
-            net_pay: totalSalary + totalOvertimeAmount - totalAllDeductionsSummary,
+            net_pay:
+              totalSalary + totalOvertimeAmount - totalAllDeductionsSummary,
           },
           salary_components: salaryComponents.map((comp) => ({
             id: comp.id,
@@ -442,7 +497,7 @@ function EditPayroll() {
           leave_deductions_details: leaveDeductions,
         };
         break;
-      
+
       default:
         stepData = {};
     }
@@ -461,7 +516,10 @@ function EditPayroll() {
 
       console.log(`Saving step ${step} to API:`, payload);
 
-      const response = await apiClient.post('/admin/payroll/save-step', payload);
+      const response = await apiClient.post(
+        "/admin/payroll/save-step",
+        payload,
+      );
 
       if (response.data?.success) {
         if (response.data.data?.id) {
@@ -470,11 +528,11 @@ function EditPayroll() {
         console.log(`Step ${step} saved successfully:`, response.data);
         return true;
       } else {
-        console.error('Failed to save step:', response.data?.message);
+        console.error("Failed to save step:", response.data?.message);
         return false;
       }
     } catch (error) {
-      console.error('Error saving step:', error);
+      console.error("Error saving step:", error);
       return false;
     }
   };
@@ -489,8 +547,26 @@ function EditPayroll() {
       );
 
       if (response.data?.status === "success") {
-        const components = response.data.data || [];
+        const payload = response.data.data;
+
+        let components = [];
+        let apiCurrency = null;
+        let apiPaymentCycle = null;
+
+        if (Array.isArray(payload)) {
+          components = payload;
+        } else if (payload && typeof payload === "object") {
+          if (Array.isArray(payload.salary_components)) {
+            components = payload.salary_components;
+          }
+          if (payload.currency) apiCurrency = payload.currency;
+          if (payload.payment_cycle) apiPaymentCycle = payload.payment_cycle;
+        }
+
         setSalaryComponents(components);
+
+        if (apiCurrency) setCurrency(apiCurrency);
+        if (apiPaymentCycle) setPaymentCycle(apiPaymentCycle);
       } else {
         setSalaryComponents([]);
       }
@@ -509,15 +585,15 @@ function EditPayroll() {
 
     const monthNumber = monthNames[payPeriodMonth] || new Date().getMonth() + 1;
     const year = parseInt(payPeriodYear) || new Date().getFullYear();
-    const monthStr = `${year}-${String(monthNumber).padStart(2, '0')}`;
+    const monthStr = `${year}-${String(monthNumber).padStart(2, "0")}`;
 
     setLeaveDeductionsLoading(true);
     try {
-      const response = await apiClient.get('/admin/payroll/leaves', {
+      const response = await apiClient.get("/admin/payroll/leaves", {
         params: {
           employee_id: employeeId,
-          month: monthStr
-        }
+          month: monthStr,
+        },
       });
 
       if (response.data?.success) {
@@ -526,7 +602,7 @@ function EditPayroll() {
         setLeaveDeductions(null);
       }
     } catch (error) {
-      console.error('Error fetching leave deductions:', error);
+      console.error("Error fetching leave deductions:", error);
       setLeaveDeductions(null);
     } finally {
       setLeaveDeductionsLoading(false);
@@ -756,21 +832,22 @@ function EditPayroll() {
             amount: parseFloat(d.amount) || 0,
             is_statutory: d.is_statutory || "no",
           })),
-          total_deductions: deductions.reduce(
-            (sum, d) => sum + parseFloat(d.amount || 0),
-            0,
-          ) + (leaveDeductions?.lop_deduction_amount || 0),
+          total_deductions:
+            deductions.reduce((sum, d) => sum + parseFloat(d.amount || 0), 0) +
+            (leaveDeductions?.lop_deduction_amount || 0),
           leave_deductions: leaveDeductions,
         };
         break;
 
       case 5:
-        const totalDeductionsFromAPI = leaveDeductions?.lop_deduction_amount || 0;
+        const totalDeductionsFromAPI =
+          leaveDeductions?.lop_deduction_amount || 0;
         const totalManualDeductions = deductions.reduce(
           (sum, d) => sum + parseFloat(d.amount || 0),
           0,
         );
-        const totalAllDeductions = totalManualDeductions + totalDeductionsFromAPI;
+        const totalAllDeductions =
+          totalManualDeductions + totalDeductionsFromAPI;
 
         data = {
           pay_period_month: monthNumber,
@@ -851,7 +928,8 @@ function EditPayroll() {
         return;
       }
 
-      const monthNumber = monthNames[payPeriodMonth] || new Date().getMonth() + 1;
+      const monthNumber =
+        monthNames[payPeriodMonth] || new Date().getMonth() + 1;
       const year = parseInt(payPeriodYear) || new Date().getFullYear();
 
       const totalSalary = salaryComponents.reduce(
@@ -876,7 +954,7 @@ function EditPayroll() {
         overtime: parseFloat(totalOvertimeAmount),
         deductions: parseFloat(totalAllDeductions),
         net_pay: parseFloat(netPay),
-        currency: "INR",
+        currency: currency,
       };
 
       if (payrollDraftId) {
@@ -893,8 +971,9 @@ function EditPayroll() {
       );
 
       setTimeout(() => {
+        dispatch(resetPayrollState());
         navigate(`${basePath}/payroll`);
-      }, 3000);
+      }, 1500);
     } catch (error) {
       console.error("Submit payroll error:", error);
       showToast(
@@ -1085,7 +1164,7 @@ function EditPayroll() {
                       className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-500 dark:text-gray-400 cursor-not-allowed"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                       <i className="fas fa-diagram-project text-green-500 mr-1"></i>
@@ -1285,6 +1364,9 @@ function EditPayroll() {
                 <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
                   Salary Components
                 </h3>
+                <span className="ml-3 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                  {currency}
+                </span>
                 <span className="ml-auto text-xs text-gray-400">
                   {salaryComponents.length} components
                 </span>
@@ -1337,9 +1419,15 @@ function EditPayroll() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                            <th className="py-3 px-4 font-semibold">Component Name</th>
-                            <th className="py-3 px-4 font-semibold text-center">Amount</th>
-                            <th className="py-3 px-4 font-semibold text-center">Actions</th>
+                            <th className="py-3 px-4 font-semibold">
+                              Component Name
+                            </th>
+                            <th className="py-3 px-4 font-semibold text-center">
+                              Amount
+                            </th>
+                            <th className="py-3 px-4 font-semibold text-center">
+                              Actions
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1505,41 +1593,61 @@ function EditPayroll() {
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
                 </div>
-              ) : overtimeData && overtimeData.overtime_details && overtimeData.overtime_details.length > 0 ? (
+              ) : overtimeData &&
+                overtimeData.overtime_details &&
+                overtimeData.overtime_details.length > 0 ? (
                 <>
                   <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-6 md:p-8 mb-6 border border-indigo-200 dark:border-indigo-800 text-center">
-                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Overtime Amount</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                      Total Overtime Amount
+                    </div>
                     <div className="text-4xl md:text-5xl font-bold text-indigo-600 dark:text-indigo-400">
-                      ₹{totalOvertimeAmount.toFixed(2)}
+                      {currencySymbol} {totalOvertimeAmount.toFixed(2)}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {overtimeData.total_overtime_formatted || "00:00"} total hours
+                      {overtimeData.total_overtime_formatted || "00:00"} total
+                      hours
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center border border-gray-200 dark:border-gray-700">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Monthly Salary</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Monthly Salary
+                      </div>
                       <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-                        ₹{overtimeData.rates?.monthly_salary?.toFixed(2) || "0.00"}
+                        {currencySymbol}{" "}
+                        {overtimeData.rates?.monthly_salary?.toFixed(2) ||
+                          "0.00"}
                       </div>
                     </div>
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center border border-gray-200 dark:border-gray-700">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Daily Salary</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Daily Salary
+                      </div>
                       <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-                        ₹{overtimeData.rates?.daily_salary?.toFixed(2) || "0.00"}
+                        {currencySymbol}{" "}
+                        {overtimeData.rates?.daily_salary?.toFixed(2) || "0.00"}
                       </div>
                     </div>
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center border border-gray-200 dark:border-gray-700">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Normal Hourly Rate</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Normal Hourly Rate
+                      </div>
                       <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-                        ₹{overtimeData.rates?.normal_hourly_rate?.toFixed(2) || "0.00"}
+                        {currencySymbol}{" "}
+                        {overtimeData.rates?.normal_hourly_rate?.toFixed(2) ||
+                          "0.00"}
                       </div>
                     </div>
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center border border-green-200 dark:border-green-800">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Overtime Hourly Rate</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Overtime Hourly Rate
+                      </div>
                       <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                        ₹{overtimeData.rates?.overtime_hourly_rate?.toFixed(2) || "0.00"}
+                        {currencySymbol}{" "}
+                        {overtimeData.rates?.overtime_hourly_rate?.toFixed(2) ||
+                          "0.00"}
                       </div>
                     </div>
                   </div>
@@ -1557,17 +1665,21 @@ function EditPayroll() {
                         </label>
                         <input
                           type="text"
-                          value={overtimeData.total_overtime_formatted || "00:00"}
+                          value={
+                            overtimeData.total_overtime_formatted || "00:00"
+                          }
                           onChange={(e) => {
-                            setOvertimeData(prev => ({
+                            setOvertimeData((prev) => ({
                               ...prev,
-                              total_overtime_formatted: e.target.value
+                              total_overtime_formatted: e.target.value,
                             }));
                           }}
                           className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                           placeholder="HH:MM"
                         />
-                        <p className="text-xs text-gray-400 mt-1">Format: HH:MM (e.g., 02:30)</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Format: HH:MM (e.g., 02:30)
+                        </p>
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
@@ -1581,15 +1693,17 @@ function EditPayroll() {
                           onChange={(e) => {
                             const value = parseFloat(e.target.value) || 0;
                             setTotalOvertimeAmount(value);
-                            setOvertimeData(prev => ({
+                            setOvertimeData((prev) => ({
                               ...prev,
-                              total_overtime_amount: value
+                              total_overtime_amount: value,
                             }));
                           }}
                           className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                           placeholder="0.00"
                         />
-                        <p className="text-xs text-gray-400 mt-1">Enter the total overtime amount</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Enter the total overtime amount
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1607,12 +1721,24 @@ function EditPayroll() {
                         <table className="w-full text-sm">
                           <thead className="sticky top-0 bg-gray-50 dark:bg-gray-700/50 z-10">
                             <tr>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Date</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Punch In</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Punch Out</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Total Hours</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Overtime</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Breaks</th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Date
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Punch In
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Punch Out
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Total Hours
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Overtime
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Breaks
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1625,16 +1751,35 @@ function EditPayroll() {
                                   {formatDate(item.date)}
                                 </td>
                                 <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
-                                  {item.punch_in ? new Date(item.punch_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                                  {item.punch_in
+                                    ? new Date(
+                                        item.punch_in,
+                                      ).toLocaleTimeString("en-US", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })
+                                    : "-"}
                                 </td>
                                 <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
-                                  {item.punch_out ? new Date(item.punch_out).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                                  {item.punch_out
+                                    ? new Date(
+                                        item.punch_out,
+                                      ).toLocaleTimeString("en-US", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })
+                                    : "-"}
                                 </td>
                                 <td className="px-4 py-2 font-semibold text-blue-600 dark:text-blue-400">
-                                  {item.total_working_minutes ? (item.total_working_minutes / 60).toFixed(2) : '0'}h
+                                  {item.total_working_minutes
+                                    ? (item.total_working_minutes / 60).toFixed(
+                                        2,
+                                      )
+                                    : "0"}
+                                  h
                                 </td>
                                 <td className="px-4 py-2 font-semibold text-orange-600 dark:text-orange-400">
-                                  {item.overtime_duration || '00:00'}
+                                  {item.overtime_duration || "00:00"}
                                 </td>
                                 <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
                                   {item.breaks?.length || 0}
@@ -1650,9 +1795,12 @@ function EditPayroll() {
               ) : (
                 <div className="text-center py-8">
                   <i className="fas fa-clock text-4xl text-gray-300 dark:text-gray-600 mb-3 block"></i>
-                  <p className="text-gray-500 dark:text-gray-400">No overtime records found for this period.</p>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No overtime records found for this period.
+                  </p>
                   <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-                    Make sure the employee has punched in/out during {payPeriodMonth} {payPeriodYear}
+                    Make sure the employee has punched in/out during{" "}
+                    {payPeriodMonth} {payPeriodYear}
                   </p>
                 </div>
               )}
@@ -1691,46 +1839,69 @@ function EditPayroll() {
                   <div className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 rounded-xl overflow-hidden">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-red-50 dark:bg-red-900/10 border-b border-red-200 dark:border-red-800">
                       <div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">Total Leaves</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Total Leaves
+                        </div>
                         <div className="text-lg font-bold text-red-600 dark:text-red-400">
                           {leaveDeductions.total_leave_days_in_month || 0} days
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">LOP Days</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          LOP Days
+                        </div>
                         <div className="text-lg font-bold text-amber-600 dark:text-amber-400">
                           {leaveDeductions.lop_days || 0} days
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">LOP Deduction</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          LOP Deduction
+                        </div>
                         <div className="text-lg font-bold text-red-600 dark:text-red-400">
-                          ₹{formatCurrency(leaveDeductions.lop_deduction_amount)}
+                          {currencySymbol}{" "}
+                          {formatCurrency(leaveDeductions.lop_deduction_amount)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">LOP Threshold</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          LOP Threshold
+                        </div>
                         <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
                           {leaveDeductions.lop_threshold_days || 0} days
                         </div>
                       </div>
                     </div>
 
-                    {leaveDeductions.leaves && leaveDeductions.leaves.length > 0 ? (
+                    {leaveDeductions.leaves &&
+                    leaveDeductions.leaves.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead className="bg-gray-50 dark:bg-gray-700/50">
                             <tr>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Leave Type</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Start Date</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">End Date</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Days</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Status</th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Leave Type
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Start Date
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                End Date
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Days
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Status
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
                             {leaveDeductions.leaves.map((leave) => (
-                              <tr key={leave.id} className="border-t border-gray-100 dark:border-gray-700">
+                              <tr
+                                key={leave.id}
+                                className="border-t border-gray-100 dark:border-gray-700"
+                              >
                                 <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
                                   {leave.leave_type?.name || "N/A"}
                                 </td>
@@ -1744,13 +1915,15 @@ function EditPayroll() {
                                   {leave.duration_days || 0}
                                 </td>
                                 <td className="px-4 py-2">
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    leave.status === "approved" 
-                                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                      : leave.status === "pending"
-                                      ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                      : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                  }`}>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      leave.status === "approved"
+                                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                        : leave.status === "pending"
+                                          ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                          : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                    }`}
+                                  >
                                     {leave.status || "N/A"}
                                   </span>
                                 </td>
@@ -1765,21 +1938,33 @@ function EditPayroll() {
                       <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-t border-red-200 dark:border-red-800">
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                           <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Monthly Salary</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Monthly Salary
+                            </div>
                             <div className="font-semibold text-gray-800 dark:text-gray-200">
-                              ₹{formatCurrency(leaveDeductions.salary_info.monthly_salary)}
+                              {currencySymbol}{" "}
+                              {formatCurrency(
+                                leaveDeductions.salary_info.monthly_salary,
+                              )}
                             </div>
                           </div>
                           <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Working Days</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Working Days
+                            </div>
                             <div className="font-semibold text-gray-800 dark:text-gray-200">
                               {leaveDeductions.salary_info.working_days} days
                             </div>
                           </div>
                           <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Daily Salary</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Daily Salary
+                            </div>
                             <div className="font-semibold text-gray-800 dark:text-gray-200">
-                              ₹{formatCurrency(leaveDeductions.salary_info.daily_salary)}
+                              {currencySymbol}{" "}
+                              {formatCurrency(
+                                leaveDeductions.salary_info.daily_salary,
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1789,7 +1974,9 @@ function EditPayroll() {
                 ) : (
                   <div className="text-center py-6 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-700">
                     <i className="fas fa-calendar-times text-3xl text-gray-300 dark:text-gray-600 mb-2 block"></i>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No leave deductions found for this period</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      No leave deductions found for this period
+                    </p>
                   </div>
                 )}
               </div>
@@ -1828,7 +2015,11 @@ function EditPayroll() {
                           type="number"
                           value={d.amount}
                           onChange={(e) =>
-                            handleDeductionChange(d.id, "amount", e.target.value)
+                            handleDeductionChange(
+                              d.id,
+                              "amount",
+                              e.target.value,
+                            )
                           }
                           className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                         />
@@ -1876,21 +2067,27 @@ function EditPayroll() {
               <div className="mt-6 p-4 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-xl border border-red-200 dark:border-red-800">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Manual Deductions</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Manual Deductions
+                    </div>
                     <div className="text-lg font-bold text-gray-800 dark:text-gray-200">
-                      ₹{totalManualDeductions.toFixed(2)}
+                      {currencySymbol} {totalManualDeductions.toFixed(2)}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Leave Deductions</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Leave Deductions
+                    </div>
                     <div className="text-lg font-bold text-red-600 dark:text-red-400">
-                      ₹{totalLeaveDeductions.toFixed(2)}
+                      {currencySymbol} {totalLeaveDeductions.toFixed(2)}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Total Deductions</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Total Deductions
+                    </div>
                     <div className="text-lg font-bold text-red-700 dark:text-red-500">
-                      ₹{totalAllDeductions.toFixed(2)}
+                      {currencySymbol} {totalAllDeductions.toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -2001,7 +2198,9 @@ function EditPayroll() {
                       <div className="text-sm text-gray-400">No components</div>
                     )}
                     <div className="border-t border-blue-200 dark:border-blue-700 mt-2 pt-2 flex justify-between items-center font-semibold">
-                      <span className="text-gray-700 dark:text-gray-300">Total:</span>
+                      <span className="text-gray-700 dark:text-gray-300">
+                        Total:
+                      </span>
                       <span className="text-blue-600 dark:text-blue-400">
                         {totalSalaryAmount.toFixed(2)}
                       </span>
@@ -2015,7 +2214,7 @@ function EditPayroll() {
                     </h4>
                     <div className="text-center py-2">
                       <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                        ₹{totalOvertimeAmount.toFixed(2)}
+                        {currencySymbol} {totalOvertimeAmount.toFixed(2)}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {overtimeData?.total_overtime_formatted || "00:00"}
@@ -2032,17 +2231,21 @@ function EditPayroll() {
                       <div className="flex justify-between">
                         <span className="text-gray-500">Manual:</span>
                         <span className="text-gray-700 dark:text-gray-300">
-                          ₹{totalManualDeductions.toFixed(2)}
+                          {currencySymbol} {totalManualDeductions.toFixed(2)}
                         </span>
                       </div>
                       <div className="flex justify-between text-red-600">
                         <span>Leave (LOP):</span>
-                        <span>₹{totalLeaveDeductions.toFixed(2)}</span>
+                        <span>
+                          {currencySymbol} {totalLeaveDeductions.toFixed(2)}
+                        </span>
                       </div>
                       <div className="border-t border-red-200 dark:border-red-700 mt-2 pt-2 flex justify-between font-semibold">
-                        <span className="text-gray-700 dark:text-gray-300">Total:</span>
+                        <span className="text-gray-700 dark:text-gray-300">
+                          Total:
+                        </span>
                         <span className="text-red-600 dark:text-red-400">
-                          ₹{totalAllDeductions.toFixed(2)}
+                          {currencySymbol} {totalAllDeductions.toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -2055,7 +2258,7 @@ function EditPayroll() {
                     </h4>
                     <div className="text-center py-2">
                       <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        ₹{totalNetPay.toFixed(2)}
+                        {currencySymbol} {totalNetPay.toFixed(2)}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         After all deductions
@@ -2112,9 +2315,7 @@ function EditPayroll() {
                   <i
                     className={`fas ${isSubmitting ? "fa-spinner fa-spin" : "fa-save"} text-xs md:text-sm`}
                   ></i>
-                  <span>
-                    {isSubmitting ? "Saving..." : "Update Payroll"}
-                  </span>
+                  <span>{isSubmitting ? "Saving..." : "Update Payroll"}</span>
                 </button>
               )}
             </div>

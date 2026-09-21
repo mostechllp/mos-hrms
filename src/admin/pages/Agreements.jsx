@@ -540,7 +540,7 @@ const Agreements = () => {
       {/* ── GRID VIEW (OS Explorer style) ── */}
       {viewMode === "grid" && (
         <>
-         {hasFolders && (
+         {hasFolders || pageDocuments.length > 0 ? (
   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-0.5 md:gap-1 mb-4">
               {/* Folders */}
               {filteredFolders.map((folder) => {
@@ -583,7 +583,7 @@ const Agreements = () => {
                 </button>
               )}
             </div>
-          )}
+          ): null}
 
           {/* Empty state at root */}
           {isAtRoot && !hasFolders && (

@@ -556,19 +556,22 @@ export const updateSalaryApi = createAsyncThunk(
 // ----------------------------------------------------
 
 const toBankPayload = (form = {}) => {
-  const cleanIban = (form.bankIban || "").replace(/\s/g, "");
+  const accounts = Array.isArray(form.bankAccounts)
+    ? form.bankAccounts
+    : form.bankName
+      ? [/* legacy single-account fallback */]
+      : [];
+
   return {
-    bank_details: [
-      {
-        bank_country: form.bankCountry || "",
-        bank_name: form.bankName || "",
-        account_number: form.accountNumber || "",
-        iban_number: cleanIban || "",
-        swift_code: form.bankSwift || "",
-        branch_name: form.bankBranch || "",
-        ifsc_code: form.bankIfsc || "",
-      },
-    ],
+    bank_details: accounts.map((acc) => ({
+      bank_country: acc.bankCountry || "",
+      bank_name: acc.bankName || "",
+      account_number: acc.accountNumber || "",
+      iban_number: (acc.bankIban || "").replace(/\s/g, ""),
+      swift_code: acc.bankSwift || "",
+      branch_name: acc.bankBranch || "",
+      ifsc_code: acc.bankIfsc || "",
+    })),
   };
 };
 

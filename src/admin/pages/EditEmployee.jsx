@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -99,6 +98,8 @@ const EditEmployee = () => {
       employee_id: "",
       type: "employee",
       joining_date: "",
+      currency: "INR",
+      payment_cycle: "Monthly",
       dob: "",
       gender: "male",
       nationality: "",
@@ -241,226 +242,264 @@ const EditEmployee = () => {
     } else {
       setSelectedCompanyDetails(null);
     }
-  }, [watchCompanyId, companies, setValue, currentEmployee]);
+  }, [watchCompanyId, companies, setValue, currentEmployee, watch]);
 
   // After companies are loaded, set the selected company details from currentEmployee
   // Set form values when employee data is loaded - FIXED VERSION
-useEffect(() => {
-  if (currentEmployee && !formInitialized) {
-    setIsInitializing(true);
+  useEffect(() => {
+    if (currentEmployee && !formInitialized) {
+      setIsInitializing(true);
 
-    // Determine country from company - FIXED
-    const companyId = currentEmployee.user?.company?.id || currentEmployee.user?.company_id || "";
-    let normalizedCountry = "UAE";
+      // Determine country from company - FIXED
+      const companyId =
+        currentEmployee.user?.company?.id ||
+        currentEmployee.user?.company_id ||
+        "";
+      let normalizedCountry = "UAE";
 
-    if (companyId && companies.length > 0) {
-      const company = companies.find((comp) => comp.id === parseInt(companyId));
-      if (company) {
-        const companyCountry = company?.country || company?.raw?.country || "UAE";
-        // Fix: Handle "IN" as well
-        if (companyCountry === "AE") {
-          normalizedCountry = "UAE";
-        } else if (companyCountry === "IN" || companyCountry === "India") {
-          normalizedCountry = "India";
-        } else {
-          normalizedCountry = companyCountry;
+      if (companyId && companies.length > 0) {
+        const company = companies.find(
+          (comp) => comp.id === parseInt(companyId),
+        );
+        if (company) {
+          const companyCountry =
+            company?.country || company?.raw?.country || "UAE";
+          // Fix: Handle "IN" as well
+          if (companyCountry === "AE") {
+            normalizedCountry = "UAE";
+          } else if (companyCountry === "IN" || companyCountry === "India") {
+            normalizedCountry = "India";
+          } else {
+            normalizedCountry = companyCountry;
+          }
+          setSelectedCountry(normalizedCountry);
+          setCountryConfig(getCountryConfig(normalizedCountry));
         }
-        setSelectedCountry(normalizedCountry);
-        setCountryConfig(getCountryConfig(normalizedCountry));
       }
-    }
 
-    // Basic Info
-    setValue("first_name", currentEmployee.first_name || "");
-    setValue("last_name", currentEmployee.last_name || "");
+      // Basic Info
+      setValue("first_name", currentEmployee.first_name || "");
+      setValue("last_name", currentEmployee.last_name || "");
 
-    const orgId = currentEmployee.user?.organization_id || "";
-    setValue("organization_id", orgId);
+      const orgId = currentEmployee.user?.organization_id || "";
+      setValue("organization_id", orgId);
 
-    setValue("company_id", companyId);
-    setValue("designation_id", currentEmployee.user?.designation_id || "");
-    setValue("department_id", currentEmployee.user?.department_id || "");
-    setValue("employee_id", currentEmployee.employee_id || "");
-    setValue("type", currentEmployee.user?.type || currentEmployee.type || "employee");
-    setValue(
-      "joining_date",
-      convertToDisplayDate(currentEmployee.joining_date),
-    );
-    setValue("dob", convertToDisplayDate(currentEmployee.dob));
-    setValue("gender", currentEmployee.gender || "male");
-    setValue("nationality", currentEmployee.nationality || "");
-    setValue("marital_status", currentEmployee.marital_status || "");
+      setValue("company_id", companyId);
+      setValue("designation_id", currentEmployee.user?.designation_id || "");
+      setValue("department_id", currentEmployee.user?.department_id || "");
+      setValue("employee_id", currentEmployee.employee_id || "");
+      setValue(
+        "type",
+        currentEmployee.user?.type || currentEmployee.type || "employee",
+      );
+      setValue(
+        "joining_date",
+        convertToDisplayDate(currentEmployee.joining_date),
+      );
+      setValue("currency", currentEmployee.currency || "INR");
+      setValue("payment_cycle", currentEmployee.payment_cycle || "Monthly");
+      setValue("dob", convertToDisplayDate(currentEmployee.dob));
+      setValue("gender", currentEmployee.gender || "male");
+      setValue("nationality", currentEmployee.nationality || "");
+      setValue("marital_status", currentEmployee.marital_status || "");
 
-    setValue("probation_start_date", convertToDisplayDate(currentEmployee.probation_start_date));
-    setValue("probation_end_date", convertToDisplayDate(currentEmployee.probation_end_date));
-    setValue("confirmation_date", convertToDisplayDate(currentEmployee.confirmation_date));
-    setValue("contract_start_date", convertToDisplayDate(currentEmployee.contract_start_date));
-    setValue("contract_end_date", convertToDisplayDate(currentEmployee.contract_end_date));
-    setValue("notice_period_start_date", convertToDisplayDate(currentEmployee.notice_period_start_date));
-    setValue("last_working_day", convertToDisplayDate(currentEmployee.last_working_day));
-    setValue("resignation_date", convertToDisplayDate(currentEmployee.resignation_date));
-    setValue("relieving_date", convertToDisplayDate(currentEmployee.relieving_date));
+      setValue(
+        "probation_start_date",
+        convertToDisplayDate(currentEmployee.probation_start_date),
+      );
+      setValue(
+        "probation_end_date",
+        convertToDisplayDate(currentEmployee.probation_end_date),
+      );
+      setValue(
+        "confirmation_date",
+        convertToDisplayDate(currentEmployee.confirmation_date),
+      );
+      setValue(
+        "contract_start_date",
+        convertToDisplayDate(currentEmployee.contract_start_date),
+      );
+      setValue(
+        "contract_end_date",
+        convertToDisplayDate(currentEmployee.contract_end_date),
+      );
+      setValue(
+        "notice_period_start_date",
+        convertToDisplayDate(currentEmployee.notice_period_start_date),
+      );
+      setValue(
+        "last_working_day",
+        convertToDisplayDate(currentEmployee.last_working_day),
+      );
+      setValue(
+        "resignation_date",
+        convertToDisplayDate(currentEmployee.resignation_date),
+      );
+      setValue(
+        "relieving_date",
+        convertToDisplayDate(currentEmployee.relieving_date),
+      );
 
-    setValue(
-      "is_skilled",
-      currentEmployee.is_skilled === 1 || currentEmployee.is_skilled === true,
-    );
+      setValue(
+        "is_skilled",
+        currentEmployee.is_skilled === 1 || currentEmployee.is_skilled === true,
+      );
 
-    // Handle special days
-    try {
-      let parsedSpecialDays = [];
-      if (currentEmployee.special_days) {
-        if (Array.isArray(currentEmployee.special_days)) {
-          parsedSpecialDays = currentEmployee.special_days.map((day) => ({
-            name: day.name,
-            date: convertToDisplayDate(day.date),
-          }));
-        } else if (typeof currentEmployee.special_days === "string") {
-          parsedSpecialDays = JSON.parse(currentEmployee.special_days).map(
-            (day) => ({
+      // Handle special days
+      try {
+        let parsedSpecialDays = [];
+        if (currentEmployee.special_days) {
+          if (Array.isArray(currentEmployee.special_days)) {
+            parsedSpecialDays = currentEmployee.special_days.map((day) => ({
               name: day.name,
               date: convertToDisplayDate(day.date),
-            }),
-          );
+            }));
+          } else if (typeof currentEmployee.special_days === "string") {
+            parsedSpecialDays = JSON.parse(currentEmployee.special_days).map(
+              (day) => ({
+                name: day.name,
+                date: convertToDisplayDate(day.date),
+              }),
+            );
+          }
+        }
+        if (parsedSpecialDays.length === 0) {
+          parsedSpecialDays = [{ name: "", date: "" }];
+        }
+        setValue("special_days", parsedSpecialDays);
+      } catch (e) {
+        console.error("Error parsing special days:", e);
+        setValue("special_days", [{ name: "", date: "" }]);
+      }
+
+      // Passport details
+      setValue("passport_full_name", currentEmployee.passport_full_name || "");
+      setValue("passport_number", currentEmployee.passport_number || "");
+      setValue(
+        "passport_issued_date",
+        convertToDisplayDate(currentEmployee.passport_issued_date),
+      );
+      setValue(
+        "passport_expiry_date",
+        convertToDisplayDate(currentEmployee.passport_expiry_date),
+      );
+      setValue("father_name", currentEmployee.father_name || "");
+      setValue("mother_name", currentEmployee.mother_name || "");
+      setValue("address", currentEmployee.address || "");
+      setValue(
+        "passport_issued_from",
+        currentEmployee.passport_issued_from || "",
+      );
+      setValue("place_of_birth", currentEmployee.place_of_birth || "");
+
+      // Visa & Labor & EID
+      setValue("visa_number", currentEmployee.visa_number || "");
+      setValue("visa_type", currentEmployee.visa_type || "");
+      setValue(
+        "visa_issued_date",
+        convertToDisplayDate(currentEmployee.visa_issued_date),
+      );
+      setValue(
+        "visa_expiry_date",
+        convertToDisplayDate(currentEmployee.visa_expiry_date),
+      );
+      setValue("labor_number", currentEmployee.labor_number || "");
+      setValue(
+        "labor_issued_date",
+        convertToDisplayDate(currentEmployee.labor_issued_date),
+      );
+      setValue(
+        "labor_expiry_date",
+        convertToDisplayDate(currentEmployee.labor_expiry_date),
+      );
+      setValue("eid_number", currentEmployee.eid_number || "");
+      setValue(
+        "eid_issued_date",
+        convertToDisplayDate(currentEmployee.eid_issued_date),
+      );
+      setValue(
+        "eid_expiry_date",
+        convertToDisplayDate(currentEmployee.eid_expiry_date),
+      );
+
+      // India-specific fields - FIXED: Now normalizedCountry will be "India"
+      if (normalizedCountry === "India") {
+        setValue("aadhar_number", currentEmployee.aadhar_number || "");
+        setValue("pan_number", currentEmployee.pan_number || "");
+        setValue("voter_id_number", currentEmployee.voter_id_number || "");
+        setValue(
+          "driving_license_number",
+          currentEmployee.driving_license_number || "",
+        );
+        setValue(
+          "passport_india_number",
+          currentEmployee.passport_india_number || "",
+        );
+      }
+
+      // Contact & Others
+      setValue("dependents", currentEmployee.dependents || 0);
+      setValue("company_email", currentEmployee.company_email || "");
+      setValue(
+        "company_mobile_number",
+        currentEmployee.company_mobile_number || "",
+      );
+      setValue("personal_number", currentEmployee.personal_number || "");
+      setValue("personal_email", currentEmployee.personal_email || "");
+      setValue("other_number", currentEmployee.other_number || "");
+      setValue(
+        "home_country_number",
+        currentEmployee.home_country_number || "",
+      );
+      setValue("role", currentEmployee.user?.role_id || "");
+
+      // Set selected company details for trade license display
+      if (companyId && companies.length > 0) {
+        const company = companies.find(
+          (comp) => comp.id === parseInt(companyId),
+        );
+        if (company) {
+          setSelectedCompanyDetails(company);
         }
       }
-      if (parsedSpecialDays.length === 0) {
-        parsedSpecialDays = [{ name: "", date: "" }];
-      }
-      setValue("special_days", parsedSpecialDays);
-    } catch (e) {
-      console.error("Error parsing special days:", e);
-      setValue("special_days", [{ name: "", date: "" }]);
+
+      // Set existing documents - using correct column names
+      const docs = {};
+      const docFields = [
+        "avatar",
+        "passport_1st_page",
+        "passport_2nd_page",
+        "passport_outer_page",
+        "passport_id_page",
+        "visa_page",
+        "labor_card",
+        "labor_contract",
+        "eid_1st_page",
+        "eid_2nd_page",
+        "educational_1st_page",
+        "educational_2nd_page",
+        "home_country_id_proof",
+        // India-specific
+        "aadhar_photo",
+        "pan_photo",
+        "voter_id",
+        "driving_license",
+        "passport_india",
+      ];
+
+      docFields.forEach((field) => {
+        if (currentEmployee[field]) {
+          docs[field] = currentEmployee[field];
+        }
+      });
+      setExistingDocuments(docs);
+
+      setFormInitialized(true);
+      setTimeout(() => {
+        setIsInitializing(false);
+      }, 100);
     }
-
-    // Passport details
-    setValue("passport_full_name", currentEmployee.passport_full_name || "");
-    setValue("passport_number", currentEmployee.passport_number || "");
-    setValue(
-      "passport_issued_date",
-      convertToDisplayDate(currentEmployee.passport_issued_date),
-    );
-    setValue(
-      "passport_expiry_date",
-      convertToDisplayDate(currentEmployee.passport_expiry_date),
-    );
-    setValue("father_name", currentEmployee.father_name || "");
-    setValue("mother_name", currentEmployee.mother_name || "");
-    setValue("address", currentEmployee.address || "");
-    setValue(
-      "passport_issued_from",
-      currentEmployee.passport_issued_from || "",
-    );
-    setValue("place_of_birth", currentEmployee.place_of_birth || "");
-
-    // Visa & Labor & EID
-    setValue("visa_number", currentEmployee.visa_number || "");
-    setValue("visa_type", currentEmployee.visa_type || "");
-    setValue(
-      "visa_issued_date",
-      convertToDisplayDate(currentEmployee.visa_issued_date),
-    );
-    setValue(
-      "visa_expiry_date",
-      convertToDisplayDate(currentEmployee.visa_expiry_date),
-    );
-    setValue("labor_number", currentEmployee.labor_number || "");
-    setValue(
-      "labor_issued_date",
-      convertToDisplayDate(currentEmployee.labor_issued_date),
-    );
-    setValue(
-      "labor_expiry_date",
-      convertToDisplayDate(currentEmployee.labor_expiry_date),
-    );
-    setValue("eid_number", currentEmployee.eid_number || "");
-    setValue(
-      "eid_issued_date",
-      convertToDisplayDate(currentEmployee.eid_issued_date),
-    );
-    setValue(
-      "eid_expiry_date",
-      convertToDisplayDate(currentEmployee.eid_expiry_date),
-    );
-
-    // India-specific fields - FIXED: Now normalizedCountry will be "India"
-    if (normalizedCountry === "India") {
-      setValue("aadhar_number", currentEmployee.aadhar_number || "");
-      setValue("pan_number", currentEmployee.pan_number || "");
-      setValue("voter_id_number", currentEmployee.voter_id_number || "");
-      setValue(
-        "driving_license_number",
-        currentEmployee.driving_license_number || "",
-      );
-      setValue(
-        "passport_india_number",
-        currentEmployee.passport_india_number || "",
-      );
-    }
-
-    // Contact & Others
-    setValue("dependents", currentEmployee.dependents || 0);
-    setValue("company_email", currentEmployee.company_email || "");
-    setValue(
-      "company_mobile_number",
-      currentEmployee.company_mobile_number || "",
-    );
-    setValue("personal_number", currentEmployee.personal_number || "");
-    setValue("personal_email", currentEmployee.personal_email || "");
-    setValue("other_number", currentEmployee.other_number || "");
-    setValue(
-      "home_country_number",
-      currentEmployee.home_country_number || "",
-    );
-    setValue("role", currentEmployee.user?.role_id || "");
-
-    // Set selected company details for trade license display
-    if (companyId && companies.length > 0) {
-      const company = companies.find(
-        (comp) => comp.id === parseInt(companyId),
-      );
-      if (company) {
-        setSelectedCompanyDetails(company);
-      }
-    }
-
-    // Set existing documents - using correct column names
-    const docs = {};
-    const docFields = [
-      "avatar",
-      "passport_1st_page",
-      "passport_2nd_page",
-      "passport_outer_page",
-      "passport_id_page",
-      "visa_page",
-      "labor_card",
-      "labor_contract",
-      "eid_1st_page",
-      "eid_2nd_page",
-      "educational_1st_page",
-      "educational_2nd_page",
-      "home_country_id_proof",
-      // India-specific
-      "aadhar_photo",
-      "pan_photo",
-      "voter_id",
-      "driving_license",
-      "passport_india",
-    ];
-
-    docFields.forEach((field) => {
-      if (currentEmployee[field]) {
-        docs[field] = currentEmployee[field];
-      }
-    });
-    setExistingDocuments(docs);
-
-    setFormInitialized(true);
-    setTimeout(() => {
-      setIsInitializing(false);
-    }, 100);
-  }
-}, [currentEmployee, setValue, formInitialized, companies]);
+  }, [currentEmployee, setValue, formInitialized, companies]);
 
   // Fetch employee data
   useEffect(() => {
@@ -504,6 +543,12 @@ useEffect(() => {
           normalizedCountry = companyCountry === "AE" ? "UAE" : companyCountry;
           setSelectedCountry(normalizedCountry);
           setCountryConfig(getCountryConfig(normalizedCountry));
+
+          // Default currency based on country (only if not set)
+          const currentCurrency = watch("currency");
+          if (!currentCurrency || currentCurrency === "") {
+            setValue("currency", normalizedCountry === "UAE" ? "AED" : "INR");
+          }
         }
       }
 
@@ -518,7 +563,10 @@ useEffect(() => {
       setValue("designation_id", currentEmployee.user?.designation_id || "");
       setValue("department_id", currentEmployee.user?.department_id || "");
       setValue("employee_id", currentEmployee.employee_id || "");
-      setValue("type", currentEmployee.user?.type || currentEmployee.type || "employee");
+      setValue(
+        "type",
+        currentEmployee.user?.type || currentEmployee.type || "employee",
+      );
       setValue(
         "joining_date",
         convertToDisplayDate(currentEmployee.joining_date),
@@ -528,15 +576,42 @@ useEffect(() => {
       setValue("nationality", currentEmployee.nationality || "");
       setValue("marital_status", currentEmployee.marital_status || "");
 
-      setValue("probation_start_date", convertToDisplayDate(currentEmployee.probation_start_date));
-      setValue("probation_end_date", convertToDisplayDate(currentEmployee.probation_end_date));
-      setValue("confirmation_date", convertToDisplayDate(currentEmployee.confirmation_date));
-      setValue("contract_start_date", convertToDisplayDate(currentEmployee.contract_start_date));
-      setValue("contract_end_date", convertToDisplayDate(currentEmployee.contract_end_date));
-      setValue("notice_period_start_date", convertToDisplayDate(currentEmployee.notice_period_start_date));
-      setValue("last_working_day", convertToDisplayDate(currentEmployee.last_working_day));
-      setValue("resignation_date", convertToDisplayDate(currentEmployee.resignation_date));
-      setValue("relieving_date", convertToDisplayDate(currentEmployee.relieving_date));
+      setValue(
+        "probation_start_date",
+        convertToDisplayDate(currentEmployee.probation_start_date),
+      );
+      setValue(
+        "probation_end_date",
+        convertToDisplayDate(currentEmployee.probation_end_date),
+      );
+      setValue(
+        "confirmation_date",
+        convertToDisplayDate(currentEmployee.confirmation_date),
+      );
+      setValue(
+        "contract_start_date",
+        convertToDisplayDate(currentEmployee.contract_start_date),
+      );
+      setValue(
+        "contract_end_date",
+        convertToDisplayDate(currentEmployee.contract_end_date),
+      );
+      setValue(
+        "notice_period_start_date",
+        convertToDisplayDate(currentEmployee.notice_period_start_date),
+      );
+      setValue(
+        "last_working_day",
+        convertToDisplayDate(currentEmployee.last_working_day),
+      );
+      setValue(
+        "resignation_date",
+        convertToDisplayDate(currentEmployee.resignation_date),
+      );
+      setValue(
+        "relieving_date",
+        convertToDisplayDate(currentEmployee.relieving_date),
+      );
 
       setValue(
         "is_skilled",
@@ -708,6 +783,20 @@ useEffect(() => {
   ];
 
   const userTypeOptions = ["admin", "hr", "manager", "team_lead", "employee"];
+  const currenciesList = [
+    { code: "AED", name: "United Arab Emirates Dirham (AED)" },
+    { code: "INR", name: "Indian Rupee (INR)" },
+    { code: "USD", name: "United States Dollar (USD)" },
+    { code: "EUR", name: "Euro (EUR)" },
+    { code: "GBP", name: "British Pound (GBP)" },
+  ];
+
+  const paymentCycleOptions = [
+    { value: "Monthly", label: "Monthly" },
+    { value: "Weekly", label: "Weekly" },
+    { value: "Bi-Weekly", label: "Bi-Weekly" },
+    { value: "Quarterly", label: "Quarterly" },
+  ];
   const genderOptions = [
     { value: "male", label: "Male" },
     { value: "female", label: "Female" },
@@ -738,6 +827,8 @@ useEffect(() => {
           "designation_id",
           "department_id",
           "type",
+          "currency",
+          "payment_cycle",
           "dob",
           "joining_date",
           "special_days",
@@ -948,6 +1039,8 @@ useEffect(() => {
     formData.append("gender", data.gender || "");
     formData.append("nationality", data.nationality || "");
     formData.append("marital_status", data.marital_status || "");
+    formData.append("currency", data.currency || "");
+    formData.append("payment_cycle", data.payment_cycle || "");
     if (data.is_skilled !== undefined) {
       formData.append("is_skilled", data.is_skilled ? 1 : 0);
     }
@@ -964,15 +1057,42 @@ useEffect(() => {
     if (joiningDate) formData.append("joining_date", joiningDate);
 
     // Append 9 new date fields
-    formData.append("probation_start_date", convertDateToBackend(data.probation_start_date) || "");
-    formData.append("probation_end_date", convertDateToBackend(data.probation_end_date) || "");
-    formData.append("confirmation_date", convertDateToBackend(data.confirmation_date) || "");
-    formData.append("contract_start_date", convertDateToBackend(data.contract_start_date) || "");
-    formData.append("contract_end_date", convertDateToBackend(data.contract_end_date) || "");
-    formData.append("notice_period_start_date", convertDateToBackend(data.notice_period_start_date) || "");
-    formData.append("last_working_day", convertDateToBackend(data.last_working_day) || "");
-    formData.append("resignation_date", convertDateToBackend(data.resignation_date) || "");
-    formData.append("relieving_date", convertDateToBackend(data.relieving_date) || "");
+    formData.append(
+      "probation_start_date",
+      convertDateToBackend(data.probation_start_date) || "",
+    );
+    formData.append(
+      "probation_end_date",
+      convertDateToBackend(data.probation_end_date) || "",
+    );
+    formData.append(
+      "confirmation_date",
+      convertDateToBackend(data.confirmation_date) || "",
+    );
+    formData.append(
+      "contract_start_date",
+      convertDateToBackend(data.contract_start_date) || "",
+    );
+    formData.append(
+      "contract_end_date",
+      convertDateToBackend(data.contract_end_date) || "",
+    );
+    formData.append(
+      "notice_period_start_date",
+      convertDateToBackend(data.notice_period_start_date) || "",
+    );
+    formData.append(
+      "last_working_day",
+      convertDateToBackend(data.last_working_day) || "",
+    );
+    formData.append(
+      "resignation_date",
+      convertDateToBackend(data.resignation_date) || "",
+    );
+    formData.append(
+      "relieving_date",
+      convertDateToBackend(data.relieving_date) || "",
+    );
 
     // Special days - Send as arrays
     if (data.special_days && data.special_days.length > 0) {
@@ -1196,6 +1316,13 @@ useEffect(() => {
     },
     dob: {
       required: "Date of Birth is required",
+    },
+
+    currency: {
+      required: "Currency is required",
+    },
+    payment_cycle: {
+      required: "Payment cycle is required",
     },
     joining_date: {
       required: "Joining Date is required",
@@ -1565,7 +1692,9 @@ useEffect(() => {
                             {...field}
                             type="text"
                             className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)] ${
-                              errors.first_name ? "border-red-500" : "border-[var(--border)] focus:border-green-500"
+                              errors.first_name
+                                ? "border-red-500"
+                                : "border-[var(--border)] focus:border-green-500"
                             }`}
                             placeholder="Enter first name"
                           />
@@ -1612,7 +1741,9 @@ useEffect(() => {
                           <select
                             {...field}
                             className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] ${
-                              errors.organization_id ? "border-red-500" : "border-[var(--border)]"
+                              errors.organization_id
+                                ? "border-red-500"
+                                : "border-[var(--border)]"
                             }`}
                           >
                             <option value="">Select Organization</option>
@@ -1696,7 +1827,8 @@ useEffect(() => {
                       <div className="md:col-span-2">
                         <div
                           className={`p-3 rounded-lg ${
-                            selectedCompanyDetails.raw?.trade_license === "mainland"
+                            selectedCompanyDetails.raw?.trade_license ===
+                            "mainland"
                               ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
                               : "bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800"
                           }`}
@@ -1704,7 +1836,8 @@ useEffect(() => {
                           <div className="flex items-center gap-2">
                             <i
                               className={`fas ${
-                                selectedCompanyDetails.raw?.trade_license === "mainland"
+                                selectedCompanyDetails.raw?.trade_license ===
+                                "mainland"
                                   ? "fa-building text-blue-600 dark:text-blue-400"
                                   : "fa-globe text-yellow-600 dark:text-yellow-400"
                               }`}
@@ -1713,7 +1846,8 @@ useEffect(() => {
                               Company Trade License:{" "}
                               <span
                                 className={
-                                  selectedCompanyDetails.raw?.trade_license === "mainland"
+                                  selectedCompanyDetails.raw?.trade_license ===
+                                  "mainland"
                                     ? "text-blue-600 dark:text-blue-400"
                                     : "text-yellow-600 dark:text-yellow-400"
                                 }
@@ -1740,7 +1874,9 @@ useEffect(() => {
                           <select
                             {...field}
                             className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] ${
-                              errors.designation_id ? "border-red-500" : "border-[var(--border)]"
+                              errors.designation_id
+                                ? "border-red-500"
+                                : "border-[var(--border)]"
                             }`}
                           >
                             <option value="">Select Designation</option>
@@ -1774,7 +1910,9 @@ useEffect(() => {
                           <select
                             {...field}
                             className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] ${
-                              errors.department_id ? "border-red-500" : "border-[var(--border)]"
+                              errors.department_id
+                                ? "border-red-500"
+                                : "border-[var(--border)]"
                             }`}
                           >
                             <option value="">Select Department</option>
@@ -1814,6 +1952,80 @@ useEffect(() => {
                             </option>
                           ))}
                         </select>
+                      )}
+                    />
+                  </div>
+
+                  {/* Currency */}
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
+                      <i className="fas fa-money-bill-wave text-green-500 mr-1"></i>{" "}
+                      Currency <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="currency"
+                      control={control}
+                      rules={{ required: "Currency is required" }}
+                      render={({ field }) => (
+                        <>
+                          <select
+                            {...field}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] ${
+                              errors.currency
+                                ? "border-red-500"
+                                : "border-[var(--border)]"
+                            }`}
+                          >
+                            <option value="">Select Currency</option>
+                            {currenciesList.map((curr) => (
+                              <option key={curr.code} value={curr.code}>
+                                {curr.name}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.currency && (
+                            <p className="mt-1 text-xs text-red-500">
+                              {errors.currency.message}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    />
+                  </div>
+
+                  {/* Payment Cycle */}
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-[var(--text)] mb-1 md:mb-2">
+                      <i className="fas fa-sync-alt text-green-500 mr-1"></i>{" "}
+                      Payment Cycle <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="payment_cycle"
+                      control={control}
+                      rules={{ required: "Payment cycle is required" }}
+                      render={({ field }) => (
+                        <>
+                          <select
+                            {...field}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] ${
+                              errors.payment_cycle
+                                ? "border-red-500"
+                                : "border-[var(--border)]"
+                            }`}
+                          >
+                            <option value="">Select Payment Cycle</option>
+                            {paymentCycleOptions.map((cycle) => (
+                              <option key={cycle.value} value={cycle.value}>
+                                {cycle.label}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.payment_cycle && (
+                            <p className="mt-1 text-xs text-red-500">
+                              {errors.payment_cycle.message}
+                            </p>
+                          )}
+                        </>
                       )}
                     />
                   </div>
@@ -1986,7 +2198,9 @@ useEffect(() => {
                             readOnly
                             disabled
                             className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] opacity-70 cursor-not-allowed ${
-                              errors.employee_id ? "border-red-500" : "border-[var(--border)]"
+                              errors.employee_id
+                                ? "border-red-500"
+                                : "border-[var(--border)]"
                             }`}
                             placeholder="Employee ID"
                           />
@@ -2327,8 +2541,6 @@ useEffect(() => {
                       </div>
                     </>
                   )}
-
-
                 </div>
               </div>
             )}
@@ -2609,7 +2821,9 @@ useEffect(() => {
                                 {...field}
                                 type="text"
                                 className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)] ${
-                                  errors.pan_number ? "border-red-500" : "border-[var(--border)]"
+                                  errors.pan_number
+                                    ? "border-red-500"
+                                    : "border-[var(--border)]"
                                 }`}
                                 placeholder="Enter 10-digit PAN (e.g., ABCDE1234F)"
                               />
@@ -2695,7 +2909,8 @@ useEffect(() => {
                       </h3>
                     </div>
                     <div className="space-y-6">
-                      {selectedCompanyDetails?.raw?.trade_license === "mainland" && (
+                      {selectedCompanyDetails?.raw?.trade_license ===
+                        "mainland" && (
                         <div className="border border-[var(--border)] rounded-lg p-4">
                           <h4 className="text-sm font-semibold text-[var(--text)] mb-4">
                             Labor Details
@@ -2715,7 +2930,9 @@ useEffect(() => {
                                       {...field}
                                       type="text"
                                       className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)] ${
-                                        errors.labor_number ? "border-red-500" : "border-[var(--border)]"
+                                        errors.labor_number
+                                          ? "border-red-500"
+                                          : "border-[var(--border)]"
                                       }`}
                                       placeholder="Enter Labor Number"
                                     />
@@ -2953,7 +3170,8 @@ useEffect(() => {
                               label="Visa Page Copy"
                               icon="fas fa-file-contract"
                             />
-                            {selectedCompanyDetails?.raw?.trade_license === "mainland" && (
+                            {selectedCompanyDetails?.raw?.trade_license ===
+                              "mainland" && (
                               <>
                                 <DocumentUpload
                                   fieldKey="labor_card"
@@ -3124,7 +3342,9 @@ useEffect(() => {
                             {...field}
                             type="email"
                             className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)] ${
-                              errors.company_email ? "border-red-500" : "border-[var(--border)]"
+                              errors.company_email
+                                ? "border-red-500"
+                                : "border-[var(--border)]"
                             }`}
                             placeholder="name@company.com"
                           />
@@ -3152,7 +3372,9 @@ useEffect(() => {
                             {...field}
                             type="email"
                             className={`w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--surface2)] border rounded-lg text-sm md:text-base text-[var(--text)] placeholder:text-[var(--muted)] ${
-                              errors.personal_email ? "border-red-500" : "border-[var(--border)]"
+                              errors.personal_email
+                                ? "border-red-500"
+                                : "border-[var(--border)]"
                             }`}
                             placeholder="name@gmail.com"
                           />

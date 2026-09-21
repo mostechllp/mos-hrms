@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { showToast } from "../components/common/Toast";
 import apiClient from "../../utils/apiClient";
 import DateInput from "../components/common/DateInput";
@@ -57,6 +57,7 @@ const getOrganizationName = (employees, organizationId) => {
 
 function AddPayroll() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const { user } = useSelector((state) => state.auth || {});
   const isAdmin =
@@ -86,6 +87,8 @@ function AddPayroll() {
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [selectedEmployeeCode, setSelectedEmployeeCode] = useState("");
+  const [currency, setCurrency] = useState("AED");
+  const [paymentCycle, setPaymentCycle] = useState("Monthly");
   const [employeeId, setEmployeeId] = useState("");
   const [employeeName, setEmployeeName] = useState("");
   const [organizationId, setOrganizationId] = useState("");
@@ -102,7 +105,7 @@ function AddPayroll() {
   const [totalWorkingDays, setTotalWorkingDays] = useState("");
   const [daysPresent, setDaysPresent] = useState("");
   const [workingDaysLoading, setWorkingDaysLoading] = useState(false);
-  
+
   // Payroll draft ID from API
   const [payrollDraftId, setPayrollDraftId] = useState(null);
 
@@ -126,7 +129,7 @@ function AddPayroll() {
       is_statutory: "no",
     },
   ]);
-  
+
   // Leave Deductions from API
   const [leaveDeductions, setLeaveDeductions] = useState(null);
   const [leaveDeductionsLoading, setLeaveDeductionsLoading] = useState(false);
@@ -146,6 +149,20 @@ function AddPayroll() {
     { id: 4, label: "Deductions" },
     { id: 5, label: "Summary" },
   ];
+
+  const getCurrencySymbol = (code) => {
+    const map = {
+      AED: "AED ",
+      INR: "₹",
+      USD: "$",
+      EUR: "€",
+      GBP: "£",
+      PHP: "₱",
+      LKR: "₨",
+    };
+    return map[code] || code;
+  };
+  const currencySymbol = getCurrencySymbol(currency);
 
   // Month name to number mapping
   const monthNames = {
@@ -183,6 +200,8 @@ function AddPayroll() {
     setPaymentMode(null);
     setTotalWorkingDays("");
     setDaysPresent("");
+    setCurrency("AED");
+    setPaymentCycle("Monthly");
 
     dispatch(fetchEmployees());
     dispatch(setCurrentStep(1));
@@ -192,7 +211,7 @@ function AddPayroll() {
     };
   }, [dispatch]);
 
-// --- Fetch Working Days when employee and month are selected ---
+  // --- Fetch Working Days when employee and month are selected ---
   useEffect(() => {
     const fetchWorkingDaysData = async () => {
       if (!selectedUserId || !payPeriodMonth || !payPeriodYear) {
@@ -212,7 +231,6 @@ function AddPayroll() {
             month: monthFormatted,
           }),
         ).unwrap();
-
 
         if (result) {
           // ✅ Update total working days from API
@@ -298,26 +316,40 @@ function AddPayroll() {
           if (result.employee_id) {
             setSelectedEmployeeCode(result.employee_id);
           }
-          
+          if (result.currency) setCurrency(result.currency);
+          if (result.payment_cycle) setPaymentCycle(result.payment_cycle);
+
           // Wait for pay period to be set first
-          const currentMonth = payPeriodMonth || new Date().toLocaleString('default', { month: 'long' });
-          const currentYear = payPeriodYear || new Date().getFullYear().toString();
-          
+          const currentMonth =
+            payPeriodMonth ||
+            new Date().toLocaleString("default", { month: "long" });
+          const currentYear =
+            payPeriodYear || new Date().getFullYear().toString();
+
           // Set pay period if not already set
           if (!payPeriodMonth) {
             const monthNamesList = [
-              "January", "February", "March", "April", "May", "June",
-              "July", "August", "September", "October", "November", "December"
+              "January",
+              "February",
+              "March",
+              "April",
+              "May",
+              "June",
+              "July",
+              "August",
+              "September",
+              "October",
+              "November",
+              "December",
             ];
             const currentMonthIndex = new Date().getMonth();
             setPayPeriodMonth(monthNamesList[currentMonthIndex]);
             setPayPeriodYear(new Date().getFullYear().toString());
           }
-          
-          
+
           await fetchSalaryComponents(result.id);
           await fetchLeaveDeductions(result.id);
-          
+
           // Save step 1 immediately after employee selection
           await saveStepToAPI(1);
         }
@@ -334,6 +366,8 @@ function AddPayroll() {
       setPayrollDraftId(null);
       setTotalWorkingDays("");
       setDaysPresent("");
+      setCurrency("AED");
+      setPaymentCycle("Monthly");
     }
   };
 
@@ -349,7 +383,7 @@ function AddPayroll() {
 
     // Prepare step data based on current step
     let stepData = {};
-    
+
     switch (step) {
       case 1:
         stepData = {
@@ -363,11 +397,13 @@ function AddPayroll() {
           days_present: parseInt(daysPresent) || 0,
         };
         break;
-      
+
       case 2:
         stepData = {
           pay_period_month: monthNumber,
           pay_period_year: year,
+          currency: currency,
+          payment_cycle: paymentCycle,
           salary_components: salaryComponents.map((comp) => ({
             id: comp.id,
             component_name: comp.component_name,
@@ -379,7 +415,7 @@ function AddPayroll() {
           ),
         };
         break;
-      
+
       case 3:
         stepData = {
           pay_period_month: monthNumber,
@@ -388,7 +424,7 @@ function AddPayroll() {
           total_overtime_amount: totalOvertimeAmount,
         };
         break;
-      
+
       case 4:
         const totalManualDeductions = deductions.reduce(
           (sum, d) => sum + parseFloat(d.amount || 0),
@@ -407,19 +443,21 @@ function AddPayroll() {
           leave_deductions: leaveDeductions,
         };
         break;
-      
+
       case 5:
         const totalManualDeductionsSummary = deductions.reduce(
           (sum, d) => sum + parseFloat(d.amount || 0),
           0,
         );
-        const totalLeaveDeductionsSummary = leaveDeductions?.lop_deduction_amount || 0;
-        const totalAllDeductionsSummary = totalManualDeductionsSummary + totalLeaveDeductionsSummary;
+        const totalLeaveDeductionsSummary =
+          leaveDeductions?.lop_deduction_amount || 0;
+        const totalAllDeductionsSummary =
+          totalManualDeductionsSummary + totalLeaveDeductionsSummary;
         const totalSalary = salaryComponents.reduce(
           (sum, comp) => sum + (parseFloat(comp.value) || 0),
           0,
         );
-        
+
         stepData = {
           pay_period_month: monthNumber,
           pay_period_year: year,
@@ -429,7 +467,8 @@ function AddPayroll() {
             manual_deductions: totalManualDeductionsSummary,
             leave_deductions: totalLeaveDeductionsSummary,
             total_deductions: totalAllDeductionsSummary,
-            net_pay: totalSalary + totalOvertimeAmount - totalAllDeductionsSummary,
+            net_pay:
+              totalSalary + totalOvertimeAmount - totalAllDeductionsSummary,
           },
           salary_components: salaryComponents.map((comp) => ({
             id: comp.id,
@@ -446,7 +485,7 @@ function AddPayroll() {
           leave_deductions_details: leaveDeductions,
         };
         break;
-      
+
       default:
         stepData = {};
     }
@@ -465,7 +504,10 @@ function AddPayroll() {
 
       console.log(`Saving step ${step} to API:`, payload);
 
-      const response = await apiClient.post('/admin/payroll/save-step', payload);
+      const response = await apiClient.post(
+        "/admin/payroll/save-step",
+        payload,
+      );
 
       if (response.data?.success) {
         // Store the draft ID for subsequent saves
@@ -475,11 +517,11 @@ function AddPayroll() {
         console.log(`Step ${step} saved successfully:`, response.data);
         return true;
       } else {
-        console.error('Failed to save step:', response.data?.message);
+        console.error("Failed to save step:", response.data?.message);
         return false;
       }
     } catch (error) {
-      console.error('Error saving step:', error);
+      console.error("Error saving step:", error);
       return false;
     }
   };
@@ -494,8 +536,29 @@ function AddPayroll() {
       );
 
       if (response.data?.status === "success") {
-        const components = response.data.data || [];
+        const payload = response.data.data;
+
+        // Handle both shapes:
+        //   { data: [ ...components ] }                         ← old
+        //   { data: { currency, payment_cycle, salary_components: [...] } } ← new
+        let components = [];
+        let apiCurrency = null;
+        let apiPaymentCycle = null;
+
+        if (Array.isArray(payload)) {
+          components = payload;
+        } else if (payload && typeof payload === "object") {
+          if (Array.isArray(payload.salary_components)) {
+            components = payload.salary_components;
+          }
+          if (payload.currency) apiCurrency = payload.currency;
+          if (payload.payment_cycle) apiPaymentCycle = payload.payment_cycle;
+        }
+
         setSalaryComponents(components);
+
+        if (apiCurrency) setCurrency(apiCurrency);
+        if (apiPaymentCycle) setPaymentCycle(apiPaymentCycle);
       } else {
         setSalaryComponents([]);
       }
@@ -514,15 +577,15 @@ function AddPayroll() {
 
     const monthNumber = monthNames[payPeriodMonth] || new Date().getMonth() + 1;
     const year = parseInt(payPeriodYear) || new Date().getFullYear();
-    const monthStr = `${year}-${String(monthNumber).padStart(2, '0')}`;
+    const monthStr = `${year}-${String(monthNumber).padStart(2, "0")}`;
 
     setLeaveDeductionsLoading(true);
     try {
-      const response = await apiClient.get('/admin/payroll/leaves', {
+      const response = await apiClient.get("/admin/payroll/leaves", {
         params: {
           employee_id: employeeId,
-          month: monthStr
-        }
+          month: monthStr,
+        },
       });
 
       if (response.data?.success) {
@@ -531,7 +594,7 @@ function AddPayroll() {
         setLeaveDeductions(null);
       }
     } catch (error) {
-      console.error('Error fetching leave deductions:', error);
+      console.error("Error fetching leave deductions:", error);
       setLeaveDeductions(null);
     } finally {
       setLeaveDeductionsLoading(false);
@@ -781,16 +844,15 @@ function AddPayroll() {
         );
 
         setPaymentDate(`${currentYear}-${monthNum}-25`);
-        
+
         // ✅ REMOVE these static values - they will be set by the API
         // setTotalWorkingDays("26");
         // setDaysPresent("30");
-        
+
         setPaymentMode(null);
       }
     }
   }, [currentEmployee, employees, payPeriodMonth, selectedEmployee, dispatch]);
-
 
   // Handle success/error messages from Redux
   useEffect(() => {
@@ -861,21 +923,22 @@ function AddPayroll() {
             amount: parseFloat(d.amount) || 0,
             is_statutory: d.is_statutory || "no",
           })),
-          total_deductions: deductions.reduce(
-            (sum, d) => sum + parseFloat(d.amount || 0),
-            0,
-          ) + (leaveDeductions?.lop_deduction_amount || 0),
+          total_deductions:
+            deductions.reduce((sum, d) => sum + parseFloat(d.amount || 0), 0) +
+            (leaveDeductions?.lop_deduction_amount || 0),
           leave_deductions: leaveDeductions,
         };
         break;
 
       case 5:
-        const totalDeductionsFromAPI = leaveDeductions?.lop_deduction_amount || 0;
+        const totalDeductionsFromAPI =
+          leaveDeductions?.lop_deduction_amount || 0;
         const totalManualDeductions = deductions.reduce(
           (sum, d) => sum + parseFloat(d.amount || 0),
           0,
         );
-        const totalAllDeductions = totalManualDeductions + totalDeductionsFromAPI;
+        const totalAllDeductions =
+          totalManualDeductions + totalDeductionsFromAPI;
 
         data = {
           pay_period_month: monthNumber,
@@ -928,7 +991,7 @@ function AddPayroll() {
     }
 
     const currentData = getCurrentStepData();
-    
+
     // Save current step to API
     const saved = await saveStepToAPI(reduxCurrentStep);
 
@@ -959,7 +1022,8 @@ function AddPayroll() {
         return;
       }
 
-      const monthNumber = monthNames[payPeriodMonth] || new Date().getMonth() + 1;
+      const monthNumber =
+        monthNames[payPeriodMonth] || new Date().getMonth() + 1;
       const year = parseInt(payPeriodYear) || new Date().getFullYear();
 
       const totalSalary = salaryComponents.reduce(
@@ -985,7 +1049,7 @@ function AddPayroll() {
         overtime: parseFloat(totalOvertimeAmount),
         deductions: parseFloat(totalAllDeductions),
         net_pay: parseFloat(netPay),
-        currency: "INR",
+        currency: currency,
       };
 
       console.log("Submitting payroll:", payload);
@@ -998,8 +1062,9 @@ function AddPayroll() {
       );
 
       setTimeout(() => {
-        window.location.href = `${basePath}/payroll`;
-      }, 3000);
+        dispatch(resetPayrollState());
+        navigate(`${basePath}/payroll`);
+      }, 1500);
     } catch (error) {
       console.error("Submit payroll error:", error);
       showToast(
@@ -1053,7 +1118,6 @@ function AddPayroll() {
     setTotalWorkingDays("");
     setDaysPresent("");
   };
-
 
   // Save current step data
   const handleSaveStep = async (step, data) => {
@@ -1440,6 +1504,9 @@ function AddPayroll() {
                 <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
                   Salary Components
                 </h3>
+                <span className="ml-3 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                  {currency}
+                </span>
                 <span className="ml-auto text-xs text-gray-400">
                   {salaryComponents.length} components
                 </span>
@@ -1465,7 +1532,7 @@ function AddPayroll() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                        Total:{" "}
+                        Total: {currencySymbol}{" "}
                         {salaryComponents
                           .reduce(
                             (sum, comp) => sum + (parseFloat(comp.value) || 0),
@@ -1497,7 +1564,7 @@ function AddPayroll() {
                               Component Name
                             </th>
                             <th className="py-3 px-4 font-semibold text-center">
-                              Amount
+                              Amount ({currency})
                             </th>
                             <th className="py-3 px-4 font-semibold text-center">
                               Actions
@@ -1554,6 +1621,7 @@ function AddPayroll() {
                                     />
                                   ) : (
                                     <span className="font-mono">
+                                      {currencySymbol}{" "}
                                       {(parseFloat(comp.value) || 0).toFixed(2)}
                                     </span>
                                   )}
@@ -1638,6 +1706,7 @@ function AddPayroll() {
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       Total:{" "}
                       <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        {currencySymbol}{" "}
                         {salaryComponents
                           .reduce(
                             (sum, comp) => sum + (parseFloat(comp.value) || 0),
@@ -1668,43 +1737,64 @@ function AddPayroll() {
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
                 </div>
-              ) : overtimeData && overtimeData.overtime_details && overtimeData.overtime_details.length > 0 ? (
+              ) : overtimeData &&
+                overtimeData.overtime_details &&
+                overtimeData.overtime_details.length > 0 ? (
                 <>
                   {/* Total Overtime Amount - Big Display */}
                   <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-6 md:p-8 mb-6 border border-indigo-200 dark:border-indigo-800 text-center">
-                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Overtime Amount</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                      Total Overtime Amount
+                    </div>
                     <div className="text-4xl md:text-5xl font-bold text-indigo-600 dark:text-indigo-400">
-                      ₹{totalOvertimeAmount.toFixed(2)}
+                      {currencySymbol}
+                      {totalOvertimeAmount.toFixed(2)}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {overtimeData.total_overtime_formatted || "00:00"} total hours
+                      {overtimeData.total_overtime_formatted || "00:00"} total
+                      hours
                     </div>
                   </div>
 
                   {/* Rate Details Cards */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center border border-gray-200 dark:border-gray-700">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Monthly Salary</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Monthly Salary
+                      </div>
                       <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-                        ₹{overtimeData.rates?.monthly_salary?.toFixed(2) || "0.00"}
+                        {currencySymbol}
+                        {overtimeData.rates?.monthly_salary?.toFixed(2) ||
+                          "0.00"}
                       </div>
                     </div>
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center border border-gray-200 dark:border-gray-700">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Daily Salary</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Daily Salary
+                      </div>
                       <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-                        ₹{overtimeData.rates?.daily_salary?.toFixed(2) || "0.00"}
+                        {currencySymbol}
+                        {overtimeData.rates?.daily_salary?.toFixed(2) || "0.00"}
                       </div>
                     </div>
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center border border-gray-200 dark:border-gray-700">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Normal Hourly Rate</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Normal Hourly Rate
+                      </div>
                       <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-                        ₹{overtimeData.rates?.normal_hourly_rate?.toFixed(2) || "0.00"}
+                        {currencySymbol}
+                        {overtimeData.rates?.normal_hourly_rate?.toFixed(2) ||
+                          "0.00"}
                       </div>
                     </div>
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 text-center border border-green-200 dark:border-green-800">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Overtime Hourly Rate</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Overtime Hourly Rate
+                      </div>
                       <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                        ₹{overtimeData.rates?.overtime_hourly_rate?.toFixed(2) || "0.00"}
+                        {currencySymbol}
+                        {overtimeData.rates?.overtime_hourly_rate?.toFixed(2) ||
+                          "0.00"}
                       </div>
                     </div>
                   </div>
@@ -1723,17 +1813,21 @@ function AddPayroll() {
                         </label>
                         <input
                           type="text"
-                          value={overtimeData.total_overtime_formatted || "00:00"}
+                          value={
+                            overtimeData.total_overtime_formatted || "00:00"
+                          }
                           onChange={(e) => {
-                            setOvertimeData(prev => ({
+                            setOvertimeData((prev) => ({
                               ...prev,
-                              total_overtime_formatted: e.target.value
+                              total_overtime_formatted: e.target.value,
                             }));
                           }}
                           className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                           placeholder="HH:MM"
                         />
-                        <p className="text-xs text-gray-400 mt-1">Format: HH:MM (e.g., 02:30)</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Format: HH:MM (e.g., 02:30)
+                        </p>
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
@@ -1747,15 +1841,17 @@ function AddPayroll() {
                           onChange={(e) => {
                             const value = parseFloat(e.target.value) || 0;
                             setTotalOvertimeAmount(value);
-                            setOvertimeData(prev => ({
+                            setOvertimeData((prev) => ({
                               ...prev,
-                              total_overtime_amount: value
+                              total_overtime_amount: value,
                             }));
                           }}
                           className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                           placeholder="0.00"
                         />
-                        <p className="text-xs text-gray-400 mt-1">Enter the total overtime amount</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Enter the total overtime amount
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1774,12 +1870,24 @@ function AddPayroll() {
                         <table className="w-full text-sm">
                           <thead className="sticky top-0 bg-gray-50 dark:bg-gray-700/50 z-10">
                             <tr>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Date</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Punch In</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Punch Out</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Total Hours</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Overtime</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Breaks</th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Date
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Punch In
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Punch Out
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Total Hours
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Overtime
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Breaks
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1792,16 +1900,35 @@ function AddPayroll() {
                                   {formatDate(item.date)}
                                 </td>
                                 <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
-                                  {item.punch_in ? new Date(item.punch_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                                  {item.punch_in
+                                    ? new Date(
+                                        item.punch_in,
+                                      ).toLocaleTimeString("en-US", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })
+                                    : "-"}
                                 </td>
                                 <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
-                                  {item.punch_out ? new Date(item.punch_out).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                                  {item.punch_out
+                                    ? new Date(
+                                        item.punch_out,
+                                      ).toLocaleTimeString("en-US", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })
+                                    : "-"}
                                 </td>
                                 <td className="px-4 py-2 font-semibold text-blue-600 dark:text-blue-400">
-                                  {item.total_working_minutes ? (item.total_working_minutes / 60).toFixed(2) : '0'}h
+                                  {item.total_working_minutes
+                                    ? (item.total_working_minutes / 60).toFixed(
+                                        2,
+                                      )
+                                    : "0"}
+                                  h
                                 </td>
                                 <td className="px-4 py-2 font-semibold text-orange-600 dark:text-orange-400">
-                                  {item.overtime_duration || '00:00'}
+                                  {item.overtime_duration || "00:00"}
                                 </td>
                                 <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
                                   {item.breaks?.length || 0}
@@ -1817,9 +1944,12 @@ function AddPayroll() {
               ) : (
                 <div className="text-center py-8">
                   <i className="fas fa-clock text-4xl text-gray-300 dark:text-gray-600 mb-3 block"></i>
-                  <p className="text-gray-500 dark:text-gray-400">No overtime records found for this period.</p>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No overtime records found for this period.
+                  </p>
                   <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-                    Make sure the employee has punched in/out during {payPeriodMonth} {payPeriodYear}
+                    Make sure the employee has punched in/out during{" "}
+                    {payPeriodMonth} {payPeriodYear}
                   </p>
                 </div>
               )}
@@ -1859,25 +1989,34 @@ function AddPayroll() {
                     {/* Summary Cards */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-red-50 dark:bg-red-900/10 border-b border-red-200 dark:border-red-800">
                       <div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">Total Leaves</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Total Leaves
+                        </div>
                         <div className="text-lg font-bold text-red-600 dark:text-red-400">
                           {leaveDeductions.total_leave_days_in_month || 0} days
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">LOP Days</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          LOP Days
+                        </div>
                         <div className="text-lg font-bold text-amber-600 dark:text-amber-400">
                           {leaveDeductions.lop_days || 0} days
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">LOP Deduction</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          LOP Deduction
+                        </div>
                         <div className="text-lg font-bold text-red-600 dark:text-red-400">
-                          ₹{formatCurrency(leaveDeductions.lop_deduction_amount)}
+                          {currencySymbol}
+                          {formatCurrency(leaveDeductions.lop_deduction_amount)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">LOP Threshold</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          LOP Threshold
+                        </div>
                         <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
                           {leaveDeductions.lop_threshold_days || 0} days
                         </div>
@@ -1885,21 +2024,35 @@ function AddPayroll() {
                     </div>
 
                     {/* Leave List */}
-                    {leaveDeductions.leaves && leaveDeductions.leaves.length > 0 ? (
+                    {leaveDeductions.leaves &&
+                    leaveDeductions.leaves.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead className="bg-gray-50 dark:bg-gray-700/50">
                             <tr>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Leave Type</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Start Date</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">End Date</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Days</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Status</th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Leave Type
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Start Date
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                End Date
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Days
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                Status
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
                             {leaveDeductions.leaves.map((leave) => (
-                              <tr key={leave.id} className="border-t border-gray-100 dark:border-gray-700">
+                              <tr
+                                key={leave.id}
+                                className="border-t border-gray-100 dark:border-gray-700"
+                              >
                                 <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
                                   {leave.leave_type?.name || "N/A"}
                                 </td>
@@ -1913,13 +2066,15 @@ function AddPayroll() {
                                   {leave.duration_days || 0}
                                 </td>
                                 <td className="px-4 py-2">
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    leave.status === "approved" 
-                                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                      : leave.status === "pending"
-                                      ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                      : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                  }`}>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      leave.status === "approved"
+                                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                        : leave.status === "pending"
+                                          ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                          : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                    }`}
+                                  >
                                     {leave.status || "N/A"}
                                   </span>
                                 </td>
@@ -1935,21 +2090,33 @@ function AddPayroll() {
                       <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-t border-red-200 dark:border-red-800">
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                           <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Monthly Salary</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Monthly Salary
+                            </div>
                             <div className="font-semibold text-gray-800 dark:text-gray-200">
-                              ₹{formatCurrency(leaveDeductions.salary_info.monthly_salary)}
+                              {currencySymbol}
+                              {formatCurrency(
+                                leaveDeductions.salary_info.monthly_salary,
+                              )}
                             </div>
                           </div>
                           <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Working Days</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Working Days
+                            </div>
                             <div className="font-semibold text-gray-800 dark:text-gray-200">
                               {leaveDeductions.salary_info.working_days} days
                             </div>
                           </div>
                           <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Daily Salary</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Daily Salary
+                            </div>
                             <div className="font-semibold text-gray-800 dark:text-gray-200">
-                              ₹{formatCurrency(leaveDeductions.salary_info.daily_salary)}
+                              {currencySymbol}
+                              {formatCurrency(
+                                leaveDeductions.salary_info.daily_salary,
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1959,7 +2126,9 @@ function AddPayroll() {
                 ) : (
                   <div className="text-center py-6 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-700">
                     <i className="fas fa-calendar-times text-3xl text-gray-300 dark:text-gray-600 mb-2 block"></i>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No leave deductions found for this period</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      No leave deductions found for this period
+                    </p>
                   </div>
                 )}
               </div>
@@ -1998,7 +2167,11 @@ function AddPayroll() {
                           type="number"
                           value={d.amount}
                           onChange={(e) =>
-                            handleDeductionChange(d.id, "amount", e.target.value)
+                            handleDeductionChange(
+                              d.id,
+                              "amount",
+                              e.target.value,
+                            )
                           }
                           className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                         />
@@ -2046,21 +2219,30 @@ function AddPayroll() {
               <div className="mt-6 p-4 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-xl border border-red-200 dark:border-red-800">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Manual Deductions</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Manual Deductions
+                    </div>
                     <div className="text-lg font-bold text-gray-800 dark:text-gray-200">
-                      ₹{totalManualDeductions.toFixed(2)}
+                      {currencySymbol}
+                      {totalManualDeductions.toFixed(2)}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Leave Deductions</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Leave Deductions
+                    </div>
                     <div className="text-lg font-bold text-red-600 dark:text-red-400">
-                      ₹{totalLeaveDeductions.toFixed(2)}
+                      {currencySymbol}
+                      {totalLeaveDeductions.toFixed(2)}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Total Deductions</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Total Deductions
+                    </div>
                     <div className="text-lg font-bold text-red-700 dark:text-red-500">
-                      ₹{totalAllDeductions.toFixed(2)}
+                      {currencySymbol}
+                      {totalAllDeductions.toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -2069,197 +2251,216 @@ function AddPayroll() {
           )}
 
           {/* Step 5 - Summary */}
-{reduxCurrentStep === 5 && (
-  <div>
-    <div className="flex items-center gap-2 pb-3 border-b-2 border-blue-100 dark:border-blue-900/30 mb-4 md:mb-6">
-      <div className="w-6 h-6 md:w-8 md:h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-        <i className="fas fa-clipboard-check text-blue-600 dark:text-blue-400 text-xs md:text-sm"></i>
-      </div>
-      <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
-        Payroll Summary
-      </h3>
-    </div>
-
-    <div className="space-y-4">
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        Review the payroll details before final submission.
-      </p>
-
-      {/* Employee Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
-            <i className="fas fa-user mr-2 text-blue-500"></i>
-            Employee Details
-          </h4>
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Name:</span>
-              <span className="font-medium text-blue-700 dark:text-blue-300">{employeeName}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Employee ID:</span>
-              <span className="font-medium text-blue-700 dark:text-blue-300">{employeeId}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Department:</span>
-              <span className="font-medium text-blue-700 dark:text-blue-300">{department}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Designation:</span>
-              <span className="font-medium text-blue-700 dark:text-blue-300">{designation}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Pay Period:</span>
-              <span className="font-medium text-blue-700 dark:text-blue-300">
-                {payPeriodMonth} {payPeriodYear}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
-            <i className="fas fa-money-bill-wave mr-2 text-blue-500"></i>
-            Payment Details
-          </h4>
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Payment Date:</span>
-              <span className="font-medium text-blue-700 dark:text-blue-300">
-                {formatDate(paymentDate)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Payment Mode:</span>
-              <span className="font-medium text-blue-700 dark:text-blue-300">
-                {paymentMode || "N/A"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Working Days:</span>
-              <span className="font-medium text-blue-700 dark:text-blue-300">{totalWorkingDays}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Days Present:</span>
-              <span className="font-medium text-blue-700 dark:text-blue-300">{daysPresent}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Salary Breakdown - All Blue */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Gross Salary */}
-        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
-            <i className="fas fa-wallet mr-2"></i>
-            Gross Salary
-          </h4>
-          {salaryComponents.length > 0 ? (
-            salaryComponents.map((comp, idx) => (
-              <div
-                key={idx}
-                className="flex justify-between items-center text-sm py-1"
-              >
-                <span className="text-gray-600 dark:text-gray-400">
-                  {comp.component_name}:
-                </span>
-                <span className="font-semibold text-blue-700 dark:text-blue-300">
-                  {(parseFloat(comp.value) || 0).toFixed(2)}
-                </span>
+          {reduxCurrentStep === 5 && (
+            <div>
+              <div className="flex items-center gap-2 pb-3 border-b-2 border-blue-100 dark:border-blue-900/30 mb-4 md:mb-6">
+                <div className="w-6 h-6 md:w-8 md:h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                  <i className="fas fa-clipboard-check text-blue-600 dark:text-blue-400 text-xs md:text-sm"></i>
+                </div>
+                <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-200">
+                  Payroll Summary
+                </h3>
               </div>
-            ))
-          ) : (
-            <div className="text-sm text-gray-400">No components</div>
+
+              <div className="space-y-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Review the payroll details before final submission.
+                </p>
+
+                {/* Employee Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+                      <i className="fas fa-user mr-2 text-blue-500"></i>
+                      Employee Details
+                    </h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Name:</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-300">
+                          {employeeName}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Employee ID:</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-300">
+                          {employeeId}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Department:</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-300">
+                          {department}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Designation:</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-300">
+                          {designation}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Pay Period:</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-300">
+                          {payPeriodMonth} {payPeriodYear}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+                      <i className="fas fa-money-bill-wave mr-2 text-blue-500"></i>
+                      Payment Details
+                    </h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Payment Date:</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-300">
+                          {formatDate(paymentDate)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Payment Mode:</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-300">
+                          {paymentMode || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Working Days:</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-300">
+                          {totalWorkingDays}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Days Present:</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-300">
+                          {daysPresent}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Salary Breakdown - All Blue */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {/* Gross Salary */}
+                  <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+                      <i className="fas fa-wallet mr-2"></i>
+                      Gross Salary
+                    </h4>
+                    {salaryComponents.length > 0 ? (
+                      salaryComponents.map((comp, idx) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center text-sm py-1"
+                        >
+                          <span className="text-gray-600 dark:text-gray-400">
+                            {comp.component_name}:
+                          </span>
+                          <span className="font-semibold text-blue-700 dark:text-blue-300">
+                            {(parseFloat(comp.value) || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-gray-400">No components</div>
+                    )}
+                    <div className="border-t border-blue-200 dark:border-blue-700 mt-2 pt-2 flex justify-between items-center font-semibold">
+                      <span className="text-gray-700 dark:text-gray-300">
+                        Total:
+                      </span>
+                      <span className="text-blue-600 dark:text-blue-400">
+                        {totalSalaryAmount.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Overtime */}
+                  <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+                      <i className="fas fa-clock mr-2"></i>
+                      Overtime
+                    </h4>
+                    <div className="text-center py-2">
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {currencySymbol}
+                        {totalOvertimeAmount.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {overtimeData?.total_overtime_formatted || "00:00"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Deductions */}
+                  <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+                      <i className="fas fa-minus-circle mr-2"></i>
+                      Deductions
+                    </h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Manual:</span>
+                        <span className="text-blue-700 dark:text-blue-300">
+                          {currencySymbol}
+                          {totalManualDeductions.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Leave (LOP):</span>
+                        <span className="text-blue-600 dark:text-blue-400">
+                          {currencySymbol}
+                          {totalLeaveDeductions.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="border-t border-blue-200 dark:border-blue-700 mt-2 pt-2 flex justify-between font-semibold">
+                        <span className="text-gray-700 dark:text-gray-300">
+                          Total:
+                        </span>
+                        <span className="text-blue-600 dark:text-blue-400">
+                          {currencySymbol}
+                          {totalAllDeductions.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Net Pay */}
+                  <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+                      <i className="fas fa-check-circle mr-2"></i>
+                      Net Pay
+                    </h4>
+                    <div className="text-center py-2">
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {currencySymbol}
+                        {totalNetPay.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        After all deductions
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payslip Delivery Info */}
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 flex items-start gap-3">
+                  <i className="fas fa-envelope text-blue-500 mt-1"></i>
+                  <div>
+                    <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+                      Payslip Delivery
+                    </h4>
+                    <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
+                      Upon submission, the generated payslip will be
+                      automatically sent to the employee via Email only.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
-          <div className="border-t border-blue-200 dark:border-blue-700 mt-2 pt-2 flex justify-between items-center font-semibold">
-            <span className="text-gray-700 dark:text-gray-300">
-              Total:
-            </span>
-            <span className="text-blue-600 dark:text-blue-400">
-              {totalSalaryAmount.toFixed(2)}
-            </span>
-          </div>
-        </div>
-
-        {/* Overtime */}
-        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
-            <i className="fas fa-clock mr-2"></i>
-            Overtime
-          </h4>
-          <div className="text-center py-2">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              ₹{totalOvertimeAmount.toFixed(2)}
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {overtimeData?.total_overtime_formatted || "00:00"}
-            </div>
-          </div>
-        </div>
-
-        {/* Deductions */}
-        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
-            <i className="fas fa-minus-circle mr-2"></i>
-            Deductions
-          </h4>
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Manual:</span>
-              <span className="text-blue-700 dark:text-blue-300">
-                ₹{totalManualDeductions.toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Leave (LOP):</span>
-              <span className="text-blue-600 dark:text-blue-400">
-                ₹{totalLeaveDeductions.toFixed(2)}
-              </span>
-            </div>
-            <div className="border-t border-blue-200 dark:border-blue-700 mt-2 pt-2 flex justify-between font-semibold">
-              <span className="text-gray-700 dark:text-gray-300">Total:</span>
-              <span className="text-blue-600 dark:text-blue-400">
-                ₹{totalAllDeductions.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Net Pay */}
-        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-          <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
-            <i className="fas fa-check-circle mr-2"></i>
-            Net Pay
-          </h4>
-          <div className="text-center py-2">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              ₹{totalNetPay.toFixed(2)}
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              After all deductions
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Payslip Delivery Info */}
-      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 flex items-start gap-3">
-        <i className="fas fa-envelope text-blue-500 mt-1"></i>
-        <div>
-          <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300">
-            Payslip Delivery
-          </h4>
-          <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
-            Upon submission, the generated payslip will be
-            automatically sent to the employee via Email only.
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
 
           {/* Action Buttons */}
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 md:pt-6 border-t border-gray-200 dark:border-gray-700">
