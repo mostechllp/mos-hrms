@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import SearchBar from "@admin/components/common/SearchBar";
 import EntriesSelector from "@admin/components/common/EntriesSelector";
 import { showToast } from "../../components/common/Toast";
@@ -106,6 +106,7 @@ const FolderIconOpen = () => (
 
 const Agreements = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate()
   const location = useLocation();
   const basePath = location.pathname.split("/")[1] || "admin";
 
@@ -539,8 +540,8 @@ const Agreements = () => {
       {/* ── GRID VIEW (OS Explorer style) ── */}
       {viewMode === "grid" && (
         <>
-          {(hasFolders || !isAtRoot) && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1 md:gap-2 mb-6">
+         {hasFolders || pageDocuments.length > 0 ? (
+  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-0.5 md:gap-1 mb-4">
               {/* Folders */}
               {filteredFolders.map((folder) => {
                 const docCount = documentCountFor(folder.id);
@@ -582,7 +583,7 @@ const Agreements = () => {
                 </button>
               )}
             </div>
-          )}
+          ): null}
 
           {/* Empty state at root */}
           {isAtRoot && !hasFolders && (
