@@ -62,11 +62,17 @@ export const fetchWarningById = createAsyncThunk(
 );
 
 // POST /admin/warnings
+// POST /admin/warnings
 export const createWarning = createAsyncThunk(
   "warnings/create",
   async (payload, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post("/admin/warnings", payload);
+      const isFormData = payload instanceof FormData;
+      const response = await apiClient.post("/admin/warnings", payload, {
+        headers: isFormData
+          ? { "Content-Type": "multipart/form-data" }
+          : { "Content-Type": "application/json" },
+      });
 
       if (
         response.data &&
@@ -79,6 +85,11 @@ export const createWarning = createAsyncThunk(
       );
     } catch (error) {
       console.error("Create warning error:", error.response?.data);
+      if (error.response?.data?.errors) {
+        return rejectWithValue(
+          Object.values(error.response.data.errors).flat().join(", "),
+        );
+      }
       return rejectWithValue(
         error.response?.data?.message || "Failed to create warning",
       );
@@ -91,7 +102,14 @@ export const updateWarning = createAsyncThunk(
   "warnings/update",
   async ({ id, data }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put(`/admin/warnings/${id}`, data);
+      const isFormData = data instanceof FormData;
+      const response = await apiClient.post(`/admin/warnings/${id}`, data, {
+        headers: isFormData
+          ? { "Content-Type": "multipart/form-data" }
+          : { "Content-Type": "application/json" },
+        // Laravel method spoofing for FormData (since we use POST)
+        params: isFormData ? { _method: "PUT" } : undefined,
+      });
 
       if (
         response.data &&
@@ -104,6 +122,11 @@ export const updateWarning = createAsyncThunk(
       );
     } catch (error) {
       console.error("Update warning error:", error.response?.data);
+      if (error.response?.data?.errors) {
+        return rejectWithValue(
+          Object.values(error.response.data.errors).flat().join(", "),
+        );
+      }
       return rejectWithValue(
         error.response?.data?.message || "Failed to update warning",
       );

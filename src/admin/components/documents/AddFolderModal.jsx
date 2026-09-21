@@ -11,12 +11,14 @@ const AddFolderModal = ({
   onClose,
   onFolderAdded,
   editingFolder = null,
+  parentId = null, // NEW: parent folder id when creating a subfolder
 }) => {
   const dispatch = useDispatch();
   const [folderName, setFolderName] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
   const isEditing = !!editingFolder;
+  const isSubfolder = !isEditing && parentId != null;
 
   useEffect(() => {
     if (isOpen) {
@@ -41,11 +43,12 @@ const AddFolderModal = ({
       let result;
 
       if (isEditing) {
-        // Update existing folder - pass both id and name
+        // Update existing folder — keep its parent_id unchanged
         result = await dispatch(
           updateDocumentFolder({
             id: editingFolder.id,
             name: folderName.trim(),
+            parent_id: editingFolder.parent_id ?? null,
           }),
         );
 
@@ -58,11 +61,21 @@ const AddFolderModal = ({
           showToast(result.payload || "Failed to update folder", "error");
         }
       } else {
-        // Create new folder
-        result = await dispatch(addDocumentFolder({ name: folderName.trim() }));
+        // Create new folder OR subfolder
+        result = await dispatch(
+          addDocumentFolder({
+            name: folderName.trim(),
+            parent_id: parentId ?? null,
+          }),
+        );
 
         if (addDocumentFolder.fulfilled.match(result)) {
-          showToast("Folder created successfully", "success");
+          showToast(
+            isSubfolder
+              ? "Subfolder created successfully"
+              : "Folder created successfully",
+            "success",
+          );
           onFolderAdded?.(result.payload);
           onClose();
           setFolderName("");
@@ -83,15 +96,36 @@ const AddFolderModal = ({
 
   if (!isOpen) return null;
 
+  // Dynamic labels / icons based on mode
+  const title = isEditing
+    ? "Edit Folder"
+    : isSubfolder
+      ? "Create Subfolder"
+      : "Create New Folder";
+
+  const titleIcon = isEditing
+    ? "fas fa-edit"
+    : isSubfolder
+      ? "fas fa-folder-tree"
+      : "fas fa-folder-plus";
+
+  const submitIcon = isEditing ? "fas fa-save" : isSubfolder
+    ? "fas fa-folder-tree"
+    : "fas fa-folder-plus";
+
+  const submitLabel = isEditing
+    ? "Update Folder"
+    : isSubfolder
+      ? "Create Subfolder"
+      : "Create Folder";
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]">
       <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-[95%] md:w-full p-6 shadow-soft-lg">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
-            <i
-              className={`${isEditing ? "fas fa-edit" : "fas fa-folder-plus"} text-green-500 mr-2`}
-            ></i>
-            {isEditing ? "Edit Folder" : "Create New Folder"}
+            <i className={`${titleIcon} text-green-500 mr-2`}></i>
+            {title}
           </h3>
           <button
             onClick={onClose}
@@ -141,10 +175,7 @@ const AddFolderModal = ({
               </>
             ) : (
               <>
-                <i
-                  className={`${isEditing ? "fas fa-save" : "fas fa-folder-plus"}`}
-                ></i>{" "}
-                {isEditing ? "Update Folder" : "Create Folder"}
+                <i className={submitIcon}></i> {submitLabel}
               </>
             )}
           </button>

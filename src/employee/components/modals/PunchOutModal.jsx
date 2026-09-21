@@ -245,60 +245,8 @@ export const PunchOutModal = ({
     return settingsLimit;
   };
 
-  const LIMIT_MS = getWorkingHoursLimit();
-
   // Get actual worked hours from API
   const actualWorkedMs = getActualWorkedMsFromAPI();
-
-  // Get working duration including break time
-  const getTotalDurationMs = () => {
-    if (!punchInTime) return 0;
-
-    const startTime = parsePunchTime(punchInTime);
-    if (!startTime || isNaN(startTime.getTime())) return 0;
-
-    // End time is now (since we're punching out)
-    const endTime = new Date();
-
-    let diff = Math.max(0, endTime - startTime);
-
-    // Total duration includes both work time AND break time
-    // So we don't subtract break time
-    // Instead, we'll add break time from API if available
-
-    // Use break time from API (more accurate)
-    const breakTimeMs =
-      totalBreakMsFromAPI > 0 ? totalBreakMsFromAPI : totalBreakMs || 0;
-
-    // Total = time from punch-in to now (including breaks)
-    // No subtraction needed
-    console.log(
-      `📊 Total duration (including breaks): ${formatDuration(diff)}`,
-    );
-
-    return diff;
-  };
-
-  // Get working duration excluding break time (actual work time)
-  const getWorkingDurationMs = () => {
-    if (!punchInTime) return 0;
-
-    const startTime = parsePunchTime(punchInTime);
-    if (!startTime || isNaN(startTime.getTime())) return 0;
-
-    const endTime = new Date();
-
-    let diff = Math.max(0, endTime - startTime);
-
-    // Use break time from API if available
-    const breakTimeMs =
-      totalBreakMsFromAPI > 0 ? totalBreakMsFromAPI : totalBreakMs || 0;
-
-    // Subtract break time to get actual work time
-    diff = Math.max(0, diff - breakTimeMs);
-
-    return diff;
-  };
 
   useEffect(() => {
     if (isOpen && punchInTime) {
@@ -323,17 +271,54 @@ export const PunchOutModal = ({
     totalBreakMsFromAPI,
   ]);
 
-  // Calculate total duration including breaks (kept only for the "Total Duration" display)
+  // ─────────────────────────────────────────────────────────────
+  // Constants
+  // ─────────────────────────────────────────────────────────────
+  const ALLOWED_BREAK_MS = 60 * 60 * 1000; // 1 hour grace break (from policy)
+
+  // Daily required hours from settings
+  const LIMIT_MS = getWorkingHoursLimit();
+
+  // ─────────────────────────────────────────────────────────────
+  // Duration calculations
+  // ─────────────────────────────────────────────────────────────
+
+  // Total elapsed from punch-in to now (INCLUDES all break time)
+  const getTotalDurationMs = () => {
+    if (!punchInTime) return 0;
+    const startTime = parsePunchTime(punchInTime);
+    if (!startTime || isNaN(startTime.getTime())) return 0;
+    return Math.max(0, new Date() - startTime);
+  };
+
+  // Actual break taken (prefers API value, falls back to local)
+  const getActualBreakMs = () =>
+    totalBreakMsFromAPI > 0 ? totalBreakMsFromAPI : totalBreakMs || 0;
+
+  // Only the break beyond the 1h grace is chargeable
+  const getChargeableBreakMs = () =>
+    Math.max(0, getActualBreakMs() - ALLOWED_BREAK_MS);
+
+  // Effective work time = elapsed − chargeable break
+  // The first 1h of break is invisible to this calculation.
+  const getWorkingDurationMs = () =>
+    Math.max(0, getTotalDurationMs() - getChargeableBreakMs());
+
+  // ─────────────────────────────────────────────────────────────
+  // Values used by the render block
+  // ─────────────────────────────────────────────────────────────
   const totalDurationMs = getTotalDurationMs();
+  const actualBreakMs = getActualBreakMs();
+  const chargeableBreakMs = getChargeableBreakMs();
 
-  // Actual work time = elapsed − break. This is what overtime must be based on.
-  const effectiveWorkedMs =
-    actualWorkedMs !== null ? actualWorkedMs : workingMs;
+  const effectiveWorkedMs = getWorkingDurationMs();
 
-  const totalTimeWithBreaks = totalDurationMs;
-
-  // Rule A: Overtime = actual work time − required hours (break NEVER counts as overtime)
+  // Overtime: only when effective work exceeds the daily requirement
   const isOvertimeThresholdExceeded = effectiveWorkedMs > LIMIT_MS;
+  const overtimeMs = isOvertimeThresholdExceeded
+    ? effectiveWorkedMs - LIMIT_MS
+    : 0;
+  const totalTimeWithBreaks = totalDurationMs;
 
   // For display, show both: work time and break time
   const breakTimeDisplay =
@@ -349,7 +334,7 @@ export const PunchOutModal = ({
 
     const finalOvertime = isOvertimeThresholdExceeded && isOvertimeConfirmed;
     const finalOvertimeHours = finalOvertime
-      ? formatDuration(effectiveWorkedMs - LIMIT_MS)
+      ? formatDuration(overtimeMs)
       : null;
 
     console.group("🔍 PUNCH OUT SUBMIT");
@@ -445,7 +430,14 @@ export const PunchOutModal = ({
                       Break Time
                     </span>
                     <span className="font-semibold text-amber-500">
-                      {formatDuration(breakTimeDisplay)}
+                      {formatDuration(actualBreakMs)}
+                    </span>
+                    <span className="block text-[10px] text-[var(--muted)] mt-0.5">
+                      {chargeableBreakMs > 0
+                        ? `${formatDuration(ALLOWED_BREAK_MS)} allowed · ${formatDuration(
+                            chargeableBreakMs,
+                          )} counted`
+                        : `${formatDuration(ALLOWED_BREAK_MS)} allowed · fully within grace`}
                     </span>
                   </div>
                   <div
@@ -460,7 +452,7 @@ export const PunchOutModal = ({
                     </span>
                     <span>
                       {isOvertimeThresholdExceeded
-                        ? formatDuration(effectiveWorkedMs - LIMIT_MS)
+                        ? formatDuration(overtimeMs)
                         : formatDuration(LIMIT_MS - effectiveWorkedMs)}
                     </span>
                   </div>
@@ -470,8 +462,13 @@ export const PunchOutModal = ({
                 <div className="text-center text-xs text-[var(--muted)]">
                   Total Duration (Work + Break):{" "}
                   <span className="font-semibold text-[var(--text)]">
-                    {formatDuration(totalTimeWithBreaks)}
+                    {formatDuration(totalDurationMs)}
                   </span>
+                  {chargeableBreakMs > 0 && (
+                    <span className="ml-1 text-red-500">
+                      · {formatDuration(chargeableBreakMs)} of break above grace
+                    </span>
+                  )}
                 </div>
 
                 {/* Show overtime checkbox only when threshold is exceeded */}
@@ -485,9 +482,9 @@ export const PunchOutModal = ({
                       className="mt-0.5 rounded text-amber-500 focus:ring-amber-500/20 border-[var(--border)] bg-[var(--surface2)] cursor-pointer h-4 w-4"
                     />
                     <span className="text-xs font-semibold text-[var(--text)] leading-tight">
-                      Is this extra{" "}
-                      {formatDuration(effectiveWorkedMs - LIMIT_MS)} actually to
-                      be counted as Overtime? (Break time excluded)
+                      Is this extra {formatDuration(overtimeMs)} actually to be
+                      counted as Overtime? (Break time excluded beyond the 1h
+                      grace)
                     </span>
                   </label>
                 )}

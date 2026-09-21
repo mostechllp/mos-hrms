@@ -331,34 +331,61 @@ const OffboardingInitiation = () => {
         : data.employee_name || "";
     setValue("employeeName", employeeName, { shouldValidate: true });
 
+    // Department — response nests it under employee.user.department
     const departmentName =
+      data.employee?.user?.department?.name ||
+      data.employee?.department?.name ||
+      (typeof data.employee?.department === "string"
+        ? data.employee.department
+        : null) ||
+      employeeData.user?.department?.name ||
       employeeData.department?.name ||
-      employeeData.department ||
+      (typeof employeeData.department === "string"
+        ? employeeData.department
+        : null) ||
+      foundFullEmployee?.user?.department?.name ||
       foundFullEmployee?.department?.name ||
-      foundFullEmployee?.department ||
+      (typeof foundFullEmployee?.department === "string"
+        ? foundFullEmployee.department
+        : null) ||
       data.department?.name ||
-      data.department ||
+      (typeof data.department === "string" ? data.department : null) ||
       "";
-    const finalDepartment =
-      typeof departmentName === "object"
-        ? departmentName?.name || ""
-        : departmentName;
-    setValue("department", finalDepartment, { shouldValidate: true });
 
+    const finalDepartment = departmentName || "";
+
+    if (finalDepartment) {
+      setValue("department", finalDepartment, { shouldValidate: true });
+      setDepartmentSearchQuery(finalDepartment);
+    }
+
+    // Designation — same nesting
     const designationName =
+      data.employee?.user?.designation?.name ||
+      data.employee?.designation?.name ||
+      (typeof data.employee?.designation === "string"
+        ? data.employee.designation
+        : null) ||
+      employeeData.user?.designation?.name ||
       employeeData.designation?.name ||
-      employeeData.designation ||
+      (typeof employeeData.designation === "string"
+        ? employeeData.designation
+        : null) ||
+      foundFullEmployee?.user?.designation?.name ||
       foundFullEmployee?.designation?.name ||
-      foundFullEmployee?.designation ||
+      (typeof foundFullEmployee?.designation === "string"
+        ? foundFullEmployee.designation
+        : null) ||
       data.designation?.name ||
-      data.designation ||
+      (typeof data.designation === "string" ? data.designation : null) ||
       "";
-    const finalDesignation =
-      typeof designationName === "object"
-        ? designationName?.name || ""
-        : designationName;
 
-    setValue("designation", finalDesignation, { shouldValidate: true });
+    const finalDesignation = designationName || "";
+
+    if (finalDesignation) {
+      setValue("designation", finalDesignation, { shouldValidate: true });
+      setDesignationSearchQuery(finalDesignation);
+    }
 
     const emailAddress =
       employeeData.company_email || employeeData.email || data.email || "";
@@ -721,6 +748,8 @@ const OffboardingInitiation = () => {
         reporting_manager_id: data.reportingManagerId
           ? parseInt(data.reportingManagerId, 10)
           : null,
+        department: data.department ? String(data.department).trim() : null,
+        designation: data.designation ? String(data.designation).trim() : null,
         last_working_day: data.lastWorkingDay || null,
         separation_type: data.exitType?.toLowerCase() || null,
         exit_initiation_date: data.exitInitiationDate || null,
@@ -835,6 +864,8 @@ const OffboardingInitiation = () => {
         reporting_manager_id: data.reportingManagerId
           ? parseInt(data.reportingManagerId, 10)
           : null,
+        department: data.department ? String(data.department).trim() : null,
+        designation: data.designation ? String(data.designation).trim() : null,
         last_working_day: data.lastWorkingDay || null,
         separation_type: data.exitType ? data.exitType.toLowerCase() : null,
         exit_initiation_date: data.exitInitiationDate || null,
@@ -1418,16 +1449,22 @@ const OffboardingInitiation = () => {
                 )}
               </div>
 
-              {/* Joining Date - Now Editable */}
+              {/* Joining Date - Now uses DateInput for consistency */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Joining Date
                 </label>
-                <input
-                  type="text"
-                  placeholder="Auto-populated or enter manually (YYYY-MM-DD)"
-                  {...register("joiningDate")}
-                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                <Controller
+                  name="joiningDate"
+                  control={control}
+                  render={({ field }) => (
+                    <DateInput
+                      {...field}
+                      placeholder="Select date"
+                      error={!!errors.joiningDate}
+                      className="w-full bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                    />
+                  )}
                 />
               </div>
             </div>

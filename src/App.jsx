@@ -453,6 +453,10 @@ function App() {
           <Route path="employees/:id" element={<EmployeeDetails />} />
 
           <Route path="onboarding" element={<Onboarding />} />
+          <Route
+            path="employees/onboarding-initiation"
+            element={<OnboardingInitalize />}
+          />
           <Route path="attendance" element={<Attendances />} />
           <Route path="documents" element={<Agreements />} />
           <Route path="documents/add-agreement" element={<AddAgreement />} />

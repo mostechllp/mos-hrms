@@ -1,7 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { CalendarDays, Plus, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  CalendarDays,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
 import {
   fetchPayrollEmployees,
   fetchPayrollEntries,
@@ -14,7 +20,7 @@ import {
   selectPendingPayrollCount,
   selectPaidPayrollCount,
   selectPayrollTotalCount,
-} from '../store/slices/payrollSlice';
+} from "../store/slices/payrollSlice";
 
 const PayrollDashboard = () => {
   const navigate = useNavigate();
@@ -28,7 +34,6 @@ const PayrollDashboard = () => {
   const payrollEntries = useSelector(selectPayrollEntries);
   const entriesLoading = useSelector(selectEntriesLoading);
   const error = useSelector(selectPayrollError);
-  const totalPayrollAmount = useSelector(selectTotalPayrollAmount);
   const pendingCount = useSelector(selectPendingPayrollCount);
   const paidCount = useSelector(selectPaidPayrollCount);
   const totalCount = useSelector(selectPayrollTotalCount);
@@ -46,7 +51,7 @@ const PayrollDashboard = () => {
     september: 9,
     october: 10,
     november: 11,
-    december: 12
+    december: 12,
   };
 
   // Fetch employees and payroll entries on mount
@@ -63,19 +68,19 @@ const PayrollDashboard = () => {
 
   // Debug: Log entries when they change
   useEffect(() => {
-    console.log('📊 Payroll entries in dashboard:', payrollEntries);
-    console.log('📊 Total count:', totalCount);
+    console.log("📊 Payroll entries in dashboard:", payrollEntries);
+    console.log("📊 Total count:", totalCount);
   }, [payrollEntries, totalCount]);
 
   // Group payroll entries by month
   const getPayrollsByMonth = () => {
     const monthCounts = new Array(12).fill(0);
-    
+
     if (!payrollEntries || payrollEntries.length === 0) {
       return monthCounts;
     }
-    
-    payrollEntries.forEach(entry => {
+
+    payrollEntries.forEach((entry) => {
       // Check if entry has month field (from API response)
       if (entry.month) {
         const monthIndex = parseInt(entry.month) - 1;
@@ -91,7 +96,7 @@ const PayrollDashboard = () => {
         }
       }
     });
-    
+
     return monthCounts;
   };
 
@@ -110,21 +115,68 @@ const PayrollDashboard = () => {
     { id: 9, name: "September", short: "Sep", payrolls: payrollsByMonth[8] },
     { id: 10, name: "October", short: "Oct", payrolls: payrollsByMonth[9] },
     { id: 11, name: "November", short: "Nov", payrolls: payrollsByMonth[10] },
-    { id: 12, name: "December", short: "Dec", payrolls: payrollsByMonth[11] }
+    { id: 12, name: "December", short: "Dec", payrolls: payrollsByMonth[11] },
   ];
 
   // Calculate months with payroll
-  const monthsWithPayroll = months.filter(m => m.payrolls > 0).length;
+  const monthsWithPayroll = months.filter((m) => m.payrolls > 0).length;
+
+  const DEFAULT_CURRENCY = "INR";
+
+
+  // Per-currency totals across all payroll entries for the current year
+  const totalsByCurrency = (payrollEntries || []).reduce((acc, entry) => {
+    const rowCurrency = entry.currency || DEFAULT_CURRENCY;
+    const amount = Number(
+      entry.net_pay ?? entry.gross_salary ?? entry.salary ?? 0,
+    );
+    acc[rowCurrency] = (acc[rowCurrency] || 0) + amount;
+    return acc;
+  }, {});
+
+  const currencyTotals = Object.entries(totalsByCurrency)
+    .map(([code, total]) => ({ code, total }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+
+  // Overall count checks for the "estimated split" we already show
+  const hasEntries = (payrollEntries || []).length > 0;
 
   // Format currency
-  const formatCurrency = (amount) => {
-    if (!amount || isNaN(amount)) return '₹0.00';
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+
+  const getCurrencySymbol = (code) => {
+    const map = {
+      AED: "AED ",
+      INR: "₹",
+      USD: "$",
+      EUR: "€",
+      GBP: "£",
+      PHP: "₱",
+      LKR: "₨",
+    };
+    return map[code] || `${code} `;
+  };
+
+  const formatCurrency = (amount, currencyCode = DEFAULT_CURRENCY) => {
+    const currency = currencyCode || DEFAULT_CURRENCY;
+    const numeric = Number(amount);
+
+    if (!amount || isNaN(numeric) || numeric === 0) {
+      return `${getCurrencySymbol(currency)}0.00`;
+    }
+
+    try {
+      return new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(numeric);
+    } catch {
+      return `${getCurrencySymbol(currency)}${numeric.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    }
   };
 
   // Handle month click - navigate to payroll list with month number
@@ -132,7 +184,7 @@ const PayrollDashboard = () => {
     // Convert month name to lowercase for lookup
     const monthLower = monthName.toLowerCase();
     const monthNumber = monthNameToNumber[monthLower];
-    
+
     // Navigate to payroll list with year and month number
     navigate(`/admin/payroll/${currentYear}/${monthNumber}`);
   };
@@ -149,7 +201,9 @@ const PayrollDashboard = () => {
       <div className="min-h-screen bg-[#f8fcfb] dark:bg-gray-900 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-green-500 animate-spin" />
-          <p className="text-gray-500 dark:text-gray-400">Loading payroll data...</p>
+          <p className="text-gray-500 dark:text-gray-400">
+            Loading payroll data...
+          </p>
         </div>
       </div>
     );
@@ -178,7 +232,6 @@ const PayrollDashboard = () => {
   return (
     <div className="min-h-screen bg-[#f8fcfb] dark:bg-gray-900 p-4 sm:p-6 lg:p-8">
       <div className="max-w-[1400px] mx-auto space-y-6">
-        
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">
@@ -191,8 +244,8 @@ const PayrollDashboard = () => {
               {currentYear}
             </span>
           </div>
-          <button 
-            onClick={() => navigate('/admin/payroll/add')}
+          <button
+            onClick={() => navigate("/admin/payroll/add")}
             className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-full font-bold shadow-sm transition-all"
           >
             <Plus size={18} strokeWidth={3} />
@@ -202,7 +255,7 @@ const PayrollDashboard = () => {
 
         {/* Year Selector */}
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4 flex justify-between items-center">
-          <button 
+          <button
             onClick={() => handleYearChange(currentYear - 1)}
             className="p-2 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
           >
@@ -211,7 +264,7 @@ const PayrollDashboard = () => {
           <h2 className="text-xl font-black text-gray-800 dark:text-white">
             {currentYear}
           </h2>
-          <button 
+          <button
             onClick={() => handleYearChange(currentYear + 1)}
             className="p-2 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
           >
@@ -224,12 +277,12 @@ const PayrollDashboard = () => {
           {months.map((month) => {
             const hasPayroll = month.payrolls > 0;
             return (
-              <div 
+              <div
                 key={month.id}
                 onClick={() => hasPayroll && handleMonthClick(month.name)}
                 className={`flex flex-col items-center justify-center p-6 rounded-2xl border transition-all ${
-                  hasPayroll 
-                    ? "bg-green-50/50 dark:bg-green-900/20 border-green-400 dark:border-green-600 cursor-pointer hover:shadow-md hover:-translate-y-1" 
+                  hasPayroll
+                    ? "bg-green-50/50 dark:bg-green-900/20 border-green-400 dark:border-green-600 cursor-pointer hover:shadow-md hover:-translate-y-1"
                     : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-default"
                 }`}
               >
@@ -255,81 +308,150 @@ const PayrollDashboard = () => {
 
         {/* Legend */}
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4 flex flex-wrap items-center gap-4">
-          <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Legend:</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+            Legend:
+          </span>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded border border-green-400 bg-green-50/50"></div>
-            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Has Payroll</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+              Has Payroll
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded border border-gray-200 bg-white"></div>
-            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">No Payroll</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+              No Payroll
+            </span>
           </div>
           <div className="flex items-center gap-2 ml-auto">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Total Employees:</span>
-            <span className="text-sm font-bold text-gray-800 dark:text-white">{employees.length}</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Total Employees:
+            </span>
+            <span className="text-sm font-bold text-gray-800 dark:text-white">
+              {employees.length}
+            </span>
           </div>
         </div>
 
         {/* Summary Statistics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-6">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Total Payrolls</p>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Total Payrolls
+            </p>
             <h3 className="text-2xl font-black text-blue-500">{totalCount}</h3>
           </div>
-          
+
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-6">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Months with Payroll</p>
-            <h3 className="text-2xl font-black text-green-500">{monthsWithPayroll}</h3>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Months with Payroll
+            </p>
+            <h3 className="text-2xl font-black text-green-500">
+              {monthsWithPayroll}
+            </h3>
           </div>
-          
+
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-6">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Pending</p>
-            <h3 className="text-2xl font-black text-amber-500">{pendingCount}</h3>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Pending
+            </p>
+            <h3 className="text-2xl font-black text-amber-500">
+              {pendingCount}
+            </h3>
           </div>
-          
+
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-6">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Paid</p>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Paid
+            </p>
             <h3 className="text-2xl font-black text-green-500">{paidCount}</h3>
           </div>
         </div>
 
-        {/* Total Amount Breakdown */}
-        <div className="grid grid-cols-1 gap-4">
-          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-6">
-            <div className="flex flex-wrap justify-between items-center">
-              <div>
-                <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Total Payroll Amount</p>
-                <h3 className="text-2xl font-black text-blue-500">{formatCurrency(totalPayrollAmount)}</h3>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Pending Amount</p>
-                <h3 className="text-lg font-bold text-amber-500">
-                  {formatCurrency(pendingCount > 0 && totalCount > 0 ? totalPayrollAmount * (pendingCount / totalCount) : 0)}
-                </h3>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Paid Amount</p>
-                <h3 className="text-lg font-bold text-green-500">
-                  {formatCurrency(paidCount > 0 && totalCount > 0 ? totalPayrollAmount * (paidCount / totalCount) : 0)}
-                </h3>
-              </div>
+        {/* Total Amount Breakdown — one card per currency */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {currencyTotals.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-6">
+              <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">
+                Total Payroll Amount
+              </p>
+              <h3 className="text-2xl font-black text-blue-500">
+                {formatCurrency(0, DEFAULT_CURRENCY)}
+              </h3>
             </div>
-          </div>
+          ) : (
+            currencyTotals.map(({ code, total }) => (
+              <div
+                key={code}
+                className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-6"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">
+                      Total {code}
+                    </p>
+                    <h3 className="text-2xl font-black text-blue-500">
+                      {formatCurrency(total, code)}
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                    {code}
+                  </span>
+                </div>
+
+                {/* Optional inline split */}
+                {hasEntries && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/80 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>
+                      Paid:{" "}
+                      <span className="font-bold text-green-600 dark:text-green-400">
+                        {formatCurrency(
+                          paidCount > 0 && totalCount > 0
+                            ? total * (paidCount / totalCount)
+                            : 0,
+                          code,
+                        )}
+                      </span>
+                    </span>
+                    <span>
+                      Pending:{" "}
+                      <span className="font-bold text-amber-600 dark:text-amber-400">
+                        {formatCurrency(
+                          pendingCount > 0 && totalCount > 0
+                            ? total * (pendingCount / totalCount)
+                            : 0,
+                          code,
+                        )}
+                      </span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
 
         {/* Monthly Breakdown */}
         {monthsWithPayroll > 0 && (
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-6">
-            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">Monthly Payroll Distribution</h3>
+            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">
+              Monthly Payroll Distribution
+            </h3>
             <div className="grid grid-cols-12 gap-2 h-32 items-end">
               {months.map((month) => {
-                const maxPayroll = Math.max(...months.map(m => m.payrolls), 1);
-                const height = month.payrolls > 0 ? (month.payrolls / maxPayroll) * 100 : 0;
+                const maxPayroll = Math.max(
+                  ...months.map((m) => m.payrolls),
+                  1,
+                );
+                const height =
+                  month.payrolls > 0 ? (month.payrolls / maxPayroll) * 100 : 0;
                 return (
                   <div key={month.id} className="flex flex-col items-center">
-                    <div 
+                    <div
                       className={`w-full rounded-t-lg transition-all duration-500 ${
-                        month.payrolls > 0 ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'
+                        month.payrolls > 0
+                          ? "bg-green-500"
+                          : "bg-gray-200 dark:bg-gray-700"
                       }`}
                       style={{ height: `${Math.max(height * 0.9, 4)}px` }}
                     />
@@ -337,7 +459,9 @@ const PayrollDashboard = () => {
                       {month.short}
                     </span>
                     {month.payrolls > 0 && (
-                      <span className="text-[8px] font-bold text-green-500">{month.payrolls}</span>
+                      <span className="text-[8px] font-bold text-green-500">
+                        {month.payrolls}
+                      </span>
                     )}
                   </div>
                 );
@@ -345,7 +469,6 @@ const PayrollDashboard = () => {
             </div>
           </div>
         )}
-        
       </div>
     </div>
   );

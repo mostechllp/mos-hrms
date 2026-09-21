@@ -95,6 +95,8 @@ const AddEmployee = () => {
       department_id: "",
       type: "employee",
       joining_date: "",
+      currency: "INR",
+      payment_cycle: "Monthly",
       dob: "",
       gender: "male",
       nationality: "",
@@ -240,10 +242,17 @@ const AddEmployee = () => {
       setSelectedCompanyDetails(company || null);
 
       const companyCountry = company?.country || company?.raw?.country || "UAE";
-      const normalizedCountry = companyCountry === "AE" ? "UAE" : companyCountry;
+      const normalizedCountry =
+        companyCountry === "AE" ? "UAE" : companyCountry;
 
       setSelectedCountry(normalizedCountry);
       setCountryConfig(getCountryConfig(normalizedCountry));
+
+      // Default currency based on country (only if not already set)
+      const currentCurrency = watch("currency");
+      if (!currentCurrency || currentCurrency === "") {
+        setValue("currency", normalizedCountry === "UAE" ? "AED" : "INR");
+      }
 
       if (normalizedCountry === "India") {
         setValue("visa_number", "");
@@ -270,6 +279,21 @@ const AddEmployee = () => {
       setCountryConfig(getCountryConfig("UAE"));
     }
   }, [watchCompanyId, companies, setValue]);
+
+  const currenciesList = [
+    { code: "AED", name: "United Arab Emirates Dirham (AED)" },
+    { code: "INR", name: "Indian Rupee (INR)" },
+    { code: "USD", name: "United States Dollar (USD)" },
+    { code: "EUR", name: "Euro (EUR)" },
+    { code: "GBP", name: "British Pound (GBP)" },
+  ];
+
+  const paymentCycleOptions = [
+    { value: "Monthly", label: "Monthly" },
+    { value: "Weekly", label: "Weekly" },
+    { value: "Bi-Weekly", label: "Bi-Weekly" },
+    { value: "Quarterly", label: "Quarterly" },
+  ];
 
   const getNationalityOptions = () => {
     if (selectedCountry === "India") {
@@ -310,6 +334,8 @@ const AddEmployee = () => {
           "designation_id",
           "department_id",
           "type",
+          "currency",
+          "payment_cycle",
           "dob",
           "joining_date",
           "special_days",
@@ -625,6 +651,8 @@ const AddEmployee = () => {
     formData.append("gender", data.gender || "");
     formData.append("nationality", data.nationality || "");
     formData.append("marital_status", data.marital_status || "");
+    formData.append("currency", data.currency || "");
+    formData.append("payment_cycle", data.payment_cycle || "");
 
     const dob = convertDateToBackend(data.dob);
     const joiningDate = convertDateToBackend(data.joining_date);
@@ -984,6 +1012,12 @@ const AddEmployee = () => {
     },
     type: {
       required: "User type is required",
+    },
+    currency: {
+      required: "Currency is required",
+    },
+    payment_cycle: {
+      required: "Payment cycle is required",
     },
     role: {
       required: "Role is required",
@@ -1456,6 +1490,80 @@ const AddEmployee = () => {
                     />
                   </div>
 
+                  {/* Currency */}
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-money-bill-wave text-green-500 mr-1"></i>{" "}
+                      Currency <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="currency"
+                      control={control}
+                      rules={{ required: "Currency is required" }}
+                      render={({ field }) => (
+                        <>
+                          <select
+                            {...field}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 transition-all focus:outline-none focus:ring-2 ${
+                              errors.currency
+                                ? "border-red-500"
+                                : "border-gray-200 dark:border-gray-600 focus:border-green-500"
+                            }`}
+                          >
+                            <option value="">Select Currency</option>
+                            {currenciesList.map((curr) => (
+                              <option key={curr.code} value={curr.code}>
+                                {curr.name}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.currency && (
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                              {errors.currency.message}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    />
+                  </div>
+
+                  {/* Payment Cycle */}
+                  <div>
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
+                      <i className="fas fa-sync-alt text-green-500 mr-1"></i>{" "}
+                      Payment Cycle <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="payment_cycle"
+                      control={control}
+                      rules={{ required: "Payment cycle is required" }}
+                      render={({ field }) => (
+                        <>
+                          <select
+                            {...field}
+                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 transition-all focus:outline-none focus:ring-2 ${
+                              errors.payment_cycle
+                                ? "border-red-500"
+                                : "border-gray-200 dark:border-gray-600 focus:border-green-500"
+                            }`}
+                          >
+                            <option value="">Select Payment Cycle</option>
+                            {paymentCycleOptions.map((cycle) => (
+                              <option key={cycle.value} value={cycle.value}>
+                                {cycle.label}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.payment_cycle && (
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                              {errors.payment_cycle.message}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    />
+                  </div>
+
                   {/* Gender */}
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
@@ -1577,7 +1685,9 @@ const AddEmployee = () => {
                                     type="special_day"
                                     {...field}
                                     placeholder="dd/mm/yyyy"
-                                    error={!!errors?.special_days?.[index]?.date}
+                                    error={
+                                      !!errors?.special_days?.[index]?.date
+                                    }
                                   />
                                   {errors?.special_days?.[index]?.date && (
                                     <p className="mt-1 text-xs text-red-500 dark:text-red-400">
@@ -2551,7 +2661,10 @@ const AddEmployee = () => {
                       required={false}
                     />
                     {countryConfig.identityDocuments.map((doc) => {
-                      if (doc.key === "aadhar_photo" || doc.key === "pan_photo") {
+                      if (
+                        doc.key === "aadhar_photo" ||
+                        doc.key === "pan_photo"
+                      ) {
                         return null;
                       }
                       return (

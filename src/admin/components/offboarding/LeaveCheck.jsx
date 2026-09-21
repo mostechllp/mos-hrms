@@ -71,13 +71,26 @@ const LeaveCheck = () => {
   // ─── Hydrate form state from saved verification ────────────────
   useEffect(() => {
     if (savedVerification) {
-      setEncashmentRequired(savedVerification.encashment_required ?? true);
-      setLeaveChecked(
-        savedVerification.leave_checked ??
-          savedVerification.leave_history_verified ??
-          false,
+      // API uses `process_for_encashment`; fall back to `encashment_required`
+      // and only then to `true` if neither key exists at all.
+      const encashment =
+        savedVerification.process_for_encashment ??
+        savedVerification.encashment_required;
+
+      setEncashmentRequired(
+        typeof encashment === "boolean" ? encashment : true,
       );
-      setNotes(savedVerification.notes || "");
+
+      // API uses `leave_history_verified`; fall back to `leave_checked`
+      setLeaveChecked(
+        Boolean(
+          savedVerification.leave_history_verified ??
+          savedVerification.leave_checked,
+        ),
+      );
+
+      // API uses `remarks`; fall back to `notes`
+      setNotes(savedVerification.remarks ?? savedVerification.notes ?? "");
     }
   }, [savedVerification]);
 
@@ -89,71 +102,78 @@ const LeaveCheck = () => {
   }, [error]);
 
   // ─── Submit ─────────────────────────────────────────────────────
- const handleSaveAndContinue = async () => {
-  if (!offboardingId) {
-    showToast("Offboarding ID is missing", "error");
-    return;
-  }
-
-  if (!leaveChecked) {
-    showToast("Please verify the leave history before continuing", "error");
-    return;
-  }
-
-  if (leaveAllocations.length === 0) {
-    showToast("No leave allocations found for this employee", "error");
-    return;
-  }
-
-  setSaving(true);
-  try {
-    await dispatch(
-      updateLeaveVerification({
-        id: offboardingId,
-        leaveData: {
-          pending_leave_balance: totalAllocatedDays,
-          leave_allocation_ids: leaveAllocations.map((a) => a.id),
-          encashment_required: encashmentRequired,
-          leave_checked: leaveChecked,
-          leave_history_verified: leaveChecked,
-          notes,
-          step: "leave_verification",
-          status: "completed",
-        },
-      }),
-    ).unwrap();
-
-    // ✅ Refresh progress so the header/dashboard reflects the completed step
-    try {
-      await dispatch(fetchOffboardingProgress(offboardingId)).unwrap();
-    } catch (progressErr) {
-      // Non-fatal — the step was saved even if progress refresh failed
-      console.warn("Progress refresh failed:", progressErr);
+  const handleSaveAndContinue = async () => {
+    if (!offboardingId) {
+      showToast("Offboarding ID is missing", "error");
+      return;
     }
 
-    // ✅ Optionally re-fetch leave verification so the form reflects what was saved
-    try {
-      await dispatch(fetchLeaveVerification(offboardingId)).unwrap();
-    } catch (refetchErr) {
-      console.warn("Leave verification re-fetch failed:", refetchErr);
+    if (!leaveChecked) {
+      showToast("Please verify the leave history before continuing", "error");
+      return;
     }
 
-    showToast("Leave Check completed successfully.", "success");
-    setTimeout(() => {
-      navigate(
-        `/admin/employees/offboarding/access-removal?id=${offboardingId}`,
+    if (leaveAllocations.length === 0) {
+      showToast("No leave allocations found for this employee", "error");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await dispatch(
+        updateLeaveVerification({
+          id: offboardingId,
+          leaveData: {
+            pending_leave_balance: totalAllocatedDays,
+            leave_allocation_ids: leaveAllocations.map((a) => a.id),
+
+            // API-persisted field names:
+            process_for_encashment: encashmentRequired,
+            leave_history_verified: leaveChecked,
+            remarks: notes, 
+
+            // Keep legacy names too if you want extra safety during rollout:
+            encashment_required: encashmentRequired,
+            leave_checked: leaveChecked,
+            notes: notes,
+
+            step: "leave_verification",
+            status: "completed",
+          },
+        }),
+      ).unwrap();
+
+      // ✅ Refresh progress so the header/dashboard reflects the completed step
+      try {
+        await dispatch(fetchOffboardingProgress(offboardingId)).unwrap();
+      } catch (progressErr) {
+        // Non-fatal — the step was saved even if progress refresh failed
+        console.warn("Progress refresh failed:", progressErr);
+      }
+
+      // ✅ Optionally re-fetch leave verification so the form reflects what was saved
+      try {
+        await dispatch(fetchLeaveVerification(offboardingId)).unwrap();
+      } catch (refetchErr) {
+        console.warn("Leave verification re-fetch failed:", refetchErr);
+      }
+
+      showToast("Leave Check completed successfully.", "success");
+      setTimeout(() => {
+        navigate(
+          `/admin/employees/offboarding/access-removal?id=${offboardingId}`,
+        );
+      }, 1000);
+    } catch (err) {
+      console.error(err);
+      showToast(
+        typeof err === "string" ? err : "Failed to save leave check details",
+        "error",
       );
-    }, 1000);
-  } catch (err) {
-    console.error(err);
-    showToast(
-      typeof err === "string" ? err : "Failed to save leave check details",
-      "error",
-    );
-  } finally {
-    setSaving(false);
-  }
-};
+    } finally {
+      setSaving(false);
+    }
+  };
   const handleRefresh = () => {
     if (offboardingId) {
       dispatch(fetchLeaveVerification(offboardingId));
@@ -252,9 +272,7 @@ const LeaveCheck = () => {
                   <div className="hidden sm:grid sm:grid-cols-12 gap-4 px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     <div className="col-span-6">Leave Type</div>
                     <div className="col-span-3 text-center">Year</div>
-                    <div className="col-span-3 text-right">
-                      Allocated Days
-                    </div>
+                    <div className="col-span-3 text-right">Allocated Days</div>
                   </div>
 
                   {/* Rows */}
@@ -358,8 +376,8 @@ const LeaveCheck = () => {
                     Process for Encashment
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Check this if the unused leave balance should be processed as
-                    encashment in the FnF settlement.
+                    Check this if the unused leave balance should be processed
+                    as encashment in the FnF settlement.
                   </p>
                 </div>
               </label>
