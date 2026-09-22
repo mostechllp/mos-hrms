@@ -68,6 +68,10 @@ const EmployeeDetails = () => {
     swift_code: "",
   });
 
+  // ─── Bank field errors (add modal + inline edit) ──────────────────────
+  const [bankErrors, setBankErrors] = useState({}); // for the add modal
+  const [editBankErrors, setEditBankErrors] = useState({}); // for inline row edit
+
   // ─── Confirm Modal State ──────────────────────────────────────────────
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -301,19 +305,102 @@ const EmployeeDetails = () => {
     }
   };
 
+  // ─── Bank field validators (mirrors SalaryBankDetailsForm) ────────────
+  const validateBankName = (val) => {
+    if (!val || !val.trim()) return "Bank name is required";
+    if (val.trim().length < 2) return "Bank name must be at least 2 characters";
+    return "";
+  };
+
+  const validateAccountNumber = (val, country) => {
+    const clean = String(val || "").replace(/[\s-]/g, "");
+    if (!val || !val.trim()) return "Account number is required";
+    if (country === "India" && (clean.length < 9 || clean.length > 18)) {
+      return "Indian bank account numbers must be 9 to 18 digits";
+    }
+    if (country === "UAE" && clean.length < 6) {
+      return "Account number must be at least 6 characters";
+    }
+    return "";
+  };
+
+  const validateIfsc = (val) => {
+    if (!val) return "IFSC Code is required";
+    if (val.length !== 11) return "IFSC Code must be exactly 11 characters";
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(val)) {
+      return "Format must be: 4 letters, 0, then 6 alphanumeric (e.g. HDFC0000123)";
+    }
+    return "";
+  };
+
+  const validateBranch = (val) => {
+    if (!val || !val.trim()) return "Branch name is required";
+    return "";
+  };
+
+  const validateIban = (val) => {
+    const clean = String(val || "").replace(/\s/g, "");
+    if (!clean) return "IBAN is required";
+    if (!clean.startsWith("AE")) return "UAE IBAN must start with 'AE'";
+    if (clean.length !== 23)
+      return `IBAN must be exactly 23 characters (current: ${clean.length})`;
+    return "";
+  };
+
+  const validateSwift = (val) => {
+    if (!val) return "SWIFT/BIC Code is required";
+    if (val.length !== 8 && val.length !== 11)
+      return "SWIFT/BIC Code must be 8 or 11 characters";
+    if (!/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(val))
+      return "Invalid SWIFT/BIC format";
+    return "";
+  };
+
+  // Returns { fieldName: errorMessage } for whichever fields are invalid.
+  // Empty object means the payload is valid.
+  const validateBankPayload = (bank) => {
+    const errors = {};
+
+    const nameErr = validateBankName(bank.bank_name);
+    if (nameErr) errors.bank_name = nameErr;
+
+    const accErr = validateAccountNumber(
+      bank.account_number,
+      bank.bank_country,
+    );
+    if (accErr) errors.account_number = accErr;
+
+    if (bank.bank_country === "India") {
+      const ifscErr = validateIfsc(bank.ifsc_code);
+      if (ifscErr) errors.ifsc_code = ifscErr;
+
+      const branchErr = validateBranch(bank.branch_name);
+      if (branchErr) errors.branch_name = branchErr;
+    } else if (bank.bank_country === "UAE") {
+      const ibanErr = validateIban(bank.iban_number);
+      if (ibanErr) errors.iban_number = ibanErr;
+
+      const swiftErr = validateSwift(bank.swift_code);
+      if (swiftErr) errors.swift_code = swiftErr;
+    }
+
+    return errors;
+  };
+
   const handleAddBankDetail = async () => {
-    if (!newBank.bank_name || !newBank.account_number) {
-      showToast("Please fill in all required fields", "error");
+    // Run all validators
+    const errors = validateBankPayload(newBank);
+
+    if (Object.keys(errors).length > 0) {
+      setBankErrors(errors);
+      // Show the first error as a toast for quick feedback
+      showToast(Object.values(errors)[0], "error");
       return;
     }
-    if (newBank.bank_country === "India" && !newBank.ifsc_code) {
-      showToast("IFSC Code is required for Indian bank accounts", "error");
-      return;
-    }
-    if (newBank.bank_country === "UAE" && !newBank.iban_number) {
-      showToast("IBAN Number is required for UAE bank accounts", "error");
-      return;
-    }
+
+    // Clear any previous errors
+    setBankErrors({});
+
     try {
       const existingBanks = currentEmployee.bank_details || [];
       const newBankFormatted = {
@@ -324,7 +411,9 @@ const EmployeeDetails = () => {
         branch_name:
           newBank.bank_country === "India" ? newBank.branch_name : null,
         iban_number:
-          newBank.bank_country === "UAE" ? newBank.iban_number : null,
+          newBank.bank_country === "UAE"
+            ? newBank.iban_number.replace(/\s/g, "")
+            : null,
         swift_code: newBank.bank_country === "UAE" ? newBank.swift_code : null,
       };
       const allBanks = [...existingBanks, newBankFormatted];
@@ -348,6 +437,7 @@ const EmployeeDetails = () => {
           iban_number: "",
           swift_code: "",
         });
+        setBankErrors({});
         fetchEmployeeData();
       } else {
         showToast(
@@ -364,6 +454,17 @@ const EmployeeDetails = () => {
   };
 
   const handleUpdateBankDetail = async (bankId, updatedData) => {
+    // updatedData must already include bank_country so we know which rules to apply
+    const errors = validateBankPayload(updatedData);
+
+    if (Object.keys(errors).length > 0) {
+      setEditBankErrors(errors);
+      showToast(Object.values(errors)[0], "error");
+      return;
+    }
+
+    setEditBankErrors({});
+
     try {
       const response = await apiClient.put(
         `/admin/bank-details/${bankId}`,
@@ -372,6 +473,7 @@ const EmployeeDetails = () => {
       if (response.data.status === "success") {
         showToast("Bank details updated successfully", "success");
         setEditingBankDetail(null);
+        setEditBankErrors({});
         fetchEmployeeData();
       } else {
         showToast(
@@ -1333,7 +1435,10 @@ const EmployeeDetails = () => {
                 <SectionHeader icon={<FiCreditCard />} title="Bank Details" />
                 <div className="flex justify-end mb-4">
                   <button
-                    onClick={() => setShowAddBank(true)}
+                    onClick={() => {
+                      setShowAddBank(true);
+                      setBankErrors({});
+                    }}
                     className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors flex items-center gap-1"
                   >
                     <FiPlus size={14} /> Add Bank Account
@@ -1361,7 +1466,10 @@ const EmployeeDetails = () => {
                           </h4>
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => setEditingBankDetail(bank.id)}
+                              onClick={() => {
+                                setEditingBankDetail(bank.id);
+                                setEditBankErrors({});
+                              }}
                               className="text-blue-600 hover:text-blue-800"
                               title="Edit"
                             >
@@ -1392,9 +1500,18 @@ const EmployeeDetails = () => {
                                   <input
                                     type="text"
                                     defaultValue={bank.bank_name}
-                                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text)]"
                                     id={`bank-name-${bank.id}`}
+                                    className={`w-full px-3 py-2 border rounded-lg bg-[var(--surface)] text-[var(--text)] ${
+                                      editBankErrors.bank_name
+                                        ? "border-red-500"
+                                        : "border-[var(--border)]"
+                                    }`}
                                   />
+                                  {editBankErrors.bank_name && (
+                                    <p className="text-xs text-red-500 mt-1">
+                                      {editBankErrors.bank_name}
+                                    </p>
+                                  )}
                                 </div>
                                 <div>
                                   <label className="block text-xs text-[var(--muted)] mb-1">
@@ -1403,9 +1520,18 @@ const EmployeeDetails = () => {
                                   <input
                                     type="text"
                                     defaultValue={bank.account_number}
-                                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text)]"
                                     id={`bank-account-${bank.id}`}
+                                    className={`w-full px-3 py-2 border rounded-lg bg-[var(--surface)] text-[var(--text)] ${
+                                      editBankErrors.account_number
+                                        ? "border-red-500"
+                                        : "border-[var(--border)]"
+                                    }`}
                                   />
+                                  {editBankErrors.account_number && (
+                                    <p className="text-xs text-red-500 mt-1">
+                                      {editBankErrors.account_number}
+                                    </p>
+                                  )}
                                 </div>
                                 {bank.bank_country === "India" ? (
                                   <>
@@ -1416,9 +1542,18 @@ const EmployeeDetails = () => {
                                       <input
                                         type="text"
                                         defaultValue={bank.ifsc_code || ""}
-                                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text)]"
                                         id={`bank-ifsc-${bank.id}`}
+                                        className={`w-full px-3 py-2 border rounded-lg bg-[var(--surface)] text-[var(--text)] font-mono ${
+                                          editBankErrors.ifsc_code
+                                            ? "border-red-500"
+                                            : "border-[var(--border)]"
+                                        }`}
                                       />
+                                      {editBankErrors.ifsc_code && (
+                                        <p className="text-xs text-red-500 mt-1">
+                                          {editBankErrors.ifsc_code}
+                                        </p>
+                                      )}
                                     </div>
                                     <div>
                                       <label className="block text-xs text-[var(--muted)] mb-1">
@@ -1427,9 +1562,18 @@ const EmployeeDetails = () => {
                                       <input
                                         type="text"
                                         defaultValue={bank.branch_name || ""}
-                                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text)]"
                                         id={`bank-branch-${bank.id}`}
+                                        className={`w-full px-3 py-2 border rounded-lg bg-[var(--surface)] text-[var(--text)] ${
+                                          editBankErrors.branch_name
+                                            ? "border-red-500"
+                                            : "border-[var(--border)]"
+                                        }`}
                                       />
+                                      {editBankErrors.branch_name && (
+                                        <p className="text-xs text-red-500 mt-1">
+                                          {editBankErrors.branch_name}
+                                        </p>
+                                      )}
                                     </div>
                                   </>
                                 ) : (
@@ -1441,9 +1585,18 @@ const EmployeeDetails = () => {
                                       <input
                                         type="text"
                                         defaultValue={bank.iban_number || ""}
-                                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text)]"
                                         id={`bank-iban-${bank.id}`}
+                                        className={`w-full px-3 py-2 border rounded-lg bg-[var(--surface)] text-[var(--text)] font-mono ${
+                                          editBankErrors.iban_number
+                                            ? "border-red-500"
+                                            : "border-[var(--border)]"
+                                        }`}
                                       />
+                                      {editBankErrors.iban_number && (
+                                        <p className="text-xs text-red-500 mt-1">
+                                          {editBankErrors.iban_number}
+                                        </p>
+                                      )}
                                     </div>
                                     <div>
                                       <label className="block text-xs text-[var(--muted)] mb-1">
@@ -1452,16 +1605,28 @@ const EmployeeDetails = () => {
                                       <input
                                         type="text"
                                         defaultValue={bank.swift_code || ""}
-                                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text)]"
                                         id={`bank-swift-${bank.id}`}
+                                        className={`w-full px-3 py-2 border rounded-lg bg-[var(--surface)] text-[var(--text)] font-mono ${
+                                          editBankErrors.swift_code
+                                            ? "border-red-500"
+                                            : "border-[var(--border)]"
+                                        }`}
                                       />
+                                      {editBankErrors.swift_code && (
+                                        <p className="text-xs text-red-500 mt-1">
+                                          {editBankErrors.swift_code}
+                                        </p>
+                                      )}
                                     </div>
                                   </>
                                 )}
                               </div>
                               <div className="flex justify-end gap-2">
                                 <button
-                                  onClick={() => setEditingBankDetail(null)}
+                                  onClick={() => {
+                                    setEditingBankDetail(null);
+                                    setEditBankErrors({});
+                                  }}
                                   className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] rounded-lg hover:bg-[var(--surface2)]"
                                 >
                                   Cancel
@@ -1478,23 +1643,23 @@ const EmployeeDetails = () => {
                                       ).value,
                                     };
                                     if (bank.bank_country === "India") {
-                                      updatedData.ifsc_code =
-                                        document.getElementById(
-                                          `bank-ifsc-${bank.id}`,
-                                        ).value;
+                                      updatedData.ifsc_code = document
+                                        .getElementById(`bank-ifsc-${bank.id}`)
+                                        .value.toUpperCase()
+                                        .replace(/[^A-Z0-9]/g, "");
                                       updatedData.branch_name =
                                         document.getElementById(
                                           `bank-branch-${bank.id}`,
                                         ).value;
                                     } else {
-                                      updatedData.iban_number =
-                                        document.getElementById(
-                                          `bank-iban-${bank.id}`,
-                                        ).value;
-                                      updatedData.swift_code =
-                                        document.getElementById(
-                                          `bank-swift-${bank.id}`,
-                                        ).value;
+                                      updatedData.iban_number = document
+                                        .getElementById(`bank-iban-${bank.id}`)
+                                        .value.toUpperCase()
+                                        .replace(/\s/g, "");
+                                      updatedData.swift_code = document
+                                        .getElementById(`bank-swift-${bank.id}`)
+                                        .value.toUpperCase()
+                                        .replace(/[^A-Z0-9]/g, "");
                                     }
                                     handleUpdateBankDetail(
                                       bank.id,
@@ -1650,7 +1815,10 @@ const EmployeeDetails = () => {
                           Add Bank Account
                         </h3>
                         <button
-                          onClick={() => setShowAddBank(false)}
+                          onClick={() => {
+                            setShowAddBank(false);
+                            setBankErrors({});
+                          }}
                           className="text-[var(--muted)] hover:text-[var(--text)]"
                         >
                           <FiX size={20} />
@@ -1663,18 +1831,20 @@ const EmployeeDetails = () => {
                           </label>
                           <select
                             value={newBank.bank_country}
-                            onChange={(e) =>
+                            onChange={(e) => {
                               setNewBank({
                                 ...newBank,
                                 bank_country: e.target.value,
-                              })
-                            }
+                              });
+                              setBankErrors({});
+                            }}
                             className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)]"
                           >
                             <option value="India">India</option>
                             <option value="UAE">United Arab Emirates</option>
                           </select>
                         </div>
+                        {/* Bank Name */}
                         <div>
                           <label className="block text-sm font-medium text-[var(--text)] mb-1">
                             Bank Name *
@@ -1682,15 +1852,28 @@ const EmployeeDetails = () => {
                           <input
                             type="text"
                             value={newBank.bank_name}
-                            onChange={(e) =>
+                            onChange={(e) => {
                               setNewBank({
                                 ...newBank,
                                 bank_name: e.target.value,
-                              })
-                            }
-                            className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)]"
+                              });
+                              if (bankErrors.bank_name)
+                                setBankErrors({ ...bankErrors, bank_name: "" });
+                            }}
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] ${
+                              bankErrors.bank_name
+                                ? "border-red-500 focus:ring-red-500/20 focus:border-red-500"
+                                : "border-[var(--border)]"
+                            }`}
                           />
+                          {bankErrors.bank_name && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {bankErrors.bank_name}
+                            </p>
+                          )}
                         </div>
+
+                        {/* Account Number */}
                         <div>
                           <label className="block text-sm font-medium text-[var(--text)] mb-1">
                             Account Number *
@@ -1698,15 +1881,31 @@ const EmployeeDetails = () => {
                           <input
                             type="text"
                             value={newBank.account_number}
-                            onChange={(e) =>
+                            onChange={(e) => {
                               setNewBank({
                                 ...newBank,
                                 account_number: e.target.value,
-                              })
-                            }
-                            className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)]"
+                              });
+                              if (bankErrors.account_number)
+                                setBankErrors({
+                                  ...bankErrors,
+                                  account_number: "",
+                                });
+                            }}
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] ${
+                              bankErrors.account_number
+                                ? "border-red-500 focus:ring-red-500/20 focus:border-red-500"
+                                : "border-[var(--border)]"
+                            }`}
                           />
+                          {bankErrors.account_number && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {bankErrors.account_number}
+                            </p>
+                          )}
                         </div>
+
+                        {/* IFSC / Branch (India) */}
                         {newBank.bank_country === "India" ? (
                           <>
                             <div>
@@ -1716,34 +1915,64 @@ const EmployeeDetails = () => {
                               <input
                                 type="text"
                                 value={newBank.ifsc_code}
-                                onChange={(e) =>
-                                  setNewBank({
-                                    ...newBank,
-                                    ifsc_code: e.target.value.toUpperCase(),
-                                  })
-                                }
-                                className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)]"
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                    .toUpperCase()
+                                    .replace(/[^A-Z0-9]/g, "")
+                                    .substring(0, 11);
+                                  setNewBank({ ...newBank, ifsc_code: v });
+                                  if (bankErrors.ifsc_code)
+                                    setBankErrors({
+                                      ...bankErrors,
+                                      ifsc_code: "",
+                                    });
+                                }}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] font-mono tracking-wider ${
+                                  bankErrors.ifsc_code
+                                    ? "border-red-500 focus:ring-red-500/20 focus:border-red-500"
+                                    : "border-[var(--border)]"
+                                }`}
                               />
+                              {bankErrors.ifsc_code && (
+                                <p className="text-xs text-red-500 mt-1">
+                                  {bankErrors.ifsc_code}
+                                </p>
+                              )}
                             </div>
                             <div>
                               <label className="block text-sm font-medium text-[var(--text)] mb-1">
-                                Branch Name
+                                Branch Name *
                               </label>
                               <input
                                 type="text"
                                 value={newBank.branch_name}
-                                onChange={(e) =>
+                                onChange={(e) => {
                                   setNewBank({
                                     ...newBank,
                                     branch_name: e.target.value,
-                                  })
-                                }
-                                className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)]"
+                                  });
+                                  if (bankErrors.branch_name)
+                                    setBankErrors({
+                                      ...bankErrors,
+                                      branch_name: "",
+                                    });
+                                }}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] ${
+                                  bankErrors.branch_name
+                                    ? "border-red-500 focus:ring-red-500/20 focus:border-red-500"
+                                    : "border-[var(--border)]"
+                                }`}
                               />
+                              {bankErrors.branch_name && (
+                                <p className="text-xs text-red-500 mt-1">
+                                  {bankErrors.branch_name}
+                                </p>
+                              )}
                             </div>
                           </>
                         ) : (
                           <>
+                            {/* IBAN (UAE) */}
                             <div>
                               <label className="block text-sm font-medium text-[var(--text)] mb-1">
                                 IBAN Number *
@@ -1751,30 +1980,71 @@ const EmployeeDetails = () => {
                               <input
                                 type="text"
                                 value={newBank.iban_number}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const cleaned = e.target.value
+                                    .toUpperCase()
+                                    .replace(/[^A-Z0-9]/g, "")
+                                    .substring(0, 23);
+                                  // group in 4s for readability
+                                  let formatted = "";
+                                  for (let i = 0; i < cleaned.length; i++) {
+                                    if (i > 0 && i % 4 === 0) formatted += " ";
+                                    formatted += cleaned[i];
+                                  }
                                   setNewBank({
                                     ...newBank,
-                                    iban_number: e.target.value.toUpperCase(),
-                                  })
-                                }
-                                className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)]"
+                                    iban_number: formatted,
+                                  });
+                                  if (bankErrors.iban_number)
+                                    setBankErrors({
+                                      ...bankErrors,
+                                      iban_number: "",
+                                    });
+                                }}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] font-mono tracking-wider ${
+                                  bankErrors.iban_number
+                                    ? "border-red-500 focus:ring-red-500/20 focus:border-red-500"
+                                    : "border-[var(--border)]"
+                                }`}
                               />
+                              {bankErrors.iban_number && (
+                                <p className="text-xs text-red-500 mt-1">
+                                  {bankErrors.iban_number}
+                                </p>
+                              )}
                             </div>
+
+                            {/* SWIFT (UAE) */}
                             <div>
                               <label className="block text-sm font-medium text-[var(--text)] mb-1">
-                                SWIFT/BIC Code
+                                SWIFT/BIC Code *
                               </label>
                               <input
                                 type="text"
                                 value={newBank.swift_code}
-                                onChange={(e) =>
-                                  setNewBank({
-                                    ...newBank,
-                                    swift_code: e.target.value.toUpperCase(),
-                                  })
-                                }
-                                className="w-full px-3 py-2 border border-[var(--border)] rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)]"
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                    .toUpperCase()
+                                    .replace(/[^A-Z0-9]/g, "")
+                                    .substring(0, 11);
+                                  setNewBank({ ...newBank, swift_code: v });
+                                  if (bankErrors.swift_code)
+                                    setBankErrors({
+                                      ...bankErrors,
+                                      swift_code: "",
+                                    });
+                                }}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 bg-[var(--surface)] text-[var(--text)] font-mono tracking-wider ${
+                                  bankErrors.swift_code
+                                    ? "border-red-500 focus:ring-red-500/20 focus:border-red-500"
+                                    : "border-[var(--border)]"
+                                }`}
                               />
+                              {bankErrors.swift_code && (
+                                <p className="text-xs text-red-500 mt-1">
+                                  {bankErrors.swift_code}
+                                </p>
+                              )}
                             </div>
                           </>
                         )}

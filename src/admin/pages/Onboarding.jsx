@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// src/admin/pages/Onboarding.jsx
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -6,7 +7,6 @@ import {
   FileText,
   CheckCircle2,
   Clock,
-  AlertCircle,
   Users,
   Briefcase,
   Calendar,
@@ -14,8 +14,6 @@ import {
   ArrowRight,
   PlusCircle,
   UserCheck,
-  Upload,
-  Award,
   Building2,
   RefreshCw,
   Play,
@@ -27,7 +25,7 @@ import { deleteOnboardingEmployee } from "../store/slices/onboardingSlice";
 import ConfirmModal from "../components/common/ConfirmModal";
 import apiClient from "../../utils/apiClient";
 
-// Map the API progress step key → our wizard step number
+// API step key → wizard step number
 const STEP_KEY_TO_WIZARD_STEP = {
   details: 2,
   verification: 3,
@@ -37,14 +35,38 @@ const STEP_KEY_TO_WIZARD_STEP = {
   complete: 7,
 };
 
+// API step number → wizard step number
+const API_STEP_TO_WIZARD_STEP = {
+  1: 2, // details
+  2: 3, // verification
+  3: 4, // salary
+  4: 4, // banks
+  5: 6, // checklist
+  6: 7, // complete
+};
+
+// Wizard step number → URL section slug
+const WIZARD_STEP_TO_SECTION = {
+  2: "details",
+  3: "verification",
+  4: "salary",
+  5: "offer",
+  6: "checklist",
+  7: "review",
+};
+
 const OnboardingDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
 
-  // ── Detect which layout we're in ──
   const isEmployee = location.pathname.startsWith("/employee");
   const base = isEmployee ? "/employee" : "/admin";
+
+  // Where the wizard lives — different parent for admin vs employee
+  const onboardingBase = isEmployee
+    ? "/employee/onboarding"
+    : "/admin/employees/onboarding";
 
   const [stats, setStats] = useState({
     activeOnboarding: 0,
@@ -79,9 +101,6 @@ const OnboardingDashboard = () => {
       const results = await Promise.allSettled(
         onboardingEmployees.map((emp) => {
           const userId = emp.userId || emp.user_id || emp.id;
-          // Use the base prefix so employee context hits an employee endpoint if it exists.
-          // If your backend only has /admin/..., replace with the correct employee endpoint
-          // or keep /admin if employees are permitted to call it.
           return apiClient
             .get(`${base}/employees/onboard/progress/${userId}`)
             .then((res) => res.data?.data ?? res.data)
@@ -110,7 +129,6 @@ const OnboardingDashboard = () => {
         emp.status === "Onboarding" || emp.status === "onboarding";
 
       const onboardingEmployees = employees.filter(isOnboarding);
-
       const onboardingCount = onboardingEmployees.length;
 
       const completedCount = employees.filter((emp) => {
@@ -182,8 +200,12 @@ const OnboardingDashboard = () => {
         const totalSteps = p ? Number(p.total_steps) || 6 : 6;
         const steps = Array.isArray(p?.steps) ? p.steps : [];
 
+        const isStepCompleted = (s) =>
+          s?.completed === true || s?.completed === "true";
+
+        const firstIncomplete = steps.find((s) => !isStepCompleted(s));
         const currentStepEntry =
-          steps.find((s) => !s.completed) || steps[steps.length - 1] || null;
+          firstIncomplete || steps[steps.length - 1] || null;
 
         return {
           id: emp.id,
@@ -207,6 +229,7 @@ const OnboardingDashboard = () => {
           totalSteps,
           stepLabel: currentStepEntry?.label || "Initiation",
           currentStepKey: currentStepEntry?.key || "details",
+          apiStepNumber: firstIncomplete?.step ?? null,
           steps,
         };
       });
@@ -222,20 +245,26 @@ const OnboardingDashboard = () => {
   // ── Continue: resume where the user left off ──
   const handleContinue = (employee) => {
     if (employee.percentage >= 100) {
-      navigate(
-        `${base}/employees/onboarding-initiation?step=7&id=${employee.userId}`,
-      );
+      navigate(`${onboardingBase}/review?id=${employee.userId}`);
       return;
     }
 
-    const step =
-      employee.completedSteps === 0
-        ? 2
-        : STEP_KEY_TO_WIZARD_STEP[employee.currentStepKey] || 2;
+    // 1. Prefer numeric API step
+    let wizardStep = null;
+    if (employee.apiStepNumber != null) {
+      wizardStep = API_STEP_TO_WIZARD_STEP[employee.apiStepNumber] ?? null;
+    }
 
-    navigate(
-      `${base}/employees/onboarding-initiation?step=${step}&id=${employee.userId}`,
-    );
+    // 2. Fall back to key map
+    if (!wizardStep && employee.currentStepKey) {
+      wizardStep = STEP_KEY_TO_WIZARD_STEP[employee.currentStepKey] ?? null;
+    }
+
+    // 3. Never started → details
+    if (employee.completedSteps === 0 || !wizardStep) wizardStep = 2;
+
+    const section = WIZARD_STEP_TO_SECTION[wizardStep] || "initiate";
+    navigate(`${onboardingBase}/${section}?id=${employee.userId}`);
   };
 
   // ── View details (for completed onboarding) ──
@@ -278,7 +307,7 @@ const OnboardingDashboard = () => {
       description:
         "Start the onboarding process for a new employee. Fill in personal details, job information, and visa requirements.",
       icon: <UserPlus size={28} />,
-      path: `${base}/employees/onboarding-initiation`,
+      path: `${onboardingBase}/initiate`,
       color: "blue",
       bgClass:
         "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400",
