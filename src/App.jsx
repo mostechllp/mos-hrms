@@ -12,6 +12,7 @@ import ProtectedRoute from "./shared/components/ProtectedRoute";
 import Login from "./pages/Login";
 import { ThemeProvider } from "./context/ThemeContext";
 import NotFound from "./pages/NotFound";
+import OnboardingDashboard from "./admin/pages/Onboarding";
 
 // Lazy load layouts with prefetch
 const AdminLayout = lazy(() => import("./shared/layouts/AdminLayout"));
@@ -165,6 +166,7 @@ const AttendanceRequests = lazy(
 );
 const MyPayroll = lazy(() => import("./employee/pages/MyPayroll"));
 const Warnings = lazy(() => import("./admin/pages/Warnings"));
+const EmployeeWarnings = lazy(() => import("./employee/pages/Warnings"));
 
 // Custom wrapper for lazy-loaded components
 const LazyWrapper = ({ children }) => {
@@ -230,7 +232,10 @@ function App() {
             path="employees/onboarding-initiation"
             element={<OnboardingInitalize />}
           />
-          <Route path="employees/onboarding" element={<Onboarding />} />
+          <Route path="employees/onboarding">
+  <Route index element={<OnboardingDashboard />} />
+  <Route path=":section" element={<OnboardingInitalize />} />
+</Route>
           <Route path="employees/offboarding" element={<Offboarding />} />
           <Route
             path="employees/offboarding-initiation"
@@ -445,6 +450,58 @@ function App() {
           <Route path="profile" element={<EmployeeProfile />} />
           <Route path="attendance-requests" element={<AttendanceRequests />} />
           <Route path="organizations" element={<Organizations />} />
+          <Route path="my-warnings" element={<EmployeeWarnings />} />
+
+          {/* Employee Offboarding Routes */}
+          <Route path="offboarding" element={<Offboarding />} />
+          <Route path="employees/offboarding" element={<Offboarding />} />
+          <Route
+            path="employees/offboarding-initiation"
+            element={<OffboardingInitiation />}
+          />
+          <Route
+            path="employees/offboarding-checklist-manager"
+            element={<OffboardingChecklistManager />}
+          />
+          <Route
+            path="employees/checklist-categories"
+            element={<ChecklistCategories />}
+          />
+          <Route
+            path="employees/asset-management"
+            element={<AssetManagement />}
+          />
+          <Route
+            path="employees/assets/types"
+            element={<AssetTypeManagement />}
+          />
+          <Route
+            path="employees/visa-cancellation"
+            element={<VisaCancellationAndExit />}
+          />
+          <Route
+            path="employees/offboarding-checklist"
+            element={<OffboardingChecklist />}
+          />
+          <Route path="employees/asset-return" element={<AssetReturn />} />
+          <Route path="employees/exit-interview" element={<ExitInterview />} />
+          <Route
+            path="employees/final-settlement"
+            element={<FinalSettlement />}
+          />
+          <Route
+            path="employees/letters-and-clearance"
+            element={<LettersAndClearance />}
+          />
+          <Route path="employees/offboarding/handover" element={<Handover />} />
+          <Route
+            path="employees/offboarding/leave-check"
+            element={<LeaveCheck />}
+          />
+          <Route
+            path="employees/offboarding/access-removal"
+            element={<AccessRemoval />}
+          />
 
           {/* Add admin-style routes for HR managers */}
           <Route path="employees" element={<Employees />} />
@@ -452,7 +509,11 @@ function App() {
           <Route path="employees/edit/:id" element={<EditEmployee />} />
           <Route path="employees/:id" element={<EmployeeDetails />} />
 
-          <Route path="onboarding" element={<Onboarding />} />
+          <Route path="onboarding">
+  <Route index element={<OnboardingDashboard />} />
+  <Route path=":section" element={<OnboardingInitalize />} />
+</Route>
+
           <Route
             path="employees/onboarding-initiation"
             element={<OnboardingInitalize />}

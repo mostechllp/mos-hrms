@@ -97,8 +97,8 @@ const EmployeeDetailsForm = () => {
         ).unwrap();
         resolvedId = result?.id; // { id, api, form }
         if (resolvedId) {
-          localStorage.setItem("onboarding_id", String(resolvedId));
-        }
+  localStorage.setItem("onboarding_user_id", String(resolvedId)); // fixed key
+}
       }
 
       dispatch(updateEmployeeDetails(data));
@@ -141,8 +141,8 @@ const EmployeeDetailsForm = () => {
 
         resolvedId = result?.id;
         if (resolvedId) {
-          localStorage.setItem("onboarding_id", String(resolvedId));
-        }
+  localStorage.setItem("onboarding_user_id", String(resolvedId)); // fixed key
+}
       }
 
       dispatch(updateEmployeeDetails(currentData));

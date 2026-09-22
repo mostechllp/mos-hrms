@@ -75,8 +75,7 @@ const SalaryBankDetailsForm = () => {
     }
   })();
 
-  const resolvedUserId =
-    routeId || queryId || employeeDetails?.userId || storedUserId || null;
+  const resolvedUserId = routeId || employeeDetails?.userId || queryId || storedUserId || null;
 
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
@@ -960,7 +959,7 @@ const SalaryBankDetailsForm = () => {
                       {/* Country selector */}
                       <div className="space-y-2">
                         <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                          Bank Country <span className="text-red-500">*</span>
+                          Bank Country 
                         </label>
                         <select
                           value={acc.bankCountry}
@@ -982,7 +981,7 @@ const SalaryBankDetailsForm = () => {
                         {/* Bank Name */}
                         <div className="space-y-2">
                           <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                            Bank Name <span className="text-red-500">*</span>
+                            Bank Name 
                           </label>
                           <input
                             type="text"
@@ -1016,7 +1015,7 @@ const SalaryBankDetailsForm = () => {
                         <div className="space-y-2">
                           <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
                             Account Number{" "}
-                            <span className="text-red-500">*</span>
+                            
                           </label>
                           <input
                             type="text"
@@ -1052,7 +1051,7 @@ const SalaryBankDetailsForm = () => {
                             <div className="space-y-2">
                               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
                                 IFSC Code{" "}
-                                <span className="text-red-500">*</span>
+                                
                               </label>
                               <input
                                 type="text"
@@ -1081,7 +1080,7 @@ const SalaryBankDetailsForm = () => {
                             <div className="space-y-2">
                               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
                                 Branch Name{" "}
-                                <span className="text-red-500">*</span>
+                                
                               </label>
                               <input
                                 type="text"
@@ -1115,7 +1114,7 @@ const SalaryBankDetailsForm = () => {
                             <div className="space-y-2">
                               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
                                 IBAN Number{" "}
-                                <span className="text-red-500">*</span>
+                                
                               </label>
                               <input
                                 type="text"
@@ -1144,7 +1143,7 @@ const SalaryBankDetailsForm = () => {
                             <div className="space-y-2">
                               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
                                 SWIFT / BIC Code{" "}
-                                <span className="text-red-500">*</span>
+                                
                               </label>
                               <input
                                 type="text"
