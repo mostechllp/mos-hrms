@@ -144,6 +144,7 @@ const Dashboard = () => {
   const [activeActivityTab, setActiveActivityTab] = useState("attendance");
   const [activeBreakTab, setActiveBreakTab] = useState("today");
   const [expandedBreakDates, setExpandedBreakDates] = useState([]);
+  const [breakToggling, setBreakToggling] = useState(false);
   const chartRef = useRef(null);
 
   const toggleExpandedDate = (dateStr) => {
@@ -197,6 +198,45 @@ const Dashboard = () => {
     dispatch(fetchEmployeeBreaks());
     // Fetch working hours for dynamic overtime calculation (only if not already loaded)
     dispatch(fetchWorkingHours());
+  }, [dispatch]);
+
+  // Sync break state from server (source of truth across devices)
+  useEffect(() => {
+    const breaks = employeeBreaks?.breaks || [];
+    // An "open" break has no end_time — that means we're currently on break
+    const openBreak = breaks.find(
+      (b) => b && b.start_time && (!b.end_time || b.end_time === null),
+    );
+
+    if (openBreak) {
+      setIsOnBreak(true);
+      setBreakStartTime(openBreak.start_time);
+      localStorage.setItem("attendance-on-break", "true");
+      localStorage.setItem("attendance-break-start-time", openBreak.start_time);
+    } else {
+      setIsOnBreak(false);
+      localStorage.setItem("attendance-on-break", "false");
+      localStorage.removeItem("attendance-break-start-time");
+    }
+  }, [employeeBreaks]);
+
+  // Poll + refresh breaks whenever the tab regains focus (cross-device sync)
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") {
+        dispatch(fetchEmployeeBreaks());
+      }
+    };
+
+    const interval = setInterval(refresh, 30000);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
   }, [dispatch]);
 
   // Add to Dashboard component
@@ -409,13 +449,22 @@ const Dashboard = () => {
   };
 
   const handleBreakToggle = async () => {
-    if (!isOnBreak) {
-      try {
+    if (breakToggling) return;
+    setBreakToggling(true);
+
+    try {
+      if (!isOnBreak) {
+        // ---- START BREAK ----
         const resultAction = await dispatch(startBreak());
+
         if (startBreak.fulfilled.match(resultAction)) {
-          const nowStr = new Date().toISOString();
+          // Prefer the server-provided start_time; fall back to now
+          const payload = resultAction.payload || {};
+          const serverBreak = payload.break || payload;
+          const startTime = serverBreak?.start_time || new Date().toISOString();
+
           setIsOnBreak(true);
-          setBreakStartTime(nowStr);
+          setBreakStartTime(startTime);
           setNumberOfBreaks((prev) => {
             const newCount = prev + 1;
             localStorage.setItem(
@@ -425,25 +474,38 @@ const Dashboard = () => {
             return newCount;
           });
           localStorage.setItem("attendance-on-break", "true");
-          localStorage.setItem("attendance-break-start-time", nowStr);
+          localStorage.setItem("attendance-break-start-time", startTime);
           showToastMessage("Break Started", "success");
           dispatch(fetchEmployeeBreaks());
         } else {
-          showToastMessage(
-            resultAction.payload || "Failed to start break",
-            "error",
-          );
+          const msg = resultAction.payload || "";
+          const alreadyOnBreak =
+            typeof msg === "string" &&
+            (msg.toLowerCase().includes("already") ||
+              msg.toLowerCase().includes("active break") ||
+              msg.toLowerCase().includes("in progress"));
+
+          if (alreadyOnBreak) {
+            // Another device started the break — sync from server instead of erroring
+            await dispatch(fetchEmployeeBreaks());
+            showToastMessage(
+              "You are already on break — synced from server",
+              "info",
+            );
+          } else {
+            showToastMessage(msg || "Failed to start break", "error");
+          }
         }
-      } catch (err) {
-        showToastMessage("Error starting break", "error");
-      }
-    } else {
-      try {
+      } else {
+        // ---- END BREAK ----
         const resultAction = await dispatch(endBreak());
+
         if (endBreak.fulfilled.match(resultAction)) {
-          const breakStart = new Date(breakStartTime);
+          const breakStart = breakStartTime
+            ? new Date(breakStartTime)
+            : new Date();
           const breakEnd = new Date();
-          const diff = breakEnd - breakStart;
+          const diff = Math.max(0, breakEnd - breakStart);
           const newTotal = totalBreakMs + diff;
 
           const newHistory = [
@@ -454,6 +516,7 @@ const Dashboard = () => {
               durationMs: diff,
             },
           ];
+
           setBreakHistory(newHistory);
           localStorage.setItem(
             "attendance-break-history",
@@ -470,17 +533,28 @@ const Dashboard = () => {
           localStorage.removeItem("attendance-break-start-time");
           showToastMessage("Work Resumed", "success");
 
-          // Refresh break table from backend
+          // Refresh break table from backend (this also triggers the sync effect)
           dispatch(fetchEmployeeBreaks());
         } else {
-          showToastMessage(
-            resultAction.payload || "Failed to end break",
-            "error",
-          );
+          // Reconcile: if server says "no active break", sync from server
+          const msg = resultAction.payload || "";
+          const noActiveBreak =
+            typeof msg === "string" &&
+            (msg.toLowerCase().includes("no active") ||
+              msg.toLowerCase().includes("not on break"));
+
+          if (noActiveBreak) {
+            await dispatch(fetchEmployeeBreaks());
+            showToastMessage("No active break — synced from server", "info");
+          } else {
+            showToastMessage(msg || "Failed to end break", "error");
+          }
         }
-      } catch (err) {
-        showToastMessage("Error ending break", "error");
       }
+    } catch (err) {
+      showToastMessage("Error toggling break", "error");
+    } finally {
+      setBreakToggling(false);
     }
   };
 
@@ -1069,45 +1143,46 @@ const Dashboard = () => {
   };
 
   const getDuration = () => {
-  if (!displayPunchTime) return "00h 00m 00s";
+    if (!displayPunchTime) return "00h 00m 00s";
 
-  const startTime = parsePunchTime(displayPunchTime);
-  if (!startTime || isNaN(startTime.getTime())) return "00h 00m 00s";
+    const startTime = parsePunchTime(displayPunchTime);
+    if (!startTime || isNaN(startTime.getTime())) return "00h 00m 00s";
 
-  let endTime;
-  if (isActuallyPunchedIn) {
-    // Always use current time as end time, regardless of break status
-    endTime = new Date();
-  } else if (
-    todayAttendance.punched_out === true &&
-    todayAttendance.punch_out_time !== "--"
-  ) {
-    const outTime = todayAttendance.punch_out_time || todayAttendance.punch_out;
-    if (outTime && outTime !== "--") {
-      endTime = parsePunchTime(outTime);
-    } else {
+    let endTime;
+    if (isActuallyPunchedIn) {
+      // Always use current time as end time, regardless of break status
       endTime = new Date();
+    } else if (
+      todayAttendance.punched_out === true &&
+      todayAttendance.punch_out_time !== "--"
+    ) {
+      const outTime =
+        todayAttendance.punch_out_time || todayAttendance.punch_out;
+      if (outTime && outTime !== "--") {
+        endTime = parsePunchTime(outTime);
+      } else {
+        endTime = new Date();
+      }
+    } else {
+      return "00h 00m 00s";
     }
-  } else {
-    return "00h 00m 00s";
-  }
 
-  if (!endTime || isNaN(endTime.getTime())) return "00h 00m 00s";
+    if (!endTime || isNaN(endTime.getTime())) return "00h 00m 00s";
 
-  // Calculate total time from punch-in to now (including breaks)
-  let diff = Math.max(0, endTime - startTime);
-  
-  // DO NOT subtract break time - we want total time including breaks
-  // diff -= totalBreakMs; // <-- REMOVED THIS LINE
-  
-  // Also don't pause during break - always count time
+    // Calculate total time from punch-in to now (including breaks)
+    let diff = Math.max(0, endTime - startTime);
 
-  const h = Math.floor(diff / 3600000);
-  const m = Math.floor((diff % 3600000) / 60000);
-  const s = Math.floor((diff % 60000) / 1000);
+    // DO NOT subtract break time - we want total time including breaks
+    // diff -= totalBreakMs; // <-- REMOVED THIS LINE
 
-  return `${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
-};
+    // Also don't pause during break - always count time
+
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+
+    return `${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
+  };
 
   const formatBreakDuration = (ms) => {
     let currentTotalMs = ms;
@@ -1224,10 +1299,22 @@ const Dashboard = () => {
           {isActuallyPunchedIn && (
             <button
               onClick={handleBreakToggle}
-              className={`break-btn border-none text-white py-3 px-6 rounded-full font-semibold text-sm cursor-pointer transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-md ${isOnBreak ? "bg-amber-500 hover:bg-amber-600" : "bg-blue-500 hover:bg-blue-600"}`}
+              disabled={breakToggling}
+              className={`break-btn border-none text-white py-3 px-6 rounded-full font-semibold text-sm cursor-pointer transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed ${isOnBreak ? "bg-amber-500 hover:bg-amber-600" : "bg-blue-500 hover:bg-blue-600"}`}
             >
-              <i className={`fas ${isOnBreak ? "fa-play" : "fa-pause"}`}></i>
-              {isOnBreak ? "Resume Work" : "Take Break"}
+              {breakToggling ? (
+                <>
+                  <i className="fas fa-spinner fa-spin"></i>
+                  Please wait...
+                </>
+              ) : (
+                <>
+                  <i
+                    className={`fas ${isOnBreak ? "fa-play" : "fa-pause"}`}
+                  ></i>
+                  {isOnBreak ? "Resume Work" : "Take Break"}
+                </>
+              )}
             </button>
           )}
           <button
@@ -1279,13 +1366,13 @@ const Dashboard = () => {
       </div>
 
       {(dashboardData?.is_hr || dashboardData?.is_team_lead) && (
-      <div className="mb-7">
-        <LeavesByDepartment 
-          leavesByDepartment={dashboardData?.leaves_today_by_department || {}}
-          userType={dashboardData?.is_hr ? "hr" : "team_lead"}
-        />
-      </div>
-    )}
+        <div className="mb-7">
+          <LeavesByDepartment
+            leavesByDepartment={dashboardData?.leaves_today_by_department || {}}
+            userType={dashboardData?.is_hr ? "hr" : "team_lead"}
+          />
+        </div>
+      )}
 
       {/* Chart and Recent Activity Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-7 mb-7">
@@ -2001,19 +2088,19 @@ const Dashboard = () => {
       </div>
 
       {/* Punch Out Modal */}
-     <PunchOutModal
-  isOpen={showPunchOutModal}
-  onClose={() => setShowPunchOutModal(false)}
-  onSubmit={handlePunchOutSubmit}
-  loading={isSubmitting}
-  punchInTime={displayPunchTime}
-  totalBreakMs={totalBreakMs}
-  isOnBreak={isOnBreak}
-  breakStartTime={breakStartTime}
-  workingHours={workingHoursData}
-  workingHoursFromAPI={todayAttendance.working_hours}
-  employeeBreaks={employeeBreaks || []} 
-/>
+      <PunchOutModal
+        isOpen={showPunchOutModal}
+        onClose={() => setShowPunchOutModal(false)}
+        onSubmit={handlePunchOutSubmit}
+        loading={isSubmitting}
+        punchInTime={displayPunchTime}
+        totalBreakMs={totalBreakMs}
+        isOnBreak={isOnBreak}
+        breakStartTime={breakStartTime}
+        workingHours={workingHoursData}
+        workingHoursFromAPI={todayAttendance.working_hours}
+        employeeBreaks={employeeBreaks || []}
+      />
 
       {/* Location Modal */}
       <LocationModal

@@ -55,6 +55,18 @@ const Employees = () => {
     return filtered;
   };
 
+  // Get initials from a full name — first letter of first word + first letter of last word
+  const getInitials = (fullName) => {
+    if (!fullName || typeof fullName !== "string") return "?";
+    const parts = fullName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "?";
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (
+      parts[0].charAt(0).toUpperCase() +
+      parts[parts.length - 1].charAt(0).toUpperCase()
+    );
+  };
+
   const filteredEmployees = getFilteredEmployees();
   const totalFiltered = filteredEmployees.length;
   const totalPages = Math.ceil(totalFiltered / perPage);
@@ -317,27 +329,24 @@ const Employees = () => {
                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3">
                         <div className="flex items-center gap-2 md:gap-3">
-                          {/* Profile Photo */}
-                          {photoUrl ? (
-                            <img
-                              src={photoUrl}
-                              alt={emp.name}
-                              className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border border-gray-200"
-                              onError={(e) => {
-                                e.target.style.display = "none";
-                                e.target.parentElement.querySelector(
-                                  ".fallback-avatar",
-                                ).style.display = "flex";
-                              }}
-                            />
-                          ) : null}
-                          <div
-                            className="fallback-avatar w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white text-sm md:text-base font-semibold"
-                            style={{ display: photoUrl ? "none" : "flex" }}
-                          >
-                            {emp.name?.charAt(0) || "?"}
+                          {/* Avatar: initials circle underneath, image overlays when loaded */}
+                          <div className="relative w-8 h-8 md:w-10 md:h-10 flex-shrink-0">
+                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 text-[10px] md:text-xs font-bold uppercase">
+                              {getInitials(emp.name)}
+                            </div>
+
+                            {photoUrl && (
+                              <img
+                                src={photoUrl}
+                                alt={emp.name || "Employee"}
+                                className="absolute inset-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                            )}
                           </div>
-                          {/* ✅ Employee Name is a clickable button */}
+
                           <button
                             type="button"
                             onClick={(e) => {
