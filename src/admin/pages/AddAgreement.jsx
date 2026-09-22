@@ -13,6 +13,7 @@ import {
   fetchParties,
   uploadDocument,
   uploadToTemp,
+  fetchFolderById,
 } from "../store/slices/documentsSlice";
 import { clearError } from "../store/slices/authSlice";
 import AddFolderModal from "../components/documents/AddFolderModal";
@@ -159,7 +160,7 @@ const AddAgreement = () => {
   );
 
   // ── Lazy folder tree ──
-  const { childrenOf, ensureLoaded } = useFolderTree();
+  const { childrenOf, ensureLoaded, foldersById } = useFolderTree();
   const [expanded, setExpanded] = useState({});
 
   const [uploading, setUploading] = useState(false);
@@ -196,6 +197,62 @@ const AddAgreement = () => {
   useEffect(() => {
     if (showFolderDropdown) ensureLoaded(null);
   }, [showFolderDropdown, ensureLoaded]);
+
+  // ── Resolve the preselected folder's ancestor chain and pre-expand it ──
+useEffect(() => {
+  if (!preselectedFolderId) return;
+
+  let cancelled = false;
+
+  (async () => {
+    const chain = [];           // root-most first
+    let cursorId = preselectedFolderId;
+    let safety = 0;
+
+    // Walk up to root, resolving any folder we don't already know.
+    while (cursorId != null && safety < 50) {
+      // Prefer the cache if we already have it
+      let folder = foldersById[cursorId] || foldersById[String(cursorId)];
+
+      if (!folder) {
+        const res = await dispatch(fetchFolderById(cursorId));
+        if (cancelled) return;
+        if (fetchFolderById.fulfilled.match(res)) {
+          folder = res.payload;
+        } else {
+          break; // can't resolve further
+        }
+      }
+
+      chain.unshift(folder); // prepend
+      cursorId = folder.parent_id ?? null;
+      safety += 1;
+    }
+
+    if (cancelled || chain.length === 0) return;
+
+    // Preload each ancestor level and mark it expanded
+    const nextExpanded = {};
+    chain.forEach((folder) => {
+      ensureLoaded(folder.id);
+      nextExpanded[folder.id] = true;
+    });
+
+    // Also preload the target folder's own children so Dubai's siblings
+    // are visible if the user expands the target itself.
+    const target = chain[chain.length - 1];
+    if (target?.id) ensureLoaded(target.id);
+
+    // Force a load of root too (in case it wasn't loaded yet)
+    ensureLoaded(null);
+
+    setExpanded((prev) => ({ ...prev, ...nextExpanded }));
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, [preselectedFolderId, foldersById, dispatch, ensureLoaded]);
 
   useEffect(() => {
     if (error) {

@@ -157,7 +157,7 @@ const EditAgreement = () => {
   );
 
   // ── Lazy folder tree ──
-  const { childrenOf, ensureLoaded } = useFolderTree();
+  const { childrenOf, ensureLoaded, foldersById } = useFolderTree();
   const [expanded, setExpanded] = useState({});
   const [showFolderDropdown, setShowFolderDropdown] = useState(false);
   const folderDropdownRef = useRef(null);
@@ -322,6 +322,61 @@ const EditAgreement = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDocument?.folder_id]);
+
+  // ── Walk the document's folder ancestors, preload them, and expand them ──
+useEffect(() => {
+  if (!currentDocument?.folder_id) return;
+
+  let cancelled = false;
+
+  (async () => {
+    const chain = []; // root-most first
+    let cursorId = currentDocument.folder_id;
+    let safety = 0;
+
+    while (cursorId != null && safety < 50) {
+      // Prefer the cache; fetch if we don't have it yet
+      let folder = foldersById[cursorId] || foldersById[String(cursorId)];
+
+      if (!folder) {
+        const res = await dispatch(fetchFolderById(cursorId));
+        if (cancelled) return;
+        if (fetchFolderById.fulfilled.match(res)) {
+          folder = res.payload;
+        } else {
+          break;
+        }
+      }
+
+      chain.unshift(folder);
+      cursorId = folder.parent_id ?? null;
+      safety += 1;
+    }
+
+    if (cancelled || chain.length === 0) return;
+
+    // Preload every ancestor's children and mark each as expanded
+    const nextExpanded = {};
+    chain.forEach((folder) => {
+      ensureLoaded(folder.id);
+      nextExpanded[folder.id] = true;
+    });
+
+    // Also load the target's own children so its siblings are visible
+    const target = chain[chain.length - 1];
+    if (target?.id) ensureLoaded(target.id);
+
+    // Ensure root is loaded (in case this page was reached cold)
+    ensureLoaded(null);
+
+    setExpanded((prev) => ({ ...prev, ...nextExpanded }));
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [currentDocument?.folder_id, foldersById]);
 
   useEffect(() => {
     if (refreshParties) {
@@ -577,8 +632,8 @@ const EditAgreement = () => {
   const currentFileName = getCurrentFileName();
   const fileIcon = getFileIcon(currentFileName);
 
-  const rootFolders = childrenOf(null);
-  const hasAnyRootFolder = rootFolders.length > 0;
+ const rootFolders = childrenOf(null) || [];
+const hasAnyRootFolder = rootFolders.length > 0;
 
   return (
     <div className="w-full overflow-x-hidden px-4 md:px-6">
