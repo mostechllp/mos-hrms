@@ -30,7 +30,6 @@ const STEP_KEY_TO_WIZARD_STEP = {
   details: 2,
   verification: 3,
   salary: 4,
-  banks: 4,
   checklist: 6,
   complete: 7,
 };
@@ -40,9 +39,8 @@ const API_STEP_TO_WIZARD_STEP = {
   1: 2, // details
   2: 3, // verification
   3: 4, // salary
-  4: 4, // banks
-  5: 6, // checklist
-  6: 7, // complete
+  4: 6, // checklist
+  5: 7, // complete
 };
 
 // Wizard step number → URL section slug
@@ -145,9 +143,8 @@ const OnboardingDashboard = () => {
         return false;
       }).length;
 
-      const progressPairs = await fetchProgressForEmployees(
-        onboardingEmployees,
-      );
+      const progressPairs =
+        await fetchProgressForEmployees(onboardingEmployees);
 
       const progressMap = new Map();
       progressPairs.forEach(({ emp, progress }) => {
@@ -162,8 +159,7 @@ const OnboardingDashboard = () => {
       onboardingEmployees.forEach((emp) => {
         const p = progressMap.get(emp.id);
         if (p) {
-          const remaining =
-            (Number(p.total_steps) || 6) - (Number(p.completed_steps) || 0);
+          const remaining = (Number(p.total_steps) || 5) - (Number(p.completed_steps) || 0);
           pendingTasksCount += Math.max(remaining, 0);
 
           const checklistStep = (p.steps || []).find(
@@ -173,7 +169,7 @@ const OnboardingDashboard = () => {
             pendingDocsCount += 1;
           }
         } else {
-          pendingTasksCount += 5;
+          pendingTasksCount += 4
           pendingDocsCount += 2;
         }
       });
@@ -197,7 +193,7 @@ const OnboardingDashboard = () => {
         const p = progressMap.get(emp.id);
         const percentage = p ? Number(p.percentage) || 0 : 0;
         const completedSteps = p ? Number(p.completed_steps) || 0 : 0;
-        const totalSteps = p ? Number(p.total_steps) || 6 : 6;
+        const totalSteps = p ? Number(p.total_steps) || 5 : 5;
         const steps = Array.isArray(p?.steps) ? p.steps : [];
 
         const isStepCompleted = (s) =>
@@ -658,9 +654,9 @@ const OnboardingDashboard = () => {
                 Onboarding Best Practices
               </h4>
               <p className="text-[10px] md:text-xs text-green-700 dark:text-green-400 mt-1">
-                Ensure all documents are collected before joining date.
-                Complete visa processing at least 2 weeks prior to start date.
-                Schedule orientation and IT setup in advance.
+                Ensure all documents are collected before joining date. Complete
+                visa processing at least 2 weeks prior to start date. Schedule
+                orientation and IT setup in advance.
               </p>
             </div>
           </div>
