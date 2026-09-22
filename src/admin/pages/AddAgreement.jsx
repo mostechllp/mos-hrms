@@ -315,23 +315,23 @@ const AddAgreement = () => {
   };
 
   // ── Folder created: select it, refresh parent level ──
- // ── Folder created: select it, refresh parent level ──
-const handleFolderAdded = (newFolder) => {
-  if (newFolder?.id) {
-    setFormData((prev) => ({ ...prev, folder_id: newFolder.id }));
-    setSelectedFolderLabel(newFolder.full_path || newFolder.name);
-  }
+  // ── Folder created: select it, refresh parent level ──
+  const handleFolderAdded = (newFolder) => {
+    if (newFolder?.id) {
+      setFormData((prev) => ({ ...prev, folder_id: newFolder.id }));
+      setSelectedFolderLabel(newFolder.full_path || newFolder.name);
+    }
 
-  const parentId = newFolder?.parent_id ?? null;
+    const parentId = newFolder?.parent_id ?? null;
 
-  // Force-refresh the parent level so the new subfolder shows
-  ensureLoaded(parentId, true);
+    // Force-refresh the parent level so the new subfolder shows
+    ensureLoaded(parentId, true);
 
-  // Auto-expand the parent so the user sees the new child
-  if (parentId != null) {
-    setExpanded((prev) => ({ ...prev, [parentId]: true }));
-  }
-};
+    // Auto-expand the parent so the user sees the new child
+    if (parentId != null) {
+      setExpanded((prev) => ({ ...prev, [parentId]: true }));
+    }
+  };
 
   // Outside-click handling for both dropdowns
   useEffect(() => {
@@ -397,7 +397,12 @@ const handleFolderAdded = (newFolder) => {
         "success",
       );
       setTimeout(() => {
-        navigate(`/${basePath}/documents`);
+        const targetFolderId = formData.folder_id;
+        if (targetFolderId) {
+          navigate(`/${basePath}/documents?folder=${targetFolderId}`);
+        } else {
+          navigate(`/${basePath}/documents`);
+        }
       }, 1200);
     } else {
       showToast(result.payload || "Failed to upload document", "error");
@@ -792,7 +797,11 @@ const handleFolderAdded = (newFolder) => {
             {/* Form Actions */}
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 md:pt-6 border-t border-gray-200 dark:border-gray-700">
               <Link
-                to={`/${basePath}/documents`}
+                to={
+                  formData.folder_id
+                    ? `/${basePath}/documents?folder=${formData.folder_id}`
+                    : `/${basePath}/documents`
+                }
                 className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
               >
                 <i className="fas fa-times text-xs md:text-sm"></i>
