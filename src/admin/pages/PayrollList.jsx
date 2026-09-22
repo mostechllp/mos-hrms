@@ -46,6 +46,18 @@ const getAvatarUrl = (avatarPath) => {
   return `${baseUrl}/storage/${avatarPath}`;
 };
 
+// Get initials from a full name — first letter of first word + first letter of last word
+const getInitials = (fullName) => {
+  if (!fullName || typeof fullName !== "string") return "?";
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (
+    parts[0].charAt(0).toUpperCase() +
+    parts[parts.length - 1].charAt(0).toUpperCase()
+  );
+};
+
 // Month number to name mapping
 const monthNumberToName = {
   1: "January",
@@ -215,17 +227,17 @@ const PayrollList = () => {
   };
 
   // Per-currency totals across the filtered rows
-const totalsByCurrency = filteredData.reduce((acc, item) => {
-  const rowCurrency = item.currency || DEFAULT_CURRENCY;
-  const salary = Number(item.gross_salary || item.salary || 0);
-  acc[rowCurrency] = (acc[rowCurrency] || 0) + salary;
-  return acc;
-}, {});
+  const totalsByCurrency = filteredData.reduce((acc, item) => {
+    const rowCurrency = item.currency || DEFAULT_CURRENCY;
+    const salary = Number(item.gross_salary || item.salary || 0);
+    acc[rowCurrency] = (acc[rowCurrency] || 0) + salary;
+    return acc;
+  }, {});
 
-// Sorted list of { currency, total } for stable rendering order
-const currencyTotals = Object.entries(totalsByCurrency)
-  .map(([code, total]) => ({ code, total }))
-  .sort((a, b) => a.code.localeCompare(b.code));
+  // Sorted list of { currency, total } for stable rendering order
+  const currencyTotals = Object.entries(totalsByCurrency)
+    .map(([code, total]) => ({ code, total }))
+    .sort((a, b) => a.code.localeCompare(b.code));
 
   const handleGeneratePayslip = async (item) => {
     try {
@@ -330,52 +342,52 @@ const currencyTotals = Object.entries(totalsByCurrency)
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-  {/* Total Payrolls */}
-  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
-    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-      Total Payrolls
-    </p>
-    <h3 className="text-2xl font-black text-blue-600 dark:text-blue-400">
-      {totalPayrolls}
-    </h3>
-  </div>
+          {/* Total Payrolls */}
+          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Total Payrolls
+            </p>
+            <h3 className="text-2xl font-black text-blue-600 dark:text-blue-400">
+              {totalPayrolls}
+            </h3>
+          </div>
 
-  {/* Pending */}
-  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
-    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-      Pending
-    </p>
-    <h3 className="text-2xl font-black text-amber-500">
-      {pendingCount}
-    </h3>
-  </div>
+          {/* Pending */}
+          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Pending
+            </p>
+            <h3 className="text-2xl font-black text-amber-500">
+              {pendingCount}
+            </h3>
+          </div>
 
-  {/* One card per currency */}
-  {currencyTotals.length === 0 ? (
-    <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
-      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-        Total
-      </p>
-      <h3 className="text-xl font-black text-blue-500">
-        {formatCurrency(0, DEFAULT_CURRENCY)}
-      </h3>
-    </div>
-  ) : (
-    currencyTotals.map(({ code, total }) => (
-      <div
-        key={code}
-        className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4"
-      >
-        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-          {code} Total
-        </p>
-        <h3 className="text-xl font-black text-blue-500">
-          {formatCurrency(total, code)}
-        </h3>
-      </div>
-    ))
-  )}
-</div>
+          {/* One card per currency */}
+          {currencyTotals.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                Total
+              </p>
+              <h3 className="text-xl font-black text-blue-500">
+                {formatCurrency(0, DEFAULT_CURRENCY)}
+              </h3>
+            </div>
+          ) : (
+            currencyTotals.map(({ code, total }) => (
+              <div
+                key={code}
+                className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-2xl shadow-sm p-4"
+              >
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                  {code} Total
+                </p>
+                <h3 className="text-xl font-black text-blue-500">
+                  {formatCurrency(total, code)}
+                </h3>
+              </div>
+            ))
+          )}
+        </div>
 
         {/* List Section Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-1">
@@ -534,23 +546,24 @@ const currencyTotals = Object.entries(totalsByCurrency)
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            {avatarUrl ? (
-                              <img
-                                src={avatarUrl}
-                                alt={employeeName}
-                                className="w-7 h-7 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                                onError={(e) => {
-                                  e.target.style.display = "none";
-                                  e.target.parentElement.querySelector(
-                                    ".avatar-fallback",
-                                  ).style.display = "flex";
-                                }}
-                              />
-                            ) : (
-                              <div className="w-7 h-7 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600 dark:text-green-400 text-xs font-bold avatar-fallback flex-shrink-0">
-                                {employeeName.charAt(0).toUpperCase()}
+                            <div className="relative w-7 h-7 flex-shrink-0">
+                              {/* Fallback is always rendered underneath */}
+                              <div className="w-7 h-7 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase">
+                                {getInitials(employeeName)}
                               </div>
-                            )}
+
+                              {/* Image overlays the fallback; hidden on error */}
+                              {avatarUrl && (
+                                <img
+                                  src={avatarUrl}
+                                  alt={employeeName}
+                                  className="absolute inset-0 w-7 h-7 rounded-full object-cover border border-gray-200 dark:border-gray-600"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = "none";
+                                  }}
+                                />
+                              )}
+                            </div>
                             <div className="flex flex-col min-w-0">
                               {/* ✅ Employee Name is a clickable button */}
                               <button

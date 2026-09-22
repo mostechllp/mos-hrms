@@ -218,7 +218,7 @@ const Header = ({ onMenuClick }) => {
               >
                 <i className="fas fa-bell text-gray-600 dark:text-gray-300 text-sm md:text-base"></i>
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-[#FF5A5F] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center border-2 border-white dark:border-gray-800">
+                  <span className="absolute -top-1 -right-1 bg-[#FF5A5F] text-white text-[0.65rem] font-bold rounded-full px-1.5 py-0.5 min-w-[1.1rem] text-center border-2 border-white dark:border-gray-800">
                     {unreadCount}
                   </span>
                 )}
@@ -239,16 +239,16 @@ const Header = ({ onMenuClick }) => {
                   <div className="p-3 md:p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800 gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <i className="fas fa-bell text-green-500 text-base md:text-lg flex-shrink-0"></i>
-                      <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm md:text-lg truncate">
+                      <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base md:text-lg truncate">
                         Notifications
                       </h3>
-                      <span className="bg-[#FF5A5F] text-white text-[10px] md:text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+                      <span className="bg-[#FF5A5F] text-white text-[0.7rem] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
                         {unreadCount} unread
                       </span>
                     </div>
                     <button
                       onClick={handleMarkAllRead}
-                      className="text-xs md:text-sm font-medium text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 flex-shrink-0 whitespace-nowrap"
+                      className="text-sm font-medium text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 flex-shrink-0 whitespace-nowrap"
                     >
                       Mark all as read
                     </button>
@@ -282,12 +282,12 @@ const Header = ({ onMenuClick }) => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <span
-                                className={`inline-block px-2 py-0.5 rounded-full text-[10px] md:text-[11px] font-semibold mb-1.5 ${ui.typeColor}`}
+                                className={`inline-block px-2 py-0.5 rounded-full text-[0.7rem] font-semibold mb-1.5 ${ui.typeColor}`}
                               >
                                 {ui.type}
                               </span>
                               <p
-                                className={`text-[13px] md:text-[14px] leading-relaxed break-words ${
+                                className={`text-[0.85rem] leading-relaxed break-words ${
                                   isUnread
                                     ? "text-gray-900 dark:text-gray-100 font-medium"
                                     : "text-gray-700 dark:text-gray-200"
@@ -296,7 +296,7 @@ const Header = ({ onMenuClick }) => {
                                 {notification.message}
                               </p>
                               <div className="flex items-center gap-2 mt-1.5">
-                                <span className="text-[11px] md:text-xs font-medium text-gray-500 dark:text-gray-400">
+                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
                                   {notification.time ||
                                     notification.created_at ||
                                     "Just now"}
@@ -319,7 +319,7 @@ const Header = ({ onMenuClick }) => {
                         setShowNotifications(false);
                         navigate("/admin/notifications");
                       }}
-                      className="text-xs md:text-sm font-bold text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300"
+                      className="text-sm font-bold text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300"
                     >
                       View all notifications
                     </button>
@@ -370,7 +370,7 @@ const Header = ({ onMenuClick }) => {
                       <h4 className="font-semibold text-gray-800 dark:text-gray-100 truncate">
                         {userName}
                       </h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                         {userEmail}
                       </p>
                     </div>

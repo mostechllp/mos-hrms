@@ -76,11 +76,7 @@ const SalaryBankDetailsForm = () => {
   })();
 
   const resolvedUserId =
-    routeId ||
-    queryId ||
-    employeeDetails?.userId ||
-    storedUserId ||
-    null;
+    routeId || queryId || employeeDetails?.userId || storedUserId || null;
 
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
@@ -146,9 +142,7 @@ const SalaryBankDetailsForm = () => {
     if (incoming.length > 0) {
       setBankAccounts(
         incoming.map((b) => ({
-          _id: `acc_${Date.now()}_${Math.random()
-            .toString(36)
-            .slice(2, 8)}`,
+          _id: `acc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
           bankCountry: b.bankCountry || "India",
           bankName: b.bankName || "",
           accountNumber: b.accountNumber || "",
@@ -223,7 +217,10 @@ const SalaryBankDetailsForm = () => {
         (c) => c.name.toLowerCase() === newComponentName.trim().toLowerCase(),
       )
     ) {
-      showToast(`Component "${newComponentName.trim()}" already exists!`, "error");
+      showToast(
+        `Component "${newComponentName.trim()}" already exists!`,
+        "error",
+      );
       return;
     }
 
@@ -242,7 +239,10 @@ const SalaryBankDetailsForm = () => {
 
   const handleSaveSalaryStructure = async () => {
     if (salaryComponents.length === 0) {
-      showToast("Please add at least one salary component before saving", "error");
+      showToast(
+        "Please add at least one salary component before saving",
+        "error",
+      );
       return;
     }
     if (!resolvedUserId) {
@@ -478,10 +478,7 @@ const SalaryBankDetailsForm = () => {
           _errors: allErrors[acc._id] || {},
         })),
       );
-      showToast(
-        "Please correct the errors in the bank details form",
-        "error",
-      );
+      showToast("Please correct the errors in the bank details form", "error");
       return;
     }
 
@@ -563,11 +560,10 @@ const SalaryBankDetailsForm = () => {
     e.preventDefault();
 
     if (!isSalarySaved) {
-      showToast("Please save your Salary Structure before continuing", "warning");
-      return;
-    }
-    if (!isBankSaved) {
-      showToast("Please save your Bank Details before continuing", "warning");
+      showToast(
+        "Please save your Salary Structure before continuing",
+        "warning",
+      );
       return;
     }
 
@@ -838,7 +834,10 @@ const SalaryBankDetailsForm = () => {
                       <td className="px-6 py-5">
                         <div className="space-y-2">
                           {salaryComponents.map((comp) => (
-                            <div key={comp.id} className="flex items-center gap-2">
+                            <div
+                              key={comp.id}
+                              className="flex items-center gap-2"
+                            >
                               <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
                               <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                                 {comp.name}
@@ -902,7 +901,8 @@ const SalaryBankDetailsForm = () => {
                   Bank Details
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                  Add one or more bank accounts. Country drives the required fields.
+                  Add one or more bank accounts. Country drives the required
+                  fields.
                 </p>
               </div>
             </div>
@@ -1319,7 +1319,7 @@ const SalaryBankDetailsForm = () => {
             type="submit"
             disabled={salarySaving || bankSaving}
             className={`w-full sm:w-auto px-8 py-3 rounded-full text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg whitespace-nowrap text-white ${
-              isSalarySaved && isBankSaved
+              isSalarySaved
                 ? "bg-green-500 hover:bg-green-600 hover:scale-[1.02]"
                 : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed text-gray-500 dark:text-gray-400 opacity-60"
             }`}
