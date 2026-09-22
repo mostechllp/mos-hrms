@@ -304,24 +304,24 @@ const EditAgreement = () => {
   // The folder dropdown will lazily fetch levels as the user expands them.
   // For an initial label, we fetch the folder's parent chain if unknown.
   useEffect(() => {
-  if (!currentDocument?.folder_id) return;
-  if (selectedFolderLabel) return;
+    if (!currentDocument?.folder_id) return;
+    if (selectedFolderLabel) return;
 
-  let cancelled = false;
-  (async () => {
-    const res = await dispatch(fetchFolderById(currentDocument.folder_id));
-    if (cancelled) return;
-    if (fetchFolderById.fulfilled.match(res)) {
-      const folder = res.payload;
-      setSelectedFolderLabel(folder.full_path || folder.name || null);
-    }
-  })();
+    let cancelled = false;
+    (async () => {
+      const res = await dispatch(fetchFolderById(currentDocument.folder_id));
+      if (cancelled) return;
+      if (fetchFolderById.fulfilled.match(res)) {
+        const folder = res.payload;
+        setSelectedFolderLabel(folder.full_path || folder.name || null);
+      }
+    })();
 
-  return () => {
-    cancelled = true;
-  };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [currentDocument?.folder_id]);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDocument?.folder_id]);
 
   useEffect(() => {
     if (refreshParties) {
@@ -481,7 +481,12 @@ const EditAgreement = () => {
         "success",
       );
       setTimeout(() => {
-        navigate(`/${basePath}/documents`);
+        const targetFolderId = formData.folder_id || currentDocument?.folder_id;
+        if (targetFolderId) {
+          navigate(`/${basePath}/documents?folder=${targetFolderId}`);
+        } else {
+          navigate(`/${basePath}/documents`);
+        }
       }, 1200);
     } else {
       const errorPayload = result.payload;
@@ -546,7 +551,11 @@ const EditAgreement = () => {
   };
 
   const getFileIcon = (filename) => {
-    if (!filename || filename === "No file attached" || filename === "Invalid file path") {
+    if (
+      !filename ||
+      filename === "No file attached" ||
+      filename === "Invalid file path"
+    ) {
       return "fas fa-file-alt";
     }
     const ext = filename.split(".").pop()?.toLowerCase();
@@ -829,7 +838,8 @@ const EditAgreement = () => {
                 {/* Party */}
                 <div>
                   <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                    <i className="fas fa-building text-green-500 mr-1"></i> Party
+                    <i className="fas fa-building text-green-500 mr-1"></i>{" "}
+                    Party
                   </label>
                   <div>
                     <select
@@ -877,7 +887,8 @@ const EditAgreement = () => {
                         {formData.folder_id ? (
                           <>
                             <i className="fas fa-folder text-amber-500 mr-2"></i>
-                            {selectedFolderLabel || `Folder #${formData.folder_id}`}
+                            {selectedFolderLabel ||
+                              `Folder #${formData.folder_id}`}
                           </>
                         ) : !hasAnyRootFolder ? (
                           "No folders yet — click + to create one"
@@ -916,7 +927,9 @@ const EditAgreement = () => {
                           <div className="px-4 py-6 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
                             <i className="fas fa-folder-open text-2xl mb-2 block text-gray-300"></i>
                             No folders yet. Click the{" "}
-                            <span className="text-green-500 font-semibold">+</span>{" "}
+                            <span className="text-green-500 font-semibold">
+                              +
+                            </span>{" "}
                             button to create one.
                           </div>
                         ) : (
@@ -991,7 +1004,11 @@ const EditAgreement = () => {
           {/* Form Actions */}
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 md:pt-6 border-t border-gray-200 dark:border-gray-700">
             <Link
-              to={`/${basePath}/documents`}
+              to={
+                formData.folder_id
+                  ? `/${basePath}/documents?folder=${formData.folder_id}`
+                  : `/${basePath}/documents`
+              }
               className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
             >
               <i className="fas fa-times text-xs md:text-sm"></i>
@@ -1000,7 +1017,9 @@ const EditAgreement = () => {
             <button
               type="submit"
               disabled={
-                updating || loading || (replaceFile && !tempFilePath && uploadingToTemp)
+                updating ||
+                loading ||
+                (replaceFile && !tempFilePath && uploadingToTemp)
               }
               className="px-4 md:px-6 py-2 md:py-2.5 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-sm md:text-base disabled:opacity-70"
             >
