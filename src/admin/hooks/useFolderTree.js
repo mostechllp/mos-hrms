@@ -7,6 +7,8 @@ export default function useFolderTree() {
   const foldersByParent = useSelector(
     (s) => s.documents?.foldersByParent || {},
   );
+  // Flat, deduped list of every folder we've ever loaded
+  const folders = useSelector((s) => s.documents?.folders || []);
 
   // Ensure root loaded on mount
   useEffect(() => {
@@ -15,15 +17,15 @@ export default function useFolderTree() {
     }
   }, [dispatch, foldersByParent.root]);
 
- const ensureLoaded = useCallback(
-  (parentId, force = false) => {
-    const key = parentId == null ? "root" : String(parentId);
-    if (force || !foldersByParent[key]) {
-      dispatch(fetchDocumentFolders(parentId));
-    }
-  },
-  [dispatch, foldersByParent],
-);
+  const ensureLoaded = useCallback(
+    (parentId, force = false) => {
+      const key = parentId == null ? "root" : String(parentId);
+      if (force || !foldersByParent[key]) {
+        dispatch(fetchDocumentFolders(parentId));
+      }
+    },
+    [dispatch, foldersByParent],
+  );
 
   const childrenOf = useCallback(
     (parentId) => {
@@ -41,8 +43,19 @@ export default function useFolderTree() {
     [foldersByParent],
   );
 
+  // Flat id → folder lookup (used to rebuild breadcrumb from a URL folder id)
+  const foldersById = useMemo(() => {
+    const map = {};
+    folders.forEach((f) => {
+      map[f.id] = f;
+      // Also index by string key so `foldersById["42"]` works too
+      map[String(f.id)] = f;
+    });
+    return map;
+  }, [folders]);
+
   return useMemo(
-    () => ({ childrenOf, ensureLoaded, isLoading }),
-    [childrenOf, ensureLoaded, isLoading],
+    () => ({ childrenOf, ensureLoaded, isLoading, foldersById }),
+    [childrenOf, ensureLoaded, isLoading, foldersById],
   );
 }
