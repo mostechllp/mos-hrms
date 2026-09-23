@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import SearchBar from "@admin/components/common/SearchBar";
 import EntriesSelector from "@admin/components/common/EntriesSelector";
 import Pagination from "@admin/components/common/Paginations";
-import { fetchEmployees } from "@admin/store/slices/employeeSlice";
 import {
   fetchLeaveTypes,
   fetchAllLeaveAllocations,
@@ -13,7 +12,9 @@ import {
 const LeaveAllocations = () => {
   const dispatch = useDispatch();
   const { employees = [] } = useSelector((state) => state.employees || {});
-  const { leaveTypes = [], allAllocations = [] } = useSelector((state) => state.leaves || {});
+  const { leaveTypes = [], allAllocations = [] } = useSelector(
+    (state) => state.leaves || {},
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -24,7 +25,6 @@ const LeaveAllocations = () => {
     const fetchData = async () => {
       setLoading(true);
       await Promise.all([
-        dispatch(fetchEmployees()),
         dispatch(fetchLeaveTypes()),
         dispatch(fetchAllLeaveAllocations()),
       ]);
@@ -54,31 +54,33 @@ const LeaveAllocations = () => {
         else if (item.employee_id && item.leave_type_id) {
           if (!balances[item.employee_id]) balances[item.employee_id] = [];
           balances[item.employee_id].push(item);
-        } 
+        }
         // If it's an array of employees with nested allocations
         else if (item.id && item.allocations) {
-          balances[item.id] = Array.isArray(item.allocations) 
-            ? item.allocations 
+          balances[item.id] = Array.isArray(item.allocations)
+            ? item.allocations
             : Object.values(item.allocations);
         }
         // If it's an array of employees with nested leave_balances
         else if (item.id && item.leave_balances) {
-          balances[item.id] = Array.isArray(item.leave_balances) 
-            ? item.leave_balances 
+          balances[item.id] = Array.isArray(item.leave_balances)
+            ? item.leave_balances
             : Object.values(item.leave_balances);
         }
       });
-    } else if (typeof allAllocations === 'object') {
+    } else if (typeof allAllocations === "object") {
       // If it's an object with employee_id keys
       Object.entries(allAllocations).forEach(([empId, allocs]) => {
         if (allocs && allocs.allocations) {
-           balances[empId] = Array.isArray(allocs.allocations) ? allocs.allocations : Object.values(allocs.allocations);
+          balances[empId] = Array.isArray(allocs.allocations)
+            ? allocs.allocations
+            : Object.values(allocs.allocations);
         } else if (Array.isArray(allocs)) {
-           balances[empId] = allocs;
-        } else if (typeof allocs === 'object') {
-           balances[empId] = Object.values(allocs);
+          balances[empId] = allocs;
+        } else if (typeof allocs === "object") {
+          balances[empId] = Object.values(allocs);
         } else {
-           balances[empId] = [];
+          balances[empId] = [];
         }
       });
     }
@@ -86,16 +88,25 @@ const LeaveAllocations = () => {
     setLeaveBalances(balances);
   }, [allAllocations]);
 
+  // 1. Build the list straight from allocations
+  const allocationEmployees = useMemo(() => {
+    if (!Array.isArray(allAllocations)) return [];
+
+    return allAllocations
+      .map((item, idx) => ({
+        id: item.employee_id ?? item.id ?? idx,
+        name: (item.employee_name || "").trim() || "Unnamed",
+        avatar: item.avatar || null, // ← new
+        leave_types: Array.isArray(item.leave_types) ? item.leave_types : [],
+      }))
+      .filter((e) => e.name);
+  }, [allAllocations]);
+
   const getFilteredEmployees = () => {
-    let filtered = [...employees];
+    let filtered = [...allocationEmployees];
     if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (emp) =>
-          (emp.name || "").toLowerCase().includes(searchLower) ||
-          (emp.designation?.name || "").toLowerCase().includes(searchLower) ||
-          (emp.company?.company_name || "").toLowerCase().includes(searchLower),
-      );
+      const s = searchTerm.toLowerCase();
+      filtered = filtered.filter((e) => e.name.toLowerCase().includes(s));
     }
     return filtered;
   };
@@ -107,7 +118,7 @@ const LeaveAllocations = () => {
   const pageEmployees = filteredEmployees.slice(start, start + perPage);
 
   const getLeaveTypeId = (leaveTypeName) => {
-    const leaveType = leaveTypes.find(type => type.name === leaveTypeName);
+    const leaveType = leaveTypes.find((type) => type.name === leaveTypeName);
     return leaveType?.id;
   };
 
@@ -116,36 +127,49 @@ const LeaveAllocations = () => {
     return name?.trim() || "";
   };
 
-  const getAllocationValue = (employeeId, employeeName, leaveTypeName, field) => {
+  const getAllocationValue = (
+    employeeId,
+    employeeName,
+    leaveTypeName,
+    field,
+  ) => {
     // Normalize employee name
     const normalizedEmployeeName = normalizeName(employeeName);
-    
+
     // Try to get balances by normalized name (new API) or by ID (old API format)
-    let balances = leaveBalances[normalizedEmployeeName] || leaveBalances[employeeId];
-    
+    let balances =
+      leaveBalances[normalizedEmployeeName] || leaveBalances[employeeId];
+
     // If not found by exact match, try to find by partial match
     if (!balances) {
       // Find any key in leaveBalances that matches the employee name (case insensitive, trimmed)
-      const matchingKey = Object.keys(leaveBalances).find(key => 
-        normalizeName(key).toLowerCase() === normalizedEmployeeName.toLowerCase()
+      const matchingKey = Object.keys(leaveBalances).find(
+        (key) =>
+          normalizeName(key).toLowerCase() ===
+          normalizedEmployeeName.toLowerCase(),
       );
       if (matchingKey) {
         balances = leaveBalances[matchingKey];
       }
     }
-    
+
     if (!balances || !Array.isArray(balances)) return 0;
-    
+
     // Check new API format first (it has leave_type string)
-    const newFormatAllocation = balances.find(a => a.leave_type === leaveTypeName);
-    
+    const newFormatAllocation = balances.find(
+      (a) => a.leave_type === leaveTypeName,
+    );
+
     if (newFormatAllocation) {
       const allocatedDays = parseFloat(newFormatAllocation.allocated) || 0;
       const usedDays = parseFloat(newFormatAllocation.used) || 0;
-      
+
       if (field === "alloc") return allocatedDays;
       if (field === "used") return usedDays;
-      if (field === "bal") return parseFloat(newFormatAllocation.balance) || (allocatedDays - usedDays);
+      if (field === "bal")
+        return (
+          parseFloat(newFormatAllocation.balance) || allocatedDays - usedDays
+        );
       return 0;
     }
 
@@ -153,12 +177,12 @@ const LeaveAllocations = () => {
     const leaveTypeId = getLeaveTypeId(leaveTypeName);
     if (!leaveTypeId) return 0;
 
-    const allocation = balances.find(a => a.leave_type_id === leaveTypeId);
+    const allocation = balances.find((a) => a.leave_type_id === leaveTypeId);
     if (!allocation) return 0;
-    
+
     const allocatedDays = parseFloat(allocation.allocated_days) || 0;
     const usedDays = parseFloat(allocation.used) || 0;
-    
+
     if (field === "alloc") return allocatedDays;
     if (field === "used") return usedDays;
     if (field === "bal") return allocatedDays - usedDays;
@@ -256,44 +280,29 @@ const LeaveAllocations = () => {
             <tbody>
               {pageEmployees.length > 0 ? (
                 pageEmployees.map((employee, idx) => {
-                  const getEmployeePhoto = () => {
-                    const photoValue =
-                      employee.avatar ||
-                      employee.avatar_path ||
-                      employee.passport_size_photo ||
-                      employee.profile_photo ||
-                      employee.photo ||
-                      employee.user?.avatar;
+                  const getEmployeePhoto = (avatarPath) => {
+                    if (!avatarPath) return null;
 
-                    if (!photoValue) return null;
-
-                    if (typeof photoValue === "object" && photoValue.path) {
-                      const baseUrl =
-                        import.meta.env.VITE_API_URL?.replace("/api", "") || "";
-                      return `${baseUrl}/storage/${photoValue.path}`;
+                    // Already a full URL or data URI
+                    if (
+                      avatarPath.startsWith("http") ||
+                      avatarPath.startsWith("data:")
+                    ) {
+                      return avatarPath;
                     }
 
-                    if (typeof photoValue === "string") {
-                      if (photoValue.startsWith("/tmp/")) {
-                        const baseUrl =
-                          import.meta.env.VITE_API_URL?.replace("/api", "") ||
-                          "";
-                        return `${baseUrl}/storage/temp/${photoValue.replace("/tmp/", "")}`;
-                      }
-                      if (photoValue.startsWith("data:")) return photoValue;
-                      if (photoValue.startsWith("http")) return photoValue;
+                    const baseUrl =
+                      import.meta.env.VITE_API_URL?.replace("/api", "") ||
+                      window.location.origin;
 
-                      const baseUrl =
-                        import.meta.env.VITE_API_URL?.replace("/api", "") || "";
-                      if (photoValue.startsWith("/storage/"))
-                        return `${baseUrl}${photoValue}`;
-                      return `${baseUrl}/storage/${photoValue}`;
-                    }
-
-                    return null;
+                    // Handle the common patterns:
+                    //   "avatars/foo.png"  →  <base>/storage/avatars/foo.png
+                    //   "/storage/foo.png" →  <base>/storage/foo.png
+                    if (avatarPath.startsWith("/storage/"))
+                      return `${baseUrl}${avatarPath}`;
+                    return `${baseUrl}/storage/${avatarPath.replace(/^\/+/, "")}`;
                   };
-
-                  const photoUrl = getEmployeePhoto();
+                  const photoUrl = getEmployeePhoto(employee.avatar);
 
                   const annualAlloc = getAllocationValue(
                     employee.id,
@@ -355,14 +364,20 @@ const LeaveAllocations = () => {
                           <span className="text-sm font-semibold text-green-600 dark:text-green-400 min-w-[28px] text-center">
                             {formatNumber(annualAlloc)}
                           </span>
-                          <span className="text-gray-300 dark:text-gray-600">|</span>
+                          <span className="text-gray-300 dark:text-gray-600">
+                            |
+                          </span>
                           <span className="text-sm text-gray-600 dark:text-gray-400 min-w-[28px] text-center">
                             {formatNumber(annualUsed)}
                           </span>
-                          <span className="text-gray-300 dark:text-gray-600">|</span>
+                          <span className="text-gray-300 dark:text-gray-600">
+                            |
+                          </span>
                           <span
                             className={`text-sm font-semibold min-w-[28px] text-center ${
-                              annualBal < 0 ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"
+                              annualBal < 0
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-blue-600 dark:text-blue-400"
                             }`}
                           >
                             {formatNumber(annualBal)}

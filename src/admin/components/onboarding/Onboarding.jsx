@@ -76,10 +76,15 @@ const Onboarding = () => {
   // (this matters especially under React StrictMode's double-invoke on
   // mount, where effects run twice before any dispatch is reflected).
   const pendingStepRef = useRef(null);
+  // Set right when onboarding completes and we start navigating away.
+  // Guards Effect 6 against the currentStep=1 reset that resetOnboarding()
+  // causes, which would otherwise look exactly like "user went back to
+  // step 1" and get mirrored to the URL as `.../initiate`, clobbering the
+  // navigate below.
+  const completingRef = useRef(false);
 
   // ── 1. Hydrate id (URL → localStorage) and fetch data ──
   useEffect(() => {
-    if (section === "initiate" && !idFromUrl) return;
     const id = idFromUrl || readStoredId();
     if (!id) return;
 
@@ -97,7 +102,7 @@ const Onboarding = () => {
     dispatch(fetchEmployeeDetails(id));
     dispatch(fetchOnboardingProgress(id));
     didHydrateRef.current = true;
-  }, [dispatch, idFromUrl, section]);
+  }, [dispatch, idFromUrl]);
 
   // ── 2. Sync Redux step to the URL section ──
   useEffect(() => {
@@ -182,16 +187,29 @@ const Onboarding = () => {
   // ── 5. Completion ──
   useEffect(() => {
     if (onboardingComplete) {
-      localStorage.removeItem("onboarding-draft");
-      localStorage.removeItem("onboarding_user_id");
+      completingRef.current = true;
+
+      try {
+        localStorage.removeItem("onboarding-draft");
+        localStorage.removeItem("onboarding_user_id");
+      } catch {
+        /* ignore */
+      }
+
+      // Go to the onboarding dashboard (index route), not the flat
+      // employees list — e.g. "/admin/employees/onboarding".
+      navigate(onboardingBase, { replace: true });
       dispatch(resetOnboarding());
-      navigate(isEmployee ? "/employee" : "/admin/employees");
     }
-  }, [onboardingComplete, dispatch, navigate, isEmployee]);
+  }, [onboardingComplete, dispatch, navigate, onboardingBase]);
 
   // ── 6. Mirror Redux currentStep → URL section ──
   useEffect(() => {
     if (onboardingComplete) return;
+    // Onboarding just completed and resetOnboarding() dropped currentStep
+    // back to 1 — that's not a real "user went back to step 1", so don't
+    // mirror it to the URL. We're navigating away regardless.
+    if (completingRef.current) return;
 
     // A URL-driven setStep dispatch is still in flight for this step —
     // currentStep hasn't caught up yet, so don't reason about it.
