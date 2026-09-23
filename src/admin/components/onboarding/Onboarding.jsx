@@ -79,6 +79,7 @@ const Onboarding = () => {
 
   // ── 1. Hydrate id (URL → localStorage) and fetch data ──
   useEffect(() => {
+    if (section === "initiate" && !idFromUrl) return;
     const id = idFromUrl || readStoredId();
     if (!id) return;
 
@@ -96,7 +97,7 @@ const Onboarding = () => {
     dispatch(fetchEmployeeDetails(id));
     dispatch(fetchOnboardingProgress(id));
     didHydrateRef.current = true;
-  }, [dispatch, idFromUrl]);
+  }, [dispatch, idFromUrl, section]);
 
   // ── 2. Sync Redux step to the URL section ──
   useEffect(() => {

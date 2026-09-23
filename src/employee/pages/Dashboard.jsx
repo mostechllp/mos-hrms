@@ -202,23 +202,33 @@ const Dashboard = () => {
 
   // Sync break state from server (source of truth across devices)
   useEffect(() => {
-    const breaks = employeeBreaks?.breaks || [];
-    // An "open" break has no end_time — that means we're currently on break
-    const openBreak = breaks.find(
-      (b) => b && b.start_time && (!b.end_time || b.end_time === null),
-    );
+  const breaks = employeeBreaks?.breaks || [];
 
-    if (openBreak) {
-      setIsOnBreak(true);
-      setBreakStartTime(openBreak.start_time);
-      localStorage.setItem("attendance-on-break", "true");
-      localStorage.setItem("attendance-break-start-time", openBreak.start_time);
-    } else {
-      setIsOnBreak(false);
-      localStorage.setItem("attendance-on-break", "false");
-      localStorage.removeItem("attendance-break-start-time");
-    }
-  }, [employeeBreaks]);
+  // Only consider breaks that started *today* as "currently open".
+  // A break with no end_time from a previous day is stale / abandoned,
+  // not an active break.
+  const todayStr = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+
+  const openBreak = breaks.find((b) => {
+    if (!b || !b.start_time) return false;
+    // Must have no end_time (still open)
+    if (b.end_time && b.end_time !== null) return false;
+    // Must have started today (compare the date part)
+    const breakDate = String(b.start_time).split("T")[0];
+    return breakDate === todayStr;
+  });
+
+  if (openBreak) {
+    setIsOnBreak(true);
+    setBreakStartTime(openBreak.start_time);
+    localStorage.setItem("attendance-on-break", "true");
+    localStorage.setItem("attendance-break-start-time", openBreak.start_time);
+  } else {
+    setIsOnBreak(false);
+    localStorage.setItem("attendance-on-break", "false");
+    localStorage.removeItem("attendance-break-start-time");
+  }
+}, [employeeBreaks]);
 
   // Poll + refresh breaks whenever the tab regains focus (cross-device sync)
   useEffect(() => {
