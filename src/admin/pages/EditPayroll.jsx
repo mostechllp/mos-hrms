@@ -31,6 +31,7 @@ import {
   fetchEmployees,
   fetchEmployeeById,
 } from "../store/slices/employeeSlice";
+import DateInput from "../components/common/DateInput";
 
 // Helper function to get organization name from employees list
 const getOrganizationName = (employees, organizationId) => {
@@ -657,6 +658,36 @@ function EditPayroll() {
     }
   };
 
+  const handleMonthChange = (e) => {
+    const newMonth = e.target.value;
+    setPayPeriodMonth(newMonth);
+    setTotalWorkingDays("");
+    setDaysPresent("");
+    applyMonthYearDates(newMonth, payPeriodYear);
+  };
+
+  const handleYearChange = (e) => {
+    const newYear = e.target.value;
+    setPayPeriodYear(newYear);
+    setTotalWorkingDays("");
+    setDaysPresent("");
+    applyMonthYearDates(payPeriodMonth, newYear);
+  };
+
+  // Compute periodStart/periodEnd/paymentDate from month name + year
+  const applyMonthYearDates = (monthName, yearStr) => {
+    const monthNumber = monthNames[monthName];
+    const year = parseInt(yearStr);
+    if (!monthNumber || !year) return;
+
+    const mm = String(monthNumber).padStart(2, "0");
+    const lastDay = new Date(year, monthNumber, 0).getDate();
+
+    setPeriodStart(`${year}-${mm}-01`);
+    setPeriodEnd(`${year}-${mm}-${String(lastDay).padStart(2, "0")}`);
+    setPaymentDate(`${year}-${mm}-25`);
+  };
+
   // Delete component from API
   const deleteComponent = async (componentId) => {
     if (!window.confirm("Are you sure you want to delete this component?"))
@@ -1266,11 +1297,10 @@ function EditPayroll() {
                       Period Start Date
                     </label>
                     <div className="relative">
-                      <input
-                        type="date"
+                      <DateInput
                         value={periodStart}
-                        onChange={(e) => setPeriodStart(e.target.value)}
-                        className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                        onChange={(date) => setPeriodStart(date)}
+                        placeholder="dd/mm/yyyy"
                         disabled={!selectedUserId}
                       />
                     </div>
@@ -1281,11 +1311,10 @@ function EditPayroll() {
                       Period End Date
                     </label>
                     <div className="relative">
-                      <input
-                        type="date"
+                      <DateInput
                         value={periodEnd}
-                        onChange={(e) => setPeriodEnd(e.target.value)}
-                        className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                        onChange={(date) => setPeriodEnd(date)}
+                        placeholder="dd/mm/yyyy"
                         disabled={!selectedUserId}
                       />
                     </div>
@@ -1296,11 +1325,10 @@ function EditPayroll() {
                       Payment Date <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
-                      <input
-                        type="date"
+                      <DateInput
                         value={paymentDate}
-                        onChange={(e) => setPaymentDate(e.target.value)}
-                        className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                        onChange={(date) => setPaymentDate(date)}
+                        placeholder="dd/mm/yyyy"
                         disabled={!selectedUserId}
                       />
                     </div>
