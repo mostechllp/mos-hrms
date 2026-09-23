@@ -200,17 +200,30 @@ const PayrollList = () => {
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-    } catch {
-      return dateString;
+    // Treat null, undefined, empty string, and literal "N/A" as missing
+    if (
+      dateString == null ||
+      dateString === "" ||
+      dateString === "N/A" ||
+      dateString === "null" ||
+      dateString === "undefined"
+    ) {
+      return "—";
     }
+
+    const date = new Date(dateString);
+
+    // new Date() returns an Invalid Date object (not a throw) for bad input.
+    // Number.isNaN(date.getTime()) is the reliable check.
+    if (isNaN(date.getTime())) {
+      return "—";
+    }
+
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   };
 
   // ✅ Handle View — used for row click & name click
@@ -528,7 +541,7 @@ const PayrollList = () => {
                     const deductions = item.deductions || 0;
                     const netPay = grossSalary + overtime - deductions || 0;
                     const currency = item.currency || "INR";
-                    const paymentDate = item.payment_date || "N/A";
+                    const paymentDate = item.payment_date || null;
 
                     const avatarUrl = item.avatar
                       ? getAvatarUrl(item.avatar)

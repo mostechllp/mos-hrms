@@ -21,7 +21,7 @@ import {
   Eye,
 } from "lucide-react";
 import { fetchEmployees } from "../store/slices/employeeSlice";
-import { deleteOnboardingEmployee } from "../store/slices/onboardingSlice";
+import { deleteOnboardingEmployee, resetOnboarding } from "../store/slices/onboardingSlice";
 import ConfirmModal from "../components/common/ConfirmModal";
 import apiClient from "../../utils/apiClient";
 
@@ -237,6 +237,22 @@ const OnboardingDashboard = () => {
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employees, employeesLoading, base]);
+
+  const handleStartFreshOnboarding = () => {
+  // Wipe any stale wizard state
+  dispatch(resetOnboarding());
+
+  // Wipe persisted keys so the mount effects can't reload them
+  try {
+    localStorage.removeItem("onboarding_user_id");
+    localStorage.removeItem("onboarding-draft");
+  } catch {
+    /* ignore */
+  }
+
+  // Navigate to a clean initiate URL (no ?id=)
+  navigate(`${onboardingBase}/initiate`);
+};
 
   // ── Continue: resume where the user left off ──
   const handleContinue = (employee) => {
