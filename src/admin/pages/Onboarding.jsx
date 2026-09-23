@@ -21,7 +21,10 @@ import {
   Eye,
 } from "lucide-react";
 import { fetchEmployees } from "../store/slices/employeeSlice";
-import { deleteOnboardingEmployee, resetOnboarding } from "../store/slices/onboardingSlice";
+import {
+  deleteOnboardingEmployee,
+  resetOnboarding,
+} from "../store/slices/onboardingSlice";
 import ConfirmModal from "../components/common/ConfirmModal";
 import apiClient from "../../utils/apiClient";
 
@@ -127,7 +130,6 @@ const OnboardingDashboard = () => {
         emp.status === "Onboarding" || emp.status === "onboarding";
 
       const onboardingEmployees = employees.filter(isOnboarding);
-      const onboardingCount = onboardingEmployees.length;
 
       const completedCount = employees.filter((emp) => {
         if (emp.status === "Active" || emp.status === "active") {
@@ -148,10 +150,19 @@ const OnboardingDashboard = () => {
 
       const progressMap = new Map();
       progressPairs.forEach(({ emp, progress }) => {
-        if (progress) {
-          progressMap.set(emp.id, progress);
-        }
+        if (progress) progressMap.set(emp.id, progress);
       });
+
+      const activeOnboardingEmployees = onboardingEmployees.filter((emp) => {
+        const p = progressMap.get(emp.id);
+        if (!p) return true; // no progress yet → still active
+        const pct = Number(p.percentage) || 0;
+        const completed = Number(p.completed_steps) || 0;
+        const total = Number(p.total_steps) || 0;
+        return pct < 100 && (total === 0 || completed < total);
+      });
+
+      const onboardingCount = activeOnboardingEmployees.length;
 
       let pendingTasksCount = 0;
       let pendingDocsCount = 0;
@@ -159,7 +170,8 @@ const OnboardingDashboard = () => {
       onboardingEmployees.forEach((emp) => {
         const p = progressMap.get(emp.id);
         if (p) {
-          const remaining = (Number(p.total_steps) || 5) - (Number(p.completed_steps) || 0);
+          const remaining =
+            (Number(p.total_steps) || 5) - (Number(p.completed_steps) || 0);
           pendingTasksCount += Math.max(remaining, 0);
 
           const checklistStep = (p.steps || []).find(
@@ -169,7 +181,7 @@ const OnboardingDashboard = () => {
             pendingDocsCount += 1;
           }
         } else {
-          pendingTasksCount += 4
+          pendingTasksCount += 4;
           pendingDocsCount += 2;
         }
       });
@@ -239,20 +251,20 @@ const OnboardingDashboard = () => {
   }, [employees, employeesLoading, base]);
 
   const handleStartFreshOnboarding = () => {
-  // Wipe any stale wizard state
-  dispatch(resetOnboarding());
+    // Wipe any stale wizard state
+    dispatch(resetOnboarding());
 
-  // Wipe persisted keys so the mount effects can't reload them
-  try {
-    localStorage.removeItem("onboarding_user_id");
-    localStorage.removeItem("onboarding-draft");
-  } catch {
-    /* ignore */
-  }
+    // Wipe persisted keys so the mount effects can't reload them
+    try {
+      localStorage.removeItem("onboarding_user_id");
+      localStorage.removeItem("onboarding-draft");
+    } catch {
+      /* ignore */
+    }
 
-  // Navigate to a clean initiate URL (no ?id=)
-  navigate(`${onboardingBase}/initiate`);
-};
+    // Navigate to a clean initiate URL (no ?id=)
+    navigate(`${onboardingBase}/initiate`);
+  };
 
   // ── Continue: resume where the user left off ──
   const handleContinue = (employee) => {
