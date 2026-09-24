@@ -443,6 +443,8 @@ function App() {
             element={<EditLeaveAllocation />}
           />
           <Route path="leaves" element={<EmployeeLeaves />} />
+          <Route path="leaves/leave-types" element={<LeaveTypeManagement />} />
+          <Route path="leaves/leave-policy" element={<LeavePolicy />} />
           <Route path="request-leave" element={<RequestLeave />} />
           <Route path="wfh" element={<EmployeeWFH />} />
           <Route path="my-tasks" element={<EmployeeTaskReports />} />

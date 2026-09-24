@@ -14,7 +14,9 @@ const LeaveAllocations = () => {
   const { employees = [] } = useSelector((state) => state.employees || {});
   const { leaveTypes = [], allAllocations = [] } = useSelector(
     (state) => state.leaves || {},
+    
   );
+  const basePath = location.pathname.split("/")[1] || "admin";
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -231,7 +233,7 @@ const LeaveAllocations = () => {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            to="/admin/leaves/leave-policy"
+            to={`/${basePath}/leaves/leave-policy`}
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-all shadow-sm hover:shadow-md"
           >
             <i className="fas fa-shield-halved"></i>
@@ -239,7 +241,7 @@ const LeaveAllocations = () => {
           </Link>
 
           <Link
-            to="/admin/leaves"
+            to={`/${basePath}/leaves/leave-policy`}
             className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-all"
           >
             <i className="fas fa-arrow-left"></i>
