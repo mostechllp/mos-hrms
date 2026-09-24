@@ -7,7 +7,7 @@ import Loader from "../components/common/Loader";
 import LeaveTypeModal from "../components/leaves/LeaveTypeModal";
 import { showToast } from "../../components/common/Toast";
 import {
-  fetchLeaveTypes,
+  fetchLeaveTypesForMgmt,
   deleteLeaveType,
   toggleLeaveTypeStatus,
 } from "../store/slices/LeaveSlice";
@@ -27,7 +27,7 @@ const LeaveTypeManagement = () => {
   const [selectedDelete, setSelectedDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   useEffect(() => {
-    dispatch(fetchLeaveTypes());
+    dispatch(fetchLeaveTypesForMgmt());
   }, [dispatch]);
 
   const getFilteredTypes = () => {

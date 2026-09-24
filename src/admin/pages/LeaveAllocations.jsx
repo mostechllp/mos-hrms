@@ -229,13 +229,23 @@ const LeaveAllocations = () => {
             Employee Leave Balances ({new Date().getFullYear()})
           </p>
         </div>
-        <Link
-          to="/admin/leaves"
-          className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-all"
-        >
-          <i className="fas fa-arrow-left"></i>
-          Back to Requests
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/admin/leaves/leave-policy"
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-all shadow-sm hover:shadow-md"
+          >
+            <i className="fas fa-shield-halved"></i>
+            Leave Policy
+          </Link>
+
+          <Link
+            to="/admin/leaves"
+            className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-all"
+          >
+            <i className="fas fa-arrow-left"></i>
+            Back to Requests
+          </Link>
+        </div>
       </div>
 
       {/* Actions Bar */}

@@ -42,6 +42,7 @@ const LeaveAllocations = lazy(() => import("./admin/pages/LeaveAllocations"));
 const EditLeaveAllocation = lazy(
   () => import("./admin/pages/EditLeaveAllocation"),
 );
+const LeavePolicy = lazy(() => import("./admin/pages/LeavePolicy"));
 const Designations = lazy(() => import("./admin/pages/Designations"));
 const Departments = lazy(() => import("./admin/pages/Departments"));
 const TaskReports = lazy(() => import("./admin/pages/TaskReports"));
@@ -359,6 +360,7 @@ function App() {
           <Route path="leaves" element={<Leaves />} />
           <Route path="leaves/leave-types" element={<LeaveTypeManagement />} />
           <Route path="leaves/allocations" element={<LeaveAllocations />} />
+          <Route path="leaves/leave-policy" element={<LeavePolicy />} />
           <Route
             path="leaves/allocations/:id"
             element={<EditLeaveAllocation />}
