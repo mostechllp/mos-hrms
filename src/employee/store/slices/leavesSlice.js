@@ -52,7 +52,7 @@ export const fetchLeaveTypes = createAsyncThunk(
   "leaves/fetchLeaveTypes",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get("/employee/leave-types");
+      const response = await apiClient.get("/employee/get-active-leave-types");
       console.log("Leave types response:", response.data);
 
       if (response.data && response.data.status === "success") {
@@ -67,6 +67,7 @@ export const fetchLeaveTypes = createAsyncThunk(
     }
   },
 );
+
 
 // Fetch Leave Balance for a specific employee
 export const fetchLeaveBalance = createAsyncThunk(
