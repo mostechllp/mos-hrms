@@ -139,15 +139,22 @@ const RequestLeave = () => {
 
   // Set first leave type as default when leaveTypes are loaded
   useEffect(() => {
-    if (leaveTypes.length > 0 && isFirstLoad) {
-      const firstLeaveType = leaveTypes[0];
-      setFormData((prev) => ({
-        ...prev,
-        leave_type_id: firstLeaveType.id.toString(),
-      }));
-      setIsFirstLoad(false);
-    }
-  }, [leaveTypes, isFirstLoad]);
+    if (leaveTypes.length === 0) return;
+    if (!isFirstLoad) return;
+
+    // Prefer a type that actually has a balance
+    const withBalance = leaveTypes.find((t) => {
+      const b = leaveBalances?.[t.name];
+      return b && (b.remaining > 0 || b.allocated > 0);
+    });
+    const first = withBalance || leaveTypes[0];
+
+    setFormData((prev) => ({
+      ...prev,
+      leave_type_id: first.id.toString(),
+    }));
+    setIsFirstLoad(false);
+  }, [leaveTypes, leaveBalances, isFirstLoad]);
 
   // Check if data is ready
   useEffect(() => {
@@ -403,7 +410,9 @@ const RequestLeave = () => {
   const usedLeaves = selectedBalance.used ?? 0;
   const pendingLeaves = selectedBalance.pending ?? 0;
   const allocatedLeaves = selectedBalance.allocated ?? 0;
-  const exceedsBalance = totalDays > remaining && remaining >= 0;
+  const hasAllocation = allocatedLeaves > 0;
+  const exceedsBalance =
+    hasAllocation && totalDays > remaining && remaining >= 0;
 
   const getMinEndDate = () => {
     if (formData.start_date) {
@@ -473,7 +482,7 @@ const RequestLeave = () => {
               <FiCalendar /> Leave Details
             </div>
 
-            {/* Leave Type - Full Width - DISABLED */}
+            {/* Leave Type — selectable */}
             <div className="form-field flex flex-col gap-2 mb-5">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
                 <FiList className="text-green-500" /> Leave Type{" "}
@@ -484,13 +493,11 @@ const RequestLeave = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, leave_type_id: e.target.value })
                 }
-                className="w-full px-3.5 py-2.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-300 focus:outline-none cursor-not-allowed opacity-80"
-                disabled={true}
+                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all cursor-pointer"
               >
+                <option value="">Select Leave Type</option>
                 {leaveTypes.map((type) => {
-                  const balance = leaveBalances[type.name] || {
-                    remaining: 0,
-                  };
+                  const balance = leaveBalances[type.name] || { remaining: 0 };
                   return (
                     <option key={type.id} value={type.id}>
                       {type.name} (Available: {balance.remaining} days)
@@ -501,10 +508,6 @@ const RequestLeave = () => {
               {loadingLeaveTypes && (
                 <p className="text-xs text-gray-400">Loading leave types...</p>
               )}
-              <p className="text-xs text-gray-400 mt-1">
-                <i className="fas fa-info-circle mr-1"></i>
-                Leave type is automatically selected
-              </p>
             </div>
 
             {/* Date Inputs with Sessions */}

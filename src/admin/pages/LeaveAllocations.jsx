@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import SearchBar from "@admin/components/common/SearchBar";
 import EntriesSelector from "@admin/components/common/EntriesSelector";
 import Pagination from "@admin/components/common/Paginations";
@@ -11,17 +11,15 @@ import {
 
 const LeaveAllocations = () => {
   const dispatch = useDispatch();
-  const { employees = [] } = useSelector((state) => state.employees || {});
-  const { leaveTypes = [], allAllocations = [] } = useSelector(
-    (state) => state.leaves || {},
-    
-  );
+  const location = useLocation();
   const basePath = location.pathname.split("/")[1] || "admin";
+
+  const { allAllocations = [] } = useSelector((state) => state.leaves || {});
+
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
-  const [leaveBalances, setLeaveBalances] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,62 +33,7 @@ const LeaveAllocations = () => {
     fetchData();
   }, [dispatch]);
 
-  // Group allocations by employee_name or employee_id
-  useEffect(() => {
-    if (!allAllocations) {
-      setLeaveBalances({});
-      return;
-    }
-
-    const balances = {};
-
-    if (Array.isArray(allAllocations)) {
-      allAllocations.forEach((item) => {
-        // New API format: { employee_name: '...', leave_types: [...] }
-        if (item.employee_name && item.leave_types) {
-          // Normalize employee name by trimming spaces
-          const normalizedName = item.employee_name.trim();
-          balances[normalizedName] = item.leave_types;
-        }
-        // If it's a flat array of allocations
-        else if (item.employee_id && item.leave_type_id) {
-          if (!balances[item.employee_id]) balances[item.employee_id] = [];
-          balances[item.employee_id].push(item);
-        }
-        // If it's an array of employees with nested allocations
-        else if (item.id && item.allocations) {
-          balances[item.id] = Array.isArray(item.allocations)
-            ? item.allocations
-            : Object.values(item.allocations);
-        }
-        // If it's an array of employees with nested leave_balances
-        else if (item.id && item.leave_balances) {
-          balances[item.id] = Array.isArray(item.leave_balances)
-            ? item.leave_balances
-            : Object.values(item.leave_balances);
-        }
-      });
-    } else if (typeof allAllocations === "object") {
-      // If it's an object with employee_id keys
-      Object.entries(allAllocations).forEach(([empId, allocs]) => {
-        if (allocs && allocs.allocations) {
-          balances[empId] = Array.isArray(allocs.allocations)
-            ? allocs.allocations
-            : Object.values(allocs.allocations);
-        } else if (Array.isArray(allocs)) {
-          balances[empId] = allocs;
-        } else if (typeof allocs === "object") {
-          balances[empId] = Object.values(allocs);
-        } else {
-          balances[empId] = [];
-        }
-      });
-    }
-
-    setLeaveBalances(balances);
-  }, [allAllocations]);
-
-  // 1. Build the list straight from allocations
+  // ── Build the employee list from allocations ──
   const allocationEmployees = useMemo(() => {
     if (!Array.isArray(allAllocations)) return [];
 
@@ -98,11 +41,28 @@ const LeaveAllocations = () => {
       .map((item, idx) => ({
         id: item.employee_id ?? item.id ?? idx,
         name: (item.employee_name || "").trim() || "Unnamed",
-        avatar: item.avatar || null, // ← new
+        avatar: item.avatar || null,
         leave_types: Array.isArray(item.leave_types) ? item.leave_types : [],
       }))
       .filter((e) => e.name);
   }, [allAllocations]);
+
+  // ── Collect all distinct leave-type names from the allocations ──
+  // Preserves the order they first appear in the API response (e.g. Annual Leave, Loss Of Pay)
+  const leaveTypeColumns = useMemo(() => {
+    const seen = new Set();
+    const cols = [];
+    allocationEmployees.forEach((emp) => {
+      emp.leave_types.forEach((lt) => {
+        const key = lt.leave_type;
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          cols.push(key);
+        }
+      });
+    });
+    return cols;
+  }, [allocationEmployees]);
 
   const getFilteredEmployees = () => {
     let filtered = [...allocationEmployees];
@@ -115,84 +75,61 @@ const LeaveAllocations = () => {
 
   const filteredEmployees = getFilteredEmployees();
   const totalFiltered = filteredEmployees.length;
-  const totalPages = Math.ceil(totalFiltered / perPage);
+  const totalPages = Math.ceil(totalFiltered / perPage) || 1;
   const start = (currentPage - 1) * perPage;
   const pageEmployees = filteredEmployees.slice(start, start + perPage);
 
-  const getLeaveTypeId = (leaveTypeName) => {
-    const leaveType = leaveTypes.find((type) => type.name === leaveTypeName);
-    return leaveType?.id;
-  };
-
-  // Normalize employee name for matching
-  const normalizeName = (name) => {
-    return name?.trim() || "";
-  };
-
-  const getAllocationValue = (
-    employeeId,
-    employeeName,
-    leaveTypeName,
-    field,
-  ) => {
-    // Normalize employee name
-    const normalizedEmployeeName = normalizeName(employeeName);
-
-    // Try to get balances by normalized name (new API) or by ID (old API format)
-    let balances =
-      leaveBalances[normalizedEmployeeName] || leaveBalances[employeeId];
-
-    // If not found by exact match, try to find by partial match
-    if (!balances) {
-      // Find any key in leaveBalances that matches the employee name (case insensitive, trimmed)
-      const matchingKey = Object.keys(leaveBalances).find(
-        (key) =>
-          normalizeName(key).toLowerCase() ===
-          normalizedEmployeeName.toLowerCase(),
-      );
-      if (matchingKey) {
-        balances = leaveBalances[matchingKey];
-      }
-    }
-
-    if (!balances || !Array.isArray(balances)) return 0;
-
-    // Check new API format first (it has leave_type string)
-    const newFormatAllocation = balances.find(
-      (a) => a.leave_type === leaveTypeName,
+  // ── Read a specific leave-type's value for an employee ──
+  const getLeaveTypeValue = (employee, leaveTypeName, field) => {
+    const entry = employee.leave_types.find(
+      (lt) => lt.leave_type === leaveTypeName,
     );
+    if (!entry) return 0;
 
-    if (newFormatAllocation) {
-      const allocatedDays = parseFloat(newFormatAllocation.allocated) || 0;
-      const usedDays = parseFloat(newFormatAllocation.used) || 0;
+    const allocated = parseFloat(entry.allocated) || 0;
+    const used = parseFloat(entry.used) || 0;
+    const balance =
+      entry.balance != null ? parseFloat(entry.balance) : allocated - used;
 
-      if (field === "alloc") return allocatedDays;
-      if (field === "used") return usedDays;
-      if (field === "bal")
-        return (
-          parseFloat(newFormatAllocation.balance) || allocatedDays - usedDays
-        );
-      return 0;
-    }
-
-    // Fallback to old format (it has leave_type_id)
-    const leaveTypeId = getLeaveTypeId(leaveTypeName);
-    if (!leaveTypeId) return 0;
-
-    const allocation = balances.find((a) => a.leave_type_id === leaveTypeId);
-    if (!allocation) return 0;
-
-    const allocatedDays = parseFloat(allocation.allocated_days) || 0;
-    const usedDays = parseFloat(allocation.used) || 0;
-
-    if (field === "alloc") return allocatedDays;
-    if (field === "used") return usedDays;
-    if (field === "bal") return allocatedDays - usedDays;
+    if (field === "alloc") return allocated;
+    if (field === "used") return used;
+    if (field === "bal") return balance;
     return 0;
   };
 
-  const formatNumber = (value) => {
-    return value || 0;
+  const formatNumber = (value) => value ?? 0;
+
+  // Pick the tint color per leave type. Falls back to a neutral tint.
+  const getLeaveTypeTint = (leaveTypeName = "") => {
+    const key = leaveTypeName.toLowerCase();
+
+    // Loss of pay / unpaid → light red
+    if (key.includes("loss") || key.includes("unpaid")) {
+      return {
+        header: "bg-red-50 dark:bg-red-900/20",
+        cell: "bg-red-50/40 dark:bg-red-900/10",
+        border: "border-l border-red-100 dark:border-red-900/40",
+      };
+    }
+
+    // Annual leave (and any other "regular" leave) → amber
+    return {
+      header: "bg-amber-50 dark:bg-amber-900/20",
+      cell: "",
+      border: "border-l border-gray-200 dark:border-gray-700",
+    };
+  };
+
+  const getEmployeePhoto = (avatarPath) => {
+    if (!avatarPath) return null;
+    if (avatarPath.startsWith("http") || avatarPath.startsWith("data:")) {
+      return avatarPath;
+    }
+    const baseUrl =
+      import.meta.env.VITE_API_URL?.replace("/api", "") ||
+      window.location.origin;
+    if (avatarPath.startsWith("/storage/")) return `${baseUrl}${avatarPath}`;
+    return `${baseUrl}/storage/${avatarPath.replace(/^\/+/, "")}`;
   };
 
   if (loading) {
@@ -204,6 +141,10 @@ const LeaveAllocations = () => {
       </div>
     );
   }
+
+  // Total number of table columns:
+  //   # + Employee + (3 per leave type) + Action
+  const totalCols = 3 + leaveTypeColumns.length * 3;
 
   return (
     <div className="w-full overflow-x-hidden">
@@ -233,7 +174,7 @@ const LeaveAllocations = () => {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            to={`/${basePath}/leaves/leave-policy`}
+            to={`/${basePath}/leaves/leave-policies`}
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-all shadow-sm hover:shadow-md"
           >
             <i className="fas fa-shield-halved"></i>
@@ -241,7 +182,7 @@ const LeaveAllocations = () => {
           </Link>
 
           <Link
-            to={`/${basePath}/leaves/leave-policy`}
+            to={`/${basePath}/leaves`}
             className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-all"
           >
             <i className="fas fa-arrow-left"></i>
@@ -265,8 +206,42 @@ const LeaveAllocations = () => {
       {/* Leave Allocations Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
         <div className="min-w-[800px]">
-          <table className="w-full border-collapse">
+          <table className="w-full table-fixed border-collapse">
+            <colgroup>
+              <col className="w-[5%]" /> {/* # */}
+              <col className="w-[35%]" /> {/* Employee */}
+              {leaveTypeColumns.map((lt) => (
+                <React.Fragment key={lt}>
+                  <col className="w-[10%]" /> {/* Alloc */}
+                  <col className="w-[8%]" /> {/* Used */}
+                  <col className="w-[8%]" /> {/* Bal */}
+                </React.Fragment>
+              ))}
+              <col className="w-[5%]" /> {/* Action */}
+            </colgroup>
             <thead>
+              {/* Row 1 — leave type names (colspan 3 each) */}
+              <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 w-12"></th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400"></th>
+
+                {leaveTypeColumns.map((lt) => {
+                  const tint = getLeaveTypeTint(lt);
+                  return (
+                    <th
+                      key={lt}
+                      colSpan={3}
+                      className={`px-3 py-2 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 ${tint.header} ${tint.border}`}
+                    >
+                      {lt}
+                    </th>
+                  );
+                })}
+
+                <th className="px-3 py-2 w-12"></th>
+              </tr>
+
+              {/* Row 2 — Alloc | Used | Bal sub-headers */}
               <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
                   #
@@ -274,16 +249,30 @@ const LeaveAllocations = () => {
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
                   Employee
                 </th>
-                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap bg-amber-50 dark:bg-amber-900/20">
-                  <div>Annual Leave</div>
-                  <div className="flex justify-center gap-1.5 mt-0.5 text-[9px] text-gray-400">
-                    <span>Alloc</span>
-                    <span className="text-gray-300">|</span>
-                    <span>Used</span>
-                    <span className="text-gray-300">|</span>
-                    <span>Bal</span>
-                  </div>
-                </th>
+
+                {leaveTypeColumns.map((lt) => {
+                  const tint = getLeaveTypeTint(lt);
+                  return (
+                    <React.Fragment key={lt}>
+                      <th
+                        className={`px-2 py-1.5 text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 ${tint.header} ${tint.border} w-16`}
+                      >
+                        Alloc
+                      </th>
+                      <th
+                        className={`px-2 py-1.5 text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 ${tint.header} w-16`}
+                      >
+                        Used
+                      </th>
+                      <th
+                        className={`px-2 py-1.5 text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 ${tint.header} w-16`}
+                      >
+                        Bal
+                      </th>
+                    </React.Fragment>
+                  );
+                })}
+
                 <th className="px-3 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
                   Action
                 </th>
@@ -292,48 +281,7 @@ const LeaveAllocations = () => {
             <tbody>
               {pageEmployees.length > 0 ? (
                 pageEmployees.map((employee, idx) => {
-                  const getEmployeePhoto = (avatarPath) => {
-                    if (!avatarPath) return null;
-
-                    // Already a full URL or data URI
-                    if (
-                      avatarPath.startsWith("http") ||
-                      avatarPath.startsWith("data:")
-                    ) {
-                      return avatarPath;
-                    }
-
-                    const baseUrl =
-                      import.meta.env.VITE_API_URL?.replace("/api", "") ||
-                      window.location.origin;
-
-                    // Handle the common patterns:
-                    //   "avatars/foo.png"  →  <base>/storage/avatars/foo.png
-                    //   "/storage/foo.png" →  <base>/storage/foo.png
-                    if (avatarPath.startsWith("/storage/"))
-                      return `${baseUrl}${avatarPath}`;
-                    return `${baseUrl}/storage/${avatarPath.replace(/^\/+/, "")}`;
-                  };
                   const photoUrl = getEmployeePhoto(employee.avatar);
-
-                  const annualAlloc = getAllocationValue(
-                    employee.id,
-                    employee.name,
-                    "Annual Leave",
-                    "alloc",
-                  );
-                  const annualUsed = getAllocationValue(
-                    employee.id,
-                    employee.name,
-                    "Annual Leave",
-                    "used",
-                  );
-                  const annualBal = getAllocationValue(
-                    employee.id,
-                    employee.name,
-                    "Annual Leave",
-                    "bal",
-                  );
 
                   return (
                     <tr
@@ -343,6 +291,7 @@ const LeaveAllocations = () => {
                       <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400 text-center">
                         {start + idx + 1}
                       </td>
+
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
                           {photoUrl ? (
@@ -370,38 +319,51 @@ const LeaveAllocations = () => {
                         </div>
                       </td>
 
-                      {/* Annual Leave Values */}
-                      <td className="px-3 py-2 text-center">
-                        <div className="flex justify-center items-center gap-1.5">
-                          <span className="text-sm font-semibold text-green-600 dark:text-green-400 min-w-[28px] text-center">
-                            {formatNumber(annualAlloc)}
-                          </span>
-                          <span className="text-gray-300 dark:text-gray-600">
-                            |
-                          </span>
-                          <span className="text-sm text-gray-600 dark:text-gray-400 min-w-[28px] text-center">
-                            {formatNumber(annualUsed)}
-                          </span>
-                          <span className="text-gray-300 dark:text-gray-600">
-                            |
-                          </span>
-                          <span
-                            className={`text-sm font-semibold min-w-[28px] text-center ${
-                              annualBal < 0
-                                ? "text-red-600 dark:text-red-400"
-                                : "text-blue-600 dark:text-blue-400"
-                            }`}
-                          >
-                            {formatNumber(annualBal)}
-                          </span>
-                        </div>
-                      </td>
+                      {/* One 3-cell group per leave type */}
+                      {leaveTypeColumns.map((lt) => {
+                        const tint = getLeaveTypeTint(lt);
+                        const alloc = getLeaveTypeValue(employee, lt, "alloc");
+                        const used = getLeaveTypeValue(employee, lt, "used");
+                        const bal = getLeaveTypeValue(employee, lt, "bal");
+
+                        return (
+                          <React.Fragment key={lt}>
+                            <td
+                              className={`px-2 py-2 text-center ${tint.cell} ${tint.border}`}
+                            >
+                              <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                                {formatNumber(alloc)}
+                              </span>
+                            </td>
+                            <td
+                              className={`px-2 py-2 text-center ${tint.cell}`}
+                            >
+                              <span className="text-sm text-gray-600 dark:text-gray-400">
+                                {formatNumber(used)}
+                              </span>
+                            </td>
+                            <td
+                              className={`px-2 py-2 text-center ${tint.cell}`}
+                            >
+                              <span
+                                className={`text-sm font-semibold ${
+                                  bal < 0
+                                    ? "text-red-600 dark:text-red-400"
+                                    : "text-blue-600 dark:text-blue-400"
+                                }`}
+                              >
+                                {formatNumber(bal)}
+                              </span>
+                            </td>
+                          </React.Fragment>
+                        );
+                      })}
 
                       <td className="px-3 py-2 text-center">
                         <Link
                           to={`/admin/leaves/allocations/${employee.id}`}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors inline-block"
-                          title="Edit Allocations"
+                          title="View Allocations"
                         >
                           <i className="fas fa-edit text-sm"></i>
                         </Link>
@@ -412,7 +374,7 @@ const LeaveAllocations = () => {
               ) : (
                 <tr>
                   <td
-                    colSpan="4"
+                    colSpan={totalCols}
                     className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                   >
                     No employees found
