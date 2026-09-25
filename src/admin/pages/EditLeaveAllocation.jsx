@@ -48,6 +48,17 @@ const EditLeaveAllocation = () => {
     return null;
   };
 
+  // Loss Of Pay (and unpaid variants) only show Used — no Allocated / Balance.
+  const isLossOfPayType = (name = "") => {
+    const key = String(name).trim().toLowerCase();
+    return (
+      key.includes("loss of pay") ||
+      key.includes("loss-of-pay") ||
+      key.includes("lop") ||
+      key.includes("unpaid")
+    );
+  };
+
   // Fetch leave balances (this response now carries both employee + leave types)
   useEffect(() => {
     const run = async () => {
@@ -253,51 +264,80 @@ const EditLeaveAllocation = () => {
               No leave allocation records found
             </p>
           ) : (
-            <div className="space-y-2">
-              {/* Column headers */}
-              <div className="grid grid-cols-4 gap-2 pb-2 border-b border-gray-100 dark:border-gray-700">
-                <span className="text-[10px] uppercase tracking-wide text-gray-400">
-                  Leave Type
-                </span>
-                <span className="text-[10px] uppercase tracking-wide text-gray-400 text-center">
-                  Allocated
-                </span>
-                <span className="text-[10px] uppercase tracking-wide text-gray-400 text-center">
-                  Used
-                </span>
-                <span className="text-[10px] uppercase tracking-wide text-gray-400 text-center">
-                  Balance
-                </span>
-              </div>
+            <div className="space-y-3">
+              {leaveRows.map((row) => {
+                const isLop = isLossOfPayType(row.name);
 
-              {leaveRows.map((row) => (
-                <div
-                  key={row.name}
-                  className="grid grid-cols-4 gap-2 items-center py-2 border-b border-gray-100 dark:border-gray-700/70"
-                >
-                  <div className="flex items-center gap-2">
-                    <i className="fas fa-suitcase text-green-500 text-xs"></i>
-                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      {row.name}
-                    </span>
-                  </div>
-                  <div className="text-center text-xs font-semibold text-gray-800 dark:text-gray-200">
-                    {row.allocated}
-                  </div>
-                  <div className="text-center text-xs text-gray-600 dark:text-gray-400">
-                    {row.used}
-                  </div>
+                // ── Loss Of Pay → single-line row ──
+                if (isLop) {
+                  return (
+                    <div
+                      key={row.name}
+                      className="flex items-center justify-between px-3 py-2 rounded-xl border border-gray-100 dark:border-gray-700/70 bg-gray-50/40 dark:bg-gray-900/20"
+                    >
+                      <div className="flex items-center gap-2">
+                        <i className="fas fa-suitcase text-red-500 text-xs"></i>
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                          {row.name}
+                        </span>
+                      </div>
+                      <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                        Used: {row.used}
+                      </span>
+                    </div>
+                  );
+                }
+
+                // ── Regular leave types → full card with 3 columns ──
+                return (
                   <div
-                    className={`text-center text-xs font-semibold ${
-                      row.balance < 0
-                        ? "text-red-600 dark:text-red-400"
-                        : "text-green-600 dark:text-green-400"
-                    }`}
+                    key={row.name}
+                    className="p-3 rounded-xl border border-gray-100 dark:border-gray-700/70 bg-gray-50/40 dark:bg-gray-900/20"
                   >
-                    {row.balance}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <i className="fas fa-suitcase text-green-500 text-xs"></i>
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                          {row.name}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="text-center">
+                        <div className="text-[10px] uppercase tracking-wide text-gray-400">
+                          Allocated
+                        </div>
+                        <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-0.5">
+                          {row.allocated}
+                        </div>
+                      </div>
+                      <div className="text-center border-x border-gray-100 dark:border-gray-700/70">
+                        <div className="text-[10px] uppercase tracking-wide text-gray-400">
+                          Used
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                          {row.used}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-[10px] uppercase tracking-wide text-gray-400">
+                          Balance
+                        </div>
+                        <div
+                          className={`text-sm font-semibold mt-0.5 ${
+                            row.balance < 0
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-green-600 dark:text-green-400"
+                          }`}
+                        >
+                          {row.balance}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
