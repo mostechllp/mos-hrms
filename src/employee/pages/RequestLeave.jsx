@@ -75,6 +75,18 @@ const getLeaveTypeColor = (typeName) => {
   };
 };
 
+// Detect "loss of pay"-style leave types (case-insensitive, tolerant of
+// common naming variants) so we can hide the Claim Salary section.
+const isLossOfPay = (typeName = "") => {
+  const key = String(typeName).trim().toLowerCase();
+  return (
+    key.includes("loss of pay") ||
+    key.includes("loss-of-pay") ||
+    key.includes("lop") ||
+    key.includes("unpaid")
+  );
+};
+
 const RequestLeave = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -356,7 +368,10 @@ const RequestLeave = () => {
     formDataToSend.append("start_date", startDateFormatted);
     formDataToSend.append("end_date", endDateFormatted);
     formDataToSend.append("reason", formData.reason);
-    formDataToSend.append("claim_salary", formData.claim_salary);
+    formDataToSend.append(
+      "claim_salary",
+      selectedIsLossOfPay ? "0" : formData.claim_salary,
+    );
     formDataToSend.append("session1", formData.start_session);
     formDataToSend.append("session2", formData.end_session);
     formDataToSend.append("year", new Date().getFullYear().toString());
@@ -413,6 +428,11 @@ const RequestLeave = () => {
   const hasAllocation = allocatedLeaves > 0;
   const exceedsBalance =
     hasAllocation && totalDays > remaining && remaining >= 0;
+
+  const selectedLeaveType = leaveTypes.find(
+    (lt) => lt.id === parseInt(formData.leave_type_id),
+  );
+  const selectedIsLossOfPay = isLossOfPay(selectedLeaveType?.name);
 
   const getMinEndDate = () => {
     if (formData.start_date) {
@@ -490,16 +510,27 @@ const RequestLeave = () => {
               </label>
               <select
                 value={formData.leave_type_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, leave_type_id: e.target.value })
-                }
+                onChange={(e) => {
+                  const newId = e.target.value;
+                  const newType = leaveTypes.find(
+                    (lt) => lt.id === parseInt(newId),
+                  );
+                  setFormData((prev) => ({
+                    ...prev,
+                    leave_type_id: newId,
+                    // Reset claim_salary whenever the selected type changes to/from LOP
+                    claim_salary: isLossOfPay(newType?.name)
+                      ? "0"
+                      : prev.claim_salary,
+                  }));
+                }}
                 className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all cursor-pointer"
               >
                 <option value="">Select Leave Type</option>
                 {leaveTypes.map((type) => {
                   return (
                     <option key={type.id} value={type.id}>
-                      {type.name} 
+                      {type.name}
                     </option>
                   );
                 })}
@@ -634,45 +665,47 @@ const RequestLeave = () => {
               </small>
             </div>
 
-            {/* Claim Salary */}
-            <div className="form-field flex flex-row items-center gap-4 mb-6">
-              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1 whitespace-nowrap">
-                <i className="fas fa-money-bill-wave text-green-500" /> Claim
-                Salary
-              </label>
-              <div className="flex gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="claimSalary"
-                    value="1"
-                    checked={formData.claim_salary === "1"}
-                    onChange={() =>
-                      setFormData({ ...formData, claim_salary: "1" })
-                    }
-                    className="w-4 h-4 text-green-500 focus:ring-green-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Yes
-                  </span>
+            {/* Claim Salary — hidden for Loss Of Pay */}
+            {!selectedIsLossOfPay && (
+              <div className="form-field flex flex-row items-center gap-4 mb-6">
+                <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1 whitespace-nowrap">
+                  <i className="fas fa-money-bill-wave text-green-500" /> Claim
+                  Salary
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="claimSalary"
-                    value="0"
-                    checked={formData.claim_salary === "0"}
-                    onChange={() =>
-                      setFormData({ ...formData, claim_salary: "0" })
-                    }
-                    className="w-4 h-4 text-green-500 focus:ring-green-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    No
-                  </span>
-                </label>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="claimSalary"
+                      value="1"
+                      checked={formData.claim_salary === "1"}
+                      onChange={() =>
+                        setFormData({ ...formData, claim_salary: "1" })
+                      }
+                      className="w-4 h-4 text-green-500 focus:ring-green-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Yes
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="claimSalary"
+                      value="0"
+                      checked={formData.claim_salary === "0"}
+                      onChange={() =>
+                        setFormData({ ...formData, claim_salary: "0" })
+                      }
+                      className="w-4 h-4 text-green-500 focus:ring-green-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      No
+                    </span>
+                  </label>
+                </div>
               </div>
-            </div>
+            )}
 
             {exceedsBalance && (
               <div className="warning-message mb-6 p-3 bg-amber-500/10 border border-amber-500 rounded-lg text-amber-600 text-sm">
