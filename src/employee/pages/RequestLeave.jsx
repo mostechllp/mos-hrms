@@ -349,7 +349,7 @@ const RequestLeave = () => {
       const balance = leaveBalances[selectedLeaveType.name] || { remaining: 0 };
       if (totalDays > balance.remaining && balance.remaining >= 0) {
         setLocalError(
-          `Requested days (${totalDays}) exceed available ${selectedLeaveType.name} balance (${balance.remaining} days)`,
+          `Requested days (${totalDays}) exceed available ${selectedLeaveType.name} balance. Your balance is ${balance.remaining} days and 0.5 will be calculated as LOP`,
         );
         return;
       }
@@ -709,8 +709,8 @@ const RequestLeave = () => {
 
             {exceedsBalance && (
               <div className="warning-message mb-6 p-3 bg-amber-500/10 border border-amber-500 rounded-lg text-amber-600 text-sm">
-                ⚠️ Warning: Requested days ({totalDays}) exceed available
-                balance ({remaining} days)
+                ⚠️ Warning: 
+                Requested days {totalDays} exceed available {selectedLeaveType.name} balance. Your balance is {remaining} days and {totalDays - remaining} days will be calculated as LOP.
               </div>
             )}
 

@@ -360,7 +360,7 @@ function App() {
           <Route path="leaves" element={<Leaves />} />
           <Route path="leaves/leave-types" element={<LeaveTypeManagement />} />
           <Route path="leaves/allocations" element={<LeaveAllocations />} />
-          <Route path="leaves/leave-policy" element={<LeavePolicy />} />
+          <Route path="leaves/leave-policies" element={<LeavePolicy />} />
           <Route
             path="leaves/allocations/:id"
             element={<EditLeaveAllocation />}
@@ -444,7 +444,7 @@ function App() {
           />
           <Route path="leaves" element={<EmployeeLeaves />} />
           <Route path="leaves/leave-types" element={<LeaveTypeManagement />} />
-          <Route path="leaves/leave-policy" element={<LeavePolicy />} />
+          <Route path="leaves/leave-policies" element={<LeavePolicy />} />
           <Route path="request-leave" element={<RequestLeave />} />
           <Route path="wfh" element={<EmployeeWFH />} />
           <Route path="my-tasks" element={<EmployeeTaskReports />} />
