@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import SearchBar from "@admin/components/common/SearchBar";
 import EntriesSelector from "@admin/components/common/EntriesSelector";
 import LeaveModal from "@admin/components/leaves/LeaveModal";
@@ -23,6 +23,7 @@ const Leaves = () => {
   const { leaves = [], error = null, currentLeave = null } = useSelector((state) => {
     return state.leaves || { leaves: [], currentLeave: null };
   });
+  const location = useLocation();
    const basePath = location.pathname.split("/")[1] || "admin";
 
   const [statusFilter, setStatusFilter] = useState("all");

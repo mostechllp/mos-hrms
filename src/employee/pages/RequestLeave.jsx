@@ -421,6 +421,12 @@ const RequestLeave = () => {
   );
   const selectedIsLossOfPay = isLossOfPay(selectedLeaveType?.name);
 
+  // Current month name (e.g. "September 2026")
+  const currentMonthLabel = new Date().toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
   const getMinEndDate = () => {
     if (formData.start_date) {
       return formData.start_date;
@@ -696,8 +702,9 @@ const RequestLeave = () => {
 
             {exceedsBalance && (
               <div className="warning-message mb-6 p-3 bg-amber-500/10 border border-amber-500 rounded-lg text-amber-600 text-sm">
-                ⚠️ Warning: 
-                Requested days {totalDays} exceed available {selectedLeaveType.name} balance. Your balance is {remaining} days and {totalDays - remaining} days will be calculated as LOP.
+                ⚠️ Warning: Requested days {totalDays} exceed available{" "}
+                {selectedLeaveType.name} balance. Your balance is {remaining}{" "}
+                days and {totalDays - remaining} days will be calculated as LOP.
               </div>
             )}
 
@@ -791,6 +798,28 @@ const RequestLeave = () => {
                   </div>
                 </div>
               </div>
+
+              <div className="info-note mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  <FiAlertCircle className="inline mr-1" />
+                  Leave requests require approval from HR/Admin
+                </p>
+              </div>
+              {/* ── Accrual info ── */}
+              {!selectedIsLossOfPay && (
+                <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40">
+                  <div className="flex items-start gap-2">
+                    <i className="fas fa-clock text-amber-600 dark:text-amber-400 text-xs mt-0.5"></i>
+                    <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+                      The allocation shown reflects the leave accrued up to{" "}
+                      <span className="font-semibold">{currentMonthLabel}</span>
+                      . Additional days will be credited to your account each
+                      coming month, based on the accrual policy configured by
+                      HR/Admin.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="info-note mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <p className="text-xs text-blue-600 dark:text-blue-400">

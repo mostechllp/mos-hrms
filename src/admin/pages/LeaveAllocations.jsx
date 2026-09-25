@@ -9,6 +9,31 @@ import {
   fetchAllLeaveAllocations,
 } from "@admin/store/slices/LeaveSlice";
 
+// ── Helpers (outside the component — stable, no deps) ──
+
+// Decide the tint and which sub-columns each leave type shows.
+//   Annual Leave (and most types) → Alloc / Used / Bal   (amber tint)
+//   Loss Of Pay / Unpaid         → Used only              (light red tint)
+const getLeaveTypeConfig = (leaveTypeName = "") => {
+  const key = String(leaveTypeName).toLowerCase();
+
+  if (key.includes("loss") || key.includes("unpaid")) {
+    return {
+      columns: ["used"],
+      header: "bg-red-50 dark:bg-red-900/20",
+      cell: "bg-red-50/40 dark:bg-red-900/10",
+      border: "border-l border-red-100 dark:border-red-900/40",
+    };
+  }
+
+  return {
+    columns: ["alloc", "used", "bal"],
+    header: "bg-amber-50 dark:bg-amber-900/20",
+    cell: "",
+    border: "border-l border-gray-200 dark:border-gray-700",
+  };
+};
+
 const LeaveAllocations = () => {
   const dispatch = useDispatch();
   const location = useLocation();
@@ -47,8 +72,7 @@ const LeaveAllocations = () => {
       .filter((e) => e.name);
   }, [allAllocations]);
 
-  // ── Collect all distinct leave-type names from the allocations ──
-  // Preserves the order they first appear in the API response (e.g. Annual Leave, Loss Of Pay)
+  // ── Collect all distinct leave-type names (preserving API order) ──
   const leaveTypeColumns = useMemo(() => {
     const seen = new Set();
     const cols = [];
@@ -63,6 +87,16 @@ const LeaveAllocations = () => {
     });
     return cols;
   }, [allocationEmployees]);
+
+  // ── Per-type config (tint + which sub-columns to render) ──
+  const leaveTypeConfigs = useMemo(
+    () =>
+      leaveTypeColumns.map((lt) => ({
+        name: lt,
+        ...getLeaveTypeConfig(lt),
+      })),
+    [leaveTypeColumns],
+  );
 
   const getFilteredEmployees = () => {
     let filtered = [...allocationEmployees];
@@ -99,27 +133,6 @@ const LeaveAllocations = () => {
 
   const formatNumber = (value) => value ?? 0;
 
-  // Pick the tint color per leave type. Falls back to a neutral tint.
-  const getLeaveTypeTint = (leaveTypeName = "") => {
-    const key = leaveTypeName.toLowerCase();
-
-    // Loss of pay / unpaid → light red
-    if (key.includes("loss") || key.includes("unpaid")) {
-      return {
-        header: "bg-red-50 dark:bg-red-900/20",
-        cell: "bg-red-50/40 dark:bg-red-900/10",
-        border: "border-l border-red-100 dark:border-red-900/40",
-      };
-    }
-
-    // Annual leave (and any other "regular" leave) → amber
-    return {
-      header: "bg-amber-50 dark:bg-amber-900/20",
-      cell: "",
-      border: "border-l border-gray-200 dark:border-gray-700",
-    };
-  };
-
   const getEmployeePhoto = (avatarPath) => {
     if (!avatarPath) return null;
     if (avatarPath.startsWith("http") || avatarPath.startsWith("data:")) {
@@ -143,8 +156,9 @@ const LeaveAllocations = () => {
   }
 
   // Total number of table columns:
-  //   # + Employee + (3 per leave type) + Action
-  const totalCols = 3 + leaveTypeColumns.length * 3;
+  //   # + Employee + (dynamic count per leave type) + Action
+  const totalCols =
+    3 + leaveTypeConfigs.reduce((sum, cfg) => sum + cfg.columns.length, 0);
 
   return (
     <div className="w-full overflow-x-hidden">
@@ -207,41 +221,40 @@ const LeaveAllocations = () => {
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
         <div className="min-w-[800px]">
           <table className="w-full table-fixed border-collapse">
+            {/* Colgroup matches the dynamic column count per type */}
             <colgroup>
               <col className="w-[5%]" /> {/* # */}
               <col className="w-[35%]" /> {/* Employee */}
-              {leaveTypeColumns.map((lt) => (
-                <React.Fragment key={lt}>
-                  <col className="w-[10%]" /> {/* Alloc */}
-                  <col className="w-[8%]" /> {/* Used */}
-                  <col className="w-[8%]" /> {/* Bal */}
+              {leaveTypeConfigs.map((cfg) => (
+                <React.Fragment key={cfg.name}>
+                  {cfg.columns.includes("alloc") && <col className="w-[10%]" />}
+                  {cfg.columns.includes("used") && <col className="w-[8%]" />}
+                  {cfg.columns.includes("bal") && <col className="w-[8%]" />}
                 </React.Fragment>
               ))}
               <col className="w-[5%]" /> {/* Action */}
             </colgroup>
+
             <thead>
-              {/* Row 1 — leave type names (colspan 3 each) */}
+              {/* Row 1 — leave type names (colspan = columns.length) */}
               <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 w-12"></th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400"></th>
 
-                {leaveTypeColumns.map((lt) => {
-                  const tint = getLeaveTypeTint(lt);
-                  return (
-                    <th
-                      key={lt}
-                      colSpan={3}
-                      className={`px-3 py-2 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 ${tint.header} ${tint.border}`}
-                    >
-                      {lt}
-                    </th>
-                  );
-                })}
+                {leaveTypeConfigs.map((cfg) => (
+                  <th
+                    key={cfg.name}
+                    colSpan={cfg.columns.length}
+                    className={`px-3 py-2 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 ${cfg.header} ${cfg.border}`}
+                  >
+                    {cfg.name}
+                  </th>
+                ))}
 
                 <th className="px-3 py-2 w-12"></th>
               </tr>
 
-              {/* Row 2 — Alloc | Used | Bal sub-headers */}
+              {/* Row 2 — dynamic sub-headers per type */}
               <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
                   #
@@ -250,34 +263,38 @@ const LeaveAllocations = () => {
                   Employee
                 </th>
 
-                {leaveTypeColumns.map((lt) => {
-                  const tint = getLeaveTypeTint(lt);
-                  return (
-                    <React.Fragment key={lt}>
+                {leaveTypeConfigs.map((cfg) => (
+                  <React.Fragment key={cfg.name}>
+                    {cfg.columns.includes("alloc") && (
                       <th
-                        className={`px-2 py-1.5 text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 ${tint.header} ${tint.border} w-16`}
+                        className={`px-2 py-1.5 text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 ${cfg.header} ${cfg.border} w-16`}
                       >
                         Alloc
                       </th>
+                    )}
+                    {cfg.columns.includes("used") && (
                       <th
-                        className={`px-2 py-1.5 text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 ${tint.header} w-16`}
+                        className={`px-2 py-1.5 text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 ${cfg.header} w-16`}
                       >
                         Used
                       </th>
+                    )}
+                    {cfg.columns.includes("bal") && (
                       <th
-                        className={`px-2 py-1.5 text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 ${tint.header} w-16`}
+                        className={`px-2 py-1.5 text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 ${cfg.header} w-16`}
                       >
                         Bal
                       </th>
-                    </React.Fragment>
-                  );
-                })}
+                    )}
+                  </React.Fragment>
+                ))}
 
                 <th className="px-3 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
                   Action
                 </th>
               </tr>
             </thead>
+
             <tbody>
               {pageEmployees.length > 0 ? (
                 pageEmployees.map((employee, idx) => {
@@ -313,55 +330,72 @@ const LeaveAllocations = () => {
                           >
                             {employee.name?.charAt(0) || "?"}
                           </div>
-                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                             {employee.name}
                           </span>
                         </div>
                       </td>
 
-                      {/* One 3-cell group per leave type */}
-                      {leaveTypeColumns.map((lt) => {
-                        const tint = getLeaveTypeTint(lt);
-                        const alloc = getLeaveTypeValue(employee, lt, "alloc");
-                        const used = getLeaveTypeValue(employee, lt, "used");
-                        const bal = getLeaveTypeValue(employee, lt, "bal");
+                      {/* Dynamic cell group per leave type */}
+                      {leaveTypeConfigs.map((cfg) => {
+                        const alloc = getLeaveTypeValue(
+                          employee,
+                          cfg.name,
+                          "alloc",
+                        );
+                        const used = getLeaveTypeValue(
+                          employee,
+                          cfg.name,
+                          "used",
+                        );
+                        const bal = getLeaveTypeValue(
+                          employee,
+                          cfg.name,
+                          "bal",
+                        );
 
                         return (
-                          <React.Fragment key={lt}>
-                            <td
-                              className={`px-2 py-2 text-center ${tint.cell} ${tint.border}`}
-                            >
-                              <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                                {formatNumber(alloc)}
-                              </span>
-                            </td>
-                            <td
-                              className={`px-2 py-2 text-center ${tint.cell}`}
-                            >
-                              <span className="text-sm text-gray-600 dark:text-gray-400">
-                                {formatNumber(used)}
-                              </span>
-                            </td>
-                            <td
-                              className={`px-2 py-2 text-center ${tint.cell}`}
-                            >
-                              <span
-                                className={`text-sm font-semibold ${
-                                  bal < 0
-                                    ? "text-red-600 dark:text-red-400"
-                                    : "text-blue-600 dark:text-blue-400"
-                                }`}
+                          <React.Fragment key={cfg.name}>
+                            {cfg.columns.includes("alloc") && (
+                              <td
+                                className={`px-2 py-2 text-center ${cfg.cell} ${cfg.border}`}
                               >
-                                {formatNumber(bal)}
-                              </span>
-                            </td>
+                                <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                                  {formatNumber(alloc)}
+                                </span>
+                              </td>
+                            )}
+                            {cfg.columns.includes("used") && (
+                              <td
+                                className={`px-2 py-2 text-center ${cfg.cell}`}
+                              >
+                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                  {formatNumber(used)}
+                                </span>
+                              </td>
+                            )}
+                            {cfg.columns.includes("bal") && (
+                              <td
+                                className={`px-2 py-2 text-center ${cfg.cell}`}
+                              >
+                                <span
+                                  className={`text-sm font-semibold ${
+                                    bal < 0
+                                      ? "text-red-600 dark:text-red-400"
+                                      : "text-blue-600 dark:text-blue-400"
+                                  }`}
+                                >
+                                  {formatNumber(bal)}
+                                </span>
+                              </td>
+                            )}
                           </React.Fragment>
                         );
                       })}
 
                       <td className="px-3 py-2 text-center">
                         <Link
-                          to={`/admin/leaves/allocations/${employee.id}`}
+                          to={`/${basePath}/leaves/allocations/${employee.id}`}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors inline-block"
                           title="View Allocations"
                         >

@@ -311,7 +311,7 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
                   const balance = leaveBalances[type.id] || { remaining: 0 };
                   return (
                     <option key={type.id} value={type.id}>
-                      {type.name} {employeeId && !loadingBalances ? `(Available: ${balance.remaining})` : ''}
+                      {type.name}
                     </option>
                   );
                 })}
