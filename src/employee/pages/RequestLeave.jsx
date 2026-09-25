@@ -342,19 +342,6 @@ const RequestLeave = () => {
       return;
     }
 
-    const selectedLeaveType = leaveTypes.find(
-      (lt) => lt.id === parseInt(formData.leave_type_id),
-    );
-    if (selectedLeaveType) {
-      const balance = leaveBalances[selectedLeaveType.name] || { remaining: 0 };
-      if (totalDays > balance.remaining && balance.remaining >= 0) {
-        setLocalError(
-          `Requested days (${totalDays}) exceed available ${selectedLeaveType.name} balance. Your balance is ${balance.remaining} days and 0.5 will be calculated as LOP`,
-        );
-        return;
-      }
-    }
-
     const formDataToSend = new FormData();
     // Convert dates to YYYY-MM-DD for the API
     const startDateFormatted = formData.start_date.includes("/")
