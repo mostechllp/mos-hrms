@@ -497,10 +497,9 @@ const RequestLeave = () => {
               >
                 <option value="">Select Leave Type</option>
                 {leaveTypes.map((type) => {
-                  const balance = leaveBalances[type.name] || { remaining: 0 };
                   return (
                     <option key={type.id} value={type.id}>
-                      {type.name} (Available: {balance.remaining} days)
+                      {type.name} 
                     </option>
                   );
                 })}
