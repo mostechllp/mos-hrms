@@ -266,34 +266,49 @@ const transformLeaveBalanceData = (data = {}) => {
       : totalAllocated - totalUsed;
 
   leaveTypes.forEach((type) => {
-    const alloc = allocByTypeId[String(type.id)];
+  const alloc = allocByTypeId[String(type.id)];
 
-    // If this type has its own allocation row, use it.
-    // Otherwise fall back to the aggregate (which effectively means 0 for
-    // "Loss Of Pay" since there's no allocation for it).
-    const allocatedDays = alloc
-      ? parseFloat(alloc.allocated_days) || 0
-      : leaveTypes.length === 1
-        ? totalAllocated
-        : 0;
+  const allocatedDays = alloc
+    ? parseFloat(alloc.allocated_days) || 0
+    : leaveTypes.length === 1
+      ? totalAllocated
+      : 0;
 
-    const usedDays = alloc
-      ? parseFloat(alloc.used_days ?? alloc.used ?? 0) || 0
-      : leaveTypes.length === 1
-        ? totalUsed
-        : 0;
+  // Does the per-type row carry its own used/remaining values?
+  const hasPerTypeUsed =
+    alloc && (alloc.used_days != null || alloc.used != null);
+  const hasPerTypeRemaining =
+    alloc && (alloc.remaining != null || alloc.balance != null);
 
-    leaveBalances[type.name] = {
-      id: type.id,
-      name: type.name,
-      allocated: allocatedDays,
-      allocated_days: allocatedDays,
-      taken: usedDays,
-      used: usedDays,
-      pending: 0,
-      remaining: allocatedDays - usedDays,
-    };
-  });
+  // When there's exactly one leave type with an allocation, the aggregate
+  // `used` and `balance` from the API belong to it.
+  const isSingleTypeOwner =
+    leaveTypes.filter((t) => allocByTypeId[String(t.id)]).length === 1 &&
+    alloc != null;
+
+  const usedDays = hasPerTypeUsed
+    ? parseFloat(alloc.used_days ?? alloc.used) || 0
+    : isSingleTypeOwner
+      ? totalUsed
+      : 0;
+
+  const remainingDays = hasPerTypeRemaining
+    ? parseFloat(alloc.remaining ?? alloc.balance)
+    : isSingleTypeOwner
+      ? totalRemaining
+      : allocatedDays - usedDays;
+
+  leaveBalances[type.name] = {
+    id: type.id,
+    name: type.name,
+    allocated: allocatedDays,
+    allocated_days: allocatedDays,
+    taken: usedDays,
+    used: usedDays,
+    pending: 0,
+    remaining: remainingDays,
+  };
+});
 
   // Also expose a `total` entry (used by the balance card fallback)
   leaveBalances.total = {
