@@ -239,117 +239,79 @@ export const fetchLeaveById = createAsyncThunk(
   },
 );
 
-// Helper function to transform leave balance data
-// Helper function to transform leave balance data
 const transformLeaveBalanceData = (data = {}) => {
   const leaveBalances = {};
 
-  console.log("Transforming leave balance data:", data);
-
   const leaveTypes = data.leave_types || [];
-  const allocations = data.allocations || {};
 
-  // Top-level aggregates (present in the current API shape)
-  const hasAggregate =
-    data.balance !== undefined ||
-    data.used !== undefined ||
-    data.allocated !== undefined;
+  const rawAllocations = data.allocations || {};
+  const allocationsList = Array.isArray(rawAllocations)
+    ? rawAllocations
+    : Object.values(rawAllocations);
 
+  // Index allocations by leave_type_id for quick lookup
+  const allocByTypeId = {};
+  allocationsList.forEach((a) => {
+    if (a?.leave_type_id != null) {
+      allocByTypeId[String(a.leave_type_id)] = a;
+    }
+  });
+
+  // Per-type fallback used ONLY when a type has no allocation row
   const totalAllocated = Number(data.allocated) || 0;
   const totalUsed = Number(data.used) || 0;
   const totalRemaining =
-    data.balance !== undefined ? Number(data.balance) : totalAllocated - totalUsed;
+    data.balance !== undefined
+      ? Number(data.balance)
+      : totalAllocated - totalUsed;
 
-  // Build a lookup of allocations by leave_type_id
-  const allocByTypeId = {};
-  const allocationsList =
-    typeof allocations === "object" && !Array.isArray(allocations)
-      ? Object.values(allocations)
-      : Array.isArray(allocations)
-        ? allocations
-        : [];
+  leaveTypes.forEach((type) => {
+    const alloc = allocByTypeId[String(type.id)];
 
-  allocationsList.forEach((alloc) => {
-    if (alloc?.leave_type_id != null) {
-      allocByTypeId[String(alloc.leave_type_id)] = alloc;
-    }
-  });
-
-  // Case A: multiple leave types, per-type breakdown available
-  if (leaveTypes.length > 0 && !hasAggregate) {
-    leaveTypes.forEach((leaveType) => {
-      const alloc = allocByTypeId[String(leaveType.id)];
-      const allocatedDays = alloc ? parseFloat(alloc.allocated_days) || 0 : 0;
-      const usedDays = alloc
-        ? parseFloat(alloc.used_days ?? alloc.used ?? 0) || 0
+    // If this type has its own allocation row, use it.
+    // Otherwise fall back to the aggregate (which effectively means 0 for
+    // "Loss Of Pay" since there's no allocation for it).
+    const allocatedDays = alloc
+      ? parseFloat(alloc.allocated_days) || 0
+      : leaveTypes.length === 1
+        ? totalAllocated
         : 0;
 
-      leaveBalances[leaveType.name] = {
-        id: leaveType.id,
-        name: leaveType.name,
-        allocated: allocatedDays,
-        allocated_days: allocatedDays,
-        taken: usedDays,
-        used: usedDays,
-        pending: 0,
-        remaining: allocatedDays - usedDays,
-      };
-    });
-  } else {
-    // Case B: aggregate shape — same totals applied to every leave type
-    // (typical when there's a single leave type, e.g. "Annual Leave")
-    leaveTypes.forEach((leaveType) => {
-      const alloc = allocByTypeId[String(leaveType.id)];
-      const allocatedDays =
-        Number(data.allocated) ||
-        (alloc ? parseFloat(alloc.allocated_days) || 0 : 0);
+    const usedDays = alloc
+      ? parseFloat(alloc.used_days ?? alloc.used ?? 0) || 0
+      : leaveTypes.length === 1
+        ? totalUsed
+        : 0;
 
-      leaveBalances[leaveType.name] = {
-        id: leaveType.id,
-        name: leaveType.name,
-        allocated: allocatedDays,
-        allocated_days: allocatedDays,
-        taken: totalUsed,
-        used: totalUsed,
-        pending: 0,
-        remaining: totalRemaining,
-      };
-    });
-
-    // If no leave types came back at all, still expose a generic "total" key
-    if (leaveTypes.length === 0) {
-      leaveBalances.total = {
-        allocated: totalAllocated,
-        allocated_days: totalAllocated,
-        taken: totalUsed,
-        used: totalUsed,
-        pending: 0,
-        remaining: totalRemaining,
-      };
-    }
-  }
-
-  // Recompute the "total" aggregate from whatever we built
-  let sumAllocated = 0;
-  let sumTaken = 0;
-  let sumRemaining = 0;
-  Object.values(leaveBalances).forEach((b) => {
-    if (b.name === undefined) return; // skip the preexisting "total" if any
-    sumAllocated += b.allocated || 0;
-    sumTaken += b.taken || 0;
-    sumRemaining += b.remaining || 0;
+    leaveBalances[type.name] = {
+      id: type.id,
+      name: type.name,
+      allocated: allocatedDays,
+      allocated_days: allocatedDays,
+      taken: usedDays,
+      used: usedDays,
+      pending: 0,
+      remaining: allocatedDays - usedDays,
+    };
   });
 
+  // Also expose a `total` entry (used by the balance card fallback)
   leaveBalances.total = {
-    allocated: sumAllocated || totalAllocated,
-    taken: sumTaken || totalUsed,
+    allocated: leaveTypes.reduce(
+      (sum, t) => sum + (leaveBalances[t.name]?.allocated || 0),
+      0,
+    ),
+    taken: leaveTypes.reduce(
+      (sum, t) => sum + (leaveBalances[t.name]?.taken || 0),
+      0,
+    ),
     pending: 0,
-    remaining:
-      sumRemaining ||
-      (totalRemaining !== undefined ? totalRemaining : sumAllocated - sumTaken),
+    remaining: leaveTypes.reduce(
+      (sum, t) => sum + (leaveBalances[t.name]?.remaining || 0),
+      0,
+    ),
   };
 
-  console.log("Processed leave balances:", leaveBalances);
   return leaveBalances;
 };
 

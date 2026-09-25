@@ -187,13 +187,13 @@ const Notifications = () => {
                       </div>
                     </div>
                     <div>
-                      <div
+                      {/* <div
                         className={`text-xs font-semibold mb-1 ${ui.typeColor}`}
                       >
                         {ui.alertType}
-                      </div>
-                      <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">
-                        {ui.type}
+                      </div> */}
+                      <h4 className={`text-sm font-bold ${ui.typeColor} mb-1`}>
+                        {ui.alertType}
                       </h4>
                       <p
                         className={`text-sm mb-2 ${
