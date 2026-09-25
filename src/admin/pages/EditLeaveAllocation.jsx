@@ -1,122 +1,88 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, Link } from "react-router-dom";
-import { fetchEmployeeById } from "@admin/store/slices/employeeSlice";
 import { fetchLeaveBalances } from "@admin/store/slices/LeaveSlice";
 
 const EditLeaveAllocation = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
-  const { currentEmployee } = useSelector((state) => state.employees || {});
 
-  const [leaveTypes, setLeaveTypes] = useState([]);
-  const [allocations, setAllocations] = useState({});
+  // Pull employee + leave_types straight from the leave-balance response
+  const [employee, setEmployee] = useState(null);
+  const [leaveRows, setLeaveRows] = useState([]);
   const [photoError, setPhotoError] = useState(false);
-  const [fetchingBalances, setFetchingBalances] = useState(true);
+  const [fetching, setFetching] = useState(true);
 
   // Helper: employee photo URL
-  const getEmployeePhoto = () => {
-    if (!currentEmployee) return null;
+  const getEmployeePhoto = (emp) => {
+    if (!emp) return null;
 
     const photoValue =
-      currentEmployee.avatar ||
-      currentEmployee.avatar_path ||
-      currentEmployee.passport_size_photo ||
-      currentEmployee.profile_photo ||
-      currentEmployee.photo ||
-      currentEmployee.user?.avatar;
+      emp.avatar ||
+      emp.avatar_path ||
+      emp.passport_size_photo ||
+      emp.profile_photo ||
+      emp.photo ||
+      emp.user?.avatar;
 
     if (!photoValue || photoError) return null;
 
+    const baseUrl =
+      import.meta.env.VITE_API_URL?.replace("/api", "") ||
+      window.location.origin;
+
     if (typeof photoValue === "object" && photoValue.path) {
-      const baseUrl =
-        import.meta.env.VITE_API_URL?.replace("/api", "") || "";
       return `${baseUrl}/storage/${photoValue.path}`;
     }
 
     if (typeof photoValue === "string") {
       if (photoValue.startsWith("/tmp/")) {
-        const baseUrl =
-          import.meta.env.VITE_API_URL?.replace("/api", "") || "";
         return `${baseUrl}/storage/temp/${photoValue.replace("/tmp/", "")}`;
       }
       if (photoValue.startsWith("data:")) return photoValue;
       if (photoValue.startsWith("http")) return photoValue;
-
-      const baseUrl =
-        import.meta.env.VITE_API_URL?.replace("/api", "") || "";
-      if (photoValue.startsWith("/storage/"))
-        return `${baseUrl}${photoValue}`;
+      if (photoValue.startsWith("/storage/")) return `${baseUrl}${photoValue}`;
       return `${baseUrl}/storage/${photoValue}`;
     }
 
     return null;
   };
 
-  // Fetch employee
-  useEffect(() => {
-    if (id) dispatch(fetchEmployeeById(id));
-  }, [dispatch, id]);
-
-  // Fetch leave balances + types for this employee (read-only)
+  // Fetch leave balances (this response now carries both employee + leave types)
   useEffect(() => {
     const run = async () => {
       if (!id) return;
-      setFetchingBalances(true);
+      setFetching(true);
       try {
         const result = await dispatch(
           fetchLeaveBalances({ employee_id: parseInt(id) }),
         ).unwrap();
 
-        // Leave types come with the response
-        const types = Array.isArray(result?.leave_types)
-          ? result.leave_types
+        // ── Employee ──
+        setEmployee(result?.employee || null);
+
+        // ── Leave type rows ──
+        // The API returns an array of { leave_type, allocated, used, balance }
+        const rows = Array.isArray(result?.leave_types)
+          ? result.leave_types.map((row) => ({
+              name: row.leave_type || row.name || "Leave",
+              allocated: parseFloat(row.allocated ?? 0) || 0,
+              used: parseFloat(row.used ?? 0) || 0,
+              balance:
+                row.balance != null
+                  ? parseFloat(row.balance)
+                  : (parseFloat(row.allocated ?? 0) || 0) -
+                    (parseFloat(row.used ?? 0) || 0),
+            }))
           : [];
-        setLeaveTypes(types);
 
-        // Build a per-type view model: { allocated, used, balance }
-        const byType = {};
-        const rawAllocations = result?.allocations || {};
-
-        // Allocations may be an object keyed by leave_type_id OR an array
-        const allocationsArray = Array.isArray(rawAllocations)
-          ? rawAllocations
-          : Object.values(rawAllocations);
-
-        types.forEach((t) => {
-          const row = allocationsArray.find(
-            (a) =>
-              String(a.leave_type_id) === String(t.id) ||
-              String(a.leave_type?.id) === String(t.id),
-          );
-
-          const allocated = row
-            ? parseFloat(row.allocated_days ?? row.allocated ?? 0)
-            : 0;
-
-          // The API returns `used` at the top level for the primary
-          // leave type; for others we fall back to a per-row value.
-          const used =
-            row?.used != null
-              ? parseFloat(row.used)
-              : String(result?.leave_types?.[0]?.id) === String(t.id)
-                ? parseFloat(result?.used ?? 0)
-                : 0;
-
-          byType[t.id] = {
-            allocated,
-            used,
-            balance: allocated - used,
-          };
-        });
-
-        setAllocations(byType);
+        setLeaveRows(rows);
       } catch (err) {
         console.error("Failed to fetch leave balances:", err);
-        setLeaveTypes([]);
-        setAllocations({});
+        setEmployee(null);
+        setLeaveRows([]);
       } finally {
-        setFetchingBalances(false);
+        setFetching(false);
       }
     };
 
@@ -124,7 +90,7 @@ const EditLeaveAllocation = () => {
   }, [dispatch, id]);
 
   // ── Loading / not-found states ──
-  if (fetchingBalances) {
+  if (fetching) {
     return (
       <div className="w-full px-4 md:px-6">
         <div className="flex justify-center items-center h-64">
@@ -134,7 +100,7 @@ const EditLeaveAllocation = () => {
     );
   }
 
-  if (!currentEmployee) {
+  if (!employee) {
     return (
       <div className="w-full px-4 md:px-6">
         <div className="flex justify-center items-center h-64">
@@ -153,9 +119,9 @@ const EditLeaveAllocation = () => {
     );
   }
 
-  const photoUrl = getEmployeePhoto();
-  const employeeInitials = `${currentEmployee?.first_name?.charAt(0) || ""}${
-    currentEmployee?.last_name?.charAt(0) || ""
+  const photoUrl = getEmployeePhoto(employee);
+  const employeeInitials = `${employee?.first_name?.charAt(0) || ""}${
+    employee?.last_name?.charAt(0) || ""
   }`;
 
   return (
@@ -206,7 +172,7 @@ const EditLeaveAllocation = () => {
             {photoUrl ? (
               <img
                 src={photoUrl}
-                alt={`${currentEmployee.first_name} ${currentEmployee.last_name}`}
+                alt={`${employee.first_name} ${employee.last_name}`}
                 className="w-12 h-12 rounded-full object-cover border-2 border-green-500 shadow-sm"
                 onError={() => setPhotoError(true)}
               />
@@ -220,13 +186,13 @@ const EditLeaveAllocation = () => {
 
             <div>
               <h4 className="text-base font-semibold text-gray-800 dark:text-gray-200">
-                {currentEmployee.first_name} {currentEmployee.last_name}
+                {employee.first_name} {employee.last_name}
               </h4>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {currentEmployee?.user?.designation?.name || "N/A"}
+                {employee?.user?.designation?.name || "N/A"}
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                {currentEmployee.user?.department?.name || "N/A"}
+                {employee.user?.department?.name || "N/A"}
               </p>
             </div>
           </div>
@@ -235,32 +201,32 @@ const EditLeaveAllocation = () => {
             <div className="flex justify-between py-1">
               <span className="text-xs text-gray-500">Employee ID</span>
               <span className="text-xs font-medium text-gray-800 dark:text-gray-200">
-                {currentEmployee.employee_id || "-"}
+                {employee.employee_id || "-"}
               </span>
             </div>
             <div className="flex justify-between py-1 border-t border-gray-100 dark:border-gray-700">
               <span className="text-xs text-gray-500">Company</span>
               <span className="text-xs font-medium text-gray-800 dark:text-gray-200">
-                {currentEmployee.user?.company?.company_name || "-"}
+                {employee.user?.company?.company_name || "-"}
               </span>
             </div>
             <div className="flex justify-between py-1 border-t border-gray-100 dark:border-gray-700">
               <span className="text-xs text-gray-500">Email</span>
               <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate max-w-[180px]">
-                {currentEmployee.personal_email || "-"}
+                {employee.personal_email || "-"}
               </span>
             </div>
             <div className="flex justify-between py-1 border-t border-gray-100 dark:border-gray-700">
               <span className="text-xs text-gray-500">Phone</span>
               <span className="text-xs font-medium text-gray-800 dark:text-gray-200">
-                {currentEmployee.personal_number || "-"}
+                {employee.personal_number || "-"}
               </span>
             </div>
             <div className="flex justify-between py-1 border-t border-gray-100 dark:border-gray-700">
               <span className="text-xs text-gray-500">Joining Date</span>
               <span className="text-xs font-medium text-gray-800 dark:text-gray-200">
-                {currentEmployee.joining_date
-                  ? new Date(currentEmployee.joining_date).toLocaleDateString()
+                {employee.joining_date
+                  ? new Date(employee.joining_date).toLocaleDateString()
                   : "-"}
               </span>
             </div>
@@ -282,7 +248,7 @@ const EditLeaveAllocation = () => {
             </h3>
           </div>
 
-          {leaveTypes.length === 0 ? (
+          {leaveRows.length === 0 ? (
             <p className="text-xs text-gray-500 dark:text-gray-400 py-4 text-center">
               No leave allocation records found
             </p>
@@ -304,41 +270,34 @@ const EditLeaveAllocation = () => {
                 </span>
               </div>
 
-              {leaveTypes.map((type) => {
-                const row = allocations[type.id] || {
-                  allocated: 0,
-                  used: 0,
-                  balance: 0,
-                };
-                return (
-                  <div
-                    key={type.id}
-                    className="grid grid-cols-4 gap-2 items-center py-2 border-b border-gray-100 dark:border-gray-700/70"
-                  >
-                    <div className="flex items-center gap-2">
-                      <i className="fas fa-suitcase text-green-500 text-xs"></i>
-                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        {type.name}
-                      </span>
-                    </div>
-                    <div className="text-center text-xs font-semibold text-gray-800 dark:text-gray-200">
-                      {row.allocated}
-                    </div>
-                    <div className="text-center text-xs text-gray-600 dark:text-gray-400">
-                      {row.used}
-                    </div>
-                    <div
-                      className={`text-center text-xs font-semibold ${
-                        row.balance < 0
-                          ? "text-red-600 dark:text-red-400"
-                          : "text-green-600 dark:text-green-400"
-                      }`}
-                    >
-                      {row.balance}
-                    </div>
+              {leaveRows.map((row) => (
+                <div
+                  key={row.name}
+                  className="grid grid-cols-4 gap-2 items-center py-2 border-b border-gray-100 dark:border-gray-700/70"
+                >
+                  <div className="flex items-center gap-2">
+                    <i className="fas fa-suitcase text-green-500 text-xs"></i>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      {row.name}
+                    </span>
                   </div>
-                );
-              })}
+                  <div className="text-center text-xs font-semibold text-gray-800 dark:text-gray-200">
+                    {row.allocated}
+                  </div>
+                  <div className="text-center text-xs text-gray-600 dark:text-gray-400">
+                    {row.used}
+                  </div>
+                  <div
+                    className={`text-center text-xs font-semibold ${
+                      row.balance < 0
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-green-600 dark:text-green-400"
+                    }`}
+                  >
+                    {row.balance}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

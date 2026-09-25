@@ -335,12 +335,11 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
                   const balance = leaveBalances[type.id] || { remaining: 0 };
                   return (
                     <option key={type.id} value={type.id}>
-                      {type.name} {employeeId && !loadingBalances ? `(Available: ${balance.remaining})` : ''}
+                      {type.name} 
                     </option>
                   );
                 })}
               </select>
-              {loadingBalances && <p className="text-[10px] text-gray-400">Loading balances...</p>}
             </div>
 
             {/* Start Date & Session */}
