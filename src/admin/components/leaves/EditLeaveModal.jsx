@@ -104,6 +104,8 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
           let allocationsData = [];
           if (result && result.allocations) {
             allocationsData = Object.values(result.allocations);
+          } else if (result && result.leave_types) {
+            allocationsData = result.leave_types;
           } else if (result && Array.isArray(result)) {
             allocationsData = result;
           } else if (result && result.data && Array.isArray(result.data)) {
@@ -112,7 +114,16 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
 
           const balances = {};
           allocationsData.forEach(alloc => {
-            const leaveTypeId = alloc.leave_type_id || alloc.leave_type?.id;
+            let leaveTypeId = alloc.leave_type_id || alloc.leave_type?.id;
+            
+            // Match by name if only string name is provided
+            if (!leaveTypeId && typeof alloc.leave_type === 'string') {
+              const foundType = leaveTypes.find(t => t.name === alloc.leave_type);
+              if (foundType) {
+                leaveTypeId = foundType.id;
+              }
+            }
+
             if (leaveTypeId) {
               const allocated = parseFloat(alloc.allocated_days || alloc.allocated || 0);
               const used = parseFloat(alloc.used_days || alloc.used || 0);
