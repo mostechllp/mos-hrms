@@ -441,7 +441,15 @@ const Leaves = () => {
                       </button>
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                      {leave.leave_type?.name || leave.type || "-"}
+                      {(() => {
+                        const leaveTypeName = leave.leave_type?.name || leave.type || "-";
+                        const isLossOfPay = leaveTypeName.toLowerCase().includes("loss of pay");
+                        return (
+                          <span className={isLossOfPay ? "text-red-600 dark:text-red-400 font-semibold" : ""}>
+                            {leaveTypeName}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       {formatDate(leave.start_date || leave.from_date)}
