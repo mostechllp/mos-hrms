@@ -18,6 +18,7 @@ import ProjectStatusChart from "../components/dashboard/ProjectStatusChart";
 import PriorityDistributionChart from "../components/dashboard/PriorityDistributionChart";
 import MonthlyTrendChart from "../components/dashboard/MonthlyTrendChart";
 import { fetchDashboard } from "../store/slices/dashboardSlice";
+import UpcomingReminders from "../components/dashboard/UpcomingReminders";
 
 // ─── COLOR PALETTE ──────────────────────────────────────────────────────
 export const COLORS = {
@@ -105,8 +106,15 @@ const Dashboard = () => {
   const dispatch = useDispatch();
   const { employees } = useSelector((state) => state.employees);
   const { user } = useSelector((state) => state.auth);
-  const { stats, charts, recentData, tasks, weekly_attendance, loading, projects } =
-    useSelector((state) => state.dashboard);
+  const {
+    stats,
+    charts,
+    recentData,
+    tasks,
+    weekly_attendance,
+    loading,
+    projects,
+  } = useSelector((state) => state.dashboard);
 
   useEffect(() => {
     dispatch(fetchDashboard());
@@ -118,19 +126,11 @@ const Dashboard = () => {
   useEffect(() => {
     dispatch(fetchEmployees());
 
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, [dispatch]);
-
-  // Debug: Log the data to verify it's coming through
-  useEffect(() => {
-    console.log("Dashboard Data:", { stats, charts, tasks, weekly_attendance, recentData, projects });
-    console.log("Leaves Today:", recentData?.leaves_today || []);
-  }, [stats, charts, tasks, weekly_attendance, recentData, projects]);
 
   const formattedStats = stats && {
     totalEmployees: recentData?.employees?.length || 0,
@@ -139,7 +139,6 @@ const Dashboard = () => {
     absentToday: stats.today.absent || 0,
   };
 
-  // Get weekly attendance from charts
   const weeklyData = charts?.weekly_attendance || null;
 
   if (loading) {
@@ -152,59 +151,92 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-container">
-      {/* ─── WELCOME BANNER ──────────────────────────────────────────────── */}
+      {/* ─── WELCOME BANNER ──────────────────────────────────────── */}
       {formattedStats && <WelcomeBanner stats={formattedStats} user={user} />}
 
-      {/* ─── ROW 1: Overview (4 cards in a single row) ──────────────────── */}
-      <div className="section-label text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-4 mb-2">
-        Overview
-      </div>
-      <div className="stats-grid grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mt-0 md:mt-0">
-        <StatsCard
-          title="Total Employees"
-          value={formattedStats?.totalEmployees || 0}
-          icon="fas fa-users"
-          color="green"
-        />
-        <StatsCard
-          title="Punched In Today"
-          value={formattedStats?.punchedInToday || 0}
-          icon="fas fa-fingerprint"
-          color="blue"
-        />
-        <StatsCard
-          title="Late Arrivals"
-          value={formattedStats?.lateArrivals || 0}
-          icon="fas fa-clock"
-          color="amber"
-        />
-        <StatsCard
-          title="Absent Today"
-          value={formattedStats?.absentToday || 0}
-          icon="fas fa-user-slash"
-          color="red"
-        />
+      {/* ─── TOP REGION: LEFT (KPI + Recent Tasks) | RIGHT (Reminders) ── */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4 md:gap-5 mt-4 items-start">
+        {/* ── Left column ── */}
+        <div className="min-w-0">
+          {/* Overview label */}
+          <div className="section-label text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
+            Overview
+          </div>
+
+          {/* KPI cards */}
+          <div className="stats-grid grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
+            <StatsCard
+              title="Total Employees"
+              value={formattedStats?.totalEmployees || 0}
+              icon="fas fa-users"
+              color="green"
+            />
+            <StatsCard
+              title="Punched In Today"
+              value={formattedStats?.punchedInToday || 0}
+              icon="fas fa-fingerprint"
+              color="blue"
+            />
+            <StatsCard
+              title="Late Arrivals"
+              value={formattedStats?.lateArrivals || 0}
+              icon="fas fa-clock"
+              color="amber"
+            />
+            <StatsCard
+              title="Absent Today"
+              value={formattedStats?.absentToday || 0}
+              icon="fas fa-user-slash"
+              color="red"
+            />
+          </div>
+
+          {/* Recent Tasks — sits beside Reminders */}
+          <div className="section-label text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-6 mb-2">
+            Recent Tasks
+          </div>
+          <div className="min-w-0">
+            <RecentTasksList tasks={tasks} />
+          </div>
+        </div>
+
+        {/* ── Right column: Reminders ── */}
+        <div className="xl:sticky xl:top-4">
+          <div className="section-label text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
+            Reminders
+          </div>
+          <div className="h-[520px] max-h-[70vh]">
+            <UpcomingReminders
+              birthdays={recentData?.birthdays || []}
+              specialDays={
+                recentData?.employee_special_days ||
+                recentData?.special_days ||
+                []
+              }
+              maxItems={10}
+            />
+          </div>
+        </div>
       </div>
 
-      {/* ─── ROW 2: Weekly Overview & Punch Activity ────────────────────── */}
+      {/* ─── WEEKLY OVERVIEW ─────────────────────────────────────── */}
       <div className="section-label text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-6 mb-2">
         Weekly Overview
       </div>
-      <div className="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mt-0 md:mt-0">
+      <div className="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
         <div className="w-full min-w-0 overflow-hidden">
           <WeeklyAttendanceChart data={weeklyData} />
         </div>
-        {/* ✅ Replace PunchChart with LeavesTodayChart */}
         <div className="w-full min-w-0 overflow-hidden">
           <LeavesTodayChart leavesToday={recentData?.leaves_today || []} />
         </div>
       </div>
 
-      {/* ─── ROW 3: Attendance Analytics & Task Distribution ────────────── */}
+      {/* ─── ANALYTICS ───────────────────────────────────────────── */}
       <div className="section-label text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-6 mb-2">
         Analytics
       </div>
-      <div className="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mt-0 md:mt-0">
+      <div className="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
         <div className="w-full min-w-0 overflow-hidden">
           <AttendanceStatsChart stats={stats} />
         </div>
@@ -213,38 +245,32 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* ─── ROW 4: Department & Project Status ──────────────────────────── */}
+      {/* ─── DEPARTMENT & PROJECTS ───────────────────────────────── */}
       <div className="section-label text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-6 mb-2">
-        Department & Projects
+        Department &amp; Projects
       </div>
-      <div className="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mt-0 md:mt-0">
+      <div className="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
         <div className="w-full min-w-0 overflow-hidden">
-          <DepartmentDistributionChart employees={recentData?.employees || []} />
+          <DepartmentDistributionChart
+            employees={recentData?.employees || []}
+          />
         </div>
         <div className="w-full min-w-0 overflow-hidden">
           <ProjectStatusChart projects={projects || []} />
         </div>
       </div>
 
-      {/* ─── ROW 5: Priority & Monthly Trend ────────────────────────────── */}
+      {/* ─── TASK INSIGHTS ───────────────────────────────────────── */}
       <div className="section-label text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-6 mb-2">
         Task Insights
       </div>
-      <div className="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mt-0 md:mt-0">
+      <div className="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
         <div className="w-full min-w-0 overflow-hidden">
           <PriorityDistributionChart tasks={tasks || []} />
         </div>
         <div className="w-full min-w-0 overflow-hidden">
           <MonthlyTrendChart tasks={tasks || []} />
         </div>
-      </div>
-
-      {/* ─── ROW 6: Recent Tasks ──────────────────────────────────────────── */}
-      <div className="section-label text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-6 mb-2">
-        Recent Tasks
-      </div>
-      <div className="mt-0 md:mt-0">
-        <RecentTasksList tasks={tasks} />
       </div>
     </div>
   );
