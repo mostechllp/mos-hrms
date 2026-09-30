@@ -21,6 +21,10 @@ const getEventTheme = (name = "") => {
       dateBg: "bg-pink-50 dark:bg-pink-900/20",
       dateBorder: "border-pink-100 dark:border-pink-900/40",
       dateText: "text-pink-600 dark:text-pink-400",
+      todayRow:
+        "bg-pink-50/70 dark:bg-pink-900/20 border-pink-200 dark:border-pink-900/50",
+      todayAccent: "border-l-pink-500",
+      todayBadge: "bg-pink-500 text-white",
     };
   }
   if (isWorkAnniversary(name)) {
@@ -31,6 +35,10 @@ const getEventTheme = (name = "") => {
       dateBg: "bg-violet-50 dark:bg-violet-900/20",
       dateBorder: "border-violet-100 dark:border-violet-900/40",
       dateText: "text-violet-600 dark:text-violet-400",
+      todayRow:
+        "bg-violet-50/70 dark:bg-violet-900/20 border-violet-200 dark:border-violet-900/50",
+      todayAccent: "border-l-violet-500",
+      todayBadge: "bg-violet-500 text-white",
     };
   }
   return {
@@ -40,6 +48,10 @@ const getEventTheme = (name = "") => {
     dateBg: "bg-amber-50 dark:bg-amber-900/20",
     dateBorder: "border-amber-100 dark:border-amber-900/40",
     dateText: "text-amber-600 dark:text-amber-400",
+    todayRow:
+      "bg-amber-50/70 dark:bg-amber-900/20 border-amber-200 dark:border-amber-900/50",
+    todayAccent: "border-l-amber-500",
+    todayBadge: "bg-amber-500 text-white",
   };
 };
 
@@ -109,7 +121,7 @@ const DateChip = ({ month, day, theme }) => (
 
 // ─── Normalizers ─────────────────────────────────────────────────────────
 const normalizeBirthday = (b, idx) => ({
-  key: `bd-${b.id ?? idx}-${b.date ?? ""}`,
+  key: `bd-${b.id ?? idx}-${b.date ?? ""}-${idx}`,
   name: b.employee_name || "Unknown",
   role: b.designation || "Team Member",
   avatar: null,
@@ -133,7 +145,7 @@ const stripNameFromEvent = (eventName, employeeName) => {
 const normalizeSpecialDay = (s, idx) => {
   const eventLabel = stripNameFromEvent(s.event_name, s.employee_name);
   return {
-    key: `sp-${s.id ?? idx}-${s.event_name ?? ""}-${s.date ?? ""}`,
+    key: `sp-${s.id ?? idx}-${s.event_name ?? ""}-${s.date ?? ""}-${idx}`,
     name: s.employee_name || "Unknown",
     role: s.designation || "Team Member",
     avatar: null,
@@ -145,7 +157,7 @@ const normalizeSpecialDay = (s, idx) => {
   };
 };
 
-// ─── Tabs config ─────────────────────────────────────────────────────────
+// ─── Tabs config (only two) ──────────────────────────────────────────────
 const TABS = [
   {
     id: "birthdays",
@@ -171,23 +183,35 @@ const UpcomingReminders = ({
 }) => {
   const [activeTab, setActiveTab] = useState("birthdays");
 
-  // Build both lists once, sorted by soonest.
-  const { birthdayList, specialList } = useMemo(() => {
-    const bdays = (birthdays || []).map(normalizeBirthday);
+  const lists = useMemo(() => {
+    // Birthday list — dedupe by name+date
+    const seenBd = new Set();
+    const bdays = (birthdays || [])
+      .map(normalizeBirthday)
+      .filter((b) => {
+        const k = `${b.name}|${b.date}`;
+        if (seenBd.has(k)) return false;
+        seenBd.add(k);
+        return true;
+      });
 
-    // Dedupe the specials: some rows duplicate birthdays with `type: "Custom"`
-    const seenBirthdayKeys = new Set(
-      bdays.map((b) => `${b.name}|${b.date}`),
-    );
+    // Special days — drop re-labeled birthdays, then dedupe
+    const seenSp = new Set();
     const specials = (specialDays || [])
       .map(normalizeSpecialDay)
-      .filter(
-        (s) =>
-          !s.event.toLowerCase().includes("birthday") && // drop re-labeled birthdays
-          !seenBirthdayKeys.has(`${s.name}|${s.date}`),
-      );
+      .filter((s) => {
+        if (s.event.toLowerCase().includes("birthday")) return false;
+        const k = `${s.name}|${s.date}|${s.event}`;
+        if (seenSp.has(k)) return false;
+        seenSp.add(k);
+        return true;
+      });
 
+    // Sort: today first, then by soonest, then alphabetical
     const sorter = (a, b) => {
+      const aToday = a.isToday || a.daysUntil === 0 ? 0 : 1;
+      const bToday = b.isToday || b.daysUntil === 0 ? 0 : 1;
+      if (aToday !== bToday) return aToday - bToday;
       const av = a.daysUntil ?? 99999;
       const bv = b.daysUntil ?? 99999;
       if (av !== bv) return av - bv;
@@ -195,16 +219,21 @@ const UpcomingReminders = ({
     };
 
     return {
-      birthdayList: bdays.sort(sorter).slice(0, maxItems),
-      specialList: specials.sort(sorter).slice(0, maxItems),
+      birthdays: bdays.sort(sorter),
+      specials: specials.sort(sorter),
     };
-  }, [birthdays, specialDays, maxItems]);
+  }, [birthdays, specialDays]);
 
-  const visible = activeTab === "birthdays" ? birthdayList : specialList;
-  const totalCounts = {
-    birthdays: birthdayList.length,
-    specials: specialList.length,
+  const visible = (lists[activeTab] || []).slice(0, maxItems);
+  const counts = {
+    birthdays: lists.birthdays.length,
+    specials: lists.specials.length,
   };
+
+  const emptyMessage = () =>
+    activeTab === "birthdays"
+      ? "No upcoming birthdays"
+      : "No special days coming up";
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/80 shadow-sm h-full flex flex-col overflow-hidden">
@@ -228,7 +257,7 @@ const UpcomingReminders = ({
         <div className="flex items-center gap-2 overflow-x-auto">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
-            const count = totalCounts[tab.id] || 0;
+            const count = counts[tab.id] || 0;
             return (
               <button
                 key={tab.id}
@@ -268,19 +297,23 @@ const UpcomingReminders = ({
               Nothing to show
             </p>
             <p className="text-[10px] text-gray-400 mt-0.5">
-              {activeTab === "birthdays"
-                ? "No upcoming birthdays"
-                : "No special days coming up"}
+              {emptyMessage()}
             </p>
           </div>
         ) : (
           <ul className="space-y-2">
             {visible.map((r) => {
               const theme = getEventTheme(r.event);
+              const isToday = r.isToday || r.daysUntil === 0;
+
               return (
                 <li
                   key={r.key}
-                  className="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700/60 bg-white dark:bg-gray-800/60 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-colors ${
+                    isToday
+                      ? `${theme.todayRow} border-l-4 ${theme.todayAccent}`
+                      : "border-gray-100 dark:border-gray-700/60 bg-white dark:bg-gray-800/60 hover:bg-gray-50 dark:hover:bg-gray-700/30"
+                  }`}
                 >
                   <Avatar src={r.avatar} name={r.name} sizeClass="w-9 h-9" />
 
@@ -305,15 +338,21 @@ const UpcomingReminders = ({
 
                   <DateChip month={r.month} day={r.day} theme={theme} />
 
-                  <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap flex-shrink-0">
-                    {r.isToday || r.daysUntil === 0
-                      ? "Today"
-                      : r.daysUntil === 1
+                  {isToday ? (
+                    <span
+                      className={`text-[9px] font-bold px-2 py-1 rounded-full whitespace-nowrap flex-shrink-0 ${theme.todayBadge}`}
+                    >
+                      Today 🎉
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap flex-shrink-0">
+                      {r.daysUntil === 1
                         ? "1 day left"
                         : r.daysUntil != null
                           ? `${r.daysUntil} days left`
                           : ""}
-                  </span>
+                    </span>
+                  )}
                 </li>
               );
             })}

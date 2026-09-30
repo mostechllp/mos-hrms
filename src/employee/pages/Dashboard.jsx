@@ -33,6 +33,7 @@ import LocationModal from "../components/modals/LocationModal";
 import MapView from "../components/common/MapView";
 import { fetchWorkingHours } from "../../admin/store/slices/settingsSlice";
 import LeavesByDepartment from "../components/attendance/LeavesByDepartment";
+import UpcomingReminders from "../../admin/components/dashboard/UpcomingReminders";
 
 // Status tab mapping - assigned goes to its own tab now
 const STATUS_TAB_MAP = {
@@ -1209,6 +1210,11 @@ const Dashboard = () => {
     return `${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
   };
 
+  const isHR =
+  dashboardData?.is_hr === true ||
+  user?.type === "hr" ||
+  user?.role?.name?.toLowerCase() === "hr";
+
   // Debug log to see what time we're getting
   useEffect(() => {
     if (displayPunchTime) {
@@ -1374,6 +1380,32 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* ─── Upcoming Reminders (HR only) ───────────────────────── */}
+{isHR && (
+  <>
+    <div className="section-label text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-6 mb-2">
+      Reminders
+    </div>
+    <div className="mb-7 h-[480px]">
+      <UpcomingReminders
+        birthdays={
+          dashboardData?.birthdays ||
+          dashboardData?.recent_data?.birthdays ||
+          []
+        }
+        specialDays={
+          dashboardData?.employee_special_days ||
+          dashboardData?.special_days ||
+          dashboardData?.recent_data?.employee_special_days ||
+          dashboardData?.recent_data?.special_days ||
+          []
+        }
+        maxItems={10}
+      />
+    </div>
+  </>
+)}
 
       {(dashboardData?.is_hr || dashboardData?.is_team_lead) && (
         <div className="mb-7">
