@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/static-components */
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
@@ -9,6 +9,7 @@ import {
   FiChevronRight,
   FiChevronLeft,
   FiSave,
+  FiPlus,
 } from "react-icons/fi";
 import {
   setStep,
@@ -23,6 +24,10 @@ import { fetchDepartments } from "../../store/slices/departmentSlice";
 import { fetchDesignations } from "../../store/slices/designationSlice";
 import { showToast } from "../../components/common/Toast";
 import DateInput from "../common/DateInput";
+import AddDesignationModal from "./AddDesignationModal";
+import AddDepartmentModal from "./AddDepartmentModal";
+import SearchableSelect from "../../../components/common/SearchableSelect";
+import { NATIONALITIES } from "../../utils/nationalities";
 
 const EmployeeDetailsForm = () => {
   const dispatch = useDispatch();
@@ -48,10 +53,14 @@ const EmployeeDetailsForm = () => {
     reset,
     control,
     getValues,
+    setValue,
     formState: { errors },
   } = useForm({
     defaultValues: employeeDetails,
   });
+
+  const [departmentModalOpen, setDepartmentModalOpen] = useState(false);
+  const [designationModalOpen, setDesignationModalOpen] = useState(false);
 
   // ────────────────────────────────────────────────────────────
   // Fetch from server when the route has an id
@@ -63,7 +72,6 @@ const EmployeeDetailsForm = () => {
   }, [dispatch, routeId]);
 
   // Re-initialize form whenever Redux data changes
-  // (from AI parse, from server fetch, from earlier edit)
   useEffect(() => {
     if (employeeDetails && Object.keys(employeeDetails).length > 0) {
       reset(employeeDetails);
@@ -95,15 +103,14 @@ const EmployeeDetailsForm = () => {
         const result = await dispatch(
           createEmployeeDetails({ id: null, data }),
         ).unwrap();
-        resolvedId = result?.id; // { id, api, form }
+        resolvedId = result?.id;
         if (resolvedId) {
-  localStorage.setItem("onboarding_user_id", String(resolvedId)); // fixed key
-}
+          localStorage.setItem("onboarding_user_id", String(resolvedId));
+        }
       }
 
       dispatch(updateEmployeeDetails(data));
 
-      // ── Refresh onboarding progress ──
       if (resolvedId) {
         dispatch(fetchOnboardingProgress(resolvedId));
       }
@@ -121,7 +128,7 @@ const EmployeeDetailsForm = () => {
   };
 
   // ────────────────────────────────────────────────────────────
-  // Save draft — same server-first logic, local fallback on error
+  // Save draft
   // ────────────────────────────────────────────────────────────
   const handleSaveDraft = async () => {
     const currentData = getValues();
@@ -141,13 +148,12 @@ const EmployeeDetailsForm = () => {
 
         resolvedId = result?.id;
         if (resolvedId) {
-  localStorage.setItem("onboarding_user_id", String(resolvedId)); // fixed key
-}
+          localStorage.setItem("onboarding_user_id", String(resolvedId));
+        }
       }
 
       dispatch(updateEmployeeDetails(currentData));
 
-      // ── Refresh onboarding progress ──
       if (resolvedId) {
         dispatch(fetchOnboardingProgress(resolvedId));
       }
@@ -216,56 +222,17 @@ const EmployeeDetailsForm = () => {
     </div>
   );
 
-  const SelectField = ({
-    label,
-    name,
-    options = [], // [{ value, label }]
-    loading = false,
-    required = true,
-  }) => (
-    <div className="space-y-1.5">
-      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-        {label}
-      </label>
-      <div className="relative">
-        <select
-          {...register(name, {
-            required: required ? `${label} is required` : false,
-          })}
-          disabled={loading}
-          className={`w-full px-4 py-2.5 bg-white dark:bg-gray-800 border rounded-xl text-gray-900 dark:text-white transition-all duration-200 outline-none appearance-none disabled:opacity-60 ${
-            errors[name]
-              ? "border-red-500 focus:ring-4 focus:ring-red-500/10"
-              : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-4 focus:ring-green-500/10"
-          }`}
-        >
-          <option value="">
-            {loading ? `Loading ${label.toLowerCase()}...` : `Select ${label}`}
-          </option>
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <FiChevronRight
-          size={16}
-          className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-gray-400 pointer-events-none"
-        />
-      </div>
-      {errors[name] && (
-        <p className="text-xs font-medium text-red-500 mt-1">
-          {errors[name].message}
-        </p>
-      )}
-    </div>
-  );
-
+  // ────────────────────────────────────────────────────────────
+  // Option lists
+  // ────────────────────────────────────────────────────────────
   const departmentOptions = useMemo(
     () =>
       (Array.isArray(departments) ? departments : [])
         .filter((d) => d && d.name)
-        .map((d) => ({ value: String(d.id), label: d.name })),
+        .map((d) => ({ value: String(d.id), label: d.name }))
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+        ),
     [departments],
   );
 
@@ -273,8 +240,20 @@ const EmployeeDetailsForm = () => {
     () =>
       (Array.isArray(designations) ? designations : [])
         .filter((d) => d && d.name)
-        .map((d) => ({ value: String(d.id), label: d.name })),
+        .map((d) => ({ value: String(d.id), label: d.name }))
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+        ),
     [designations],
+  );
+
+  // ✅ Full nationality list
+  const nationalityOptions = useMemo(
+    () =>
+      [...NATIONALITIES].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: "base" }),
+      ),
+    [],
   );
 
   return (
@@ -334,18 +313,30 @@ const EmployeeDetailsForm = () => {
               name="phone"
               placeholder="+91 ----- -----"
             />
-            <InputField
-              label="Nationality"
+
+            {/* ✅ Nationality — now a searchable dropdown with full list */}
+            <Controller
               name="nationality"
-              options={[
-                "United Arab Emirates",
-                "India",
-                "Pakistan",
-                "United Kingdom",
-                "United States",
-                "Philippines",
-              ]}
+              control={control}
+              rules={{ required: "Nationality is required" }}
+              render={({ field }) => (
+                <SearchableSelect
+                  label="Nationality"
+                  value={field.value}
+                  onChange={(val) => field.onChange(val)}
+                  options={nationalityOptions.map((n) => ({
+                    value: n,
+                    label: n,
+                  }))}
+                  error={errors.nationality?.message}
+                  required
+                  placeholder="Select Nationality"
+                  searchPlaceholder="Search nationality..."
+                  emptyMessage="No nationality found"
+                />
+              )}
             />
+
             <div className="md:col-span-2">
               <InputField
                 label="Current Address"
@@ -353,18 +344,51 @@ const EmployeeDetailsForm = () => {
                 placeholder="Residential address"
               />
             </div>
-            <SelectField
-              label="Designation"
-              name="designationId"
-              options={designationOptions}
-              loading={designationsLoading}
-            />
-            <SelectField
-              label="Department"
+
+            <Controller
               name="departmentId"
-              options={departmentOptions}
-              loading={departmentsLoading}
+              control={control}
+              rules={{ required: "Department is required" }}
+              render={({ field }) => (
+                <SearchableSelect
+                  label="Department"
+                  value={field.value}
+                  onChange={(val) => field.onChange(val)}
+                  options={departmentOptions}
+                  loading={departmentsLoading}
+                  error={errors.departmentId?.message}
+                  required
+                  placeholder="Select Department"
+                  searchPlaceholder="Search departments..."
+                  emptyMessage="No departments found"
+                  onAddNew={() => setDepartmentModalOpen(true)}
+                  addNewLabel="Add new department"
+                />
+              )}
             />
+
+            <Controller
+              name="designationId"
+              control={control}
+              rules={{ required: "Designation is required" }}
+              render={({ field }) => (
+                <SearchableSelect
+                  label="Designation"
+                  value={field.value}
+                  onChange={(val) => field.onChange(val)}
+                  options={designationOptions}
+                  loading={designationsLoading}
+                  error={errors.designationId?.message}
+                  required
+                  placeholder="Select Designation"
+                  searchPlaceholder="Search designations..."
+                  emptyMessage="No designations found"
+                  onAddNew={() => setDesignationModalOpen(true)}
+                  addNewLabel="Add new designation"
+                />
+              )}
+            />
+
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Joining Date
@@ -389,6 +413,7 @@ const EmployeeDetailsForm = () => {
                 </p>
               )}
             </div>
+
             <InputField
               label="Experience Level"
               name="experience"
@@ -435,13 +460,33 @@ const EmployeeDetailsForm = () => {
                 name="specialDayDate"
                 control={control}
                 render={({ field }) => (
-                  <DateInput
-                    {...field}
-                    type="special_day"
-                    placeholder="dd/mm/yyyy"
-                    error={!!errors.specialDayDate}
-                    className="!bg-white dark:!bg-gray-800 !border-gray-200 dark:!border-gray-700 !rounded-xl !text-gray-900 dark:!text-white !px-4 !py-2.5 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10"
-                  />
+                  <div className="relative">
+                    <DateInput
+                      {...field}
+                      type="special_day"
+                      placeholder="dd/mm/yyyy"
+                      error={!!errors.specialDayDate}
+                      className="!bg-white dark:!bg-gray-800 !border-gray-200 dark:!border-gray-700 !rounded-xl !text-gray-900 dark:!text-white !px-4 !py-2.5 !pr-10 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10"
+                    />
+
+                    {field.value ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setValue("specialDayDate", "", {
+                            shouldValidate: true,
+                            shouldDirty: true,
+                          });
+                          field.onChange("");
+                        }}
+                        title="Clear date"
+                        aria-label="Clear date"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-6 h-6 flex items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 hover:text-red-600 dark:hover:text-red-300 transition-colors"
+                      >
+                        <i className="fas fa-times text-[10px]"></i>
+                      </button>
+                    ) : null}
+                  </div>
                 )}
               />
               {errors.specialDayDate && (
@@ -474,6 +519,28 @@ const EmployeeDetailsForm = () => {
           </div>
         </div>
       </form>
+
+      <AddDepartmentModal
+        isOpen={departmentModalOpen}
+        onClose={() => setDepartmentModalOpen(false)}
+        onCreated={(dept) => {
+          if (dept?.id)
+            setValue("departmentId", String(dept.id), {
+              shouldValidate: true,
+            });
+        }}
+      />
+
+      <AddDesignationModal
+        isOpen={designationModalOpen}
+        onClose={() => setDesignationModalOpen(false)}
+        onCreated={(des) => {
+          if (des?.id)
+            setValue("designationId", String(des.id), {
+              shouldValidate: true,
+            });
+        }}
+      />
     </div>
   );
 };

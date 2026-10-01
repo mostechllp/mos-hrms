@@ -24,6 +24,8 @@ import {
   fetchOnboardingProgress,
 } from "../../store/slices/onboardingSlice";
 import { showToast } from "../../components/common/Toast";
+// ✅ NEW — reusable searchable dropdown
+import SearchableSelect from "../../../components/common/SearchableSelect";
 
 // ─── Blank account factory ───
 const blankBankAccount = () => ({
@@ -75,7 +77,8 @@ const SalaryBankDetailsForm = () => {
     }
   })();
 
-  const resolvedUserId = routeId || employeeDetails?.userId || queryId || storedUserId || null;
+  const resolvedUserId =
+    routeId || employeeDetails?.userId || queryId || storedUserId || null;
 
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
@@ -92,13 +95,44 @@ const SalaryBankDetailsForm = () => {
 
   const [paymentCycle, setPaymentCycle] = useState("Monthly");
 
-  const currenciesList = [
-    { code: "AED", name: "United Arab Emirates Dirham (AED)" },
-    { code: "INR", name: "Indian Rupee (INR)" },
-    { code: "USD", name: "United States Dollar (USD)" },
-    { code: "EUR", name: "Euro (EUR)" },
-    { code: "GBP", name: "British Pound (GBP)" },
-  ];
+  // ✅ Option arrays — same data, but now fed to SearchableSelect
+  const currenciesList = useMemo(
+    () => [
+      { code: "AED", name: "United Arab Emirates Dirham (AED)" },
+      { code: "INR", name: "Indian Rupee (INR)" },
+      { code: "USD", name: "United States Dollar (USD)" },
+      { code: "EUR", name: "Euro (EUR)" },
+      { code: "GBP", name: "British Pound (GBP)" },
+    ],
+    [],
+  );
+
+  const currencyOptions = useMemo(
+    () =>
+      currenciesList.map((c) => ({
+        value: c.code,
+        label: c.name,
+      })),
+    [currenciesList],
+  );
+
+  const paymentCycleOptions = useMemo(
+    () => [
+      { value: "Monthly", label: "Monthly" },
+      { value: "Weekly", label: "Weekly" },
+      { value: "Bi-Weekly", label: "Bi-Weekly" },
+      { value: "Quarterly", label: "Quarterly" },
+    ],
+    [],
+  );
+
+  const bankCountryOptions = useMemo(
+    () => [
+      { value: "India", label: "India" },
+      { value: "UAE", label: "UAE" },
+    ],
+    [],
+  );
 
   useEffect(() => {
     if (!resolvedUserId) return;
@@ -121,7 +155,6 @@ const SalaryBankDetailsForm = () => {
       setIsSalarySaved(true);
     }
 
-    // Bank accounts — support both single (legacy) and array shapes
     const incoming = Array.isArray(details.bankAccounts)
       ? details.bankAccounts
       : details.bankName || details.accountNumber
@@ -152,7 +185,6 @@ const SalaryBankDetailsForm = () => {
           _errors: {},
         })),
       );
-      // Saved if every account has the required fields for its country
       const allFilled = incoming.every((b) => {
         const base = b.bankName && b.accountNumber;
         if (!base) return false;
@@ -388,7 +420,6 @@ const SalaryBankDetailsForm = () => {
         break;
 
       case "bankCountry":
-        // Re-validate country-specific fields on country switch
         value = rawValue;
         break;
 
@@ -400,7 +431,6 @@ const SalaryBankDetailsForm = () => {
     if (field !== "bankCountry") {
       updateBankError(id, field, error);
     } else {
-      // Re-run all validations for this account on country change
       const next = { ...acc, bankCountry: value };
       const newErrors = {};
       newErrors.bankName = validateBankName(id, next.bankName);
@@ -441,7 +471,6 @@ const SalaryBankDetailsForm = () => {
   };
 
   const handleSaveBankDetails = async () => {
-    // Validate all accounts
     const allErrors = {};
     let hasErrors = false;
 
@@ -642,38 +671,29 @@ const SalaryBankDetailsForm = () => {
             {!isSalarySaved ? (
               <div className="space-y-6 animate-fadeIn">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                      Currency Selection <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={currency}
-                      onChange={(e) => setCurrency(e.target.value)}
-                      className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white transition-all duration-200 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 cursor-pointer"
-                    >
-                      {currenciesList.map((curr) => (
-                        <option key={curr.code} value={curr.code}>
-                          {curr.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* ✅ Currency — now a searchable dropdown */}
+                  <SearchableSelect
+                    label="Currency Selection"
+                    value={currency}
+                    onChange={(val) => setCurrency(val)}
+                    options={currencyOptions}
+                    required
+                    placeholder="Select Currency"
+                    searchPlaceholder="Search currency..."
+                    emptyMessage="No currency found"
+                  />
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                      Payment Cycle <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={paymentCycle}
-                      onChange={(e) => setPaymentCycle(e.target.value)}
-                      className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white transition-all duration-200 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 cursor-pointer"
-                    >
-                      <option value="Monthly">Monthly</option>
-                      <option value="Weekly">Weekly</option>
-                      <option value="Bi-Weekly">Bi-Weekly</option>
-                      <option value="Quarterly">Quarterly</option>
-                    </select>
-                  </div>
+                  {/* ✅ Payment Cycle — now a searchable dropdown */}
+                  <SearchableSelect
+                    label="Payment Cycle"
+                    value={paymentCycle}
+                    onChange={(val) => setPaymentCycle(val)}
+                    options={paymentCycleOptions}
+                    required
+                    placeholder="Select Payment Cycle"
+                    searchPlaceholder="Search payment cycle..."
+                    emptyMessage="No payment cycle found"
+                  />
                 </div>
 
                 <div className="p-5 bg-gray-50/50 dark:bg-gray-900/30 rounded-2xl border border-gray-100 dark:border-gray-700/50 space-y-4">
@@ -926,7 +946,6 @@ const SalaryBankDetailsForm = () => {
                     key={acc._id}
                     className="rounded-2xl border border-gray-100 dark:border-gray-700/80 bg-gray-50/40 dark:bg-gray-900/20 overflow-hidden"
                   >
-                    {/* Account header */}
                     <div className="px-4 md:px-6 py-3 border-b border-gray-100 dark:border-gray-700/80 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
@@ -956,32 +975,25 @@ const SalaryBankDetailsForm = () => {
                     </div>
 
                     <div className="p-4 md:p-6 space-y-6">
-                      {/* Country selector */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                          Bank Country 
-                        </label>
-                        <select
-                          value={acc.bankCountry}
-                          onChange={(e) =>
-                            handleBankFieldChange(
-                              acc._id,
-                              "bankCountry",
-                              e.target.value,
-                            )
-                          }
-                          className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white transition-all outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/10 cursor-pointer"
-                        >
-                          <option value="India">India</option>
-                          <option value="UAE">UAE</option>
-                        </select>
-                      </div>
+                      {/* ✅ Bank Country — now a searchable dropdown */}
+                      <SearchableSelect
+                        label="Bank Country"
+                        value={acc.bankCountry}
+                        onChange={(val) =>
+                          handleBankFieldChange(acc._id, "bankCountry", val)
+                        }
+                        options={bankCountryOptions}
+                        required
+                        placeholder="Select Bank Country"
+                        searchPlaceholder="Search country..."
+                        emptyMessage="No country found"
+                      />
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Bank Name */}
                         <div className="space-y-2">
                           <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                            Bank Name 
+                            Bank Name
                           </label>
                           <input
                             type="text"
@@ -1014,8 +1026,7 @@ const SalaryBankDetailsForm = () => {
                         {/* Account Number */}
                         <div className="space-y-2">
                           <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                            Account Number{" "}
-                            
+                            Account Number
                           </label>
                           <input
                             type="text"
@@ -1050,8 +1061,7 @@ const SalaryBankDetailsForm = () => {
                           <>
                             <div className="space-y-2">
                               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                                IFSC Code{" "}
-                                
+                                IFSC Code
                               </label>
                               <input
                                 type="text"
@@ -1079,8 +1089,7 @@ const SalaryBankDetailsForm = () => {
 
                             <div className="space-y-2">
                               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                                Branch Name{" "}
-                                
+                                Branch Name
                               </label>
                               <input
                                 type="text"
@@ -1113,8 +1122,7 @@ const SalaryBankDetailsForm = () => {
                           <>
                             <div className="space-y-2">
                               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                                IBAN Number{" "}
-                                
+                                IBAN Number
                               </label>
                               <input
                                 type="text"
@@ -1142,8 +1150,7 @@ const SalaryBankDetailsForm = () => {
 
                             <div className="space-y-2">
                               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                                SWIFT / BIC Code{" "}
-                                
+                                SWIFT / BIC Code
                               </label>
                               <input
                                 type="text"

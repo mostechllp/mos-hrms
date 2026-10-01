@@ -1,6 +1,6 @@
 // src/admin/pages/AddEmployee.jsx - Full code with dark mode support
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
@@ -15,11 +15,16 @@ import { fetchRoles } from "../store/slices/roleSlice";
 import apiClient from "../../utils/apiClient";
 import DateInput from "../components/common/DateInput";
 import DocumentModal from "../components/common/DocumentModal";
+// ✅ NEW — reusable searchable dropdown
+import SearchableSelect from "../../components/common/SearchableSelect";
 import {
   getCountryConfig,
   INDIA_EMPLOYEE_TYPES,
   UAE_EMPLOYEE_TYPES,
 } from "../utils/countryConfig";
+import AddRoleModal from "../components/modals/AddRoleModal";
+import AddDesignationModal from "../components/onboarding/AddDesignationModal";
+import AddDepartmentModal from "../components/onboarding/AddDepartmentModal";
 
 const AddEmployee = () => {
   const navigate = useNavigate();
@@ -29,6 +34,9 @@ const AddEmployee = () => {
   const [, setVisitedSteps] = useState([0]);
   const [stepErrors, setStepErrors] = useState({});
   const [uploadingFiles, setUploadingFiles] = useState({});
+  const [deptModalOpen, setDeptModalOpen] = useState(false);
+const [desigModalOpen, setDesigModalOpen] = useState(false);
+const [roleModalOpen, setRoleModalOpen] = useState(false);
 
   const [documents, setDocuments] = useState({
     avatar: null,
@@ -77,6 +85,26 @@ const AddEmployee = () => {
   );
   const { departments = [] } = useSelector((state) => state.departments || {});
   const { roles = [] } = useSelector((state) => state.roles || {});
+
+  const sortedDepartments = useMemo(
+    () =>
+      [...(Array.isArray(departments) ? departments : [])].sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, {
+          sensitivity: "base",
+        }),
+      ),
+    [departments],
+  );
+
+  const sortedDesignations = useMemo(
+    () =>
+      [...(Array.isArray(designations) ? designations : [])].sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, {
+          sensitivity: "base",
+        }),
+      ),
+    [designations],
+  );
 
   const {
     control,
@@ -248,7 +276,6 @@ const AddEmployee = () => {
       setSelectedCountry(normalizedCountry);
       setCountryConfig(getCountryConfig(normalizedCountry));
 
-      // Default currency based on country (only if not already set)
       const currentCurrency = watch("currency");
       if (!currentCurrency || currentCurrency === "") {
         setValue("currency", normalizedCountry === "UAE" ? "AED" : "INR");
@@ -304,25 +331,104 @@ const AddEmployee = () => {
 
   const nationalityOptions = getNationalityOptions();
 
+  // ✅ Option arrays for SearchableSelect
+  const organizationOptions = useMemo(
+    () =>
+      (Array.isArray(organizations) ? organizations : [])
+        .filter((o) => o && o.id)
+        .map((o) => ({ value: String(o.id), label: o.name || "Unnamed" }))
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+        ),
+    [organizations],
+  );
+
+  const companyOptions = useMemo(
+    () =>
+      (Array.isArray(companies) ? companies : [])
+        .filter((c) => c && c.id)
+        .map((c) => ({
+          value: String(c.id),
+          label: c.company_name || c.name || "Unnamed",
+        })),
+    [companies],
+  );
+
+  const departmentOptions = useMemo(
+    () =>
+      sortedDepartments
+        .filter((d) => d && d.id)
+        .map((d) => ({ value: String(d.id), label: d.name })),
+    [sortedDepartments],
+  );
+
+  const designationOptions = useMemo(
+    () =>
+      sortedDesignations
+        .filter((d) => d && d.id)
+        .map((d) => ({ value: String(d.id), label: d.name })),
+    [sortedDesignations],
+  );
+
+  const userTypeOptions = useMemo(
+    () =>
+      ["admin", "hr", "manager", "team_lead", "employee"].map((t) => ({
+        value: t,
+        label: t.charAt(0).toUpperCase() + t.slice(1).replace("_", " "),
+      })),
+    [],
+  );
+
+  const currencyOptions = useMemo(
+    () => currenciesList.map((c) => ({ value: c.code, label: c.name })),
+    [currenciesList],
+  );
+
+  const genderOptions = useMemo(
+    () => [
+      { value: "male", label: "Male" },
+      { value: "female", label: "Female" },
+      { value: "other", label: "Other" },
+    ],
+    [],
+  );
+
+  const nationalitySearchOptions = useMemo(
+    () => nationalityOptions.map((n) => ({ value: n, label: n })),
+    [nationalityOptions],
+  );
+
+  const maritalStatusOptions = useMemo(
+    () =>
+      ["Single", "Married", "Divorced", "Widowed"].map((s) => ({
+        value: s,
+        label: s,
+      })),
+    [],
+  );
+
+  const visaTypeOptions = useMemo(
+    () => [
+      { value: "company_visa", label: "Company Visa" },
+      { value: "family_visa", label: "Family Visa" },
+      { value: "other_visa", label: "Other Visa" },
+    ],
+    [],
+  );
+
+  const roleOptions = useMemo(
+    () =>
+      (Array.isArray(roles) ? roles : [])
+        .filter((r) => r && r.id)
+        .map((r) => ({ value: String(r.id), label: r.name })),
+    [roles],
+  );
+
   const steps = [
     { number: 1, title: "Basic Info", icon: "fas fa-user-circle" },
     { number: 2, title: "Identity Documents", icon: "fas fa-id-card" },
     { number: 3, title: "Visa, Labor & EID", icon: "fas fa-file-contract" },
     { number: 4, title: "Contact", icon: "fas fa-address-card" },
-  ];
-
-  const userTypeOptions = ["admin", "hr", "manager", "team_lead", "employee"];
-
-  const genderOptions = [
-    { value: "male", label: "Male" },
-    { value: "female", label: "Female" },
-    { value: "other", label: "Other" },
-  ];
-  const maritalStatusOptions = ["Single", "Married", "Divorced", "Widowed"];
-  const visaTypeOptions = [
-    { value: "company_visa", label: "Company Visa" },
-    { value: "family_visa", label: "Family Visa" },
-    { value: "other_visa", label: "Other Visa" },
   ];
 
   const getStepFields = (stepIndex) => {
@@ -361,7 +467,7 @@ const AddEmployee = () => {
         if (selectedCountry === "UAE") {
           return ["passport_issued_date", "passport_expiry_date"];
         } else {
-          const fields = ["pan_number"];
+          const fields = [];
           countryConfig.identityDocuments.forEach((doc) => {
             if (doc.required) {
               fields.push(doc.key);
@@ -1224,105 +1330,57 @@ const AddEmployee = () => {
                     />
                   </div>
 
-                  {/* Organization */}
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-building text-green-500 mr-1"></i>{" "}
-                      Organization <span className="text-red-500">*</span>
-                    </label>
-                    <Controller
-                      name="organization_id"
-                      control={control}
-                      rules={validationRules.organization_id}
-                      render={({ field }) => (
-                        <>
-                          <select
-                            {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 transition-all focus:outline-none focus:ring-2 ${
-                              errors.organization_id
-                                ? "border-red-500"
-                                : "border-gray-200 dark:border-gray-600 focus:border-green-500"
-                            }`}
-                          >
-                            <option value="">Select Organization</option>
-                            {organizations.map((org) => (
-                              <option key={org.id} value={org.id}>
-                                {org.name}
-                              </option>
-                            ))}
-                          </select>
-                          {errors.organization_id && (
-                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                              {errors.organization_id.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
+                  {/* ✅ Organization — searchable */}
+                  <Controller
+                    name="organization_id"
+                    control={control}
+                    rules={validationRules.organization_id}
+                    render={({ field }) => (
+                      <SearchableSelect
+                        label="Organization"
+                        value={field.value}
+                        onChange={(val) => field.onChange(val)}
+                        options={organizationOptions}
+                        error={errors.organization_id?.message}
+                        required
+                        placeholder="Select Organization"
+                        searchPlaceholder="Search organizations..."
+                        emptyMessage="No organizations found"
+                      />
+                    )}
+                  />
 
-                  {/* Company */}
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-building text-green-500 mr-1"></i>{" "}
-                      Company
-                      {selectedOrgDetails?.multi_company === "Yes" && (
-                        <span className="text-red-500">*</span>
-                      )}
-                    </label>
-                    <Controller
-                      name="company_id"
-                      control={control}
-                      rules={{
-                        required:
+                  {/* ✅ Company — searchable */}
+                  <Controller
+                    name="company_id"
+                    control={control}
+                    rules={{
+                      required:
+                        selectedOrgDetails?.multi_company === "Yes"
+                          ? "Company is required"
+                          : false,
+                    }}
+                    render={({ field }) => (
+                      <SearchableSelect
+                        label="Company"
+                        value={field.value}
+                        onChange={(val) => field.onChange(val)}
+                        options={companyOptions}
+                        disabled={selectedOrgDetails?.multi_company !== "Yes"}
+                        error={errors.company_id?.message}
+                        required={selectedOrgDetails?.multi_company === "Yes"}
+                        placeholder={
                           selectedOrgDetails?.multi_company === "Yes"
-                            ? "Company is required"
-                            : false,
-                      }}
-                      render={({ field }) => (
-                        <>
-                          <select
-                            {...field}
-                            disabled={
-                              selectedOrgDetails?.multi_company !== "Yes"
-                            }
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 transition-all focus:outline-none focus:ring-2 ${
-                              selectedOrgDetails?.multi_company !== "Yes"
-                                ? "opacity-50 cursor-not-allowed"
-                                : ""
-                            } ${
-                              errors.company_id
-                                ? "border-red-500"
-                                : "border-gray-200 dark:border-gray-600 focus:border-green-500"
-                            }`}
-                          >
-                            <option value="">
-                              {selectedOrgDetails?.multi_company === "Yes"
-                                ? "Select Company"
-                                : selectedOrgDetails
-                                  ? "No multiple companies"
-                                  : "Select organization first"}
-                            </option>
-                            {companies.map((company) => (
-                              <option key={company.id} value={company.id}>
-                                {company.company_name || company.name}
-                                {company.raw?.trade_license && (
-                                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                                    ({company.raw?.trade_license})
-                                  </span>
-                                )}
-                              </option>
-                            ))}
-                          </select>
-                          {errors.company_id && (
-                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                              {errors.company_id.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
+                            ? "Select Company"
+                            : selectedOrgDetails
+                              ? "No multiple companies"
+                              : "Select organization first"
+                        }
+                        searchPlaceholder="Search companies..."
+                        emptyMessage="No companies found"
+                      />
+                    )}
+                  />
 
                   {/* Trade License Info */}
                   {selectedCompanyDetails &&
@@ -1379,267 +1437,162 @@ const AddEmployee = () => {
                       </div>
                     )}
 
-                  {/* Department */}
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-diagram-project text-green-500 mr-1"></i>{" "}
-                      Department <span className="text-red-500">*</span>
-                    </label>
-                    <Controller
-                      name="department_id"
-                      control={control}
-                      rules={validationRules.department_id}
-                      render={({ field }) => (
-                        <>
-                          <select
-                            {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 ${
-                              errors.department_id
-                                ? "border-red-500"
-                                : "border-gray-200 dark:border-gray-600 focus:border-green-500 focus:ring-green-500/20"
-                            }`}
-                          >
-                            <option value="">Select Department</option>
-                            {departments.map((dept) => (
-                              <option key={dept.id} value={dept.id}>
-                                {dept.name}
-                              </option>
-                            ))}
-                          </select>
-                          {errors.department_id && (
-                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                              {errors.department_id.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
+                  {/* ✅ Department — searchable + add new */}
+                  <Controller
+  name="department_id"
+  control={control}
+  rules={validationRules.department_id}
+  render={({ field }) => (
+    <SearchableSelect
+      label="Department"
+      value={field.value}
+      onChange={(val) => field.onChange(val)}
+      options={departmentOptions}
+      error={errors.department_id?.message}
+      required
+      placeholder="Select Department"
+      searchPlaceholder="Search departments..."
+      emptyMessage="No departments found"
+      onAddNew={() => setDeptModalOpen(true)}
+      addNewLabel="Add new department"
+    />
+  )}
+/>
 
-                  {/* Designation */}
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-briefcase text-green-500 mr-1"></i>{" "}
-                      Designation <span className="text-red-500">*</span>
-                    </label>
-                    <Controller
-                      name="designation_id"
-                      control={control}
-                      rules={validationRules.designation_id}
-                      render={({ field }) => (
-                        <>
-                          <select
-                            {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 ${
-                              errors.designation_id
-                                ? "border-red-500"
-                                : "border-gray-200 dark:border-gray-600 focus:border-green-500 focus:ring-green-500/20"
-                            }`}
-                          >
-                            <option value="">Select Designation</option>
-                            {designations.map((desig) => (
-                              <option key={desig.id} value={desig.id}>
-                                {desig.name}
-                              </option>
-                            ))}
-                          </select>
-                          {errors.designation_id && (
-                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                              {errors.designation_id.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
+                  {/* ✅ Designation — searchable + add new */}
+                  <Controller
+  name="designation_id"
+  control={control}
+  rules={validationRules.designation_id}
+  render={({ field }) => (
+    <SearchableSelect
+      label="Designation"
+      value={field.value}
+      onChange={(val) => field.onChange(val)}
+      options={designationOptions}
+      error={errors.designation_id?.message}
+      required
+      placeholder="Select Designation"
+      searchPlaceholder="Search designations..."
+      emptyMessage="No designations found"
+      onAddNew={() => setDesigModalOpen(true)}
+      addNewLabel="Add new designation"
+    />
+  )}
+/>
 
-                  {/* User Type */}
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-user-tag text-green-500 mr-1"></i>{" "}
-                      User Type <span className="text-red-500">*</span>
-                    </label>
-                    <Controller
-                      name="type"
-                      control={control}
-                      rules={validationRules.type}
-                      render={({ field }) => (
-                        <>
-                          <select
-                            {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 transition-all focus:outline-none focus:ring-2 ${
-                              errors.type
-                                ? "border-red-500"
-                                : "border-gray-200 dark:border-gray-600 focus:border-green-500"
-                            }`}
-                          >
-                            {userTypeOptions.map((type) => (
-                              <option key={type} value={type}>
-                                {type.charAt(0).toUpperCase() +
-                                  type.slice(1).replace("_", " ")}
-                              </option>
-                            ))}
-                          </select>
-                          {errors.type && (
-                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                              {errors.type.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
-
-                  {/* Currency */}
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-money-bill-wave text-green-500 mr-1"></i>{" "}
-                      Currency <span className="text-red-500">*</span>
-                    </label>
-                    <Controller
-                      name="currency"
-                      control={control}
-                      rules={{ required: "Currency is required" }}
-                      render={({ field }) => (
-                        <>
-                          <select
-                            {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 transition-all focus:outline-none focus:ring-2 ${
-                              errors.currency
-                                ? "border-red-500"
-                                : "border-gray-200 dark:border-gray-600 focus:border-green-500"
-                            }`}
-                          >
-                            <option value="">Select Currency</option>
-                            {currenciesList.map((curr) => (
-                              <option key={curr.code} value={curr.code}>
-                                {curr.name}
-                              </option>
-                            ))}
-                          </select>
-                          {errors.currency && (
-                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                              {errors.currency.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
-
-                  {/* Payment Cycle */}
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-sync-alt text-green-500 mr-1"></i>{" "}
-                      Payment Cycle <span className="text-red-500">*</span>
-                    </label>
-                    <Controller
-                      name="payment_cycle"
-                      control={control}
-                      rules={{ required: "Payment cycle is required" }}
-                      render={({ field }) => (
-                        <>
-                          <select
-                            {...field}
-                            className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 transition-all focus:outline-none focus:ring-2 ${
-                              errors.payment_cycle
-                                ? "border-red-500"
-                                : "border-gray-200 dark:border-gray-600 focus:border-green-500"
-                            }`}
-                          >
-                            <option value="">Select Payment Cycle</option>
-                            {paymentCycleOptions.map((cycle) => (
-                              <option key={cycle.value} value={cycle.value}>
-                                {cycle.label}
-                              </option>
-                            ))}
-                          </select>
-                          {errors.payment_cycle && (
-                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                              {errors.payment_cycle.message}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    />
-                  </div>
-
-                  {/* Gender */}
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-venus-mars text-green-500 mr-1"></i>{" "}
-                      Gender
-                    </label>
-                    <Controller
-                      name="gender"
-                      control={control}
-                      render={({ field }) => (
-                        <select
-                          {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                        >
-                          <option value="">Select Gender</option>
-                          {genderOptions.map((gender) => (
-                            <option key={gender.value} value={gender.value}>
-                              {gender.label}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    />
-                  </div>
-
-                  {/* Nationality */}
-                  {countryConfig.showNationality && (
-                    <div>
-                      <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                        <i className="fas fa-globe-asia text-green-500 mr-1"></i>{" "}
-                        Nationality
-                      </label>
-                      <Controller
-                        name="nationality"
-                        control={control}
-                        render={({ field }) => (
-                          <select
-                            {...field}
-                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                          >
-                            <option value="">Select Nationality</option>
-                            {nationalityOptions.map((nationality) => (
-                              <option key={nationality} value={nationality}>
-                                {nationality}
-                              </option>
-                            ))}
-                          </select>
-                        )}
+                  {/* ✅ User Type — searchable */}
+                  <Controller
+                    name="type"
+                    control={control}
+                    rules={validationRules.type}
+                    render={({ field }) => (
+                      <SearchableSelect
+                        label="User Type"
+                        value={field.value}
+                        onChange={(val) => field.onChange(val)}
+                        options={userTypeOptions}
+                        error={errors.type?.message}
+                        required
+                        placeholder="Select User Type"
+                        searchPlaceholder="Search user type..."
+                        emptyMessage="No user types found"
                       />
-                    </div>
+                    )}
+                  />
+
+                  {/* ✅ Currency — searchable */}
+                  <Controller
+                    name="currency"
+                    control={control}
+                    rules={{ required: "Currency is required" }}
+                    render={({ field }) => (
+                      <SearchableSelect
+                        label="Currency"
+                        value={field.value}
+                        onChange={(val) => field.onChange(val)}
+                        options={currencyOptions}
+                        error={errors.currency?.message}
+                        required
+                        placeholder="Select Currency"
+                        searchPlaceholder="Search currency..."
+                        emptyMessage="No currencies found"
+                      />
+                    )}
+                  />
+
+                  {/* ✅ Payment Cycle — searchable */}
+                  <Controller
+                    name="payment_cycle"
+                    control={control}
+                    rules={{ required: "Payment cycle is required" }}
+                    render={({ field }) => (
+                      <SearchableSelect
+                        label="Payment Cycle"
+                        value={field.value}
+                        onChange={(val) => field.onChange(val)}
+                        options={paymentCycleOptions}
+                        error={errors.payment_cycle?.message}
+                        required
+                        placeholder="Select Payment Cycle"
+                        searchPlaceholder="Search payment cycle..."
+                        emptyMessage="No options found"
+                      />
+                    )}
+                  />
+
+                  {/* ✅ Gender — searchable */}
+                  <Controller
+                    name="gender"
+                    control={control}
+                    render={({ field }) => (
+                      <SearchableSelect
+                        label="Gender"
+                        value={field.value}
+                        onChange={(val) => field.onChange(val)}
+                        options={genderOptions}
+                        placeholder="Select Gender"
+                        searchPlaceholder="Search gender..."
+                        emptyMessage="No options found"
+                      />
+                    )}
+                  />
+
+                  {/* ✅ Nationality — searchable */}
+                  {countryConfig.showNationality && (
+                    <Controller
+                      name="nationality"
+                      control={control}
+                      render={({ field }) => (
+                        <SearchableSelect
+                          label="Nationality"
+                          value={field.value}
+                          onChange={(val) => field.onChange(val)}
+                          options={nationalitySearchOptions}
+                          placeholder="Select Nationality"
+                          searchPlaceholder="Search nationality..."
+                          emptyMessage="No nationality found"
+                        />
+                      )}
+                    />
                   )}
 
-                  {/* Marital Status */}
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-user-friends text-green-500 mr-1"></i>{" "}
-                      Marital Status
-                    </label>
-                    <Controller
-                      name="marital_status"
-                      control={control}
-                      render={({ field }) => (
-                        <select
-                          {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                        >
-                          <option value="">Select Marital Status</option>
-                          {maritalStatusOptions.map((status) => (
-                            <option key={status} value={status}>
-                              {status}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    />
-                  </div>
+                  {/* ✅ Marital Status — searchable */}
+                  <Controller
+                    name="marital_status"
+                    control={control}
+                    render={({ field }) => (
+                      <SearchableSelect
+                        label="Marital Status"
+                        value={field.value}
+                        onChange={(val) => field.onChange(val)}
+                        options={maritalStatusOptions}
+                        placeholder="Select Marital Status"
+                        searchPlaceholder="Search marital status..."
+                        emptyMessage="No options found"
+                      />
+                    )}
+                  />
 
                   {/* Special Days */}
                   <div className="md:col-span-2">
@@ -2556,9 +2509,6 @@ const AddEmployee = () => {
                     <i className="fas fa-id-card text-green-500 mr-2"></i>
                     <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-gray-100">
                       Identity Documents
-                      <span className="text-xs text-red-500 ml-2">
-                        * PAN Card is mandatory
-                      </span>
                     </h3>
                   </div>
 
@@ -2589,36 +2539,21 @@ const AddEmployee = () => {
                     <div>
                       <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         <i className="fas fa-id-card text-green-500 mr-1"></i>
-                        PAN Number <span className="text-red-500">*</span>
+                        PAN Number
+                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+                          (Optional)
+                        </span>
                       </label>
                       <Controller
                         name="pan_number"
                         control={control}
-                        rules={{
-                          required: "PAN number is required",
-                          pattern: {
-                            value: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
-                            message: "Invalid PAN format (e.g., ABCDE1234F)",
-                          },
-                        }}
                         render={({ field }) => (
-                          <>
-                            <input
-                              {...field}
-                              type="text"
-                              className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 ${
-                                errors.pan_number
-                                  ? "border-red-500"
-                                  : "border-gray-200 dark:border-gray-600 focus:border-green-500"
-                              }`}
-                              placeholder="Enter 10-digit PAN (e.g., ABCDE1234F)"
-                            />
-                            {errors.pan_number && (
-                              <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                                {errors.pan_number.message}
-                              </p>
-                            )}
-                          </>
+                          <input
+                            {...field}
+                            type="text"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                            placeholder="Enter 10-digit PAN (e.g., ABCDE1234F)"
+                          />
                         )}
                       />
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -2830,28 +2765,20 @@ const AddEmployee = () => {
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                         <div className="md:col-span-2">
-                          <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                            <i className="fas fa-list text-green-500 mr-1"></i>{" "}
-                            Type of Visa
-                          </label>
+                          {/* ✅ Visa Type — searchable */}
                           <Controller
                             name="visa_type"
                             control={control}
                             render={({ field }) => (
-                              <select
-                                {...field}
-                                className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                              >
-                                <option value="">Select Type of Visa</option>
-                                {visaTypeOptions.map((option) => (
-                                  <option
-                                    key={option.value}
-                                    value={option.value}
-                                  >
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
+                              <SearchableSelect
+                                label="Type of Visa"
+                                value={field.value}
+                                onChange={(val) => field.onChange(val)}
+                                options={visaTypeOptions}
+                                placeholder="Select Type of Visa"
+                                searchPlaceholder="Search visa type..."
+                                emptyMessage="No visa types found"
+                              />
                             )}
                           />
                         </div>
@@ -3273,30 +3200,27 @@ const AddEmployee = () => {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-user-tag text-green-500 mr-1"></i>{" "}
-                      Role <span className="text-red-500">*</span>
-                    </label>
-                    <Controller
-                      name="role"
-                      control={control}
-                      rules={validationRules.role}
-                      render={({ field }) => (
-                        <select
-                          {...field}
-                          className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-100 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-                        >
-                          <option value="">Select Role</option>
-                          {roles.map((role) => (
-                            <option key={role.id} value={role.id}>
-                              {role.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    />
-                  </div>
+                  {/* ✅ Role — searchable */}
+                  <Controller
+  name="role"
+  control={control}
+  rules={validationRules.role}
+  render={({ field }) => (
+    <SearchableSelect
+      label="Role"
+      value={field.value}
+      onChange={(val) => field.onChange(val)}
+      options={roleOptions}
+      error={errors.role?.message}
+      required
+      placeholder="Select Role"
+      searchPlaceholder="Search roles..."
+      emptyMessage="No roles found"
+      onAddNew={() => setRoleModalOpen(true)}
+      addNewLabel="Add new role"
+    />
+  )}
+/>
                 </div>
               </div>
             </div>
@@ -3349,6 +3273,45 @@ const AddEmployee = () => {
         onClose={() => setShowDocumentModal(false)}
         onSave={handleAddDocument}
         uploading={uploadingDoc}
+      />
+
+      <AddDepartmentModal
+        isOpen={deptModalOpen}
+        onClose={() => setDeptModalOpen(false)}
+        onCreated={(dept) => {
+          if (dept?.id) {
+            setValue("department_id", String(dept.id), {
+              shouldValidate: true,
+            });
+            dispatch(fetchDepartments());
+          }
+        }}
+      />
+
+      {/* ✅ Add Designation Modal */}
+      <AddDesignationModal
+        isOpen={desigModalOpen}
+        onClose={() => setDesigModalOpen(false)}
+        onCreated={(des) => {
+          if (des?.id) {
+            setValue("designation_id", String(des.id), {
+              shouldValidate: true,
+            });
+            dispatch(fetchDesignations());
+          }
+        }}
+      />
+
+      {/* ✅ Add Role Modal */}
+      <AddRoleModal
+        isOpen={roleModalOpen}
+        onClose={() => setRoleModalOpen(false)}
+        onCreated={(role) => {
+          if (role?.id) {
+            setValue("role", String(role.id), { shouldValidate: true });
+            dispatch(fetchRoles());
+          }
+        }}
       />
     </div>
   );

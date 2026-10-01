@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchEmployees } from "../../store/slices/employeeSlice";
 import {
@@ -21,12 +21,39 @@ import {
   FiUser,
 } from "react-icons/fi";
 import { MdCalculate } from "react-icons/md";
+import SearchableSelect from "../../../components/common/SearchableSelect";
 
 const AddLeaveModal = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
 
   const { employees = [] } = useSelector((state) => state.employees || {});
   const { leaveTypes = [] } = useSelector((state) => state.leaves || {});
+
+  // ✅ Option arrays for SearchableSelect
+  const employeeOptions = useMemo(
+    () =>
+      (Array.isArray(employees) ? employees : [])
+        .filter((emp) => emp && emp.id)
+        .map((emp) => ({
+          value: String(emp.id),
+          label: emp.name || "Unnamed",
+        }))
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+        ),
+    [employees],
+  );
+
+  const leaveTypeOptions = useMemo(
+    () =>
+      (Array.isArray(leaveTypes) ? leaveTypes : [])
+        .filter((lt) => lt && lt.id)
+        .map((lt) => ({
+          value: String(lt.id),
+          label: lt.name || "Unnamed",
+        })),
+    [leaveTypes],
+  );
 
   const [employeeId, setEmployeeId] = useState("");
   const [leaveBalances, setLeaveBalances] = useState({});
@@ -330,34 +357,25 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Employee Selection */}
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiUser className="text-green-500" /> Employee{" "}
-                <span className="text-red-500">*</span>
-              </label>
-              <select
+              <SearchableSelect
+                label="Employee"
                 value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500"
-              >
-                <option value="">Select Employee</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setEmployeeId(val)}
+                options={employeeOptions}
+                required
+                placeholder="Select Employee"
+                searchPlaceholder="Search employees..."
+                emptyMessage="No employees found"
+                clearable
+              />
             </div>
 
             {/* Leave Type */}
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <FiList className="text-green-500" /> Leave Type{" "}
-                <span className="text-red-500">*</span>
-              </label>
-              <select
+              <SearchableSelect
+                label="Leave Type"
                 value={formData.leave_type_id}
-                onChange={(e) => {
-                  const newId = e.target.value;
+                onChange={(newId) => {
                   const newType = leaveTypes.find(
                     (lt) => String(lt.id) === String(newId),
                   );
@@ -370,14 +388,13 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
                       : prev.claim_salary,
                   }));
                 }}
-                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500"
-              >
-                {leaveTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </select>
+                options={leaveTypeOptions}
+                required
+                placeholder="Select Leave Type"
+                searchPlaceholder="Search leave types..."
+                emptyMessage="No leave types found"
+                clearable
+              />
               {loadingBalances && (
                 <p className="text-[10px] text-gray-400">Loading balances...</p>
               )}

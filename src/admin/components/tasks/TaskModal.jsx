@@ -1,28 +1,41 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { createTask, updateTask } from "../../store/slices/tasksSlice";
 import { fetchDepartments } from "../../store/slices/departmentSlice";
 import { showToast } from "../../../components/common/Toast";
 import DateInput from "../../components/common/DateInput";
+import SearchableSelect from "../../../components/common/SearchableSelect";
 
-const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, authUser }) => {
+const TaskModal = ({
+  isOpen,
+  onClose,
+  task,
+  onSuccess,
+  employees,
+  projects,
+  authUser,
+}) => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [searchEmployee, setSearchEmployee] = useState("");
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
   const employeeDropdownRef = useRef(null);
-  const [filteredEmployeesByDepartment, setFilteredEmployeesByDepartment] = useState([]);
+  const [filteredEmployeesByDepartment, setFilteredEmployeesByDepartment] =
+    useState([]);
   const [departments, setDepartments] = useState([]);
   const [departmentMap, setDepartmentMap] = useState({});
-  
+
   // Fetch departments from Redux store
-  const { departments: deptList } = useSelector((state) => state.departments || {});
-  
+  const { departments: deptList } = useSelector(
+    (state) => state.departments || {},
+  );
+
   // Get taskEmployees from tasks slice
   const { taskEmployees = [] } = useSelector((state) => state.tasks || {});
-  
+
   // Use taskEmployees if provided, otherwise fallback to employees prop
-  const availableEmployees = taskEmployees.length > 0 ? taskEmployees : employees;
+  const availableEmployees =
+    taskEmployees.length > 0 ? taskEmployees : employees;
 
   const [formData, setFormData] = useState({
     name: "",
@@ -46,17 +59,21 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
   useEffect(() => {
     if (deptList && deptList.length > 0) {
       let deptArray = deptList;
-      
+
       if (deptList.data && Array.isArray(deptList.data)) {
         deptArray = deptList.data;
       }
-      
+
       setDepartments(deptArray);
-      
+
       const map = {};
-      deptArray.forEach(dept => {
+      deptArray.forEach((dept) => {
         const id = dept.id;
-        const name = dept.name || dept.department_name || dept.dept_name || `Department ${id}`;
+        const name =
+          dept.name ||
+          dept.department_name ||
+          dept.dept_name ||
+          `Department ${id}`;
         map[id] = name;
       });
       setDepartmentMap(map);
@@ -66,7 +83,10 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (employeeDropdownRef.current && !employeeDropdownRef.current.contains(event.target)) {
+      if (
+        employeeDropdownRef.current &&
+        !employeeDropdownRef.current.contains(event.target)
+      ) {
         setShowEmployeeDropdown(false);
       }
     };
@@ -77,10 +97,11 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
   // Helper function to get employee name
   const getEmployeeName = (emp) => {
     if (emp.name) return emp.name;
-    if (emp.first_name && emp.last_name) return `${emp.first_name} ${emp.last_name}`;
+    if (emp.first_name && emp.last_name)
+      return `${emp.first_name} ${emp.last_name}`;
     if (emp.first_name) return emp.first_name;
     if (emp.employee_name) return emp.employee_name;
-    return 'Unknown';
+    return "Unknown";
   };
 
   // Helper function to get employee department ID
@@ -111,15 +132,19 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
   // Filter employees based on selected project's department
   useEffect(() => {
     if (formData.project_id) {
-      const selectedProject = projects.find(p => p.id === parseInt(formData.project_id));
-      
+      const selectedProject = projects.find(
+        (p) => p.id === parseInt(formData.project_id),
+      );
+
       if (selectedProject?.department_id) {
         // Filter employees by department ID
-        const filtered = availableEmployees.filter(emp => {
+        const filtered = availableEmployees.filter((emp) => {
           const empDeptId = getEmployeeDepartmentId(emp);
           return empDeptId === selectedProject.department_id;
         });
-        setFilteredEmployeesByDepartment(filtered.length > 0 ? filtered : availableEmployees);
+        setFilteredEmployeesByDepartment(
+          filtered.length > 0 ? filtered : availableEmployees,
+        );
       } else {
         setFilteredEmployeesByDepartment(availableEmployees);
       }
@@ -132,13 +157,25 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
     if (task) {
       setFormData({
         name: task.title || "",
-        project_id: task.project_id || (projects?.length === 1 ? projects[0].id : ""),
-        assigned_to_ids: (task.assigned_to || []).map(a => typeof a === 'object' ? a.id : a) || [],
-        assigned_date: task.assigned_date?.split("T")[0] || new Date().toISOString().split("T")[0],
+        project_id:
+          task.project_id || (projects?.length === 1 ? projects[0].id : ""),
+        assigned_to_ids:
+          (task.assigned_to || []).map((a) =>
+            typeof a === "object" ? a.id : a,
+          ) || [],
+        assigned_date:
+          task.assigned_date?.split("T")[0] ||
+          new Date().toISOString().split("T")[0],
         due_date: task.due_date?.split("T")[0] || "",
         priority: task.priority || "medium",
         description: task.task_description || "",
-        assigned_by_name: task.assign_by || task.assignedBy?.name || task.assigned_by?.name || authUser?.name || authUser?.username || "Admin",
+        assigned_by_name:
+          task.assign_by ||
+          task.assignedBy?.name ||
+          task.assigned_by?.name ||
+          authUser?.name ||
+          authUser?.username ||
+          "Admin",
       });
     } else {
       setFormData({
@@ -166,51 +203,85 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
   // Toggle employee selection
   const toggleEmployee = (employeeId) => {
     if (formData.assigned_to_ids.includes(employeeId)) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        assigned_to_ids: prev.assigned_to_ids.filter(id => id !== employeeId)
+        assigned_to_ids: prev.assigned_to_ids.filter((id) => id !== employeeId),
       }));
     } else {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        assigned_to_ids: [...prev.assigned_to_ids, employeeId]
+        assigned_to_ids: [...prev.assigned_to_ids, employeeId],
       }));
     }
   };
 
   // Remove employee from selected list
   const removeEmployee = (employeeId) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      assigned_to_ids: prev.assigned_to_ids.filter(id => id !== employeeId)
+      assigned_to_ids: prev.assigned_to_ids.filter((id) => id !== employeeId),
     }));
   };
 
   // Filter employees based on search (by name or designation)
-  const filteredEmployees = filteredEmployeesByDepartment?.filter(emp => {
+  const filteredEmployees = filteredEmployeesByDepartment?.filter((emp) => {
     const searchLower = searchEmployee.toLowerCase();
     const empName = getEmployeeName(emp).toLowerCase();
-    const empDesignation = (getEmployeeDesignation(emp) || '').toLowerCase();
-    const empDepartment = (getEmployeeDepartmentName(emp) || '').toLowerCase();
-    
-    return empName.includes(searchLower) || 
-           empDesignation.includes(searchLower) ||
-           empDepartment.includes(searchLower);
+    const empDesignation = (getEmployeeDesignation(emp) || "").toLowerCase();
+    const empDepartment = (getEmployeeDepartmentName(emp) || "").toLowerCase();
+
+    return (
+      empName.includes(searchLower) ||
+      empDesignation.includes(searchLower) ||
+      empDepartment.includes(searchLower)
+    );
   });
+
+  // ✅ Project options for SearchableSelect
+  const projectOptions = useMemo(
+    () =>
+      (Array.isArray(projects) ? projects : [])
+        .filter((p) => p && p.id)
+        .map((p) => {
+          const deptName = p.department_id
+            ? departmentMap[p.department_id] || ""
+            : "";
+          const name = p.project_name || p.name || `Project #${p.id}`;
+          const label = p.client_name
+            ? `${name} — ${p.client_name}${deptName ? ` (${deptName})` : ""}`
+            : `${name}${deptName ? ` (${deptName})` : ""}`;
+          return { value: String(p.id), label };
+        })
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+        ),
+    [projects, departmentMap],
+  );
+
+  // ✅ Priority options for SearchableSelect
+  const priorityOptions = useMemo(
+    () => [
+      { value: "low", label: "Low" },
+      { value: "medium", label: "Medium" },
+      { value: "high", label: "High" },
+    ],
+    [],
+  );
 
   // Select/Deselect all
   const selectAll = () => {
-    const allEmployeeIds = filteredEmployeesByDepartment?.map(emp => emp.id) || [];
-    setFormData(prev => ({ ...prev, assigned_to_ids: allEmployeeIds }));
+    const allEmployeeIds =
+      filteredEmployeesByDepartment?.map((emp) => emp.id) || [];
+    setFormData((prev) => ({ ...prev, assigned_to_ids: allEmployeeIds }));
   };
 
   const deselectAll = () => {
-    setFormData(prev => ({ ...prev, assigned_to_ids: [] }));
+    setFormData((prev) => ({ ...prev, assigned_to_ids: [] }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       showToast("Task name is required", "error");
       return;
@@ -244,8 +315,14 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
       result = await dispatch(createTask(submitData));
     }
 
-    if ((task && updateTask.fulfilled.match(result)) || (!task && createTask.fulfilled.match(result))) {
-      showToast(task ? "Task updated successfully!" : "Task assigned successfully!", "success");
+    if (
+      (task && updateTask.fulfilled.match(result)) ||
+      (!task && createTask.fulfilled.match(result))
+    ) {
+      showToast(
+        task ? "Task updated successfully!" : "Task assigned successfully!",
+        "success",
+      );
       onSuccess();
       onClose();
     } else {
@@ -256,25 +333,29 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
   };
 
   // Get selected project details and department name
-  const selectedProject = projects?.find(p => p.id === parseInt(formData.project_id));
-  
+  const selectedProject = projects?.find(
+    (p) => p.id === parseInt(formData.project_id),
+  );
+
   // Get department name from departments map using department_id
   const getDepartmentName = (departmentId) => {
     if (!departmentId) return null;
-    
+
     if (departmentMap[departmentId]) {
       return departmentMap[departmentId];
     }
-    
-    const dept = departments.find(d => d.id === departmentId);
+
+    const dept = departments.find((d) => d.id === departmentId);
     if (dept) {
       return dept.name || dept.department_name || dept.dept_name;
     }
-    
+
     return null;
   };
 
-  const departmentName = selectedProject?.department_id ? getDepartmentName(selectedProject.department_id) : null;
+  const departmentName = selectedProject?.department_id
+    ? getDepartmentName(selectedProject.department_id)
+    : null;
 
   if (!isOpen) return null;
 
@@ -287,8 +368,8 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
             <i className="fas fa-tasks text-green-500"></i>
             {task ? "Edit Task" : "Assign New Task"}
           </h3>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="text-gray-400 hover:text-red-500 transition-colors text-2xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             &times;
@@ -317,38 +398,44 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
 
               {/* Project Selection */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Select Project <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="project_id"
+                <SearchableSelect
+                  label="Select Project"
                   value={formData.project_id}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                  onChange={(val) =>
+                    setFormData((prev) => ({ ...prev, project_id: val }))
+                  }
+                  options={projectOptions}
                   required
-                >
-                  <option value="">Select a project</option>
-                  {projects?.map((project) => {
-                    const deptName = getDepartmentName(project.department_id);
-                    return (
-                      <option key={project.id} value={project.id}>
-                        {project.project_name || project.name} - {project.client_name}
-                        {deptName && ` (${deptName})`}
-                      </option>
-                    );
-                  })}
-                </select>
+                  placeholder="Search or select project..."
+                  searchPlaceholder="Search by project name or client..."
+                  emptyMessage="No projects found"
+                  clearable
+                />
               </div>
-
               {/* Project Details Display */}
               {selectedProject && (
                 <div className="md:col-span-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3">
-                  <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Project Details:</p>
+                  <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Project Details:
+                  </p>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div><span className="text-gray-500">Client:</span> {selectedProject.client_name}</div>
-                    <div><span className="text-gray-500">Website:</span> {selectedProject.website_url || "-"}</div>
-                    <div><span className="text-gray-500">Department:</span> {departmentName || "N/A"}</div>
-                    <div><span className="text-gray-500">Timeline:</span> {selectedProject.start_date} to {selectedProject.end_date || "Ongoing"}</div>
+                    <div>
+                      <span className="text-gray-500">Client:</span>{" "}
+                      {selectedProject.client_name}
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Website:</span>{" "}
+                      {selectedProject.website_url || "-"}
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Department:</span>{" "}
+                      {departmentName || "N/A"}
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Timeline:</span>{" "}
+                      {selectedProject.start_date} to{" "}
+                      {selectedProject.end_date || "Ongoing"}
+                    </div>
                   </div>
                 </div>
               )}
@@ -364,18 +451,23 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                     </span>
                   )}
                 </label>
-                
+
                 {/* Selected Employees Tags - FIXED: Use availableEmployees instead of employees */}
                 {formData.assigned_to_ids.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {formData.assigned_to_ids.map(id => {
-                      const emp = availableEmployees?.find(e => e.id === id);
+                    {formData.assigned_to_ids.map((id) => {
+                      const emp = availableEmployees?.find((e) => e.id === id);
                       return emp ? (
-                        <span key={id} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm">
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm"
+                        >
                           <i className="fas fa-user text-xs"></i>
                           {getEmployeeName(emp)}
                           {getEmployeeDesignation(emp) && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">({getEmployeeDesignation(emp)})</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              ({getEmployeeDesignation(emp)})
+                            </span>
                           )}
                           <button
                             type="button"
@@ -389,7 +481,7 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                     })}
                   </div>
                 )}
-                
+
                 {/* Search and Selection Area */}
                 <div className="relative" ref={employeeDropdownRef}>
                   <div className="relative">
@@ -402,13 +494,15 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                         setShowEmployeeDropdown(true);
                       }}
                       onFocus={() => setShowEmployeeDropdown(true)}
-                      placeholder={departmentName ? 
-                        `Search employees in ${departmentName} department...` : 
-                        "Search employees by name or designation..."}
+                      placeholder={
+                        departmentName
+                          ? `Search employees in ${departmentName} department...`
+                          : "Search employees by name or designation..."
+                      }
                       className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
-                  
+
                   {/* Dropdown with Checkbox List */}
                   {showEmployeeDropdown && (
                     <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-64 overflow-y-auto">
@@ -432,11 +526,13 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                           {filteredEmployees?.length || 0} employees found
                         </span>
                       </div>
-                      
+
                       {/* Employee List */}
                       {filteredEmployees?.length > 0 ? (
-                        filteredEmployees.map(emp => {
-                          const isSelected = formData.assigned_to_ids.includes(emp.id);
+                        filteredEmployees.map((emp) => {
+                          const isSelected = formData.assigned_to_ids.includes(
+                            emp.id,
+                          );
                           const empName = getEmployeeName(emp);
                           const empDesignation = getEmployeeDesignation(emp);
                           const empDepartment = getEmployeeDepartmentName(emp);
@@ -444,7 +540,9 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                             <label
                               key={emp.id}
                               className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
-                                isSelected ? 'bg-green-50 dark:bg-green-900/20' : ''
+                                isSelected
+                                  ? "bg-green-50 dark:bg-green-900/20"
+                                  : ""
                               }`}
                             >
                               <input
@@ -457,13 +555,16 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                                 {empName.charAt(0) || "U"}
                               </div>
                               <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{empName}</p>
-                                
-                                {empDepartment && empDepartment !== empDesignation && (
-                                  <p className="text-xs text-gray-400 dark:text-gray-500">
-                                    {empDepartment}
-                                  </p>
-                                )}
+                                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                  {empName}
+                                </p>
+
+                                {empDepartment &&
+                                  empDepartment !== empDesignation && (
+                                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                                      {empDepartment}
+                                    </p>
+                                  )}
                               </div>
                               {isSelected && (
                                 <i className="fas fa-check-circle text-green-500 text-sm"></i>
@@ -475,19 +576,23 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                         <div className="text-center py-4 text-gray-500 dark:text-gray-400">
                           <i className="fas fa-user-slash text-2xl mb-1 block"></i>
                           <p className="text-sm">
-                            {departmentName ? 
-                              `No employees found in ${departmentName} department` : 
-                              "No employees found"}
+                            {departmentName
+                              ? `No employees found in ${departmentName} department`
+                              : "No employees found"}
                           </p>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-                
+
                 <p className="text-xs text-gray-500 mt-2">
                   <i className="fas fa-info-circle mr-1"></i>
-                  Selected: <span className="font-semibold text-green-600">{formData.assigned_to_ids.length}</span> employee(s)
+                  Selected:{" "}
+                  <span className="font-semibold text-green-600">
+                    {formData.assigned_to_ids.length}
+                  </span>{" "}
+                  employee(s)
                   {departmentName && ` from ${departmentName} department`}
                 </p>
               </div>
@@ -514,7 +619,7 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                 </label>
                 <DateInput
                   value={formData.assigned_date}
-                  onChange={(value) => handleDateChange('assigned_date', value)}
+                  onChange={(value) => handleDateChange("assigned_date", value)}
                   placeholder="dd/mm/yyyy"
                   className="w-full"
                   type="general"
@@ -529,7 +634,7 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                 </label>
                 <DateInput
                   value={formData.due_date}
-                  onChange={(value) => handleDateChange('due_date', value)}
+                  onChange={(value) => handleDateChange("due_date", value)}
                   placeholder="dd/mm/yyyy"
                   className="w-full"
                   type="general"
@@ -537,21 +642,17 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
               </div>
 
               {/* Priority */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Priority
-                </label>
-                <select
-                  name="priority"
-                  value={formData.priority}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
+              <SearchableSelect
+                label="Priority"
+                value={formData.priority}
+                onChange={(val) =>
+                  setFormData((prev) => ({ ...prev, priority: val }))
+                }
+                options={priorityOptions}
+                placeholder="Select priority"
+                searchPlaceholder="Search priority..."
+                emptyMessage="No options found"
+              />
 
               {/* Status - REMOVED for edit mode, only show info message */}
               {task && (
@@ -559,7 +660,8 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
                   <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2">
                       <i className="fas fa-info-circle"></i>
-                      Task status is managed by assigned employees and cannot be changed here.
+                      Task status is managed by assigned employees and cannot be
+                      changed here.
                     </p>
                   </div>
                 </div>
@@ -599,9 +701,15 @@ const TaskModal = ({ isOpen, onClose, task, onSuccess, employees, projects, auth
             className="px-5 py-2 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center gap-2 disabled:opacity-70"
           >
             {loading ? (
-              <><i className="fas fa-spinner fa-spin"></i> {task ? "Updating..." : "Assigning..."}</>
+              <>
+                <i className="fas fa-spinner fa-spin"></i>{" "}
+                {task ? "Updating..." : "Assigning..."}
+              </>
             ) : (
-              <><i className="fas fa-check"></i> {task ? "Update Task" : "Assign Task"}</>
+              <>
+                <i className="fas fa-check"></i>{" "}
+                {task ? "Update Task" : "Assign Task"}
+              </>
             )}
           </button>
         </div>

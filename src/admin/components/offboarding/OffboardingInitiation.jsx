@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+// src/admin/components/offboarding/OffboardingInitiation.jsx
+import React, { useState, useEffect, useMemo } from "react";
 import {
   useNavigate,
   useLocation,
@@ -8,16 +9,10 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import {
-  Search,
-  X,
-  ArrowRight,
-  Save,
-  ChevronDown,
-  CheckCircle,
-} from "lucide-react";
+import { ArrowRight, Save, CheckCircle } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import DateInput from "../common/DateInput";
+import SearchableSelect from "../../../components/common/SearchableSelect";
 import { showToast } from "../common/Toast";
 import OffboardingHeader from "./OffboardingHeader";
 import { fetchEmployees } from "../../store/slices/employeeSlice";
@@ -25,7 +20,6 @@ import { fetchDepartments } from "../../store/slices/departmentSlice";
 import { fetchDesignations } from "../../store/slices/designationSlice";
 import {
   initiateOffboarding,
-  saveOffboardingDraft,
   fetchOffboardingProgress,
   fetchOffboardingById,
   updateOffboarding,
@@ -106,6 +100,22 @@ const offboardingSchema = z
     }
   });
 
+// ----------------------------------------------------
+// Helpers
+// ----------------------------------------------------
+const normalizeArray = (payload) => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+};
+
+const pickManagerName = (m) =>
+  m?.full_name ||
+  m?.name ||
+  `${m?.first_name || ""} ${m?.last_name || ""}`.trim();
+
 const OffboardingInitiation = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -119,20 +129,7 @@ const OffboardingInitiation = () => {
     !!location.state?.offboardingData ||
     !!location.state?.isEdit;
 
-  const dropdownRef = useRef(null);
-  const managerDropdownRef = useRef(null);
-  const departmentDropdownRef = useRef(null);
-  const designationDropdownRef = useRef(null);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [showManagerDropdown, setShowManagerDropdown] = useState(false);
-  const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
-  const [showDesignationDropdown, setShowDesignationDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [managerSearchQuery, setManagerSearchQuery] = useState("");
-  const [departmentSearchQuery, setDepartmentSearchQuery] = useState("");
-  const [designationSearchQuery, setDesignationSearchQuery] = useState("");
   const [showProgress, setShowProgress] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [reportingManagers, setReportingManagers] = useState([]);
@@ -141,20 +138,15 @@ const OffboardingInitiation = () => {
     useState(true);
 
   // Redux state
-  const { employees, loading: employeesLoading } = useSelector(
-    (state) => state.employees,
-  );
+  const { loading: offboardingLoading, error: offboardingError, currentProgress } =
+    useSelector((state) => state.offboarding);
   const { departments, loading: departmentsLoading } = useSelector(
     (state) => state.departments,
   );
   const { designations, loading: designationsLoading } = useSelector(
     (state) => state.designations,
   );
-  const {
-    loading: offboardingLoading,
-    error: offboardingError,
-    currentProgress,
-  } = useSelector((state) => state.offboarding);
+  const { employees } = useSelector((state) => state.employees);
 
   const {
     register,
@@ -195,7 +187,9 @@ const OffboardingInitiation = () => {
     },
   });
 
-  // Fetch employees, departments, designations on component mount
+  // ─────────────────────────────────────────────────────
+  // Initial fetch
+  // ─────────────────────────────────────────────────────
   useEffect(() => {
     dispatch(fetchEmployees());
     dispatch(fetchDepartments());
@@ -205,13 +199,7 @@ const OffboardingInitiation = () => {
       try {
         setOffboardingEmployeesLoading(true);
         const response = await apiClient.get("/admin/offboarding/employees");
-        if (response.data?.status === "success" && response.data?.data) {
-          setOffboardingEmployees(response.data.data);
-        } else if (Array.isArray(response.data?.data)) {
-          setOffboardingEmployees(response.data.data);
-        } else if (Array.isArray(response.data)) {
-          setOffboardingEmployees(response.data);
-        }
+        setOffboardingEmployees(normalizeArray(response.data));
       } catch (error) {
         console.error("Failed to fetch offboarding employees:", error);
       } finally {
@@ -225,13 +213,7 @@ const OffboardingInitiation = () => {
         const response = await apiClient.get(
           "/admin/offboarding/reporting-managers",
         );
-        if (response.data?.status === "success" && response.data?.data) {
-          setReportingManagers(response.data.data);
-        } else if (Array.isArray(response.data?.data)) {
-          setReportingManagers(response.data.data);
-        } else if (Array.isArray(response.data)) {
-          setReportingManagers(response.data);
-        }
+        setReportingManagers(normalizeArray(response.data));
       } catch (error) {
         console.error("Failed to fetch reporting managers:", error);
       }
@@ -239,28 +221,29 @@ const OffboardingInitiation = () => {
     fetchManagers();
   }, [dispatch]);
 
-  // Load existing offboarding data when in edit mode
+  // ─────────────────────────────────────────────────────
+  // Load existing offboarding data (edit mode)
+  // ─────────────────────────────────────────────────────
   useEffect(() => {
     const loadExistingOffboarding = async () => {
       setLoadingData(true);
 
+      const resolveEmployees = async () => {
+        if (employees && employees.length > 0) return employees;
+        try {
+          const payload = await dispatch(fetchEmployees()).unwrap();
+          return normalizeArray(payload);
+        } catch (e) {
+          console.error("Failed to fetch employees", e);
+          return [];
+        }
+      };
+
       if (location.state?.offboardingData) {
         const data = location.state.offboardingData;
-
-        let currentEmployees = employees;
-        if (!currentEmployees || currentEmployees.length === 0) {
-          try {
-            const empPayload = await dispatch(fetchEmployees()).unwrap();
-            currentEmployees = empPayload?.data?.data || empPayload?.data || [];
-          } catch (e) {
-            console.error("Failed to fetch employees", e);
-          }
-        }
-
-        populateFormWithData(data, currentEmployees);
-        if (data.id) {
-          dispatch(fetchOffboardingProgress(data.id));
-        }
+        const emps = await resolveEmployees();
+        populateFormWithData(data, emps);
+        if (data.id) dispatch(fetchOffboardingProgress(data.id));
         setLoadingData(false);
         return;
       }
@@ -271,13 +254,8 @@ const OffboardingInitiation = () => {
             fetchOffboardingById(offboardingId),
           ).unwrap();
           if (result) {
-            let currentEmployees = employees;
-            if (!currentEmployees || currentEmployees.length === 0) {
-              const empPayload = await dispatch(fetchEmployees()).unwrap();
-              currentEmployees =
-                empPayload?.data?.data || empPayload?.data || [];
-            }
-            populateFormWithData(result, currentEmployees);
+            const emps = await resolveEmployees();
+            populateFormWithData(result, emps);
             await dispatch(fetchOffboardingProgress(offboardingId));
           }
         } catch (error) {
@@ -296,9 +274,12 @@ const OffboardingInitiation = () => {
     } else {
       dispatch(clearCurrentOffboarding());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offboardingId, location.state, isEditMode, dispatch]);
 
-  // Helper function to populate form with existing data
+  // ─────────────────────────────────────────────────────
+  // Populate form with existing data
+  // ─────────────────────────────────────────────────────
   const populateFormWithData = (data, currentEmployees = employees) => {
     let employeeData = data.employee || {};
     let foundFullEmployee = null;
@@ -319,11 +300,11 @@ const OffboardingInitiation = () => {
     setValue("employeeId", employeeData.employee_id || data.employee_id || "", {
       shouldValidate: true,
     });
-    setValue(
-      "backendEmployeeId",
-      String(employeeData.id || data.employee_id || ""),
-      { shouldValidate: true },
+
+    const backendEmpId = String(
+      employeeData.id || data.employee_id || data.backend_employee_id || "",
     );
+    setValue("backendEmployeeId", backendEmpId, { shouldValidate: true });
 
     const employeeName =
       employeeData.first_name && employeeData.last_name
@@ -331,7 +312,7 @@ const OffboardingInitiation = () => {
         : data.employee_name || "";
     setValue("employeeName", employeeName, { shouldValidate: true });
 
-    // Department — response nests it under employee.user.department
+    // Department
     const departmentName =
       data.employee?.user?.department?.name ||
       data.employee?.department?.name ||
@@ -352,14 +333,11 @@ const OffboardingInitiation = () => {
       (typeof data.department === "string" ? data.department : null) ||
       "";
 
-    const finalDepartment = departmentName || "";
-
-    if (finalDepartment) {
-      setValue("department", finalDepartment, { shouldValidate: true });
-      setDepartmentSearchQuery(finalDepartment);
+    if (departmentName) {
+      setValue("department", departmentName, { shouldValidate: true });
     }
 
-    // Designation — same nesting
+    // Designation
     const designationName =
       data.employee?.user?.designation?.name ||
       data.employee?.designation?.name ||
@@ -380,11 +358,8 @@ const OffboardingInitiation = () => {
       (typeof data.designation === "string" ? data.designation : null) ||
       "";
 
-    const finalDesignation = designationName || "";
-
-    if (finalDesignation) {
-      setValue("designation", finalDesignation, { shouldValidate: true });
-      setDesignationSearchQuery(finalDesignation);
+    if (designationName) {
+      setValue("designation", designationName, { shouldValidate: true });
     }
 
     const emailAddress =
@@ -395,26 +370,32 @@ const OffboardingInitiation = () => {
       employeeData.joining_date || employeeData.hire_date || "";
     setValue("joiningDate", joiningDate, { shouldValidate: true });
 
+    // Reporting Manager
     let reportingManagerName =
       data.reporting_manager?.name ||
       data.reporting_manager?.full_name ||
-      data.reporting_manager?.first_name
-        ? `${data.reporting_manager.first_name} ${data.reporting_manager.last_name || ""}`.trim()
-        : data.reporting_manager ||
-          data.reportingManager?.name ||
-          data.reportingManager ||
-          employeeData.reporting_manager?.name ||
-          employeeData.reporting_manager ||
-          employeeData.reportingManager?.name ||
-          employeeData.reportingManager ||
-          "";
-    if (typeof reportingManagerName === "object") {
+      (data.reporting_manager?.first_name
+        ? `${data.reporting_manager.first_name} ${
+            data.reporting_manager.last_name || ""
+          }`.trim()
+        : data.reporting_manager) ||
+      data.reportingManager?.name ||
+      data.reportingManager ||
+      employeeData.reporting_manager?.name ||
+      employeeData.reporting_manager ||
+      employeeData.reportingManager?.name ||
+      employeeData.reportingManager ||
+      "";
+
+    if (typeof reportingManagerName === "object" && reportingManagerName) {
       reportingManagerName =
         reportingManagerName?.name ||
         reportingManagerName?.full_name ||
-        reportingManagerName?.first_name
-          ? `${reportingManagerName.first_name} ${reportingManagerName.last_name || ""}`.trim()
-          : "";
+        (reportingManagerName?.first_name
+          ? `${reportingManagerName.first_name} ${
+              reportingManagerName.last_name || ""
+            }`.trim()
+          : "");
     }
 
     if (
@@ -433,24 +414,34 @@ const OffboardingInitiation = () => {
           reportingManagerName =
             foundManager.name ||
             foundManager.full_name ||
-            `${foundManager.first_name || ""} ${foundManager.last_name || ""}`.trim();
+            `${foundManager.first_name || ""} ${
+              foundManager.last_name || ""
+            }`.trim();
         }
       }
     }
-    setValue("reportingManager", reportingManagerName, {
+
+    setValue("reportingManager", reportingManagerName || "", {
       shouldValidate: true,
     });
-    setValue(
-      "reportingManagerId",
-      data.reporting_manager_id || data.reportingManagerId || "",
-      { shouldValidate: true },
-    );
 
+    // reportingManagerId should always be a string for SearchableSelect
+    const mgrId =
+      data.reporting_manager_id ??
+      data.reportingManagerId ??
+      employeeData.reporting_manager_id ??
+      "";
+    setValue("reportingManagerId", mgrId !== "" ? String(mgrId) : "", {
+      shouldValidate: true,
+    });
+
+    // Exit details
     const exitType = data.separation_type
       ? data.separation_type.charAt(0).toUpperCase() +
         data.separation_type.slice(1)
       : data.exitType || data.separationType || "Resignation";
     setValue("exitType", exitType, { shouldValidate: true });
+
     setValue(
       "exitInitiationDate",
       data.exit_initiation_date ||
@@ -519,23 +510,19 @@ const OffboardingInitiation = () => {
       { shouldValidate: true },
     );
 
-    // Set search query values for display
-    if (employeeName) setSearchQuery(employeeName);
-    if (reportingManagerName) setManagerSearchQuery(reportingManagerName);
-    if (finalDepartment) setDepartmentSearchQuery(finalDepartment);
-    if (finalDesignation) setDesignationSearchQuery(finalDesignation);
-
     showToast("Offboarding data loaded successfully", "success");
   };
 
-  // Handle offboarding error
+  // ─────────────────────────────────────────────────────
+  // Offboarding error toast
+  // ─────────────────────────────────────────────────────
   useEffect(() => {
-    if (offboardingError) {
-      showToast(offboardingError, "error");
-    }
+    if (offboardingError) showToast(offboardingError, "error");
   }, [offboardingError]);
 
-  // Fetch progress when available
+  // ─────────────────────────────────────────────────────
+  // Auto-redirect after progress is fetched
+  // ─────────────────────────────────────────────────────
   useEffect(() => {
     if (currentProgress && currentProgress.offboarding_id && showProgress) {
       const timer = setTimeout(() => {
@@ -564,176 +551,115 @@ const OffboardingInitiation = () => {
     };
   }, [showProgress, currentProgress, navigate]);
 
-  // Handle click outside to close dropdowns
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
-      if (
-        managerDropdownRef.current &&
-        !managerDropdownRef.current.contains(event.target)
-      ) {
-        setShowManagerDropdown(false);
-      }
-      if (
-        departmentDropdownRef.current &&
-        !departmentDropdownRef.current.contains(event.target)
-      ) {
-        setShowDepartmentDropdown(false);
-      }
-      if (
-        designationDropdownRef.current &&
-        !designationDropdownRef.current.contains(event.target)
-      ) {
-        setShowDesignationDropdown(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  // Watch notice start date and notice period days to auto-calculate last working day
-  const watchedNoticeStartDate = watch("noticeStartDate");
+  // ─────────────────────────────────────────────────────
+  // Auto-calculate last working day
+  // ─────────────────────────────────────────────────────
   const watchedNoticePeriodDays = watch("noticePeriodDays");
+  const watchedExitInitiationDate = watch("exitInitiationDate");
 
-  // Calculate last working day automatically when exit initiation date or notice period changes
   useEffect(() => {
-    const exitDate = watch("exitInitiationDate");
     if (
-      exitDate &&
+      watchedExitInitiationDate &&
       watchedNoticePeriodDays !== undefined &&
       watchedNoticePeriodDays !== null &&
       watchedNoticePeriodDays >= 0
     ) {
-      const [year, month, day] = exitDate.split("-").map(Number);
+      const [year, month, day] = watchedExitInitiationDate
+        .split("-")
+        .map(Number);
       const startDate = new Date(year, month - 1, day);
-
-      if (isNaN(startDate.getTime())) {
-        return;
-      }
+      if (isNaN(startDate.getTime())) return;
 
       const endDate = new Date(startDate);
       endDate.setDate(startDate.getDate() + Number(watchedNoticePeriodDays));
 
-      const endYear = endDate.getFullYear();
-      const endMonth = String(endDate.getMonth() + 1).padStart(2, "0");
-      const endDay = String(endDate.getDate()).padStart(2, "0");
-      const formattedEndDate = `${endYear}-${endMonth}-${endDay}`;
-
-      setValue("lastWorkingDay", formattedEndDate, { shouldValidate: true });
+      const y = endDate.getFullYear();
+      const m = String(endDate.getMonth() + 1).padStart(2, "0");
+      const d = String(endDate.getDate()).padStart(2, "0");
+      setValue("lastWorkingDay", `${y}-${m}-${d}`, {
+        shouldValidate: true,
+      });
     }
-  }, [watch("exitInitiationDate"), watchedNoticePeriodDays, setValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedExitInitiationDate, watchedNoticePeriodDays, setValue]);
 
-  // Filter employees based on search query
-  const filteredEmployees = offboardingEmployees.filter((emp) => {
-    const employeeId = emp.employee_id
-      ? String(emp.employee_id).toLowerCase()
-      : "";
-    const employeeName = emp.full_name
-      ? String(emp.full_name).toLowerCase()
-      : "";
-    const employeeEmail = emp.email ? String(emp.email).toLowerCase() : "";
-    const searchLower = searchQuery.toLowerCase();
+  // ─────────────────────────────────────────────────────
+  // Option arrays for SearchableSelect
+  // ─────────────────────────────────────────────────────
+  const employeeOptions = useMemo(
+    () =>
+      (Array.isArray(offboardingEmployees) ? offboardingEmployees : [])
+        .filter((emp) => emp && emp.id)
+        .map((emp) => ({
+          value: String(emp.id),
+          label: emp.employee_id
+            ? `${emp.full_name || "Unnamed"} (${emp.employee_id})`
+            : emp.full_name || "Unnamed",
+        }))
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+        ),
+    [offboardingEmployees],
+  );
 
-    return (
-      employeeName.includes(searchLower) ||
-      employeeId.includes(searchLower) ||
-      employeeEmail.includes(searchLower)
-    );
-  });
+  const managerOptions = useMemo(
+    () =>
+      (Array.isArray(reportingManagers) ? reportingManagers : [])
+        .filter((m) => m && m.id)
+        .map((m) => ({
+          value: String(m.id),
+          label: pickManagerName(m) || "Unnamed",
+        }))
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+        ),
+    [reportingManagers],
+  );
 
-  // Filter managers based on search query
-  const filteredManagers = reportingManagers.filter((manager) => {
-    const managerName = (manager.full_name || manager.name || "").toLowerCase();
-    const managerDesignation = (manager.designation || "").toLowerCase();
-    const managerDepartment = (manager.department || "").toLowerCase();
-    const searchLower = (managerSearchQuery || "").toLowerCase();
+  const departmentOptions = useMemo(
+    () =>
+      (Array.isArray(departments) ? departments : [])
+        .filter((d) => d && d.name)
+        .map((d) => ({ value: d.name, label: d.name }))
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+        ),
+    [departments],
+  );
 
-    return (
-      managerName.includes(searchLower) ||
-      managerDesignation.includes(searchLower) ||
-      managerDepartment.includes(searchLower)
-    );
-  });
+  const designationOptions = useMemo(
+    () =>
+      (Array.isArray(designations) ? designations : [])
+        .filter((d) => d && d.name)
+        .map((d) => ({ value: d.name, label: d.name }))
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+        ),
+    [designations],
+  );
 
-  // Filter departments based on search query
-  const filteredDepartments = departments.filter((dept) => {
-    const deptName = (dept.name || "").toLowerCase();
-    const searchLower = (departmentSearchQuery || "").toLowerCase();
-    return deptName.includes(searchLower);
-  });
-
-  // Filter designations based on search query
-  const filteredDesignations = designations.filter((des) => {
-    const desName = (des.name || "").toLowerCase();
-    const searchLower = (designationSearchQuery || "").toLowerCase();
-    return desName.includes(searchLower);
-  });
-
-  // Handle employee selection and auto-populate all form fields
-  const handleSelectEmployee = (emp) => {
-    setSearchQuery(emp.full_name);
-    setShowDropdown(false);
-
-    setValue("employeeId", emp.employee_id || String(emp.id), {
-      shouldValidate: true,
+  // Lookup maps
+  const employeeById = useMemo(() => {
+    const map = {};
+    (offboardingEmployees || []).forEach((emp) => {
+      if (emp?.id) map[String(emp.id)] = emp;
     });
-    setValue("employeeName", emp.full_name, { shouldValidate: true });
-    setValue("department", emp.department || "", { shouldValidate: true });
-    setValue("designation", emp.designation || "", { shouldValidate: true });
-    setValue("email", emp.email || "", { shouldValidate: true });
-    setValue("joiningDate", emp.joining_date || emp.hire_date || "", {
-      shouldValidate: true,
+    return map;
+  }, [offboardingEmployees]);
+
+  const managerById = useMemo(() => {
+    const map = {};
+    (reportingManagers || []).forEach((m) => {
+      if (m?.id) map[String(m.id)] = m;
     });
-    setValue("backendEmployeeId", String(emp.id), { shouldValidate: true });
+    return map;
+  }, [reportingManagers]);
 
-    // Update the search queries for department and designation
-    if (emp.department) setDepartmentSearchQuery(emp.department);
-    if (emp.designation) setDesignationSearchQuery(emp.designation);
-
-    showToast(`Employee ${emp.full_name} loaded successfully!`, "success");
-  };
-
-  // Handle manager selection
-  const handleSelectManager = (manager) => {
-    setValue(
-      "reportingManager",
-      manager.name ||
-        manager.full_name ||
-        `${manager.first_name || ""} ${manager.last_name || ""}`.trim(),
-      { shouldValidate: true },
-    );
-    setValue("reportingManagerId", manager.id, { shouldValidate: true });
-    setManagerSearchQuery(
-      manager.name ||
-        manager.full_name ||
-        `${manager.first_name || ""} ${manager.last_name || ""}`.trim(),
-    );
-    setShowManagerDropdown(false);
-    showToast(`Reporting manager selected`, "success");
-  };
-
-  // Handle department selection
-  const handleSelectDepartment = (dept) => {
-    setValue("department", dept.name, { shouldValidate: true });
-    setDepartmentSearchQuery(dept.name);
-    setShowDepartmentDropdown(false);
-  };
-
-  // Handle designation selection
-  const handleSelectDesignation = (des) => {
-    setValue("designation", des.name, { shouldValidate: true });
-    setDesignationSearchQuery(des.name);
-    setShowDesignationDropdown(false);
-  };
-
-  // Handle validation errors when form submit is attempted
-  const onError = (errors) => {
-    console.error("Form validation errors:", errors);
+  // ─────────────────────────────────────────────────────
+  // Submit
+  // ─────────────────────────────────────────────────────
+  const onError = (formErrors) => {
+    console.error("Form validation errors:", formErrors);
     showToast("Please fill all required fields correctly.", "error");
   };
 
@@ -825,10 +751,6 @@ const OffboardingInitiation = () => {
 
       localStorage.removeItem("offboarding_draft");
       reset();
-      setSearchQuery("");
-      setManagerSearchQuery("");
-      setDepartmentSearchQuery("");
-      setDesignationSearchQuery("");
 
       setTimeout(() => {
         const targetId = (result && result.id) || offboardingId;
@@ -923,34 +845,30 @@ const OffboardingInitiation = () => {
     }
   };
 
-  // Load draft from localStorage on mount (only for new offboarding)
+  // ─────────────────────────────────────────────────────
+  // Restore local draft (new offboarding only)
+  // ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!isEditMode) {
       const draft = localStorage.getItem("offboarding_draft");
       if (draft) {
-        const parsedDraft = JSON.parse(draft);
-        Object.keys(parsedDraft).forEach((key) => {
-          if (parsedDraft[key]) {
-            setValue(key, parsedDraft[key]);
-          }
-        });
-        if (parsedDraft.reportingManager) {
-          setManagerSearchQuery(parsedDraft.reportingManager);
-        }
-        if (parsedDraft.employeeName) {
-          setSearchQuery(parsedDraft.employeeName);
-        }
-        if (parsedDraft.department) {
-          setDepartmentSearchQuery(parsedDraft.department);
-        }
-        if (parsedDraft.designation) {
-          setDesignationSearchQuery(parsedDraft.designation);
+        try {
+          const parsedDraft = JSON.parse(draft);
+          Object.keys(parsedDraft).forEach((key) => {
+            if (parsedDraft[key] !== undefined && parsedDraft[key] !== null) {
+              setValue(key, parsedDraft[key]);
+            }
+          });
+        } catch (e) {
+          console.error("Failed to parse draft", e);
         }
       }
     }
   }, [setValue, isEditMode]);
 
-  // Progress Modal Component
+  // ─────────────────────────────────────────────────────
+  // Progress modal
+  // ─────────────────────────────────────────────────────
   const ProgressModal = () => {
     if (!showProgress) return null;
 
@@ -1086,98 +1004,78 @@ const OffboardingInitiation = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
-              {/* Employee Name (Searchable Select Input) */}
-              <div className="space-y-1.5 relative" ref={dropdownRef}>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Employee name <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search or select employee..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setShowDropdown(true);
-                    }}
-                    onFocus={() => setShowDropdown(true)}
-                    disabled={isEditMode}
-                    className={`w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:ring-2 ${
-                      errors.employeeName
-                        ? "border-red-500 focus:ring-red-500/20"
-                        : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-green-500/20"
-                    } ${isEditMode ? "opacity-70 cursor-not-allowed" : ""}`}
-                  />
-                  {searchQuery && !isEditMode && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery("");
-                        setValue("employeeName", "");
-                        setValue("employeeId", "");
-                        setValue("backendEmployeeId", "");
-                        setValue("department", "");
-                        setValue("designation", "");
-                        setValue("email", "");
-                        setDepartmentSearchQuery("");
-                        setDesignationSearchQuery("");
+              {/* Employee Name — SearchableSelect bound to backendEmployeeId */}
+              <div className="space-y-1.5">
+                <Controller
+                  name="backendEmployeeId"
+                  control={control}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      label="Employee name"
+                      value={field.value}
+                      onChange={(val) => {
+                        field.onChange(val);
+                        const emp = employeeById[val];
+                        if (emp) {
+                          setValue(
+                            "employeeId",
+                            emp.employee_id || String(emp.id),
+                            { shouldValidate: true },
+                          );
+                          setValue("employeeName", emp.full_name || "", {
+                            shouldValidate: true,
+                          });
+                          setValue("department", emp.department || "", {
+                            shouldValidate: true,
+                          });
+                          setValue("designation", emp.designation || "", {
+                            shouldValidate: true,
+                          });
+                          setValue("email", emp.email || "", {
+                            shouldValidate: true,
+                          });
+                          setValue(
+                            "joiningDate",
+                            emp.joining_date || emp.hire_date || "",
+                            { shouldValidate: true },
+                          );
+                        } else {
+                          setValue("employeeId", "", { shouldValidate: true });
+                          setValue("employeeName", "", {
+                            shouldValidate: true,
+                          });
+                          setValue("department", "", { shouldValidate: true });
+                          setValue("designation", "", {
+                            shouldValidate: true,
+                          });
+                          setValue("email", "", { shouldValidate: true });
+                          setValue("joiningDate", "", {
+                            shouldValidate: true,
+                          });
+                        }
                       }}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                    >
-                      <X size={15} />
-                    </button>
+                      options={employeeOptions}
+                      loading={offboardingEmployeesLoading}
+                      error={errors.employeeName?.message}
+                      disabled={isEditMode}
+                      required
+                      placeholder="Search or select employee..."
+                      searchPlaceholder="Search by name, ID or email..."
+                      emptyMessage="No employees found"
+                      clearable={!isEditMode}
+                    />
                   )}
-                </div>
-
-                {showDropdown && !isEditMode && (
-                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
-                    {offboardingEmployeesLoading ? (
-                      <div className="p-3 text-center text-xs text-gray-400">
-                        Loading employees...
-                      </div>
-                    ) : filteredEmployees.length > 0 ? (
-                      filteredEmployees.map((emp) => (
-                        <button
-                          key={emp.id}
-                          type="button"
-                          onClick={() => handleSelectEmployee(emp)}
-                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                {emp.full_name}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {emp.designation} • {emp.department}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="p-3 text-center text-xs text-gray-400">
-                        No employees found matching "{searchQuery}"
-                      </div>
-                    )}
-                  </div>
-                )}
-                {errors.employeeName && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">
-                    {errors.employeeName.message}
-                  </p>
-                )}
+                />
               </div>
 
-              {/* Employee ID - Now Editable */}
+              {/* Employee ID (read-only text derived from selection) */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Employee ID
                 </label>
-                <input type="hidden" {...register("backendEmployeeId")} />
                 <input
                   type="text"
-                  placeholder="Auto-populated or enter manually"
+                  placeholder="Auto-populated from selection"
                   value={watch("employeeId") || ""}
                   onChange={(e) =>
                     setValue("employeeId", e.target.value, {
@@ -1197,234 +1095,87 @@ const OffboardingInitiation = () => {
                 )}
               </div>
 
-              {/* Department - Now Editable with Dropdown */}
-              <div className="space-y-1.5 relative" ref={departmentDropdownRef}>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Department
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search or select department..."
-                    value={departmentSearchQuery || watch("department") || ""}
-                    onChange={(e) => {
-                      setDepartmentSearchQuery(e.target.value);
-                      setValue("department", e.target.value, {
-                        shouldValidate: true,
-                      });
-                      setShowDepartmentDropdown(true);
-                    }}
-                    onFocus={() => {
-                      // Show ALL departments when the dropdown is opened
-                      setDepartmentSearchQuery("");
-                      setShowDepartmentDropdown(true);
-                    }}
-                    className={`w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:ring-2 ${
-                      errors.department
-                        ? "border-red-500 focus:ring-red-500/20"
-                        : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-green-500/20"
-                    }`}
-                  />
-                  <ChevronDown
-                    size={16}
-                    className="absolute inset-y-0 right-3 flex items-center text-gray-400 pointer-events-none top-1/2 -translate-y-1/2"
-                  />
-                </div>
-                {showDepartmentDropdown && (
-                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
-                    {departmentsLoading ? (
-                      <div className="p-3 text-center text-xs text-gray-400">
-                        Loading departments...
-                      </div>
-                    ) : filteredDepartments.length > 0 ? (
-                      filteredDepartments.map((dept) => (
-                        <button
-                          key={dept.id}
-                          type="button"
-                          onClick={() => handleSelectDepartment(dept)}
-                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                        >
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {dept.name}
-                          </p>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="p-3 text-center text-xs text-gray-400">
-                        No departments found
-                      </div>
-                    )}
-                  </div>
-                )}
-                {errors.department && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">
-                    {errors.department.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Designation - Now Editable with Dropdown */}
-              <div
-                className="space-y-1.5 relative"
-                ref={designationDropdownRef}
-              >
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Designation
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search or select designation..."
-                    value={designationSearchQuery || watch("designation") || ""}
-                    onChange={(e) => {
-                      setDesignationSearchQuery(e.target.value);
-                      setValue("designation", e.target.value, {
-                        shouldValidate: true,
-                      });
-                      setShowDesignationDropdown(true);
-                    }}
-                    onFocus={() => {
-                      setDesignationSearchQuery("");
-                      setShowDesignationDropdown(true);
-                    }}
-                    className={`w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:ring-2 ${
-                      errors.designation
-                        ? "border-red-500 focus:ring-red-500/20"
-                        : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-green-500/20"
-                    }`}
-                  />
-                  <ChevronDown
-                    size={16}
-                    className="absolute inset-y-0 right-3 flex items-center text-gray-400 pointer-events-none top-1/2 -translate-y-1/2"
-                  />
-                </div>
-                {showDesignationDropdown && (
-                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
-                    {designationsLoading ? (
-                      <div className="p-3 text-center text-xs text-gray-400">
-                        Loading designations...
-                      </div>
-                    ) : filteredDesignations.length > 0 ? (
-                      filteredDesignations.map((des) => (
-                        <button
-                          key={des.id}
-                          type="button"
-                          onClick={() => handleSelectDesignation(des)}
-                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                        >
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {des.name}
-                          </p>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="p-3 text-center text-xs text-gray-400">
-                        No designations found
-                      </div>
-                    )}
-                  </div>
-                )}
-                {errors.designation && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">
-                    {errors.designation.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Reporting Manager (Searchable Dropdown) */}
-              <div className="space-y-1.5 relative" ref={managerDropdownRef}>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Reporting manager <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search or select reporting manager..."
-                    value={managerSearchQuery}
-                    onChange={(e) => {
-                      setManagerSearchQuery(e.target.value);
-                      setShowManagerDropdown(true);
-                      if (e.target.value === "") {
-                        setValue("reportingManager", "");
-                        setValue("reportingManagerId", "");
-                      }
-                    }}
-                    onFocus={() => setShowManagerDropdown(true)}
-                    className={`w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border rounded-lg text-sm text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:ring-2 ${
-                      errors.reportingManager
-                        ? "border-red-500 focus:ring-red-500/20"
-                        : "border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-green-500/20"
-                    }`}
-                  />
-                  <ChevronDown
-                    size={16}
-                    className="absolute inset-y-0 right-3 flex items-center text-gray-400 pointer-events-none top-1/2 -translate-y-1/2"
-                  />
-                  {managerSearchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setManagerSearchQuery("");
-                        setValue("reportingManager", "");
-                        setValue("reportingManagerId", "");
-                      }}
-                      className="absolute inset-y-0 right-8 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                    >
-                      <X size={14} />
-                    </button>
+              {/* Department */}
+              <div className="space-y-1.5">
+                <Controller
+                  name="department"
+                  control={control}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      label="Department"
+                      value={field.value}
+                      onChange={(val) => field.onChange(val)}
+                      options={departmentOptions}
+                      loading={departmentsLoading}
+                      error={errors.department?.message}
+                      placeholder="Search or select department..."
+                      searchPlaceholder="Search departments..."
+                      emptyMessage="No departments found"
+                      clearable
+                    />
                   )}
-                </div>
-
-                {showManagerDropdown && (
-                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
-                    {filteredManagers.length > 0 ? (
-                      filteredManagers.map((manager) => {
-                        const managerName =
-                          manager.full_name || manager.name || "";
-                        return (
-                          <button
-                            key={manager.id}
-                            type="button"
-                            onClick={() =>
-                              handleSelectManager({
-                                ...manager,
-                                name: managerName,
-                              })
-                            }
-                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                          >
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                {managerName}
-                              </p>
-                              {(manager.designation || manager.department) && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  {manager.designation || "No Designation"}{" "}
-                                  {manager.designation && manager.department
-                                    ? "•"
-                                    : ""}{" "}
-                                  {manager.department || ""}
-                                </p>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <div className="p-3 text-center text-xs text-gray-400">
-                        No managers found matching "{managerSearchQuery}"
-                      </div>
-                    )}
-                  </div>
-                )}
-                {errors.reportingManager && (
-                  <p className="text-xxs font-bold text-red-500 mt-1">
-                    {errors.reportingManager.message}
-                  </p>
-                )}
+                />
               </div>
 
-              {/* Email - Now Editable */}
+              {/* Designation */}
+              <div className="space-y-1.5">
+                <Controller
+                  name="designation"
+                  control={control}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      label="Designation"
+                      value={field.value}
+                      onChange={(val) => field.onChange(val)}
+                      options={designationOptions}
+                      loading={designationsLoading}
+                      error={errors.designation?.message}
+                      placeholder="Search or select designation..."
+                      searchPlaceholder="Search designations..."
+                      emptyMessage="No designations found"
+                      clearable
+                    />
+                  )}
+                />
+              </div>
+
+              {/* Reporting Manager */}
+              <div className="space-y-1.5">
+                <Controller
+                  name="reportingManagerId"
+                  control={control}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      label="Reporting manager"
+                      value={field.value}
+                      onChange={(val) => {
+                        field.onChange(val);
+                        const mgr = managerById[val];
+                        if (mgr) {
+                          setValue(
+                            "reportingManager",
+                            pickManagerName(mgr) || "",
+                            { shouldValidate: true },
+                          );
+                        } else {
+                          setValue("reportingManager", "", {
+                            shouldValidate: true,
+                          });
+                        }
+                      }}
+                      options={managerOptions}
+                      error={errors.reportingManager?.message}
+                      required
+                      placeholder="Search or select reporting manager..."
+                      searchPlaceholder="Search managers..."
+                      emptyMessage="No managers found"
+                      clearable
+                    />
+                  )}
+                />
+              </div>
+
+              {/* Email */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Email
@@ -1449,7 +1200,7 @@ const OffboardingInitiation = () => {
                 )}
               </div>
 
-              {/* Joining Date - Now uses DateInput for consistency */}
+              {/* Joining Date */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Joining Date

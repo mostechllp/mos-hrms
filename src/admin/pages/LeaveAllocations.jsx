@@ -396,10 +396,10 @@ const LeaveAllocations = () => {
                       <td className="px-3 py-2 text-center">
                         <Link
                           to={`/${basePath}/leaves/allocations/${employee.id}`}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-amber-500 transition-colors inline-block"
+                          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-500 transition-colors inline-block"
                           title="View Allocations"
                         >
-                          <i className="fas fa-edit text-sm"></i>
+                          <i className="fas fa-eye text-sm"></i>
                         </Link>
                       </td>
                     </tr>

@@ -1,20 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchEmployees } from '../../store/slices/employeeSlice';
-import { TimeInput } from '../common/TimeInput';
-import DateInput from '../common/DateInput';
+import React, { useState, useEffect, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { TimeInput } from "../common/TimeInput";
+import DateInput from "../common/DateInput";
+import SearchableSelect from "../../../components/common/SearchableSelect";
 
 const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
   const [formData, setFormData] = useState({
-    employee_id: '',
-    date: '',
-    punch_in: '',
-    punch_out: ''
+    employee_id: "",
+    date: "",
+    punch_in: "",
+    punch_out: "",
   });
-  const [error, setError] = useState('');
-  
+  const [error, setError] = useState("");
+
   const dispatch = useDispatch();
-  const { employees, loading: employeesLoading } = useSelector((state) => state.employees);
+  const { employees, loading: employeesLoading } = useSelector(
+    (state) => state.employees,
+  );
+
+  // ✅ Employee options for SearchableSelect
+  const employeeOptions = useMemo(
+    () =>
+      (Array.isArray(employees) ? employees : [])
+        .filter((emp) => emp && emp.id)
+        .map((emp) => {
+          const name = emp.name || "Unnamed";
+          const label = emp.employee_id ? `${name} (${emp.employee_id})` : name;
+          return { value: String(emp.id), label };
+        })
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+        ),
+    [employees],
+  );
 
   useEffect(() => {
     if (isOpen && (!employees || employees.length === 0)) {
@@ -24,33 +43,33 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleDateChange = (dateValue) => {
-    setFormData(prev => ({ ...prev, date: dateValue }));
+    setFormData((prev) => ({ ...prev, date: dateValue }));
   };
 
   const handleTimeChange = (e, fieldName) => {
     const { value } = e.target;
-    setFormData(prev => ({ ...prev, [fieldName]: value }));
+    setFormData((prev) => ({ ...prev, [fieldName]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (!formData.employee_id || !formData.date || !formData.punch_in) {
-      return setError('Employee ID, Date, and Punch In are required fields');
+      return setError("Employee ID, Date, and Punch In are required fields");
     }
 
     // Validate that punch_out is after punch_in if both are provided
     if (formData.punch_in && formData.punch_out) {
       const punchInTime = formData.punch_in;
       const punchOutTime = formData.punch_out;
-      
+
       if (punchOutTime <= punchInTime) {
-        return setError('Punch Out time must be after Punch In time');
+        return setError("Punch Out time must be after Punch In time");
       }
     }
 
@@ -61,24 +80,30 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
         date: formData.date,
         // Combine date and time into full datetime format (YYYY-MM-DD HH:MM:SS)
         punch_in: `${formData.date} ${formData.punch_in}:00`,
-        punch_out: formData.punch_out ? `${formData.date} ${formData.punch_out}:00` : null,
+        punch_out: formData.punch_out
+          ? `${formData.date} ${formData.punch_out}:00`
+          : null,
       };
-      
+
       await onSubmit(formattedData);
       handleClose();
     } catch (err) {
-      setError(typeof err === 'string' ? err : err?.message || 'Failed to submit attendance.');
+      setError(
+        typeof err === "string"
+          ? err
+          : err?.message || "Failed to submit attendance.",
+      );
     }
   };
 
   const handleClose = () => {
     setFormData({
-      employee_id: '',
-      date: '',
-      punch_in: '',
-      punch_out: ''
+      employee_id: "",
+      date: "",
+      punch_in: "",
+      punch_out: "",
     });
-    setError('');
+    setError("");
     onClose();
   };
 
@@ -92,7 +117,10 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
             <i className="fas fa-keyboard text-green-500"></i>
             Add attendance
           </h3>
-          <button onClick={handleClose} className="text-gray-400 hover:text-red-500 transition-colors text-2xl">
+          <button
+            onClick={handleClose}
+            className="text-gray-400 hover:text-red-500 transition-colors text-2xl"
+          >
             &times;
           </button>
         </div>
@@ -106,27 +134,20 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Employee <span className="text-red-500">*</span>
-            </label>
-            <select
-              name="employee_id"
+            <SearchableSelect
+              label="Employee"
               value={formData.employee_id}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+              onChange={(val) =>
+                setFormData((prev) => ({ ...prev, employee_id: val }))
+              }
+              options={employeeOptions}
+              loading={employeesLoading}
               required
-            >
-              <option value="">Select Employee</option>
-              {employeesLoading ? (
-                <option value="" disabled>Loading employees...</option>
-              ) : (
-                employees?.map(emp => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name}
-                  </option>
-                ))
-              )}
-            </select>
+              placeholder="Select Employee"
+              searchPlaceholder="Search by name or employee ID..."
+              emptyMessage="No employees found"
+              clearable
+            />
           </div>
 
           <div className="mb-4">
@@ -152,7 +173,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
             </label>
             <TimeInput
               value={formData.punch_in}
-              onChange={(e) => handleTimeChange(e, 'punch_in')}
+              onChange={(e) => handleTimeChange(e, "punch_in")}
               className="w-full"
               required={true}
             />
@@ -167,7 +188,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
             </label>
             <TimeInput
               value={formData.punch_out}
-              onChange={(e) => handleTimeChange(e, 'punch_out')}
+              onChange={(e) => handleTimeChange(e, "punch_out")}
               className="w-full"
               required={false}
             />
@@ -190,9 +211,13 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
               className="px-5 py-2 rounded-full font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {submitting ? (
-                <><i className="fas fa-spinner fa-spin"></i> Submitting...</>
+                <>
+                  <i className="fas fa-spinner fa-spin"></i> Submitting...
+                </>
               ) : (
-                <><i className="fas fa-check"></i> Submit</>
+                <>
+                  <i className="fas fa-check"></i> Submit
+                </>
               )}
             </button>
           </div>

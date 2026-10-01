@@ -72,18 +72,16 @@ const DateInput = forwardRef(
     };
 
     const getMaxDate = () => {
-      if (maxDate) return maxDate;
-      if (type === "dob") {
-        // Age must be at least 18
-        const eighteenYearsAgo = new Date();
-        eighteenYearsAgo.setFullYear(today.getFullYear() - 18);
-        return eighteenYearsAgo;
-      }
-      if (type === "special_day") {
-        return today;
-      }
-      return null;
-    };
+  if (maxDate) return maxDate;
+  if (type === "dob") {
+    // ✅ Allow any past date — remove the 18-year cap
+    return today;
+  }
+  if (type === "special_day") {
+    return today;
+  }
+  return null;
+};
 
     const validateDate = (date) => {
       if (!date) {
@@ -110,13 +108,13 @@ const DateInput = forwardRef(
         }
         
         // Check if age is reasonable (minimum 18 years for employment)
-        const eighteenYearsAgo = new Date();
-        eighteenYearsAgo.setFullYear(today.getFullYear() - 18);
-        if (date > eighteenYearsAgo) {
-          setInternalError(true);
-          setErrorMessage("Employee must be at least 18 years old");
-          return false;
-        }
+        // const eighteenYearsAgo = new Date();
+        // eighteenYearsAgo.setFullYear(today.getFullYear() - 18);
+        // if (date > eighteenYearsAgo) {
+        //   setInternalError(true);
+        //   setErrorMessage("Employee must be at least 18 years old");
+        //   return false;
+        // }
       }
       
       if (type === "special_day") {

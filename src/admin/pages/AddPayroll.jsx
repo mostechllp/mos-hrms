@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { showToast } from "../components/common/Toast";
@@ -29,6 +29,7 @@ import {
   fetchEmployees,
   fetchEmployeeById,
 } from "../store/slices/employeeSlice";
+import SearchableSelect from "../../components/common/SearchableSelect";
 
 // Helper function to get organization name from employees list
 const getOrganizationName = (employees, organizationId) => {
@@ -149,6 +150,60 @@ function AddPayroll() {
     { id: 4, label: "Deductions" },
     { id: 5, label: "Summary" },
   ];
+
+  // ✅ Option arrays for SearchableSelect
+  const employeeOptions = useMemo(
+    () =>
+      (Array.isArray(employees) ? employees : [])
+        .filter((emp) => emp && emp.id)
+        .map((emp) => ({
+          value: String(emp.id),
+          label: emp.name || "Unnamed",
+        }))
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+        ),
+    [employees],
+  );
+
+  const monthOptions = useMemo(
+    () =>
+      [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ].map((m) => ({ value: m, label: m })),
+    [],
+  );
+
+  const yearOptions = useMemo(
+    () =>
+      ["2024", "2025", "2026", "2027"].map((y) => ({
+        value: y,
+        label: y,
+      })),
+    [],
+  );
+
+  const paymentModeOptions = useMemo(
+    () => [
+      { value: "WPS", label: "WPS" },
+      { value: "bank_transfer", label: "Bank Transfer" },
+      { value: "INR_transfer", label: "INR Transfer" },
+      { value: "Cheque", label: "Cheque" },
+      { value: "Cash", label: "Cash" },
+    ],
+    [],
+  );
 
   const getCurrencySymbol = (code) => {
     const map = {
@@ -1229,27 +1284,18 @@ function AddPayroll() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-user text-green-500 mr-1"></i>
-                      Employee <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                    <SearchableSelect
+                      label="Employee"
                       value={selectedEmployee}
-                      onChange={(e) => handleEmployeeSelect(e.target.value)}
-                      disabled={employeesLoading}
-                    >
-                      <option value="">
-                        {employeesLoading
-                          ? "Loading employees..."
-                          : "Select Employee"}
-                      </option>
-                      {employees.map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => handleEmployeeSelect(val)}
+                      options={employeeOptions}
+                      loading={employeesLoading}
+                      required
+                      placeholder="Select Employee"
+                      searchPlaceholder="Search by name..."
+                      emptyMessage="No employees found"
+                      clearable
+                    />
                   </div>
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
@@ -1345,48 +1391,41 @@ function AddPayroll() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-month text-green-500 mr-1"></i>
-                      Pay Period Month <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                    <SearchableSelect
+                      label="Pay Period Month"
                       value={payPeriodMonth}
-                      onChange={handleMonthChange}
+                      onChange={(val) => {
+                        // preserve your existing side-effects (clear working days)
+                        setPayPeriodMonth(val);
+                        setTotalWorkingDays("");
+                        setDaysPresent("");
+                      }}
+                      options={monthOptions}
                       disabled={!selectedUserId}
-                    >
-                      <option value="">Select Month</option>
-                      <option value="January">January</option>
-                      <option value="February">February</option>
-                      <option value="March">March</option>
-                      <option value="April">April</option>
-                      <option value="May">May</option>
-                      <option value="June">June</option>
-                      <option value="July">July</option>
-                      <option value="August">August</option>
-                      <option value="September">September</option>
-                      <option value="October">October</option>
-                      <option value="November">November</option>
-                      <option value="December">December</option>
-                    </select>
+                      required
+                      placeholder="Select Month"
+                      searchPlaceholder="Search month..."
+                      emptyMessage="No months found"
+                      clearable
+                    />
                   </div>
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-calendar-year text-green-500 mr-1"></i>
-                      Pay Period Year <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                    <SearchableSelect
+                      label="Pay Period Year"
                       value={payPeriodYear}
-                      onChange={handleYearChange}
+                      onChange={(val) => {
+                        setPayPeriodYear(val);
+                        setTotalWorkingDays("");
+                        setDaysPresent("");
+                      }}
+                      options={yearOptions}
                       disabled={!selectedUserId}
-                    >
-                      <option value="">Select Year</option>
-                      <option value="2024">2024</option>
-                      <option value="2025">2025</option>
-                      <option value="2026">2026</option>
-                      <option value="2027">2027</option>
-                    </select>
+                      required
+                      placeholder="Select Year"
+                      searchPlaceholder="Search year..."
+                      emptyMessage="No years found"
+                      clearable
+                    />
                   </div>
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
@@ -1425,23 +1464,18 @@ function AddPayroll() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
-                      <i className="fas fa-university text-green-500 mr-1"></i>
-                      Payment Mode <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      className="w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                    <SearchableSelect
+                      label="Payment Mode"
                       value={paymentMode || ""}
-                      onChange={(e) => setPaymentMode(e.target.value || null)}
+                      onChange={(val) => setPaymentMode(val || null)}
+                      options={paymentModeOptions}
                       disabled={!selectedUserId}
-                    >
-                      <option value="">Select Payment Mode</option>
-                      <option value="WPS">WPS</option>
-                      <option value="bank_transfer">Bank Transfer</option>
-                      <option value="INR_transfer">INR Transfer</option>
-                      <option value="Cheque">Cheque</option>
-                      <option value="Cash">Cash</option>
-                    </select>
+                      required
+                      placeholder="Select Payment Mode"
+                      searchPlaceholder="Search payment mode..."
+                      emptyMessage="No options found"
+                      clearable
+                    />
                   </div>
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">

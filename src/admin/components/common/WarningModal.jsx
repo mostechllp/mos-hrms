@@ -1,6 +1,6 @@
 // src/admin/components/common/WarningModal.jsx
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   X,
@@ -15,6 +15,7 @@ import {
 import { showToast } from "../../../components/common/Toast";
 import { createWarning, updateWarning } from "../../store/slices/warningSlice";
 import DateInput from "./DateInput";
+import SearchableSelect from "../../../components/common/SearchableSelect";
 
 const WarningModal = ({ isOpen, onClose, warning = null, employees = [] }) => {
   const dispatch = useDispatch();
@@ -34,6 +35,23 @@ const WarningModal = ({ isOpen, onClose, warning = null, employees = [] }) => {
   const [attachment, setAttachment] = useState(null);
   const [existingAttachment, setExistingAttachment] = useState(null);
   const [removeAttachment, setRemoveAttachment] = useState(false);
+
+  // ✅ Build employee options for SearchableSelect
+  const employeeOptions = useMemo(
+    () =>
+      (Array.isArray(employees) ? employees : [])
+        .filter((emp) => emp && emp.id)
+        .map((emp) => ({
+          value: String(emp.id),
+          label: emp.employee_id
+            ? `${emp.name} (${emp.employee_id})`
+            : emp.name,
+        }))
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+        ),
+    [employees],
+  );
 
   // Hydrate on open
   useEffect(() => {
@@ -226,23 +244,17 @@ const WarningModal = ({ isOpen, onClose, warning = null, employees = [] }) => {
         <div className="p-5 space-y-4">
           {/* Employee */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Employee <span className="text-red-500">*</span>
-            </label>
-            <select
+            <SearchableSelect
+              label="Employee"
               value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
+              onChange={(val) => setEmployeeId(val)}
+              options={employeeOptions}
               disabled={submitting || isEdit}
-              className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all disabled:opacity-60"
-            >
-              <option value="">Select an employee...</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name}
-                  {emp.employee_id ? ` (${emp.employee_id})` : ""}
-                </option>
-              ))}
-            </select>
+              required
+              placeholder="Select an employee..."
+              searchPlaceholder="Search employees..."
+              emptyMessage="No employees found"
+            />
             {isEdit && (
               <p className="text-xs text-gray-400 mt-1">
                 Employee cannot be changed after the warning is created.
