@@ -799,12 +799,6 @@ const RequestLeave = () => {
                 </div>
               </div>
 
-              <div className="info-note mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <p className="text-xs text-blue-600 dark:text-blue-400">
-                  <FiAlertCircle className="inline mr-1" />
-                  Leave requests require approval from HR/Admin
-                </p>
-              </div>
               {/* ── Accrual info ── */}
               {!selectedIsLossOfPay && (
                 <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40">

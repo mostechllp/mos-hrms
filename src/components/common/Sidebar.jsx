@@ -157,7 +157,6 @@ const MODULE_ORDER = {
 // Admins should never see employee-only entries
 const HIDDEN_FOR_ADMIN = [
   "my-leaves",
-  "task-reports",
   "my-tasks",
   "my-warnings", // NEW
 ];
@@ -265,7 +264,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       let moduleName = module?.name || slug;
 
       if (moduleName === "My Tasks" || slug === "my-tasks") {
-        moduleName = "Task Reports";
+        moduleName = "My Task Reports";
       }
       if (slug === "project-tasks") {
         moduleName = "Project Tasks";

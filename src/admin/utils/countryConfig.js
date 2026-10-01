@@ -51,7 +51,7 @@ export const countryConfigs = {
     passportRequired: false,
     identityDocuments: [
       { key: "aadhaar_card", label: "Aadhaar Card", required: true, icon: "fas fa-id-card" },
-      { key: "pan_card", label: "PAN Card", required: true, icon: "fas fa-file-invoice" },
+      { key: "pan_card", label: "PAN Card", required: false, icon: "fas fa-file-invoice" },
       { key: "voter_id", label: "Voter ID", required: false, icon: "fas fa-vote-yea" },
       { key: "driving_license", label: "Driving License", required: false, icon: "fas fa-id-card" },
       { key: "passport_india", label: "Passport (Optional)", required: false, icon: "fas fa-passport" },
