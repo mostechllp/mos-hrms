@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../../store/slices/employeeSlice";
 import { updateLeave, fetchLeaveBalances, fetchLeaveTypes, fetchLeaves } from "../../store/slices/LeaveSlice";
 import { showToast } from "../../../components/common/Toast";
 import DateInput from "../common/DateInput";
@@ -59,7 +59,7 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
 
   useEffect(() => {
     if (isOpen) {
-      dispatch(fetchEmployees());
+      dispatch(fetchActiveEmployees());
       dispatch(fetchLeaveTypes());
       
       if (leaveToEdit) {

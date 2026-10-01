@@ -26,7 +26,7 @@ export default Tasks
 //   setPagination,
 // } from "../store/slices/tasksSlice";
 // import { fetchProjects } from "../store/slices/projectsSlice";
-// import { fetchEmployees } from "../store/slices/employeeSlice";
+// import { fetchActiveEmployees } from "../store/slices/employeeSlice";
 
 // const Tasks = () => {
 //   const dispatch = useDispatch();
@@ -48,7 +48,7 @@ export default Tasks
 //   const [refreshLoading, setRefreshLoading] = useState(false);
 
 //   useEffect(() => {
-//     dispatch(fetchEmployees());
+//     dispatch(fetchActiveEmployees());
 //     dispatch(fetchProjects());
 //   }, [dispatch]);
 

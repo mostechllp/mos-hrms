@@ -25,7 +25,7 @@ import {
 } from "../store/slices/attendanceSlice";
 import LocationViewModal from "../components/attendance/LocationViewModal";
 import BreakDetailsModal from "../components/attendance/BreakDetailsModal";
-import { fetchEmployees } from "../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../store/slices/employeeSlice";
 
 // Helper function to get avatar URL
 const getAvatarUrl = (avatarPath) => {
@@ -114,7 +114,7 @@ const Attendances = () => {
 
   // Fetch employees on mount
   useEffect(() => {
-    dispatch(fetchEmployees());
+    dispatch(fetchActiveEmployees());
   }, [dispatch]);
 
   // Filter employees based on search term

@@ -28,7 +28,7 @@ import {
 } from "../store/slices/payrollSlice";
 
 import {
-  fetchEmployees,
+  fetchActiveEmployees,
   fetchEmployeeById,
 } from "../store/slices/employeeSlice";
 import DateInput from "../components/common/DateInput";
@@ -208,7 +208,7 @@ function EditPayroll() {
     if (id) {
       dispatch(fetchPayrollById(id));
     }
-    dispatch(fetchEmployees());
+    dispatch(fetchActiveEmployees());
     dispatch(setCurrentStep(1));
 
     return () => {

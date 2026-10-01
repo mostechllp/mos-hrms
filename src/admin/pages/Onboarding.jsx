@@ -20,7 +20,7 @@ import {
   Trash2,
   Eye,
 } from "lucide-react";
-import { fetchEmployees } from "../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../store/slices/employeeSlice";
 import {
   deleteOnboardingEmployee,
   resetOnboarding,
@@ -91,7 +91,7 @@ const OnboardingDashboard = () => {
   );
 
   useEffect(() => {
-    dispatch(fetchEmployees());
+    dispatch(fetchActiveEmployees());
   }, [dispatch]);
 
   const fetchProgressForEmployees = async (onboardingEmployees) => {
@@ -310,7 +310,7 @@ const OnboardingDashboard = () => {
     try {
       await dispatch(deleteOnboardingEmployee(employee.id)).unwrap();
       setRecentOnboarding((prev) => prev.filter((e) => e.id !== employee.id));
-      dispatch(fetchEmployees());
+      dispatch(fetchActiveEmployees());
       setDeleteModal({ isOpen: false, employee: null });
     } catch (err) {
       console.error("Delete failed:", err);

@@ -11,7 +11,7 @@ import {
   updateTaskReportRemarks,
   addTaskReport,
 } from "../store/slices/taskReportSlice";
-import { fetchEmployees } from "../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../store/slices/employeeSlice";
 import TaskReportModal from "../components/taskReports/TaskReportModal";
 import DateInput from "../components/common/DateInput";
 import SearchableSelect from "../../components/common/SearchableSelect";
@@ -74,7 +74,7 @@ const TaskReports = () => {
   const [editingReport, setEditingReport] = useState(null);
 
   useEffect(() => {
-    dispatch(fetchEmployees());
+    dispatch(fetchActiveEmployees());
   }, [dispatch]);
 
   useEffect(() => {

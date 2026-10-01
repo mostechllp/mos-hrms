@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../../store/slices/employeeSlice";
 import {
   addLeave,
   fetchLeaveBalances,
@@ -91,7 +91,7 @@ const AddLeaveModal = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
-      dispatch(fetchEmployees());
+      dispatch(fetchActiveEmployees());
       dispatch(fetchLeaveTypes());
       // reset state
       setEmployeeId("");

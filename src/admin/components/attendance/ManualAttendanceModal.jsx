@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../../store/slices/employeeSlice";
 import { TimeInput } from "../common/TimeInput";
 import DateInput from "../common/DateInput";
 import SearchableSelect from "../../../components/common/SearchableSelect";
@@ -37,7 +37,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, onSubmit, submitting }) => {
 
   useEffect(() => {
     if (isOpen && (!employees || employees.length === 0)) {
-      dispatch(fetchEmployees());
+      dispatch(fetchActiveEmployees());
     }
   }, [isOpen, dispatch, employees]);
 
