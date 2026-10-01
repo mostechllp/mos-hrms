@@ -27,7 +27,7 @@ import {
   resetFilters,
   clearCurrentWarning,
 } from "../store/slices/warningSlice";
-import { fetchEmployees } from "../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../store/slices/employeeSlice";
 
 const Warnings = () => {
   const dispatch = useDispatch();
@@ -76,7 +76,7 @@ const Warnings = () => {
 
   // Load employees once (for filter + create modal)
   useEffect(() => {
-    dispatch(fetchEmployees());
+    dispatch(fetchActiveEmployees());
   }, [dispatch]);
 
   const totalPages = Math.ceil(totalCount / perPage) || 1;

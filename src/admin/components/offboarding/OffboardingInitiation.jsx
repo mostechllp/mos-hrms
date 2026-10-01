@@ -15,7 +15,7 @@ import DateInput from "../common/DateInput";
 import SearchableSelect from "../../../components/common/SearchableSelect";
 import { showToast } from "../common/Toast";
 import OffboardingHeader from "./OffboardingHeader";
-import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../../store/slices/employeeSlice";
 import { fetchDepartments } from "../../store/slices/departmentSlice";
 import { fetchDesignations } from "../../store/slices/designationSlice";
 import {
@@ -191,7 +191,7 @@ const OffboardingInitiation = () => {
   // Initial fetch
   // ─────────────────────────────────────────────────────
   useEffect(() => {
-    dispatch(fetchEmployees());
+    dispatch(fetchActiveEmployees());
     dispatch(fetchDepartments());
     dispatch(fetchDesignations());
 
@@ -231,7 +231,7 @@ const OffboardingInitiation = () => {
       const resolveEmployees = async () => {
         if (employees && employees.length > 0) return employees;
         try {
-          const payload = await dispatch(fetchEmployees()).unwrap();
+          const payload = await dispatch(fetchActiveEmployees()).unwrap();
           return normalizeArray(payload);
         } catch (e) {
           console.error("Failed to fetch employees", e);

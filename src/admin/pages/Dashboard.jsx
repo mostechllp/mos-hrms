@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchEmployees } from "../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../store/slices/employeeSlice";
 import Sidebar from "../components/common/Sidebar";
 import Header from "../components/common/Header";
 import WelcomeBanner from "../components/dashboard/WelcomeBanner";
@@ -124,7 +124,7 @@ const Dashboard = () => {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchEmployees());
+    dispatch(fetchActiveEmployees());
 
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
