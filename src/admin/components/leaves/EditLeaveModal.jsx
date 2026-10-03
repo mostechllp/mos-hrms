@@ -256,11 +256,6 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
     const extraDays = totalDays - originalDays;
 
     const balance = leaveBalances[formData.leave_type_id] || { remaining: 0 };
-    // Only warn if they are requesting extra days that exceed the balance
-    if (extraDays > 0 && extraDays > balance.remaining && balance.remaining >= 0) {
-        setLocalError(`Requested extra days (${extraDays}) exceed available balance (${balance.remaining} days)`);
-        return;
-    }
 
     setSubmitting(true);
     const formDataToSend = new FormData();

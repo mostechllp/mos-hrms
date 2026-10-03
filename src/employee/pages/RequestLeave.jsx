@@ -700,14 +700,6 @@ const RequestLeave = () => {
               </div>
             )}
 
-            {exceedsBalance && (
-              <div className="warning-message mb-6 p-3 bg-amber-500/10 border border-amber-500 rounded-lg text-amber-600 text-sm">
-                ⚠️ Warning: Requested days {totalDays} exceed available{" "}
-                {selectedLeaveType.name} balance. Your balance is {remaining}{" "}
-                days and {totalDays - remaining} days will be calculated as LOP.
-              </div>
-            )}
-
             <div className="form-actions flex flex-col sm:flex-row justify-end gap-4 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
               <Link
                 to="/employee/leaves"
