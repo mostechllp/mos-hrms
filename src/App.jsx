@@ -150,6 +150,7 @@ const AddQuotation = lazy(() => import("./admin/pages/CRM/AddQuotation"));
 const CrmProducts = lazy(() => import("./admin/pages/CRM/Products"));
 const CrmReports = lazy(() => import("./admin/pages/CRM/CrmReports"));
 const CrmSettings = lazy(() => import("./admin/pages/CRM/CrmSettings"));
+const CrmProposals = lazy(() => import("./admin/pages/CRM/Proposals"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -416,6 +417,7 @@ function App() {
             <Route path="products" element={<CrmProducts />} />
             <Route path="reports" element={<CrmReports />} />
             <Route path="settings" element={<CrmSettings />} />
+            <Route path="proposals" element={<CrmProposals />} />
           </Route>
         </Route>
 

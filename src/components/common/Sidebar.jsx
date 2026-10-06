@@ -34,6 +34,7 @@ const ADMIN_ROUTE_MAP = {
   "crm-products": "/admin/crm/products",
   "crm-reports": "/admin/crm/reports",
   "crm-settings": "/admin/crm/settings",
+  "crm-proposals": "/admin/crm/proposals",
 };
 
 const EMPLOYEE_ROUTE_MAP = {
@@ -69,6 +70,7 @@ const EMPLOYEE_ROUTE_MAP = {
   "crm-products": "/employee/crm/products",
   "crm-reports": "/employee/crm/reports",
   "crm-settings": "/employee/crm/settings",
+  "crm-proposals": "/employee/crm/proposals",
 };
 
 const ICON_MAP = {
@@ -104,6 +106,7 @@ const ICON_MAP = {
   "crm-products": "fas fa-box-open",
   "crm-reports": "fas fa-chart-pie",
   "crm-settings": "fas fa-sliders",
+  "crm-proposals": "fas fa-file-lines",
 };
 
 // ============================================================
@@ -122,6 +125,7 @@ const PARENT_MENU_CONFIG = {
       { slug: "crm-opportunities", label: "Opportunities", path: ADMIN_ROUTE_MAP["crm-opportunities"], employeePath: EMPLOYEE_ROUTE_MAP["crm-opportunities"] },
       { slug: "crm-activities", label: "Activities", path: ADMIN_ROUTE_MAP["crm-activities"], employeePath: EMPLOYEE_ROUTE_MAP["crm-activities"] },
       { slug: "crm-quotations", label: "Quotations", path: ADMIN_ROUTE_MAP["crm-quotations"], employeePath: EMPLOYEE_ROUTE_MAP["crm-quotations"] },
+      { slug: "crm-proposals",     label: "Proposals",           path: ADMIN_ROUTE_MAP["crm-proposals"],     employeePath: EMPLOYEE_ROUTE_MAP["crm-proposals"] },
       { slug: "crm-products", label: "Products & Services", path: ADMIN_ROUTE_MAP["crm-products"], employeePath: EMPLOYEE_ROUTE_MAP["crm-products"] },
       { slug: "crm-reports", label: "Reports", path: ADMIN_ROUTE_MAP["crm-reports"], employeePath: EMPLOYEE_ROUTE_MAP["crm-reports"] },
       { slug: "crm-settings", label: "CRM Settings", path: ADMIN_ROUTE_MAP["crm-settings"], employeePath: EMPLOYEE_ROUTE_MAP["crm-settings"] },
