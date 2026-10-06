@@ -26,6 +26,7 @@ import { showToast } from "../../../components/common/Toast";
 import Pagination from "../../components/common/Paginations";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import ConvertLeadModal from "../../components/crm/ConvertLeadModal";
+import ExportModal from "../../../components/common/ExportModal";
 import {
   fetchLeads,
   deleteLeadApi,
@@ -36,6 +37,8 @@ import {
   setFilters,
   resetFilters,
   fetchPendingFollowUps,
+  exportLeadsPdf,
+  exportLeadsExcel,
 } from "../../store/slices/leadSlice";
 
 // ---------- helpers ----------
@@ -157,6 +160,7 @@ const Leads = () => {
     submitting,
     convertingId,
     options,
+    exporting,
   } = useSelector((state) => state.leads);
 
   const { pendingFollowUpsTotal } = useSelector((s) => s.leads);
@@ -173,6 +177,8 @@ const Leads = () => {
 
   const [convertOpen, setConvertOpen] = useState(false);
   const [pendingConvert, setPendingConvert] = useState(null);
+
+  const [exportOpen, setExportOpen] = useState(false);
 
   // ── initial load ──
   useEffect(() => {
@@ -237,6 +243,35 @@ const Leads = () => {
     setConfirmOpen(true);
   };
 
+  const handleExport = async (format) => {
+  // Build the same filter set the list uses
+  const exportFilters = {
+    search: filters.search,
+    lead_status: filters.lead_status,
+    priority: filters.priority,
+    lead_source: filters.lead_source,
+    lead_type: filters.lead_type,
+    assigned_salesperson_id: filters.assigned_salesperson_id,
+    sales_team: filters.sales_team,
+    industry: filters.industry,
+    date_from: filters.date_from,
+    date_to: filters.date_to,
+    sort_by: filters.sort_by,
+    sort_order: filters.sort_order,
+  };
+
+  if (format === "pdf") {
+    await dispatch(exportLeadsPdf({ filters: exportFilters })).unwrap();
+  } else {
+    const serverFormat = format === "csv" ? "csv" : "xlsx";
+    await dispatch(
+      exportLeadsExcel({ format: serverFormat, filters: exportFilters }),
+    ).unwrap();
+  }
+
+  showToast("Export downloaded successfully", "success");
+};
+
   const handleConfirmDelete = async () => {
     if (!pendingDelete) return;
     try {
@@ -295,18 +330,18 @@ const Leads = () => {
         </div>
 
         <div className="flex flex-wrap gap-2 w-full lg:w-auto">
-          <button
+          {/* <button
             onClick={() => navigate("/admin/crm/leads/import")}
             className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
           >
             <Upload size={15} /> Import
-          </button>
+          </button> */}
           <button
-            onClick={() => showToast("Export not implemented yet", "info")}
-            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
-          >
-            <Download size={15} /> Export
-          </button>
+  onClick={() => setExportOpen(true)}
+  className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+>
+  <Download size={15} /> Export
+</button>
           <button
             onClick={() => navigate("/admin/crm/leads/new")}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm"
@@ -669,6 +704,16 @@ const Leads = () => {
         lead={pendingConvert}
         onSubmit={handleConvertSubmit}
       />
+      <ExportModal
+  isOpen={exportOpen}
+  onClose={() => setExportOpen(false)}
+  onExport={handleExport}
+  title="Export Leads"
+  subtitle="Download the current filtered list"
+  totalRecords={totalCount}
+  formats={["csv", "xlsx", "pdf"]}
+  defaultFormat="xlsx"
+/>
     </div>
   );
 };

@@ -239,7 +239,7 @@ const AddLead = () => {
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}

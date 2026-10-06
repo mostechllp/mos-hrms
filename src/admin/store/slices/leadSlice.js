@@ -522,6 +522,139 @@ export const updateLeadFollowUp = createAsyncThunk(
 );
 
 // ----------------------------------------------------
+// EXPORTS
+// ----------------------------------------------------
+
+// Build the query string from the same filter set used by fetchLeads
+const buildLeadFilterQuery = (params = {}) => {
+  const {
+    search = "",
+    lead_status = "",
+    priority = "",
+    lead_source = "",
+    lead_type = "",
+    assigned_salesperson_id = "",
+    sales_team = "",
+    industry = "",
+    date_from = "",
+    date_to = "",
+    sort_by = "",
+    sort_order = "",
+  } = params;
+
+  return new URLSearchParams({
+    ...(search && { search }),
+    ...(lead_status && { lead_status }),
+    ...(priority && { priority }),
+    ...(lead_source && { lead_source }),
+    ...(lead_type && { lead_type }),
+    ...(assigned_salesperson_id && { assigned_salesperson_id }),
+    ...(sales_team && { sales_team }),
+    ...(industry && { industry }),
+    ...(date_from && { date_from }),
+    ...(date_to && { date_to }),
+    ...(sort_by && { sort_by }),
+    ...(sort_order && { sort_order }),
+  });
+};
+
+// Generic blob downloader
+const triggerBlobDownload = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+// Build a filename with today's date
+const buildFilename = (base, ext) => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${base}_${yyyy}-${mm}-${dd}.${ext}`;
+};
+
+// GET /admin/crm/leads/export/excel?format=xlsx|csv
+export const exportLeadsExcel = createAsyncThunk(
+  "leads/exportExcel",
+  async ({ format = "xlsx", filters = {} } = {}, { rejectWithValue }) => {
+    try {
+      const qs = buildLeadFilterQuery(filters);
+      qs.set("format", format);
+
+      const response = await apiClient.get(
+        `/admin/crm/leads/export/excel?${qs}`,
+        { responseType: "blob" },
+      );
+
+      const ext = format === "csv" ? "csv" : "xlsx";
+      const filename = buildFilename("leads", ext);
+      triggerBlobDownload(response.data, filename);
+
+      return { format, filename };
+    } catch (error) {
+      console.error("Export leads excel error:", error);
+      // If the server sent an error as JSON inside a blob, try to read it
+      let msg = "Failed to export leads";
+      const data = error.response?.data;
+      if (data instanceof Blob) {
+        try {
+          const text = await data.text();
+          const parsed = JSON.parse(text);
+          msg = parsed?.message || msg;
+        } catch {
+          /* ignore */
+        }
+      } else if (data?.message) {
+        msg = data.message;
+      }
+      return rejectWithValue(msg);
+    }
+  },
+);
+
+// GET /admin/crm/leads/export/pdf
+export const exportLeadsPdf = createAsyncThunk(
+  "leads/exportPdf",
+  async ({ filters = {} } = {}, { rejectWithValue }) => {
+    try {
+      const qs = buildLeadFilterQuery(filters);
+
+      const response = await apiClient.get(
+        `/admin/crm/leads/export/pdf?${qs}`,
+        { responseType: "blob" },
+      );
+
+      const filename = buildFilename("leads", "pdf");
+      triggerBlobDownload(response.data, filename);
+
+      return { filename };
+    } catch (error) {
+      console.error("Export leads pdf error:", error);
+      let msg = "Failed to export leads";
+      const data = error.response?.data;
+      if (data instanceof Blob) {
+        try {
+          const text = await data.text();
+          const parsed = JSON.parse(text);
+          msg = parsed?.message || msg;
+        } catch {
+          /* ignore */
+        }
+      } else if (data?.message) {
+        msg = data.message;
+      }
+      return rejectWithValue(msg);
+    }
+  },
+);
+
+// ----------------------------------------------------
 // INITIAL STATE
 // ----------------------------------------------------
 const initialState = {
@@ -591,6 +724,10 @@ const initialState = {
   submitting: false,
   submittingError: null,
   convertingId: null,
+
+  // exports
+  exporting: false,
+  exportError: null,
 };
 
 // ----------------------------------------------------
@@ -834,6 +971,29 @@ const leadSlice = createSlice({
       .addCase(fetchPendingFollowUps.rejected, (state, action) => {
         state.pendingFollowUpsLoading = false;
         state.pendingFollowUpsError = action.payload;
+      })
+            // ── Exports ──
+      .addCase(exportLeadsExcel.pending, (state) => {
+        state.exporting = true;
+        state.exportError = null;
+      })
+      .addCase(exportLeadsExcel.fulfilled, (state) => {
+        state.exporting = false;
+      })
+      .addCase(exportLeadsExcel.rejected, (state, action) => {
+        state.exporting = false;
+        state.exportError = action.payload;
+      })
+      .addCase(exportLeadsPdf.pending, (state) => {
+        state.exporting = true;
+        state.exportError = null;
+      })
+      .addCase(exportLeadsPdf.fulfilled, (state) => {
+        state.exporting = false;
+      })
+      .addCase(exportLeadsPdf.rejected, (state, action) => {
+        state.exporting = false;
+        state.exportError = action.payload;
       });
   },
 });

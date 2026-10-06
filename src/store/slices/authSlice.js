@@ -40,7 +40,15 @@ export const loginUser = createAsyncThunk(
       return data;
     } catch (error) {
       console.error("Login error:", error.response?.data);
-      return rejectWithValue(error.response?.data?.message || "Login failed");
+      const errorMessage = 
+        error.response?.data?.message ||      // { message: "..." }
+        error.response?.data?.error ||        // { error: "..." }
+        error.response?.data?.errors?.message || // { errors: { message: "..." } }
+        (typeof error.response?.data === 'string' ? error.response.data : null) || // plain string response
+        error.message ||                       // Axios error message
+        "Login failed. Please check your credentials.";
+      
+      return rejectWithValue(errorMessage);
     }
   }
 );
