@@ -1,7 +1,7 @@
-// src/admin/pages/crm/CustomerDetail.jsx
-
-import { useState } from "react";
+// src/admin/pages/CRM/CustomerDetail.jsx
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import {
   ArrowLeft,
   Pencil,
@@ -17,77 +17,27 @@ import {
   Trash2,
   Building2,
   Users,
-  TrendingUp,
   Clock,
   IndianRupee,
   Award,
   CheckCircle2,
+  Hash,
+  Globe,
+  Layers,
+  Percent,
+  Info,
+  Tag,
 } from "lucide-react";
 import { showToast } from "../../../components/common/Toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import AddContactModal from "../../components/crm/AddContactModal";
-
-// ------------------------------------------------------------
-// STATIC data keyed by id
-// ------------------------------------------------------------
-
-const CUSTOMER_DETAILS = {
-  "CUS-0001": {
-    id: "CUS-0001",
-    company: "Acme Corp",
-    type: "Company",
-    industry: "Manufacturing",
-    status: "Active",
-    customerSince: "2025-04-12",
-    assignedTo: "Riya Roy",
-    primaryContact: {
-      name: "Ramesh Kumar",
-      designation: "Procurement Manager",
-      email: "ramesh@acmecorp.com",
-      phone: "+91 98765 43210",
-    },
-    openOpportunities: 3,
-    openValue: 750000,
-    wonDeals: 2,
-    lastContacted: "2026-09-12",
-    nextFollowUp: "2026-09-18 10:30",
-    notes: "Long-standing customer. On Net 30 terms. Prefers email communication.",
-    contacts: [
-      { id: 1, name: "Ramesh Kumar", designation: "Procurement Manager", dept: "Procurement", email: "ramesh@acmecorp.com", phone: "+91 98765 43210", primary: true, preferred: "Email" },
-      { id: 2, name: "Sneha Rao", designation: "Finance Manager", dept: "Finance", email: "sneha@acmecorp.com", phone: "+91 98765 43211", primary: false, preferred: "Call" },
-      { id: 3, name: "Vivek Joshi", designation: "IT Manager", dept: "IT", email: "vivek@acmecorp.com", phone: "+91 98765 43212", primary: false, preferred: "Email" },
-    ],
-  },
-};
-
-const DEFAULT = {
-  id: "CUS-0000",
-  company: "Unknown Customer",
-  type: "Company",
-  industry: "—",
-  status: "Active",
-  customerSince: "—",
-  assignedTo: "—",
-  primaryContact: { name: "—", designation: "—", email: "—", phone: "—" },
-  openOpportunities: 0,
-  openValue: 0,
-  wonDeals: 0,
-  lastContacted: "—",
-  nextFollowUp: "—",
-  notes: "",
-  contacts: [],
-};
-
-const RECENT_ACTIVITIES = [
-  { id: 1, type: "Call", summary: "Called Ramesh re: new ERP proposal", user: "Riya Roy", when: "2026-09-12 14:00" },
-  { id: 2, type: "Email", summary: "Sent revised quotation #Q-2026-0142", user: "Riya Roy", when: "2026-09-10 11:20" },
-  { id: 3, type: "Meeting", summary: "Onsite demo at Acme HQ", user: "Riya Roy", when: "2026-09-05 15:00" },
-];
-
-const RECENT_QUOTATIONS = [
-  { id: "Q-2026-0142", amount: 450000, status: "Sent", date: "2026-09-10" },
-  { id: "Q-2026-0125", amount: 200000, status: "Accepted", date: "2026-08-22" },
-];
+import {
+  fetchCustomerById,
+  deleteCustomerApi,
+  updateCustomerStatusApi,
+  fromCustomerApi,
+  clearCurrentCustomer,
+} from "../../store/slices/customerSlice";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -99,13 +49,12 @@ const TABS = [
   { key: "notes", label: "Notes" },
 ];
 
-// ------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------
-
+// ---------- helpers ----------
 const formatDate = (d) => {
-  if (!d || d === "—") return "—";
-  return new Date(d).toLocaleDateString("en-GB", {
+  if (!d) return "—";
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return d;
+  return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -113,8 +62,10 @@ const formatDate = (d) => {
 };
 
 const formatDateTime = (d) => {
-  if (!d || d === "—") return "—";
-  return new Date(d).toLocaleString("en-GB", {
+  if (!d) return "—";
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return d;
+  return date.toLocaleString("en-GB", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -123,43 +74,119 @@ const formatDateTime = (d) => {
 };
 
 const formatCurrency = (n) => {
-  if (n >= 100000) return `₹${(n / 100000).toFixed(2)}L`;
-  if (n >= 1000) return `₹${(n / 1000).toFixed(0)}K`;
-  return `₹${n}`;
+  if (n === null || n === undefined || n === "") return "—";
+  const num = Number(n);
+  if (isNaN(num)) return "—";
+  if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
+  if (num >= 1000) return `₹${(num / 1000).toFixed(0)}K`;
+  return `₹${num}`;
 };
 
 const statusBadge = (status) => {
   const map = {
     Active: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     Inactive: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
+    Blacklisted: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
   };
   return map[status] || map.Active;
 };
 
-// ------------------------------------------------------------
-// Component
-// ------------------------------------------------------------
+const getAccountManagerName = (am) => {
+  if (!am) return "—";
+  const full = `${am.first_name || ""} ${am.last_name || ""}`.trim();
+  return full || am.name || "—";
+};
+
+const getAccountManagerAvatar = (am) => {
+  if (!am?.avatar) return null;
+  if (String(am.avatar).startsWith("http")) return am.avatar;
+  const base = import.meta.env.VITE_API_URL?.replace("/api", "") || "";
+  return `${base}/storage/${am.avatar}`;
+};
 
 const CustomerDetail = () => {
   const { customerId } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  const customer = CUSTOMER_DETAILS[customerId] || DEFAULT;
+  const {
+    currentCustomer,
+    currentCustomerLoading,
+    currentCustomerError,
+    submitting,
+  } = useSelector((state) => state.customers);
 
   const [activeTab, setActiveTab] = useState("overview");
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
 
-  const handleDelete = () => {
-    showToast(`Customer ${customer.company} deleted`, "success");
-    setConfirmDelete(false);
-    navigate("/admin/crm/customers");
+  useEffect(() => {
+    if (customerId) dispatch(fetchCustomerById(customerId));
+    return () => dispatch(clearCurrentCustomer());
+  }, [dispatch, customerId]);
+
+  const customer = currentCustomer ? fromCustomerApi(currentCustomer) : null;
+
+  const handleDelete = async () => {
+    if (!customer) return;
+    try {
+      await dispatch(deleteCustomerApi(customer.id)).unwrap();
+      showToast(`Customer ${customer.companyName} deleted`, "success");
+      setConfirmDelete(false);
+      navigate("/admin/crm/customers");
+    } catch (err) {
+      showToast(err || "Failed to delete customer", "error");
+    }
   };
+
+  const handleQuickStatus = async (status) => {
+    if (!customer) return;
+    try {
+      await dispatch(
+        updateCustomerStatusApi({
+          id: customer.id,
+          customer_status: status,
+          note: "",
+        }),
+      ).unwrap();
+      showToast(`Status updated to ${status}`, "success");
+      setMenuOpen(false);
+    } catch (err) {
+      showToast(err || "Failed to update status", "error");
+    }
+  };
+
+  if (currentCustomerLoading && !customer) {
+    return (
+      <div className="w-full py-16 flex justify-center">
+        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (currentCustomerError && !customer) {
+    return (
+      <div className="w-full py-16 text-center">
+        <p className="text-red-500 mb-4">{currentCustomerError}</p>
+        <button
+          onClick={() => navigate("/admin/crm/customers")}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold"
+        >
+          Back to Customers
+        </button>
+      </div>
+    );
+  }
+
+  if (!customer) return null;
+
+  const am = currentCustomer.account_manager;
+  const amName = getAccountManagerName(am);
 
   return (
     <div className="w-full space-y-6">
-      {/* ---------- Header ---------- */}
+      {/* Header */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate("/admin/crm/customers")}
@@ -170,7 +197,7 @@ const CustomerDetail = () => {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">
-              {customer.company}
+              {customer.companyName || "—"}
             </h1>
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusBadge(
@@ -181,27 +208,23 @@ const CustomerDetail = () => {
             </span>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
-            <span className="font-mono">{customer.id}</span>
+            <span className="font-mono">{customer.customerId}</span>
             <span className="text-gray-300 dark:text-gray-600">·</span>
             <span className="flex items-center gap-1">
-              <Building2 size={13} /> {customer.industry}
+              <Building2 size={13} /> {customer.industry || "—"}
             </span>
             <span className="text-gray-300 dark:text-gray-600">·</span>
             <span className="flex items-center gap-1">
-              <Users size={13} /> {customer.primaryContact.name}
+              <Users size={13} /> {customer.contactName || "—"}
             </span>
             <span className="text-gray-300 dark:text-gray-600">·</span>
-            <span className="flex items-center gap-1">
-              AM: {customer.assignedTo}
-            </span>
+            <span>AM: {amName}</span>
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() =>
-              navigate(`/admin/crm/customers/${customer.id}/edit`)
-            }
+            onClick={() => navigate(`/admin/crm/customers/${customer.id}/edit`)}
             className="px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
           >
             <Pencil size={14} /> Edit
@@ -220,15 +243,79 @@ const CustomerDetail = () => {
                   onClick={() => setMenuOpen(false)}
                 />
                 <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
-                  <MenuItem icon={UserPlus} label="Add Contact" onClick={() => { setContactModalOpen(true); setMenuOpen(false); }} />
-                  <MenuItem icon={Briefcase} label="Add Opportunity" onClick={() => { showToast("Add opportunity — later", "info"); setMenuOpen(false); }} />
-                  <MenuItem icon={Phone} label="Schedule Call" onClick={() => { showToast("Schedule call — later", "info"); setMenuOpen(false); }} />
-                  <MenuItem icon={CalendarPlus} label="Schedule Meeting" onClick={() => { showToast("Schedule meeting — later", "info"); setMenuOpen(false); }} />
-                  <MenuItem icon={FileText} label="Add Note" onClick={() => { showToast("Add note — later", "info"); setMenuOpen(false); }} />
-                  <MenuItem icon={Upload} label="Upload Document" onClick={() => { showToast("Upload document — later", "info"); setMenuOpen(false); }} />
-                  <MenuItem icon={Repeat} label="Change Status" onClick={() => { showToast("Change status — later", "info"); setMenuOpen(false); }} />
+                  <MenuItem
+                    icon={UserPlus}
+                    label="Add Contact"
+                    onClick={() => {
+                      setContactModalOpen(true);
+                      setMenuOpen(false);
+                    }}
+                  />
+                  <MenuItem
+                    icon={Briefcase}
+                    label="Add Opportunity"
+                    onClick={() => {
+                      showToast("Add opportunity — later", "info");
+                      setMenuOpen(false);
+                    }}
+                  />
+                  <MenuItem
+                    icon={Phone}
+                    label="Schedule Call"
+                    onClick={() => {
+                      showToast("Schedule call — later", "info");
+                      setMenuOpen(false);
+                    }}
+                  />
+                  <MenuItem
+                    icon={CalendarPlus}
+                    label="Schedule Meeting"
+                    onClick={() => {
+                      showToast("Schedule meeting — later", "info");
+                      setMenuOpen(false);
+                    }}
+                  />
+                  <MenuItem
+                    icon={FileText}
+                    label="Add Note"
+                    onClick={() => {
+                      showToast("Add note — later", "info");
+                      setMenuOpen(false);
+                    }}
+                  />
+                  <MenuItem
+                    icon={Upload}
+                    label="Upload Document"
+                    onClick={() => {
+                      showToast("Upload document — later", "info");
+                      setMenuOpen(false);
+                    }}
+                  />
+                  <MenuItem
+                    icon={Repeat}
+                    label="Mark as Active"
+                    onClick={() => handleQuickStatus("Active")}
+                  />
+                  <MenuItem
+                    icon={Repeat}
+                    label="Mark as Inactive"
+                    onClick={() => handleQuickStatus("Inactive")}
+                  />
+                  <MenuItem
+                    icon={Repeat}
+                    label="Mark as Blacklisted"
+                    onClick={() => handleQuickStatus("Blacklisted")}
+                  />
                   <div className="border-t border-gray-100 dark:border-gray-700" />
-                  <MenuItem icon={Trash2} label="Delete Customer" danger onClick={() => { setConfirmDelete(true); setMenuOpen(false); }} />
+                  <MenuItem
+                    icon={Trash2}
+                    label="Delete Customer"
+                    danger
+                    onClick={() => {
+                      setConfirmDelete(true);
+                      setMenuOpen(false);
+                    }}
+                  />
                 </div>
               </>
             )}
@@ -236,40 +323,64 @@ const CustomerDetail = () => {
         </div>
       </div>
 
-      {/* ---------- Quick action chips ---------- */}
+      {/* Quick chips */}
       <div className="flex flex-wrap gap-2">
-        <QuickChip icon={Pencil} label="Edit Customer" onClick={() => navigate(`/admin/crm/customers/${customer.id}/edit`)} />
-        <QuickChip icon={UserPlus} label="Add Contact" onClick={() => setContactModalOpen(true)} />
-        <QuickChip icon={Briefcase} label="Add Opportunity" onClick={() => showToast("Add opportunity", "info")} />
-        <QuickChip icon={Phone} label="Schedule Call" onClick={() => showToast("Schedule call", "info")} />
-        <QuickChip icon={CalendarPlus} label="Schedule Meeting" onClick={() => showToast("Schedule meeting", "info")} />
-        <QuickChip icon={FileText} label="Add Note" onClick={() => showToast("Add note", "info")} />
-        <QuickChip icon={Upload} label="Upload Document" onClick={() => showToast("Upload document", "info")} />
+        <QuickChip
+          icon={Pencil}
+          label="Edit Customer"
+          onClick={() => navigate(`/admin/crm/customers/${customer.id}/edit`)}
+        />
+        <QuickChip
+          icon={UserPlus}
+          label="Add Contact"
+          onClick={() => setContactModalOpen(true)}
+        />
+        <QuickChip
+          icon={Briefcase}
+          label="Add Opportunity"
+          onClick={() => showToast("Add opportunity", "info")}
+        />
+        <QuickChip
+          icon={Phone}
+          label="Schedule Call"
+          onClick={() => showToast("Schedule call", "info")}
+        />
+        <QuickChip
+          icon={CalendarPlus}
+          label="Schedule Meeting"
+          onClick={() => showToast("Schedule meeting", "info")}
+        />
+        <QuickChip
+          icon={FileText}
+          label="Add Note"
+          onClick={() => showToast("Add note", "info")}
+        />
+        <QuickChip
+          icon={Upload}
+          label="Upload Document"
+          onClick={() => showToast("Upload document", "info")}
+        />
       </div>
 
-      {/* ---------- KPI grid ---------- */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard icon={Briefcase} color="purple" label="Total Opportunities" value={customer.openOpportunities} />
-        <KpiCard icon={IndianRupee} color="blue" label="Open Value" value={formatCurrency(customer.openValue)} />
-        <KpiCard icon={Award} color="green" label="Won Deals" value={customer.wonDeals} />
-        <KpiCard icon={Clock} color="amber" label="Last Contacted" value={formatDate(customer.lastContacted)} small />
-      </div>
-
-      {/* ---------- Info card ---------- */}
+      {/* Info card — all key fields the API returns */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 sm:p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          <InfoBlock icon={Hash} label="Customer ID" value={customer.customerId} mono />
+          <InfoBlock icon={Layers} label="Customer Type" value={customer.customerType} />
           <InfoBlock icon={Building2} label="Industry" value={customer.industry} />
           <InfoBlock icon={CheckCircle2} label="Status" value={customer.status} />
           <InfoBlock icon={Clock} label="Customer Since" value={formatDate(customer.customerSince)} />
-          <InfoBlock icon={Users} label="Account Manager" value={customer.assignedTo} />
-          <InfoBlock icon={Users} label="Primary Contact" value={customer.primaryContact.name} />
-          <InfoBlock icon={Mail} label="Email" value={customer.primaryContact.email} />
-          <InfoBlock icon={Phone} label="Phone" value={customer.primaryContact.phone} />
-          <InfoBlock icon={CalendarPlus} label="Next Follow-up" value={formatDateTime(customer.nextFollowUp)} />
+          <InfoBlock icon={Users} label="Account Manager" value={amName} />
+          <InfoBlock icon={Users} label="Primary Contact" value={customer.contactName} />
+          <InfoBlock icon={Mail} label="Email" value={customer.contactEmail} />
+          <InfoBlock icon={Phone} label="Phone" value={customer.contactPhone} />
+          <InfoBlock icon={Percent} label="Payment Terms" value={customer.paymentTerms} />
+          <InfoBlock icon={IndianRupee} label="Credit Limit" value={formatCurrency(customer.creditLimit)} />
+          <InfoBlock icon={Tag} label="Category" value={customer.category} />
         </div>
       </div>
 
-      {/* ---------- Tabs ---------- */}
+      {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
         <div className="flex gap-1 min-w-max">
           {TABS.map((t) => (
@@ -288,44 +399,48 @@ const CustomerDetail = () => {
         </div>
       </div>
 
-      {/* ---------- Tab content ---------- */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 sm:p-6">
-        {activeTab === "overview" && <OverviewTab customer={customer} />}
+        {activeTab === "overview" && (
+          <OverviewTab customer={customer} am={am} raw={currentCustomer} />
+        )}
         {activeTab === "contacts" && (
           <ContactsTab
-            contacts={customer.contacts}
+            contacts={currentCustomer.contacts || []}
             onAdd={() => setContactModalOpen(true)}
           />
         )}
-        {activeTab === "activities" && <ActivitiesTab />}
-        {activeTab === "opportunities" && (
-          <EmptyTab label="No opportunities yet. Click “Add Opportunity” to create one." />
+        {activeTab === "activities" && (
+          <ActivitiesTab activities={currentCustomer.activities || []} />
         )}
-        {activeTab === "quotations" && <QuotationsTab />}
+        {activeTab === "opportunities" && (
+          <EmptyTab label="No opportunities yet." />
+        )}
+        {activeTab === "quotations" && (
+          <QuotationsTab quotations={currentCustomer.quotations || []} />
+        )}
         {activeTab === "documents" && (
           <EmptyTab label="No documents uploaded yet." />
         )}
         {activeTab === "notes" && <NotesTab customer={customer} />}
       </div>
 
-      {/* ---------- Delete confirm ---------- */}
       <ConfirmModal
         isOpen={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         onConfirm={handleDelete}
         title="Delete Customer"
-        message={`Are you sure you want to delete "${customer.company}"? This action cannot be undone.`}
+        message={`Are you sure you want to delete "${customer.companyName}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="danger"
+        loading={submitting}
       />
 
-      {/* ---------- Add Contact modal ---------- */}
       <AddContactModal
         isOpen={contactModalOpen}
         onClose={() => setContactModalOpen(false)}
         onSubmit={(data) => {
           console.log("New contact:", data);
-          showToast("Contact added successfully", "success");
+          showToast("Add contact — API not ready", "info");
           setContactModalOpen(false);
         }}
       />
@@ -361,7 +476,7 @@ const QuickChip = ({ icon: Icon, label, onClick }) => (
   </button>
 );
 
-const InfoBlock = ({ icon: Icon, label, value }) => (
+const InfoBlock = ({ icon: Icon, label, value, mono }) => (
   <div>
     <div className="flex items-center gap-1.5 mb-1">
       <Icon size={12} className="text-gray-400" />
@@ -369,227 +484,330 @@ const InfoBlock = ({ icon: Icon, label, value }) => (
         {label}
       </p>
     </div>
-    <p className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate">
-      {value}
+    <p
+      className={`text-sm text-gray-800 dark:text-gray-200 ${
+        mono ? "font-mono" : "font-medium"
+      } truncate`}
+    >
+      {value || "—"}
     </p>
   </div>
 );
 
-const KpiCard = ({ icon: Icon, color, label, value, small }) => {
-  const map = {
-    blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
-    green: "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
-    purple: "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
-    amber: "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400",
-  };
+const Row = ({ label, value, mono }) => (
+  <div className="flex items-start justify-between gap-3 py-1.5 border-b border-gray-100 dark:border-gray-700/40 last:border-b-0">
+    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
+      {label}
+    </span>
+    <span
+      className={`text-sm text-gray-800 dark:text-gray-200 text-right ${
+        mono ? "font-mono" : ""
+      }`}
+    >
+      {value || "—"}
+    </span>
+  </div>
+);
+
+const SectionTitle = ({ children }) => (
+  <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+    {children}
+  </h3>
+);
+
+// ------------------------------------------------------------
+// Tab components
+// ------------------------------------------------------------
+
+const OverviewTab = ({ customer, am, raw }) => {
+  const amName = getAccountManagerName(am);
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${map[color]}`}>
-        <Icon className="w-4 h-4" />
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Left column */}
+      <div className="space-y-6">
+        <div>
+          <SectionTitle>Company Details</SectionTitle>
+          <div className="space-y-0">
+            <Row label="Customer ID" value={customer.customerId} mono />
+            <Row label="Customer Type" value={customer.customerType} />
+            <Row label="Company Name" value={customer.companyName} />
+            <Row label="Industry" value={customer.industry} />
+            <Row label="Registration No." value={customer.registrationNumber} />
+            <Row label="Tax / GST No." value={customer.taxNumber} />
+            <Row
+              label="Website"
+              value={
+                customer.website ? (
+                  <a
+                    href={customer.website}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                  >
+                    <Globe size={12} /> {customer.website}
+                  </a>
+                ) : (
+                  "—"
+                )
+              }
+            />
+          </div>
+        </div>
+
+        <div>
+          <SectionTitle>Account</SectionTitle>
+          <div className="space-y-0">
+            <Row label="Status" value={customer.status} />
+            <Row label="Customer Since" value={formatDate(customer.customerSince)} />
+            <Row label="Account Manager" value={amName} />
+            <Row label="Category" value={customer.category} />
+            <Row label="Source" value={customer.source} />
+            <Row label="Payment Terms" value={customer.paymentTerms} />
+            <Row label="Credit Limit" value={formatCurrency(customer.creditLimit)} />
+          </div>
+        </div>
+
+        <div>
+          <SectionTitle>Notes</SectionTitle>
+          <div className="bg-gray-50 dark:bg-gray-900/40 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
+            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+              {customer.notes || "No notes yet."}
+            </p>
+          </div>
+        </div>
       </div>
-      <div className={`${small ? "text-base" : "text-xl"} font-bold text-gray-900 dark:text-white truncate`}>
-        {value}
-      </div>
-      <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-        {label}
+
+      {/* Right column */}
+      <div className="space-y-6">
+        <div>
+          <SectionTitle>Primary Contact</SectionTitle>
+          <div className="space-y-0">
+            <Row label="Name" value={customer.contactName} />
+            <Row label="Designation" value={customer.contactDesignation} />
+            <Row
+              label="Email"
+              value={
+                customer.contactEmail ? (
+                  <a
+                    href={`mailto:${customer.contactEmail}`}
+                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    {customer.contactEmail}
+                  </a>
+                ) : (
+                  "—"
+                )
+              }
+            />
+            <Row
+              label="Phone"
+              value={
+                customer.contactPhone ? (
+                  <a
+                    href={`tel:${customer.contactPhone}`}
+                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    {customer.contactPhone}
+                  </a>
+                ) : (
+                  "—"
+                )
+              }
+            />
+            <Row label="Alternate Phone" value={customer.contactAltPhone} />
+            <Row label="Preferred Comm." value={customer.preferredComm} />
+          </div>
+        </div>
+
+        <div>
+          <SectionTitle>Address</SectionTitle>
+          <div className="space-y-0">
+            <Row label="Billing" value={customer.billingAddress} />
+            <Row label="Shipping" value={customer.shippingAddress} />
+            <Row label="City" value={customer.city} />
+            <Row label="State" value={customer.state} />
+            <Row label="Country" value={customer.country} />
+            <Row label="Postal Code" value={customer.postalCode} />
+          </div>
+        </div>
+
+        <div>
+          <SectionTitle>System</SectionTitle>
+          <div className="space-y-0">
+            <Row label="Created At" value={formatDateTime(customer.createdAt)} />
+            <Row label="Updated At" value={formatDateTime(customer.updatedAt)} />
+            <Row
+              label="Created By"
+              value={raw?.creator?.username || raw?.creator?.email || "—"}
+            />
+            <Row
+              label="Updated By"
+              value={raw?.updater?.username || raw?.updater?.email || "—"}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-// ---------- Tabs ----------
-
-const OverviewTab = ({ customer }) => (
-  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-          Summary
+const ContactsTab = ({ contacts = [], onAdd }) => {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          {contacts.length} Contact{contacts.length !== 1 ? "s" : ""}
         </h3>
-        <div className="space-y-2 text-sm">
-          <Row label="Industry" value={customer.industry} />
-          <Row label="Status" value={customer.status} />
-          <Row label="Customer Since" value={formatDate(customer.customerSince)} />
-          <Row label="Account Manager" value={customer.assignedTo} />
-          <Row label="Next Follow-up" value={formatDateTime(customer.nextFollowUp)} />
-          <Row label="Last Contacted" value={formatDate(customer.lastContacted)} />
-        </div>
+        <button
+          onClick={onAdd}
+          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5"
+        >
+          <UserPlus size={13} /> Add Contact
+        </button>
       </div>
 
-      <div>
-        <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-          Notes
-        </h3>
-        <div className="bg-gray-50 dark:bg-gray-900/40 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
-          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-            {customer.notes || "No notes yet."}
+      {contacts.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            No contacts yet.
           </p>
         </div>
-      </div>
-    </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {contacts.map((c) => {
+            const name = c.name || c.contact_person_name || "—";
+            const designation = c.designation || c.contact_designation || "";
+            const dept = c.dept || c.department || "";
+            const email = c.email || c.contact_email || "";
+            const phone = c.phone || c.contact_phone || "";
+            const preferred = c.preferred || c.preferred_communication || "";
+            const isPrimary = c.primary ?? c.is_primary ?? false;
 
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-          Recent Activities
-        </h3>
-        <div className="space-y-2">
-          {RECENT_ACTIVITIES.slice(0, 3).map((a) => (
-            <div
-              key={a.id}
-              className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700/60"
-            >
-              <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-                <CalendarPlus size={14} className="text-blue-600 dark:text-blue-400" />
+            return (
+              <div
+                key={c.id}
+                className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">
+                      {name}
+                    </p>
+                    {(designation || dept) && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {[designation, dept].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                  {isPrimary && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 flex-shrink-0">
+                      Primary
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3 space-y-1.5 text-xs">
+                  {email && (
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <Mail size={12} /> {email}
+                    </div>
+                  )}
+                  {phone && (
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <Phone size={12} /> {phone}
+                    </div>
+                  )}
+                  {preferred && (
+                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-500">
+                      Prefers {preferred}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                  {a.type}: {a.summary}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {a.user} · {formatDateTime(a.when)}
-                </p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-      </div>
-
-      <div>
-        <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-          Recent Quotations
-        </h3>
-        <div className="space-y-2">
-          {RECENT_QUOTATIONS.map((q) => (
-            <div
-              key={q.id}
-              className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-700/60 text-sm"
-            >
-              <div>
-                <p className="font-mono text-xs text-gray-500 dark:text-gray-400">
-                  {q.id}
-                </p>
-                <p className="text-gray-800 dark:text-gray-200 font-semibold">
-                  {formatCurrency(q.amount)}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatDate(q.date)}
-                </p>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 mt-1">
-                  {q.status}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
-const ContactsTab = ({ contacts, onAdd }) => (
-  <div className="space-y-4">
-    <div className="flex items-center justify-between">
-      <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        {contacts.length} Contact{contacts.length !== 1 ? "s" : ""}
-      </h3>
-      <button
-        onClick={onAdd}
-        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5"
-      >
-        <UserPlus size={13} /> Add Contact
-      </button>
-    </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      {contacts.map((c) => (
+const ActivitiesTab = ({ activities = [] }) => {
+  if (!activities.length) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          No activities logged yet.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {activities.map((a) => (
         <div
-          key={c.id}
-          className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40"
+          key={a.id}
+          className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700/60"
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">
-                {c.name}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {c.designation} · {c.dept}
-              </p>
-            </div>
-            {c.primary && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 flex-shrink-0">
-                Primary
-              </span>
-            )}
+          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+            <CalendarPlus size={14} className="text-blue-600 dark:text-blue-400" />
           </div>
-          <div className="mt-3 space-y-1.5 text-xs">
-            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-              <Mail size={12} /> {c.email}
-            </div>
-            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-              <Phone size={12} /> {c.phone}
-            </div>
-            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-500">
-              Prefers {c.preferred}
-            </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+              {a.type || a.activity_type || "Activity"}
+              {a.summary || a.subject ? `: ${a.summary || a.subject}` : ""}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              {a.user || a.created_by_name || "—"} ·{" "}
+              {formatDateTime(a.when || a.created_at)}
+            </p>
           </div>
         </div>
       ))}
     </div>
-  </div>
-);
+  );
+};
 
-const ActivitiesTab = () => (
-  <div className="space-y-3">
-    {RECENT_ACTIVITIES.map((a) => (
-      <div
-        key={a.id}
-        className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700/60"
-      >
-        <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-          <CalendarPlus size={14} className="text-blue-600 dark:text-blue-400" />
-        </div>
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-            {a.type}: {a.summary}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {a.user} · {formatDateTime(a.when)}
-          </p>
-        </div>
+const QuotationsTab = ({ quotations = [] }) => {
+  if (!quotations.length) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          No quotations yet.
+        </p>
       </div>
-    ))}
-  </div>
-);
+    );
+  }
 
-const QuotationsTab = () => (
-  <div className="space-y-3">
-    {RECENT_QUOTATIONS.map((q) => (
-      <div
-        key={q.id}
-        className="flex items-center justify-between p-4 rounded-lg border border-gray-100 dark:border-gray-700/60"
-      >
-        <div>
-          <p className="font-mono text-xs text-gray-500 dark:text-gray-400">
-            {q.id}
-          </p>
-          <p className="text-base font-bold text-gray-800 dark:text-gray-200 mt-1">
-            {formatCurrency(q.amount)}
-          </p>
+  return (
+    <div className="space-y-3">
+      {quotations.map((q) => (
+        <div
+          key={q.id}
+          className="flex items-center justify-between p-4 rounded-lg border border-gray-100 dark:border-gray-700/60"
+        >
+          <div>
+            <p className="font-mono text-xs text-gray-500 dark:text-gray-400">
+              {q.quotation_id || q.id}
+            </p>
+            <p className="text-base font-bold text-gray-800 dark:text-gray-200 mt-1">
+              {formatCurrency(q.amount)}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {formatDate(q.date || q.created_at)}
+            </p>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 mt-1">
+              {q.status}
+            </span>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {formatDate(q.date)}
-          </p>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 mt-1">
-            {q.status}
-          </span>
-        </div>
-      </div>
-    ))}
-  </div>
-);
+      ))}
+    </div>
+  );
+};
 
 const NotesTab = ({ customer }) => (
   <div className="bg-gray-50 dark:bg-gray-900/40 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
@@ -602,17 +820,6 @@ const NotesTab = ({ customer }) => (
 const EmptyTab = ({ label }) => (
   <div className="text-center py-8">
     <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
-  </div>
-);
-
-const Row = ({ label, value }) => (
-  <div className="flex items-start justify-between gap-3 py-1.5 border-b border-gray-100 dark:border-gray-700/40 last:border-b-0">
-    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-      {label}
-    </span>
-    <span className="text-sm text-gray-800 dark:text-gray-200 text-right">
-      {value}
-    </span>
   </div>
 );
 
