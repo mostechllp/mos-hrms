@@ -1,18 +1,6 @@
-// import React from 'react'
-// import UnderDevelopment from "../../../components/common/UnderDevelopment"
-
-// const Activities = () => {
-//   return (
-//     <UnderDevelopment pageName='Activities'/>
-//   )
-// }
-
-// export default Activities
-
-// src/admin/pages/crm/Activities.jsx
-
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+// src/admin/pages/CRM/Activities.jsx
+import { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Plus,
   Search,
@@ -22,8 +10,6 @@ import {
   Pencil,
   Trash2,
   Check,
-  CalendarClock,
-  List,
   CalendarDays,
   Clock,
   AlertCircle,
@@ -38,157 +24,42 @@ import {
   FileText,
   Building2,
   Briefcase,
+  List,
 } from "lucide-react";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../../components/common/Paginations";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import ActivityModal from "../../components/crm/ActivityModal";
+import ExportModal from "../../../components/common/ExportModal";
+import {
+  fetchActivities,
+  fetchActivityFormOptions,
+  createActivity,
+  updateActivity,
+  deleteActivityApi,
+  exportActivities,
+  fromActivityApi,
+  setCurrentPage,
+  setFilters,
+  resetFilters,
+  fetchActivityEmployees,
+  fetchLeadLookup,
+  fetchCustomerLookup,
+  fetchOpportunityLookup,
+} from "../../store/slices/activitySlice";
+import ViewActivityModal from "../../components/crm/ViewActivityModal";
 
-// ------------------------------------------------------------
-// STATIC DATA
-// ------------------------------------------------------------
-
-const ACTIVITIES = [
-  {
-    id: "ACT-0001",
-    title: "HRMS demo",
-    type: "Meeting",
-    relatedToType: "Opportunity",
-    relatedToId: "OPP-0001",
-    relatedToLabel: "ABC Traders HRMS Rollout",
-    assignedTo: "Rahul Verma",
-    startAt: "2026-09-16T10:00:00",
-    endAt: "2026-09-16T11:00:00",
-    priority: "High",
-    status: "Planned",
-    reminder: "1 hour",
-    description: "Demo HRMS modules for the procurement and HR teams.",
-  },
-  {
-    id: "ACT-0002",
-    title: "Follow-up call with Ramesh",
-    type: "Call",
-    relatedToType: "Lead",
-    relatedToId: "LED-0001",
-    relatedToLabel: "Ramesh Kumar · Acme Corp",
-    assignedTo: "Riya Roy",
-    startAt: "2026-09-16T14:30:00",
-    endAt: "2026-09-16T15:00:00",
-    priority: "High",
-    status: "Planned",
-    reminder: "15 min",
-    description: "Discuss revised pricing options.",
-  },
-  {
-    id: "ACT-0003",
-    title: "Send quotation Q-2026-0142",
-    type: "Task",
-    relatedToType: "Customer",
-    relatedToId: "CUS-0001",
-    relatedToLabel: "Acme Corp",
-    assignedTo: "Riya Roy",
-    startAt: "2026-09-17T09:00:00",
-    endAt: "2026-09-17T09:30:00",
-    priority: "Medium",
-    status: "In Progress",
-    reminder: "1 day",
-    description: "Revised quotation to reflect new implementation scope.",
-  },
-  {
-    id: "ACT-0004",
-    title: "Product demo for Globex",
-    type: "Meeting",
-    relatedToType: "Opportunity",
-    relatedToId: "OPP-0002",
-    relatedToLabel: "XYZ Pvt Ltd ERP Migration",
-    assignedTo: "Amina Khan",
-    startAt: "2026-09-18T15:00:00",
-    endAt: "2026-09-18T16:30:00",
-    priority: "High",
-    status: "Planned",
-    reminder: "1 hour",
-    description: "Deep dive into ERP migration workflow.",
-  },
-  {
-    id: "ACT-0005",
-    title: "Site visit — Initech",
-    type: "Site Visit",
-    relatedToType: "Customer",
-    relatedToId: "CUS-0003",
-    relatedToLabel: "Initech Solutions",
-    assignedTo: "Karthik Raj",
-    startAt: "2026-09-14T11:00:00",
-    endAt: "2026-09-14T13:00:00",
-    priority: "Medium",
-    status: "Completed",
-    reminder: "None",
-    description: "Assess on-site infrastructure requirements.",
-  },
-  {
-    id: "ACT-0006",
-    title: "Contract review with legal",
-    type: "Task",
-    relatedToType: "Opportunity",
-    relatedToId: "OPP-0004",
-    relatedToLabel: "LMN Group HRMS Upgrade",
-    assignedTo: "Riya Roy",
-    startAt: "2026-09-15T10:00:00",
-    endAt: "2026-09-15T11:00:00",
-    priority: "High",
-    status: "Overdue",
-    reminder: "1 hour",
-    description: "Legal team to review the revised MSA clauses.",
-  },
-  {
-    id: "ACT-0007",
-    title: "Email proposal draft",
-    type: "Email",
-    relatedToType: "Lead",
-    relatedToId: "LED-0002",
-    relatedToLabel: "Priya Sharma · Globex Ltd",
-    assignedTo: "Karthik Raj",
-    startAt: "2026-09-20T09:00:00",
-    endAt: "2026-09-20T09:30:00",
-    priority: "Medium",
-    status: "Planned",
-    reminder: "1 day",
-    description: "Draft and send proposal after pricing approval.",
-  },
-  {
-    id: "ACT-0008",
-    title: "Team sync — weekly",
-    type: "Task",
-    relatedToType: "Internal",
-    relatedToId: "—",
-    relatedToLabel: "Internal",
-    assignedTo: "Aarav Mehta",
-    startAt: "2026-09-19T16:00:00",
-    endAt: "2026-09-19T16:30:00",
-    priority: "Low",
-    status: "Planned",
-    reminder: "15 min",
-    description: "Weekly pipeline review with the sales team.",
-  },
-];
-
-const TYPES = ["Call", "Email", "Meeting", "Task", "Site Visit"];
-const PRIORITIES = ["Low", "Medium", "High"];
-const STATUSES = ["Planned", "In Progress", "Completed", "Overdue", "Cancelled"];
-const ASSIGNEES = ["Rahul Verma", "Amina Khan", "Karthik Raj", "Riya Roy", "Aarav Mehta"];
-
-// ------------------------------------------------------------
-// HELPERS
-// ------------------------------------------------------------
-
+// ---------- helpers ----------
 const parseDate = (s) => new Date(s);
-
 const isSameDay = (a, b) =>
   a.getFullYear() === b.getFullYear() &&
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
 
 const formatDate = (d) => {
+  if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;
+  if (isNaN(date.getTime())) return "—";
   return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -197,7 +68,9 @@ const formatDate = (d) => {
 };
 
 const formatTime = (d) => {
+  if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;
+  if (isNaN(date.getTime())) return "—";
   return date.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
@@ -212,7 +85,8 @@ const formatDateTime = (d) => {
 const priorityBadge = (priority) => {
   const map = {
     High: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-    Medium: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    Medium:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
     Low: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   };
   return map[priority] || map.Medium;
@@ -221,8 +95,10 @@ const priorityBadge = (priority) => {
 const statusBadge = (status) => {
   const map = {
     Planned: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    "In Progress": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-    Completed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    "In Progress":
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    Completed:
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     Overdue: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
     Cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
   };
@@ -244,9 +120,11 @@ const typeColor = (type) => {
   const map = {
     Call: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
     Email: "bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400",
-    Meeting: "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
+    Meeting:
+      "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
     Task: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400",
-    "Site Visit": "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400",
+    "Site Visit":
+      "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400",
   };
   return map[type] || map.Task;
 };
@@ -261,26 +139,36 @@ const relatedIcon = (relatedToType) => {
   return map[relatedToType] || FileText;
 };
 
-// ------------------------------------------------------------
-// COMPONENT
-// ------------------------------------------------------------
-
+// ---------- component ----------
 const Activities = () => {
-  const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  const [activities, setActivities] = useState(ACTIVITIES);
-  const [search, setSearch] = useState("");
+  const {
+    activities = [],
+    loading,
+    totalCount,
+    currentPage,
+    perPage,
+    filters,
+    options,
+    submitting,
+    exporting,
+    employeesLookup = [],
+    employeesLookupLoading = false,
+    leadsLookup = [],
+    leadsLookupLoading = false,
+    customersLookup = [],
+    customersLookupLoading = false,
+    opportunitiesLookup = [],
+    opportunitiesLookupLoading = false,
+  } = useSelector((state) => state.activities);
+
+  const [searchInput, setSearchInput] = useState(filters.search || "");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState({
-    type: "",
-    assignedTo: "",
-    priority: "",
-    status: "",
-  });
-  const [view, setView] = useState("list"); // list | calendar
+  const [view, setView] = useState("list");
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const perPage = 10;
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewingActivity, setViewingActivity] = useState(null);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -289,57 +177,90 @@ const Activities = () => {
   const [editingActivity, setEditingActivity] = useState(null);
   const [prefillDate, setPrefillDate] = useState(null);
 
-  // ---- Calendar state ----
+  const [exportOpen, setExportOpen] = useState(false);
+
+  // Calendar state
   const today = new Date();
   const [calendarDate, setCalendarDate] = useState(
     new Date(today.getFullYear(), today.getMonth(), today.getDate()),
   );
-  const [calendarMode, setCalendarMode] = useState("month"); // day | week | month
+  const [calendarMode, setCalendarMode] = useState("month");
 
-  // ------------------------------------------------------------
-  // Filtered list
-  // ------------------------------------------------------------
-  const filtered = useMemo(() => {
-    return activities.filter((a) => {
-      if (filters.type && a.type !== filters.type) return false;
-      if (filters.assignedTo && a.assignedTo !== filters.assignedTo) return false;
-      if (filters.priority && a.priority !== filters.priority) return false;
-      if (filters.status && a.status !== filters.status) return false;
+  // ── initial load ──
+  useEffect(() => {
+    dispatch(fetchActivityFormOptions());
+  }, [dispatch]);
 
-      if (search) {
-        const q = search.toLowerCase();
-        return (
-          a.title.toLowerCase().includes(q) ||
-          a.relatedToLabel.toLowerCase().includes(q) ||
-          a.assignedTo.toLowerCase().includes(q)
-        );
+  // ── lookup loads (for the modal dropdowns) ──
+  useEffect(() => {
+    dispatch(fetchActivityEmployees());
+    dispatch(fetchLeadLookup());
+    dispatch(fetchCustomerLookup());
+    dispatch(fetchOpportunityLookup());
+  }, [dispatch]);
+
+  // ── list fetch ──
+  useEffect(() => {
+    dispatch(
+      fetchActivities({
+        page: currentPage,
+        perPage,
+        search: filters.search,
+        type: filters.type,
+        status: filters.status,
+        priority: filters.priority,
+        assigned_to: filters.assigned_to,
+        related_type: filters.related_type,
+        date_from: filters.date_from,
+        date_to: filters.date_to,
+        sort_by: filters.sort_by,
+        sort_order: filters.sort_order,
+      }),
+    );
+  }, [dispatch, currentPage, perPage, filters]);
+
+  // ── debounced search ──
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchInput !== filters.search) {
+        dispatch(setFilters({ search: searchInput }));
       }
-      return true;
-    });
-  }, [activities, filters, search]);
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
-  const totalFiltered = filtered.length;
-  const totalPages = Math.ceil(totalFiltered / perPage) || 1;
-  const start = (currentPage - 1) * perPage;
-  const pageActivities = filtered.slice(start, start + perPage);
+  const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const activeFilterCount = useMemo(
+    () =>
+      ["type", "assigned_to", "priority", "status"].filter((k) => filters[k])
+        .length,
+    [filters],
+  );
 
-  // ------------------------------------------------------------
-  // Summary
-  // ------------------------------------------------------------
+  // ---------- normalized activities ----------
+  const normalized = useMemo(
+    () => (activities || []).map((a) => fromActivityApi(a)),
+    [activities],
+  );
+
+  // ---------- summary ----------
   const summary = useMemo(() => {
     const now = new Date();
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
 
-    const todays = activities.filter((a) => isSameDay(parseDate(a.startAt), now));
-    const upcoming = activities.filter(
-      (a) => parseDate(a.startAt) > todayEnd && a.status === "Planned",
+    const todays = normalized.filter(
+      (a) => a.startAt && isSameDay(parseDate(a.startAt), now),
     );
-    const completed = activities.filter((a) => a.status === "Completed");
-    const overdue = activities.filter((a) => a.status === "Overdue");
-    const highPriority = activities.filter(
+    const upcoming = normalized.filter(
+      (a) =>
+        a.startAt && parseDate(a.startAt) > todayEnd && a.status === "Planned",
+    );
+    const completed = normalized.filter((a) => a.status === "Completed");
+    const overdue = normalized.filter((a) => a.status === "Overdue");
+    const highPriority = normalized.filter(
       (a) => a.priority === "High" && a.status !== "Completed",
     );
 
@@ -350,11 +271,27 @@ const Activities = () => {
       overdue: overdue.length,
       highPriority: highPriority.length,
     };
-  }, [activities]);
+  }, [normalized]);
 
-  // ------------------------------------------------------------
-  // Handlers
-  // ------------------------------------------------------------
+  const refetchList = () =>
+    dispatch(
+      fetchActivities({
+        page: currentPage,
+        perPage,
+        search: filters.search,
+        type: filters.type,
+        status: filters.status,
+        priority: filters.priority,
+        assigned_to: filters.assigned_to,
+        related_type: filters.related_type,
+        date_from: filters.date_from,
+        date_to: filters.date_to,
+        sort_by: filters.sort_by,
+        sort_order: filters.sort_order,
+      }),
+    );
+
+  // ---------- handlers ----------
   const openCreate = (date = null) => {
     setEditingActivity(null);
     setPrefillDate(date);
@@ -367,59 +304,118 @@ const Activities = () => {
     setModalOpen(true);
   };
 
+  const openView = (activity) => {
+    setViewingActivity(activity);
+    setViewOpen(true);
+  };
+
+  const closeView = () => {
+    setViewOpen(false);
+    setViewingActivity(null);
+  };
+
+  // From the view modal → switch to edit
+  const handleEditFromView = (activity) => {
+    closeView();
+    openEdit(activity);
+  };
+
   const handleDeleteClick = (activity) => {
     setPendingDelete(activity);
     setConfirmOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!pendingDelete) return;
-    setActivities((prev) => prev.filter((a) => a.id !== pendingDelete.id));
-    showToast(`Activity "${pendingDelete.title}" deleted`, "success");
-    setConfirmOpen(false);
-    setPendingDelete(null);
-  };
-
-  const handleComplete = (activity) => {
-    setActivities((prev) =>
-      prev.map((a) =>
-        a.id === activity.id ? { ...a, status: "Completed" } : a,
-      ),
-    );
-    showToast(`Marked "${activity.title}" as completed`, "success");
-  };
-
-  const handleModalSubmit = (data, isEdit) => {
-    if (isEdit && editingActivity) {
-      setActivities((prev) =>
-        prev.map((a) => (a.id === editingActivity.id ? { ...a, ...data } : a)),
-      );
-      showToast("Activity updated successfully", "success");
-    } else {
-      const newActivity = {
-        ...data,
-        id: `ACT-${String(activities.length + 1).padStart(4, "0")}`,
-        relatedToLabel: data.relatedToLabel || data.relatedToId || "—",
-      };
-      setActivities((prev) => [newActivity, ...prev]);
-      showToast("Activity created successfully", "success");
+    try {
+      await dispatch(deleteActivityApi(pendingDelete.id)).unwrap();
+      showToast(`Activity "${pendingDelete.title}" deleted`, "success");
+      setConfirmOpen(false);
+      setPendingDelete(null);
+      await refetchList();
+    } catch (err) {
+      showToast(err || "Failed to delete activity", "error");
     }
-    setModalOpen(false);
-    setEditingActivity(null);
-    setPrefillDate(null);
+  };
+
+  const handleComplete = async (activity) => {
+    try {
+      await dispatch(
+        updateActivity({
+          id: activity.id,
+          data: {
+            title: activity.title,
+            type: activity.type,
+            relatedToType: activity.relatedToType,
+            relatedToId: activity.relatedToId,
+            assignedTo: activity.assignedToId || activity.assignedTo,
+            startAt: activity.startAt,
+            endAt: activity.endAt,
+            priority: activity.priority,
+            status: "Completed",
+            reminder: activity.reminder,
+            description: activity.description,
+          },
+        }),
+      ).unwrap();
+      showToast(`Marked "${activity.title}" as completed`, "success");
+      await refetchList();
+    } catch (err) {
+      showToast(err || "Failed to update activity", "error");
+    }
+  };
+
+  const handleModalSubmit = async (payload, isEdit) => {
+    try {
+      if (isEdit && editingActivity) {
+        await dispatch(
+          updateActivity({ id: editingActivity.id, data: payload }),
+        ).unwrap();
+        showToast("Activity updated successfully", "success");
+      } else {
+        await dispatch(createActivity(payload)).unwrap();
+        showToast("Activity created successfully", "success");
+      }
+      setModalOpen(false);
+      setEditingActivity(null);
+      setPrefillDate(null);
+      await refetchList();
+    } catch (err) {
+      showToast(err || "Failed to save activity", "error");
+    }
+  };
+
+  const handleExport = async (format) => {
+    const exportFilters = {
+      search: filters.search,
+      type: filters.type,
+      status: filters.status,
+      priority: filters.priority,
+      assigned_to: filters.assigned_to,
+      related_type: filters.related_type,
+      date_from: filters.date_from,
+      date_to: filters.date_to,
+    };
+    try {
+      const serverFormat =
+        format === "pdf" ? "pdf" : format === "csv" ? "csv" : "xlsx";
+      await dispatch(
+        exportActivities({ format: serverFormat, filters: exportFilters }),
+      ).unwrap();
+      showToast("Export downloaded successfully", "success");
+    } catch (err) {
+      showToast(err || "Failed to export activities", "error");
+    }
   };
 
   const clearFilters = () => {
-    setFilters({ type: "", assignedTo: "", priority: "", status: "" });
-    setSearch("");
-    setCurrentPage(1);
+    setSearchInput("");
+    dispatch(resetFilters());
   };
 
-  const resetToFirstPage = () => setCurrentPage(1);
+  const updateFilter = (key, value) => dispatch(setFilters({ [key]: value }));
 
-  // ------------------------------------------------------------
-  // Calendar helpers
-  // ------------------------------------------------------------
+  // ---------- calendar helpers ----------
   const navigateCalendar = (dir) => {
     const d = new Date(calendarDate);
     if (calendarMode === "day") d.setDate(d.getDate() + dir);
@@ -447,7 +443,14 @@ const Activities = () => {
       startOfWeek.setDate(calendarDate.getDate() - calendarDate.getDay());
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
-      return `${startOfWeek.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} – ${endOfWeek.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`;
+      return `${startOfWeek.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+      })} – ${endOfWeek.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })}`;
     }
     return calendarDate.toLocaleDateString("en-GB", {
       month: "long",
@@ -455,26 +458,22 @@ const Activities = () => {
     });
   }, [calendarDate, calendarMode]);
 
-  // Month grid days
   const monthGrid = useMemo(() => {
     if (calendarMode !== "month") return [];
     const year = calendarDate.getFullYear();
     const month = calendarDate.getMonth();
     const firstOfMonth = new Date(year, month, 1);
-    const startDayOfWeek = firstOfMonth.getDay(); // 0 = Sun
+    const startDayOfWeek = firstOfMonth.getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     const cells = [];
-    // Padding from previous month
     for (let i = 0; i < startDayOfWeek; i++) {
       const d = new Date(year, month, i - startDayOfWeek + 1);
       cells.push({ date: d, inMonth: false });
     }
-    // Current month
     for (let i = 1; i <= daysInMonth; i++) {
       cells.push({ date: new Date(year, month, i), inMonth: true });
     }
-    // Padding to next month
     while (cells.length % 7 !== 0) {
       const last = cells[cells.length - 1].date;
       const d = new Date(last);
@@ -484,7 +483,6 @@ const Activities = () => {
     return cells;
   }, [calendarDate, calendarMode]);
 
-  // Week grid
   const weekDays = useMemo(() => {
     if (calendarMode !== "week") return [];
     const startOfWeek = new Date(calendarDate);
@@ -499,20 +497,14 @@ const Activities = () => {
   }, [calendarDate, calendarMode]);
 
   const dayActivities = (date) =>
-    filtered.filter((a) => isSameDay(parseDate(a.startAt), date));
-
-  const todayIsVisible =
-    calendarMode === "month" &&
-    monthGrid.some(
-      (c) => c.inMonth && isSameDay(c.date, new Date()),
+    normalized.filter(
+      (a) => a.startAt && isSameDay(parseDate(a.startAt), date),
     );
 
-  // ------------------------------------------------------------
-  // Render
-  // ------------------------------------------------------------
+  // ---------- render ----------
   return (
     <div className="w-full overflow-x-hidden space-y-6">
-      {/* ---------- Header ---------- */}
+      {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
@@ -525,7 +517,7 @@ const Activities = () => {
 
         <div className="flex flex-wrap gap-2 w-full lg:w-auto">
           <button
-            onClick={() => showToast("Export started", "success")}
+            onClick={() => setExportOpen(true)}
             className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
           >
             <Download size={15} /> Export
@@ -539,7 +531,7 @@ const Activities = () => {
         </div>
       </div>
 
-      {/* ---------- Summary cards ---------- */}
+      {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         <SummaryCard
           label="Today's Activities"
@@ -573,7 +565,7 @@ const Activities = () => {
         />
       </div>
 
-      {/* ---------- Toolbar ---------- */}
+      {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
         <div className="relative flex-1">
           <Search
@@ -582,11 +574,8 @@ const Activities = () => {
           />
           <input
             type="text"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              resetToFirstPage();
-            }}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search by title, related record, or assignee..."
             className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           />
@@ -641,38 +630,33 @@ const Activities = () => {
             <FilterSelect
               label="Type"
               value={filters.type}
-              onChange={(v) => {
-                setFilters((f) => ({ ...f, type: v }));
-                resetToFirstPage();
-              }}
-              options={TYPES}
+              onChange={(v) => updateFilter("type", v)}
+              options={["Call", "Email", "Meeting", "Task", "Site Visit"]}
             />
             <FilterSelect
               label="Assigned To"
-              value={filters.assignedTo}
-              onChange={(v) => {
-                setFilters((f) => ({ ...f, assignedTo: v }));
-                resetToFirstPage();
-              }}
-              options={ASSIGNEES}
+              value={filters.assigned_to}
+              onChange={(v) => updateFilter("assigned_to", v)}
+              options={employeesLookup.map((e) => e.id)}
+              // ^ Actually, keep the ID here since filter expects an id
             />
             <FilterSelect
               label="Priority"
               value={filters.priority}
-              onChange={(v) => {
-                setFilters((f) => ({ ...f, priority: v }));
-                resetToFirstPage();
-              }}
-              options={PRIORITIES}
+              onChange={(v) => updateFilter("priority", v)}
+              options={["Low", "Medium", "High"]}
             />
             <FilterSelect
               label="Status"
               value={filters.status}
-              onChange={(v) => {
-                setFilters((f) => ({ ...f, status: v }));
-                resetToFirstPage();
-              }}
-              options={STATUSES}
+              onChange={(v) => updateFilter("status", v)}
+              options={[
+                "Planned",
+                "In Progress",
+                "Completed",
+                "Overdue",
+                "Cancelled",
+              ]}
             />
           </div>
           {activeFilterCount > 0 && (
@@ -688,7 +672,7 @@ const Activities = () => {
         </div>
       )}
 
-      {/* ---------- LIST VIEW ---------- */}
+      {/* LIST VIEW */}
       {view === "list" && (
         <>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
@@ -716,19 +700,32 @@ const Activities = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {pageActivities.length > 0 ? (
-                    pageActivities.map((a) => {
+                  {loading ? (
+                    <tr>
+                      <td
+                        colSpan={8}
+                        className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                      >
+                        Loading activities...
+                      </td>
+                    </tr>
+                  ) : normalized.length > 0 ? (
+                    normalized.map((a) => {
                       const TypeIcon = typeIcon(a.type);
                       const RelatedIcon = relatedIcon(a.relatedToType);
                       return (
                         <tr
                           key={a.id}
+                          onClick={() => openView(a)}
                           className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                         >
                           <td className="px-3 py-2.5 text-xs font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap max-w-[200px] truncate">
                             {a.title}
                           </td>
-                          <td className="px-3 py-2.5">
+                          <td
+                            className="px-3 py-2.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${typeColor(
                                 a.type,
@@ -740,14 +737,17 @@ const Activities = () => {
                           </td>
                           <td className="px-3 py-2.5 text-xs text-gray-600 dark:text-gray-400">
                             <div className="flex items-center gap-1.5">
-                              <RelatedIcon size={12} className="text-gray-400 flex-shrink-0" />
+                              <RelatedIcon
+                                size={12}
+                                className="text-gray-400 flex-shrink-0"
+                              />
                               <span className="truncate max-w-[200px]">
-                                {a.relatedToLabel}
+                                {a.relatedToLabel || a.relatedToId || "—"}
                               </span>
                             </div>
                           </td>
                           <td className="px-3 py-2.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {a.assignedTo}
+                            {a.assignedTo || "—"}
                           </td>
                           <td className="px-3 py-2.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
                             {formatDateTime(a.startAt)}
@@ -776,9 +776,7 @@ const Activities = () => {
                                 icon={Eye}
                                 color="text-blue-500"
                                 title="View"
-                                onClick={() =>
-                                  showToast(`Open ${a.id} detail — later`, "info")
-                                }
+                                onClick={() => openView(a)}
                               />
                               <IconBtn
                                 icon={Pencil}
@@ -820,19 +818,19 @@ const Activities = () => {
             </div>
           </div>
 
-          {totalFiltered > 0 && (
+          {totalCount > 0 && (
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              totalItems={totalFiltered}
+              onPageChange={(p) => dispatch(setCurrentPage(p))}
+              totalItems={totalCount}
               itemsPerPage={perPage}
             />
           )}
         </>
       )}
 
-      {/* ---------- CALENDAR VIEW ---------- */}
+      {/* CALENDAR VIEW */}
       {view === "calendar" && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* Calendar toolbar */}
@@ -878,10 +876,9 @@ const Activities = () => {
             </div>
           </div>
 
-          {/* --- Month view --- */}
+          {/* Month */}
           {calendarMode === "month" && (
             <div>
-              {/* Weekday header */}
               <div className="grid grid-cols-7 bg-gray-50 dark:bg-gray-700/30 border-b border-gray-200 dark:border-gray-700">
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
                   <div
@@ -893,7 +890,6 @@ const Activities = () => {
                 ))}
               </div>
 
-              {/* Grid */}
               <div className="grid grid-cols-7">
                 {monthGrid.map((cell, i) => {
                   const evts = dayActivities(cell.date);
@@ -952,7 +948,7 @@ const Activities = () => {
             </div>
           )}
 
-          {/* --- Week view --- */}
+          {/* Week */}
           {calendarMode === "week" && (
             <div className="grid grid-cols-7 divide-x divide-gray-100 dark:divide-gray-700/40">
               {weekDays.map((d, i) => {
@@ -1008,17 +1004,14 @@ const Activities = () => {
             </div>
           )}
 
-          {/* --- Day view --- */}
+          {/* Day */}
           {calendarMode === "day" && (
             <div className="p-4">
               <div className="max-w-3xl mx-auto">
                 {dayActivities(calendarDate).length > 0 ? (
                   <div className="space-y-2">
                     {dayActivities(calendarDate)
-                      .sort(
-                        (a, b) =>
-                          new Date(a.startAt) - new Date(b.startAt),
-                      )
+                      .sort((a, b) => new Date(a.startAt) - new Date(b.startAt))
                       .map((e) => {
                         const TypeIcon = typeIcon(e.type);
                         return (
@@ -1055,8 +1048,8 @@ const Activities = () => {
                                 </span>
                               </div>
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                {formatTime(e.startAt)} – {formatTime(e.endAt)} ·{" "}
-                                {e.assignedTo}
+                                {formatTime(e.startAt)} – {formatTime(e.endAt)}{" "}
+                                · {e.assignedTo}
                               </p>
                               {e.description && (
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
@@ -1091,7 +1084,7 @@ const Activities = () => {
         </div>
       )}
 
-      {/* ---------- Delete confirm ---------- */}
+      {/* Delete confirm */}
       <ConfirmModal
         isOpen={confirmOpen}
         onClose={() => {
@@ -1103,9 +1096,10 @@ const Activities = () => {
         message={`Are you sure you want to delete "${pendingDelete?.title}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="danger"
+        loading={submitting}
       />
 
-      {/* ---------- Add / Edit modal ---------- */}
+      {/* Add / Edit modal */}
       <ActivityModal
         isOpen={modalOpen}
         onClose={() => {
@@ -1116,22 +1110,51 @@ const Activities = () => {
         activity={editingActivity}
         prefillDate={prefillDate}
         onSubmit={handleModalSubmit}
+        submitting={submitting}
+        employees={employeesLookup}
+        employeesLoading={employeesLookupLoading}
+        leads={leadsLookup}
+        leadsLoading={leadsLookupLoading}
+        customers={customersLookup}
+        customersLoading={customersLookupLoading}
+        opportunities={opportunitiesLookup}
+        opportunitiesLoading={opportunitiesLookupLoading}
+      />
+
+      {/* Export */}
+      <ExportModal
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        onExport={handleExport}
+        title="Export Activities"
+        subtitle="Download the current filtered list"
+        totalRecords={totalCount}
+        formats={["csv", "xlsx", "pdf"]}
+        defaultFormat="xlsx"
+      />
+      {/* View activity */}
+      <ViewActivityModal
+        isOpen={viewOpen}
+        onClose={closeView}
+        activity={viewingActivity}
+        onEdit={handleEditFromView}
+        onComplete={handleComplete}
       />
     </div>
   );
 };
 
-// ------------------------------------------------------------
-// Building blocks
-// ------------------------------------------------------------
-
+// ---------- building blocks ----------
 const SummaryCard = ({ label, value, icon: Icon, color }) => {
   const map = {
     blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
-    indigo: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400",
-    green: "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+    indigo:
+      "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400",
+    green:
+      "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
     red: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
-    amber: "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400",
+    amber:
+      "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400",
   };
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
@@ -1143,7 +1166,7 @@ const SummaryCard = ({ label, value, icon: Icon, color }) => {
         </div>
       </div>
       <div className="text-xl font-bold text-gray-900 dark:text-white">
-        {value}
+        {value ?? 0}
       </div>
       <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
         {label}
@@ -1152,17 +1175,18 @@ const SummaryCard = ({ label, value, icon: Icon, color }) => {
   );
 };
 
-const IconBtn = ({ icon: Icon, color, title, onClick }) => (
+const IconBtn = ({ icon: Icon, color, title, onClick, disabled }) => (
   <button
     onClick={onClick}
     title={title}
-    className={`p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${color}`}
+    disabled={disabled}
+    className={`p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${color} disabled:opacity-30 disabled:cursor-not-allowed`}
   >
     <Icon size={14} />
   </button>
 );
 
-const FilterSelect = ({ label, value, onChange, options }) => (
+const FilterSelect = ({ label, value, onChange, options = [] }) => (
   <div>
     <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
       {label}

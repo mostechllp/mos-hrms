@@ -1,18 +1,7 @@
-// import React from 'react'
-// import UnderDevelopment from "../../../components/common/UnderDevelopment"
-
-// const Quotations = () => {
-//   return (
-//     <UnderDevelopment pageName='Quotations'/>
-//   )
-// }
-
-// export default Quotations
-
-// src/admin/pages/crm/Quotations.jsx
-
-import { useMemo, useState } from "react";
+// src/admin/pages/CRM/Quotations.jsx
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Plus,
   Search,
@@ -38,124 +27,25 @@ import { showToast } from "../../../components/common/Toast";
 import Pagination from "../../components/common/Paginations";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import SendQuotationModal from "../../components/crm/SendQuotationModal";
+import {
+  fetchQuotations,
+  fetchQuotationFormOptions,
+  deleteQuotationApi,
+  updateQuotationStatusApi,
+  exportQuotations,
+  fromQuotationApi,
+  setCurrentPage,
+  setFilters,
+  resetFilters,
+} from "../../store/slices/quotationSlice";
+import ExportModal from "../../../components/common/ExportModal";
 
-// ------------------------------------------------------------
-// STATIC DATA
-// ------------------------------------------------------------
-
-const QUOTATIONS = [
-  {
-    id: 1,
-    number: "Q-2026-0148",
-    customer: "Acme Corp",
-    opportunity: "Acme Corp Payroll Renewal",
-    issueDate: "2026-09-14",
-    validUntil: "2026-10-14",
-    amount: 250000,
-    currency: "INR",
-    status: "Sent",
-    createdBy: "Riya Roy",
-  },
-  {
-    id: 2,
-    number: "Q-2026-0147",
-    customer: "Globex Ltd",
-    opportunity: "Globex Attendance System",
-    issueDate: "2026-09-12",
-    validUntil: "2026-10-12",
-    amount: 120000,
-    currency: "INR",
-    status: "Accepted",
-    createdBy: "Amina Khan",
-  },
-  {
-    id: 3,
-    number: "Q-2026-0146",
-    customer: "Initech Solutions",
-    opportunity: "Initech Custom Development",
-    issueDate: "2026-09-10",
-    validUntil: "2026-10-10",
-    amount: 800000,
-    currency: "INR",
-    status: "Draft",
-    createdBy: "Karthik Raj",
-  },
-  {
-    id: 4,
-    number: "Q-2026-0145",
-    customer: "LMN Group",
-    opportunity: "LMN Group HRMS Upgrade",
-    issueDate: "2026-09-05",
-    validUntil: "2026-10-05",
-    amount: 300000,
-    currency: "INR",
-    status: "Viewed",
-    createdBy: "Riya Roy",
-  },
-  {
-    id: 5,
-    number: "Q-2026-0144",
-    customer: "PQR Solutions",
-    opportunity: "PQR Solutions CRM Setup",
-    issueDate: "2026-08-28",
-    validUntil: "2026-09-28",
-    amount: 150000,
-    currency: "INR",
-    status: "Rejected",
-    createdBy: "Karthik Raj",
-  },
-  {
-    id: 6,
-    number: "Q-2026-0143",
-    customer: "Umbrella Inc",
-    opportunity: "Umbrella Inc HRMS",
-    issueDate: "2026-07-20",
-    validUntil: "2026-08-20",
-    amount: 180000,
-    currency: "INR",
-    status: "Expired",
-    createdBy: "Aarav Mehta",
-  },
-  {
-    id: 7,
-    number: "Q-2026-0142",
-    customer: "Acme Corp",
-    opportunity: "Acme Corp ERP",
-    issueDate: "2026-09-10",
-    validUntil: "2026-10-10",
-    amount: 450000,
-    currency: "INR",
-    status: "Sent",
-    createdBy: "Riya Roy",
-  },
-];
-
-const STATUSES = [
-  "Draft",
-  "Sent",
-  "Viewed",
-  "Accepted",
-  "Rejected",
-  "Expired",
-  "Cancelled",
-];
-
-const CUSTOMERS = [
-  "Acme Corp",
-  "Globex Ltd",
-  "Initech Solutions",
-  "LMN Group",
-  "PQR Solutions",
-  "Umbrella Inc",
-];
-
-// ------------------------------------------------------------
-// HELPERS
-// ------------------------------------------------------------
-
+// ---------- helpers ----------
 const formatDate = (d) => {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-GB", {
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return d;
+  return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -163,50 +53,71 @@ const formatDate = (d) => {
 };
 
 const formatCurrency = (n, currency = "INR") => {
-  const symbol = currency === "INR" ? "₹" : currency === "USD" ? "$" : "";
+  const symbol =
+    currency === "INR"
+      ? "₹"
+      : currency === "USD"
+        ? "$"
+        : currency === "AED"
+          ? "AED "
+          : "";
   return `${symbol}${Number(n || 0).toLocaleString()}`;
 };
 
 const statusBadge = (status) => {
+  const s = String(status || "").toLowerCase();
   const map = {
-    Draft: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
-    Sent: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    Viewed: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
-    Accepted: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-    Rejected: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-    Expired: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-    Cancelled: "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400",
+    draft: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
+    sent: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    viewed:
+      "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+    accepted:
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    rejected: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    expired:
+      "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+    cancelled: "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400",
   };
-  return map[status] || map.Draft;
+  return map[s] || map.draft;
 };
 
-const statusIcon = (status) => {
-  const map = {
-    Draft: FileEdit,
-    Sent: SendIcon,
-    Viewed: Eye,
-    Accepted: CheckCircle2,
-    Rejected: XOctagon,
-    Expired: Clock,
-    Cancelled: XCircle,
-  };
-  return map[status] || FileText;
+const statusLabel = (status) => {
+  const s = String(status || "").toLowerCase();
+  return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
-// ------------------------------------------------------------
-// COMPONENT
-// ------------------------------------------------------------
+const iconForStatus = (status) => {
+  const s = String(status || "").toLowerCase();
+  const map = {
+    draft: FileEdit,
+    sent: SendIcon,
+    viewed: Eye,
+    accepted: CheckCircle2,
+    rejected: XOctagon,
+    expired: Clock,
+    cancelled: XCircle,
+  };
+  return map[s] || FileText;
+};
 
 const Quotations = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  const [quotations, setQuotations] = useState(QUOTATIONS);
-  const [search, setSearch] = useState("");
+  const {
+    quotations = [],
+    loading,
+    totalCount,
+    currentPage,
+    perPage,
+    filters,
+    options,
+    submitting,
+    exporting,
+  } = useSelector((state) => state.quotations);
+
+  const [searchInput, setSearchInput] = useState(filters.search || "");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState({ status: "", customer: "" });
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const perPage = 10;
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -214,67 +125,99 @@ const Quotations = () => {
   const [sendOpen, setSendOpen] = useState(false);
   const [pendingSend, setPendingSend] = useState(null);
 
-  // ------------------------------------------------------------
-  // Filtering
-  // ------------------------------------------------------------
-  const filtered = useMemo(() => {
-    return quotations.filter((q) => {
-      if (filters.status && q.status !== filters.status) return false;
-      if (filters.customer && q.customer !== filters.customer) return false;
+  const [exportOpen, setExportOpen] = useState(false);
 
-      if (search) {
-        const s = search.toLowerCase();
-        return (
-          q.number.toLowerCase().includes(s) ||
-          q.customer.toLowerCase().includes(s) ||
-          q.opportunity.toLowerCase().includes(s)
-        );
+  // ── initial loads ──
+  useEffect(() => {
+    dispatch(fetchQuotationFormOptions());
+  }, [dispatch]);
+
+  // ── list fetch ──
+  useEffect(() => {
+    dispatch(
+      fetchQuotations({
+        page: currentPage,
+        perPage,
+        search: filters.search,
+        status: filters.status,
+        customer_id: filters.customer_id,
+      }),
+    );
+  }, [dispatch, currentPage, perPage, filters]);
+
+  // ── debounced search ──
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchInput !== filters.search) {
+        dispatch(setFilters({ search: searchInput }));
       }
-      return true;
-    });
-  }, [quotations, filters, search]);
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
-  const totalFiltered = filtered.length;
-  const totalPages = Math.ceil(totalFiltered / perPage) || 1;
-  const start = (currentPage - 1) * perPage;
-  const pageQuotations = filtered.slice(start, start + perPage);
+  const refetchList = () =>
+    dispatch(
+      fetchQuotations({
+        page: currentPage,
+        perPage,
+        search: filters.search,
+        status: filters.status,
+        customer_id: filters.customer_id,
+      }),
+    );
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
 
-  // ------------------------------------------------------------
+  const activeFilterCount = useMemo(
+    () => ["status", "customer_id"].filter((k) => filters[k]).length,
+    [filters],
+  );
+
+  // Normalize for display
+  const normalized = useMemo(
+    () => (quotations || []).map((q) => fromQuotationApi(q)),
+    [quotations],
+  );
+
   // Summary
-  // ------------------------------------------------------------
   const summary = useMemo(() => {
-    const draft = quotations.filter((q) => q.status === "Draft");
-    const sent = quotations.filter((q) => q.status === "Sent");
-    const accepted = quotations.filter((q) => q.status === "Accepted");
-    const rejected = quotations.filter((q) => q.status === "Rejected");
-    const totalValue = quotations.reduce((sum, q) => sum + q.amount, 0);
-
+    const by = (s) =>
+      normalized.filter((q) => String(q.status).toLowerCase() === s).length;
+    const totalValue = normalized.reduce(
+      (sum, q) => sum + Number(q.grandTotal || 0),
+      0,
+    );
     return {
-      total: quotations.length,
-      draft: draft.length,
-      sent: sent.length,
-      accepted: accepted.length,
-      rejected: rejected.length,
+      total: totalCount || normalized.length,
+      draft: by("draft"),
+      sent: by("sent"),
+      accepted: by("accepted"),
+      rejected: by("rejected"),
       totalValue,
     };
-  }, [quotations]);
+  }, [normalized, totalCount]);
 
-  // ------------------------------------------------------------
-  // Handlers
-  // ------------------------------------------------------------
+  // ---------- handlers ----------
   const handleDeleteClick = (q) => {
     setPendingDelete(q);
     setConfirmOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!pendingDelete) return;
-    setQuotations((prev) => prev.filter((q) => q.id !== pendingDelete.id));
-    showToast(`Quotation ${pendingDelete.number} deleted`, "success");
-    setConfirmOpen(false);
-    setPendingDelete(null);
+    try {
+      await dispatch(deleteQuotationApi(pendingDelete.id)).unwrap();
+      showToast(
+        `Quotation ${pendingDelete.quotationNumber} deleted`,
+        "success",
+      );
+      setConfirmOpen(false);
+      setPendingDelete(null);
+      await refetchList();
+    } catch (err) {
+      showToast(err || "Failed to delete quotation", "error");
+    }
   };
 
   const handleSendClick = (q) => {
@@ -282,62 +225,77 @@ const Quotations = () => {
     setSendOpen(true);
   };
 
-  const handleSendConfirm = ({ to, subject, message }) => {
+  const handleSendConfirm = async ({ to } = {}) => {
     if (!pendingSend) return;
-    setQuotations((prev) =>
-      prev.map((q) =>
-        q.id === pendingSend.id ? { ...q, status: "Sent" } : q,
-      ),
-    );
-    showToast(`Quotation ${pendingSend.number} sent to ${to}`, "success");
-    setSendOpen(false);
-    setPendingSend(null);
+    try {
+      await dispatch(
+        updateQuotationStatusApi({ id: pendingSend.id, status: "sent" }),
+      ).unwrap();
+      showToast(
+        `Quotation ${pendingSend.quotationNumber} sent${to ? ` to ${to}` : ""}`,
+        "success",
+      );
+      setSendOpen(false);
+      setPendingSend(null);
+      await refetchList();
+    } catch (err) {
+      showToast(err || "Failed to update status", "error");
+    }
   };
 
-  const handleMarkAccepted = (q) => {
-    setQuotations((prev) =>
-      prev.map((x) => (x.id === q.id ? { ...x, status: "Accepted" } : x)),
-    );
-    showToast(`${q.number} marked as accepted`, "success");
-  };
-
-  const handleMarkRejected = (q) => {
-    setQuotations((prev) =>
-      prev.map((x) => (x.id === q.id ? { ...x, status: "Rejected" } : x)),
-    );
-    showToast(`${q.number} marked as rejected`, "success");
+  const handleMarkStatus = async (q, status) => {
+    try {
+      await dispatch(updateQuotationStatusApi({ id: q.id, status })).unwrap();
+      showToast(`${q.quotationNumber} marked as ${status}`, "success");
+      await refetchList();
+    } catch (err) {
+      showToast(err || "Failed to update status", "error");
+    }
   };
 
   const handleDuplicate = (q) => {
-    const newQ = {
-      ...q,
-      id: Date.now(),
-      number: `Q-2026-${String(150 + quotations.length).padStart(4, "0")}`,
-      issueDate: new Date().toISOString().split("T")[0],
-      validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0],
-      status: "Draft",
-    };
-    setQuotations((prev) => [newQ, ...prev]);
-    showToast(`Duplicated as ${newQ.number}`, "success");
+    navigate(`/admin/crm/quotations/new?duplicate=${q.id}`);
   };
 
   const handleDownloadPdf = (q) => {
-    showToast(`Generating PDF for ${q.number}…`, "info");
+    showToast(`Generating PDF for ${q.quotationNumber}…`, "info");
+    // TODO: wire to your pdf endpoint when ready
+  };
+
+  const handleExport = async (format) => {
+    const exportFilters = {
+      status: filters.status,
+      customer_id: filters.customer_id,
+      search: filters.search,
+    };
+    try {
+      const serverFormat =
+        format === "pdf" ? "pdf" : format === "csv" ? "csv" : "xlsx";
+      await dispatch(
+        exportQuotations({ format: serverFormat, filters: exportFilters }),
+      ).unwrap();
+      showToast("Export downloaded successfully", "success");
+    } catch (err) {
+      showToast(err || "Failed to export quotations", "error");
+    }
   };
 
   const clearFilters = () => {
-    setFilters({ status: "", customer: "" });
-    setSearch("");
-    setCurrentPage(1);
+    setSearchInput("");
+    dispatch(resetFilters());
   };
 
-  const resetToFirstPage = () => setCurrentPage(1);
+  const updateFilter = (key, value) => dispatch(setFilters({ [key]: value }));
+
+  const customerOptions = (options.customers || []).map((c) =>
+    typeof c === "string"
+      ? { value: c, label: c }
+      : { value: String(c.id), label: c.company_name || c.name || `#${c.id}` },
+  );
 
   return (
     <div className="w-full overflow-x-hidden space-y-6">
-      {/* ---------- Header ---------- */}
+      {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
@@ -350,7 +308,7 @@ const Quotations = () => {
 
         <div className="flex flex-wrap gap-2 w-full lg:w-auto">
           <button
-            onClick={() => showToast("Export started", "success")}
+            onClick={() => setExportOpen(true)}
             className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
           >
             <Download size={15} /> Export
@@ -364,13 +322,38 @@ const Quotations = () => {
         </div>
       </div>
 
-      {/* ---------- Summary cards ---------- */}
+      {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <SummaryCard label="Total" value={summary.total} icon={FileText} color="blue" />
-        <SummaryCard label="Draft" value={summary.draft} icon={FileEdit} color="gray" />
-        <SummaryCard label="Sent" value={summary.sent} icon={SendIcon} color="indigo" />
-        <SummaryCard label="Accepted" value={summary.accepted} icon={CheckCircle2} color="green" />
-        <SummaryCard label="Rejected" value={summary.rejected} icon={XOctagon} color="red" />
+        <SummaryCard
+          label="Total"
+          value={summary.total}
+          icon={FileText}
+          color="blue"
+        />
+        <SummaryCard
+          label="Draft"
+          value={summary.draft}
+          icon={FileEdit}
+          color="gray"
+        />
+        <SummaryCard
+          label="Sent"
+          value={summary.sent}
+          icon={SendIcon}
+          color="indigo"
+        />
+        <SummaryCard
+          label="Accepted"
+          value={summary.accepted}
+          icon={CheckCircle2}
+          color="green"
+        />
+        <SummaryCard
+          label="Rejected"
+          value={summary.rejected}
+          icon={XOctagon}
+          color="red"
+        />
         <SummaryCard
           label="Total Value"
           value={formatCurrency(summary.totalValue)}
@@ -380,7 +363,7 @@ const Quotations = () => {
         />
       </div>
 
-      {/* ---------- Search + Filters ---------- */}
+      {/* Search + Filters */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
         <div className="relative flex-1">
           <Search
@@ -389,11 +372,8 @@ const Quotations = () => {
           />
           <input
             type="text"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              resetToFirstPage();
-            }}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search by number, customer, or opportunity..."
             className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           />
@@ -423,14 +403,14 @@ const Quotations = () => {
             <FilterSelect
               label="Status"
               value={filters.status}
-              onChange={(v) => { setFilters((f) => ({ ...f, status: v })); resetToFirstPage(); }}
-              options={STATUSES}
+              onChange={(v) => updateFilter("status", v)}
+              options={options.statuses || []}
             />
             <FilterSelect
               label="Customer"
-              value={filters.customer}
-              onChange={(v) => { setFilters((f) => ({ ...f, customer: v })); resetToFirstPage(); }}
-              options={CUSTOMERS}
+              value={filters.customer_id}
+              onChange={(v) => updateFilter("customer_id", v)}
+              options={customerOptions}
             />
           </div>
           {activeFilterCount > 0 && (
@@ -446,7 +426,7 @@ const Quotations = () => {
         </div>
       )}
 
-      {/* ---------- Table ---------- */}
+      {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-soft">
         <div className="min-w-[1000px]">
           <table className="w-full border-collapse">
@@ -455,12 +435,10 @@ const Quotations = () => {
                 {[
                   "QUOTATION #",
                   "CUSTOMER",
-                  "OPPORTUNITY",
                   "ISSUE DATE",
                   "VALID UNTIL",
                   "AMOUNT",
                   "STATUS",
-                  "CREATED BY",
                   "ACTIONS",
                 ].map((h) => (
                   <th
@@ -473,32 +451,36 @@ const Quotations = () => {
               </tr>
             </thead>
             <tbody>
-              {pageQuotations.length > 0 ? (
-                pageQuotations.map((q) => (
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                  >
+                    Loading quotations...
+                  </td>
+                </tr>
+              ) : normalized.length > 0 ? (
+                normalized.map((q) => (
                   <tr
                     key={q.id}
-                    onClick={() =>
-                      navigate(`/admin/crm/quotations/${q.id}`)
-                    }
+                    onClick={() => navigate(`/admin/crm/quotations/${q.id}`)}
                     className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
                   >
                     <td className="px-3 py-2.5 text-xs font-mono font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                      {q.number}
+                      {q.quotationNumber}
                     </td>
                     <td className="px-3 py-2.5 text-xs font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
-                      {q.customer}
-                    </td>
-                    <td className="px-3 py-2.5 text-xs text-gray-600 dark:text-gray-400 max-w-[220px] truncate">
-                      {q.opportunity}
+                      {q.customerName}
                     </td>
                     <td className="px-3 py-2.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                      {formatDate(q.issueDate)}
+                      {formatDate(q.quotationDate)}
                     </td>
                     <td className="px-3 py-2.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       {formatDate(q.validUntil)}
                     </td>
                     <td className="px-3 py-2.5 text-xs font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
-                      {formatCurrency(q.amount, q.currency)}
+                      {formatCurrency(q.grandTotal, q.currency)}
                     </td>
                     <td className="px-3 py-2.5">
                       <span
@@ -506,11 +488,8 @@ const Quotations = () => {
                           q.status,
                         )}`}
                       >
-                        {q.status}
+                        {statusLabel(q.status)}
                       </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                      {q.createdBy}
                     </td>
                     <td
                       className="px-3 py-2.5"
@@ -533,38 +512,31 @@ const Quotations = () => {
                             navigate(`/admin/crm/quotations/${q.id}/edit`)
                           }
                         />
-                        <IconBtn
-                          icon={FileDown}
-                          color="text-gray-500"
-                          title="Download PDF"
-                          onClick={() => handleDownloadPdf(q)}
-                        />
-                        <IconBtn
-                          icon={Send}
-                          color="text-indigo-500"
-                          title="Send"
-                          onClick={() => handleSendClick(q)}
-                          disabled={q.status === "Accepted" || q.status === "Rejected"}
-                        />
+                        {q.status === "draft" && (
+                          <IconBtn
+                            icon={Send}
+                            color="text-indigo-500"
+                            title="Send"
+                            onClick={() => handleSendClick(q)}
+                          />
+                        )}
                         <IconBtn
                           icon={Check}
                           color="text-green-600"
                           title="Mark Accepted"
-                          onClick={() => handleMarkAccepted(q)}
-                          disabled={q.status === "Accepted" || q.status === "Rejected"}
+                          onClick={() => handleMarkStatus(q, "accepted")}
+                          disabled={
+                            q.status === "accepted" || q.status === "rejected"
+                          }
                         />
                         <IconBtn
                           icon={XCircle}
                           color="text-red-500"
                           title="Mark Rejected"
-                          onClick={() => handleMarkRejected(q)}
-                          disabled={q.status === "Accepted" || q.status === "Rejected"}
-                        />
-                        <IconBtn
-                          icon={Copy}
-                          color="text-teal-500"
-                          title="Duplicate"
-                          onClick={() => handleDuplicate(q)}
+                          onClick={() => handleMarkStatus(q, "rejected")}
+                          disabled={
+                            q.status === "accepted" || q.status === "rejected"
+                          }
                         />
                         <IconBtn
                           icon={Trash2}
@@ -579,7 +551,7 @@ const Quotations = () => {
               ) : (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={7}
                     className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                   >
                     No quotations found
@@ -591,18 +563,16 @@ const Quotations = () => {
         </div>
       </div>
 
-      {/* ---------- Pagination ---------- */}
-      {totalFiltered > 0 && (
+      {totalCount > 0 && (
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          totalItems={totalFiltered}
+          onPageChange={(p) => dispatch(setCurrentPage(p))}
+          totalItems={totalCount}
           itemsPerPage={perPage}
         />
       )}
 
-      {/* ---------- Delete confirm ---------- */}
       <ConfirmModal
         isOpen={confirmOpen}
         onClose={() => {
@@ -611,12 +581,12 @@ const Quotations = () => {
         }}
         onConfirm={handleConfirmDelete}
         title="Delete Quotation"
-        message={`Are you sure you want to delete ${pendingDelete?.number}? This action cannot be undone.`}
+        message={`Are you sure you want to delete ${pendingDelete?.quotationNumber}? This action cannot be undone.`}
         confirmText="Delete"
         variant="danger"
+        loading={submitting}
       />
 
-      {/* ---------- Send modal ---------- */}
       <SendQuotationModal
         isOpen={sendOpen}
         onClose={() => {
@@ -626,34 +596,47 @@ const Quotations = () => {
         quotation={pendingSend}
         onSend={handleSendConfirm}
       />
+      {/* Export */}
+      <ExportModal
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        onExport={handleExport}
+        title="Export Quotations"
+        subtitle="Download the current filtered list"
+        totalRecords={totalCount}
+        formats={["csv", "xlsx", "pdf"]}
+        defaultFormat="xlsx"
+      />
     </div>
   );
 };
 
-// ------------------------------------------------------------
-// Building blocks
-// ------------------------------------------------------------
-
+// ---------- building blocks ----------
 const SummaryCard = ({ label, value, icon: Icon, color, small }) => {
   const map = {
     blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
     gray: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400",
-    indigo: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400",
-    green: "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+    indigo:
+      "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400",
+    green:
+      "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
     red: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
-    purple: "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
+    purple:
+      "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
   };
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between mb-2">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${map[color]}`}>
+        <div
+          className={`w-8 h-8 rounded-lg flex items-center justify-center ${map[color]}`}
+        >
           <Icon className="w-4 h-4" />
         </div>
       </div>
       <div
         className={`${small ? "text-base" : "text-xl"} font-bold text-gray-900 dark:text-white truncate`}
       >
-        {value}
+        {value ?? 0}
       </div>
       <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
         {label}
@@ -673,7 +656,7 @@ const IconBtn = ({ icon: Icon, color, title, onClick, disabled }) => (
   </button>
 );
 
-const FilterSelect = ({ label, value, onChange, options }) => (
+const FilterSelect = ({ label, value, onChange, options = [] }) => (
   <div>
     <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
       {label}
@@ -684,11 +667,17 @@ const FilterSelect = ({ label, value, onChange, options }) => (
       className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
     >
       <option value="">All</option>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
+      {options.map((o) =>
+        typeof o === "string" ? (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ) : (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ),
+      )}
     </select>
   </div>
 );
