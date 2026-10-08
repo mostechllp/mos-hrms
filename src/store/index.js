@@ -31,6 +31,8 @@ import leavePolicyReducer  from "../admin/store/slices/leavePolicySlice";
 import proposalReducer from "../admin/store/slices/payrollSlice";
 import leadReducer  from "../admin/store/slices/leadSlice";
 import customerReducer  from "../admin/store/slices/customerSlice";
+import activityReducer from "../admin/store/slices/activitySlice";
+import quotationReducer from "../admin/store/slices/quotationSlice";
 
 
 // Employee reducers
@@ -81,6 +83,8 @@ export const store = configureStore({
     proposals: proposalReducer,
     leads: leadReducer,
     customers: customerReducer,
+    activities: activityReducer,
+    quotations: quotationReducer,
 
     // Employee
     EmpLeaves: leavesReducer,

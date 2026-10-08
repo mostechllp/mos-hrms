@@ -147,6 +147,7 @@ const OpportunityDetail = lazy(
 const CrmActivities = lazy(() => import("./admin/pages/CRM/Activities"));
 const CrmQuotations = lazy(() => import("./admin/pages/CRM/Quotations"));
 const AddQuotation = lazy(() => import("./admin/pages/CRM/AddQuotation"));
+const ViewQuotation = lazy(() => import("./admin/pages/CRM/QuatationDetails"));
 const CrmProducts = lazy(() => import("./admin/pages/CRM/Products"));
 const CrmReports = lazy(() => import("./admin/pages/CRM/CrmReports"));
 const CrmSettings = lazy(() => import("./admin/pages/CRM/CrmSettings"));
@@ -235,9 +236,9 @@ function App() {
             element={<OnboardingInitalize />}
           />
           <Route path="employees/onboarding">
-  <Route index element={<OnboardingDashboard />} />
-  <Route path=":section" element={<OnboardingInitalize />} />
-</Route>
+            <Route index element={<OnboardingDashboard />} />
+            <Route path=":section" element={<OnboardingInitalize />} />
+          </Route>
           <Route path="employees/offboarding" element={<Offboarding />} />
           <Route
             path="employees/offboarding-initiation"
@@ -409,11 +410,8 @@ function App() {
             <Route path="activities" element={<CrmActivities />} />
             <Route path="quotations" element={<CrmQuotations />} />
             <Route path="quotations/new" element={<AddQuotation />} />
-            <Route path="quotations/:quotationId" element={<AddQuotation />} />
-            <Route
-              path="quotations/:quotationId/edit"
-              element={<AddQuotation />}
-            />
+            <Route path="quotations/:id" element={<ViewQuotation />} />
+            <Route path="quotations/:id/edit" element={<AddQuotation />} />
             <Route path="products" element={<CrmProducts />} />
             <Route path="reports" element={<CrmReports />} />
             <Route path="settings" element={<CrmSettings />} />
@@ -516,9 +514,9 @@ function App() {
           <Route path="employees/:id" element={<EmployeeDetails />} />
 
           <Route path="onboarding">
-  <Route index element={<OnboardingDashboard />} />
-  <Route path=":section" element={<OnboardingInitalize />} />
-</Route>
+            <Route index element={<OnboardingDashboard />} />
+            <Route path=":section" element={<OnboardingInitalize />} />
+          </Route>
 
           <Route
             path="employees/onboarding-initiation"
