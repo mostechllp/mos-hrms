@@ -32,6 +32,8 @@ import {
   fetchQuotationFormOptions,
   deleteQuotationApi,
   updateQuotationStatusApi,
+  sendQuotationEmailApi,
+  downloadQuotationPdfApi,
   exportQuotations,
   fromQuotationApi,
   setCurrentPage,
@@ -225,23 +227,36 @@ const Quotations = () => {
     setSendOpen(true);
   };
 
-  const handleSendConfirm = async ({ to } = {}) => {
-    if (!pendingSend) return;
-    try {
-      await dispatch(
-        updateQuotationStatusApi({ id: pendingSend.id, status: "sent" }),
-      ).unwrap();
-      showToast(
-        `Quotation ${pendingSend.quotationNumber} sent${to ? ` to ${to}` : ""}`,
-        "success",
-      );
-      setSendOpen(false);
-      setPendingSend(null);
-      await refetchList();
-    } catch (err) {
-      showToast(err || "Failed to update status", "error");
-    }
-  };
+  const handleSendConfirm = async ({ id, to, cc, subject, message, attach_pdf }) => {
+  if (!pendingSend) return;
+  try {
+    await dispatch(
+      sendQuotationEmailApi({
+        id: pendingSend.id,
+        to,
+        cc,
+        subject,
+        message,
+        attach_pdf,
+      }),
+    ).unwrap();
+
+    // After sending, flip status to "sent"
+    await dispatch(
+      updateQuotationStatusApi({ id: pendingSend.id, status: "sent" }),
+    ).unwrap();
+
+    showToast(
+      `Quotation ${pendingSend.quotationNumber} sent${to ? ` to ${to}` : ""}`,
+      "success",
+    );
+    setSendOpen(false);
+    setPendingSend(null);
+    await refetchList();
+  } catch (err) {
+    showToast(err || "Failed to send quotation", "error");
+  }
+};
 
   const handleMarkStatus = async (q, status) => {
     try {
@@ -257,10 +272,16 @@ const Quotations = () => {
     navigate(`/admin/crm/quotations/new?duplicate=${q.id}`);
   };
 
-  const handleDownloadPdf = (q) => {
-    showToast(`Generating PDF for ${q.quotationNumber}…`, "info");
-    // TODO: wire to your pdf endpoint when ready
-  };
+  const handleDownloadPdf = async (q) => {
+  try {
+    await dispatch(
+  downloadQuotationPdfApi({ id: q.id, quotationNumber: q.quotationNumber }),
+).unwrap();
+    showToast("PDF downloaded", "success");
+  } catch (err) {
+    showToast(err || "Failed to download PDF", "error");
+  }
+};
 
   const handleExport = async (format) => {
     const exportFilters = {
@@ -512,6 +533,12 @@ const Quotations = () => {
                             navigate(`/admin/crm/quotations/${q.id}/edit`)
                           }
                         />
+                        <IconBtn
+  icon={FileDown}
+  color="text-gray-600 dark:text-gray-400"
+  title="Download PDF"
+  onClick={() => handleDownloadPdf(q)}
+/>
                         {q.status === "draft" && (
                           <IconBtn
                             icon={Send}

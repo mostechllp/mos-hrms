@@ -287,6 +287,95 @@ export const updateQuotationStatusApi = createAsyncThunk(
   },
 );
 
+// GET /admin/crm/quotations/{id}/email-preview
+export const fetchQuotationEmailPreview = createAsyncThunk(
+  "quotations/fetchEmailPreview",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(
+        `/admin/crm/quotations/${id}/email-preview`,
+      );
+      const { ok, data, message } = unwrap(response.data);
+      if (ok) return data;
+      return rejectWithValue(message || "Failed to load email preview");
+    } catch (error) {
+      console.error("Fetch quotation email-preview error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to load email preview",
+      );
+    }
+  },
+);
+
+// POST /admin/crm/quotations/{id}/send-email
+export const sendQuotationEmailApi = createAsyncThunk(
+  "quotations/sendEmail",
+  async (
+    { id, to, cc, subject, message, attach_pdf },
+    { rejectWithValue },
+  ) => {
+    try {
+      const response = await apiClient.post(
+        `/admin/crm/quotations/${id}/send-email`,
+        {
+          to,
+          cc,
+          subject,
+          message,
+          attach_pdf: !!attach_pdf,
+        },
+      );
+      const { ok, data, message: msg } = unwrap(response.data);
+      if (ok) return data ?? { ok: true };
+      return rejectWithValue(msg || "Failed to send email");
+    } catch (error) {
+      console.error("Send quotation email error:", error.response?.data);
+      if (error.response?.data?.errors) {
+        return rejectWithValue(
+          Object.values(error.response.data.errors).flat().join(", "),
+        );
+      }
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to send email",
+      );
+    }
+  },
+);
+
+
+export const downloadQuotationPdfApi = createAsyncThunk(
+  "quotations/downloadPdf",
+  async ({ id, quotationNumber } = {}, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(
+        `/admin/crm/quotations/${id}/pdf`,
+        { responseType: "blob" },
+      );
+      const name = quotationNumber
+        ? `${quotationNumber}.pdf`
+        : `quotation-${id}.pdf`;
+      triggerBlobDownload(response.data, name);
+      return { ok: true };
+    } catch (error) {
+      console.error("Download quotation PDF error:", error);
+      let msg = "Failed to download PDF";
+      const data = error.response?.data;
+      if (data instanceof Blob) {
+        try {
+          const text = await data.text();
+          const parsed = JSON.parse(text);
+          msg = parsed?.message || msg;
+        } catch {
+          /* ignore */
+        }
+      } else if (data?.message) {
+        msg = data.message;
+      }
+      return rejectWithValue(msg);
+    }
+  },
+);
+
 // DELETE /admin/crm/quotations/{id}
 export const deleteQuotationApi = createAsyncThunk(
   "quotations/delete",
@@ -357,6 +446,16 @@ const initialState = {
     customer_id: "",
   },
 
+  emailPreview: null,
+emailPreviewLoading: false,
+emailPreviewError: null,
+
+sendingEmail: false,
+sendingEmailError: null,
+
+downloadingPdf: false,
+downloadingPdfError: null,
+
   currentQuotation: null,
   currentQuotationLoading: false,
   currentQuotationError: null,
@@ -402,6 +501,10 @@ const quotationSlice = createSlice({
       state.error = null;
       state.submittingError = null;
     },
+    clearEmailPreview: (state) => {
+  state.emailPreview = null;
+  state.emailPreviewError = null;
+},
   },
   extraReducers: (builder) => {
     builder
@@ -521,6 +624,46 @@ const quotationSlice = createSlice({
         state.submittingError = action.payload;
       })
 
+      // ── Email preview ──
+.addCase(fetchQuotationEmailPreview.pending, (state) => {
+  state.emailPreviewLoading = true;
+  state.emailPreviewError = null;
+})
+.addCase(fetchQuotationEmailPreview.fulfilled, (state, action) => {
+  state.emailPreviewLoading = false;
+  state.emailPreview = action.payload;
+})
+.addCase(fetchQuotationEmailPreview.rejected, (state, action) => {
+  state.emailPreviewLoading = false;
+  state.emailPreviewError = action.payload;
+})
+
+// ── Send email ──
+.addCase(sendQuotationEmailApi.pending, (state) => {
+  state.sendingEmail = true;
+  state.sendingEmailError = null;
+})
+.addCase(sendQuotationEmailApi.fulfilled, (state) => {
+  state.sendingEmail = false;
+})
+.addCase(sendQuotationEmailApi.rejected, (state, action) => {
+  state.sendingEmail = false;
+  state.sendingEmailError = action.payload;
+})
+
+// ── Download PDF ──
+.addCase(downloadQuotationPdfApi.pending, (state) => {
+  state.downloadingPdf = true;
+  state.downloadingPdfError = null;
+})
+.addCase(downloadQuotationPdfApi.fulfilled, (state) => {
+  state.downloadingPdf = false;
+})
+.addCase(downloadQuotationPdfApi.rejected, (state, action) => {
+  state.downloadingPdf = false;
+  state.downloadingPdfError = action.payload;
+})
+
       // ── Delete ──
       .addCase(deleteQuotationApi.pending, (state) => {
         state.submitting = true;
@@ -562,6 +705,7 @@ export const {
   setFilters,
   resetFilters,
   clearCurrentQuotation,
+  clearEmailPreview,    
   clearError,
 } = quotationSlice.actions;
 

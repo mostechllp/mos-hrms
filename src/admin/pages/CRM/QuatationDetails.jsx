@@ -1,6 +1,6 @@
 // src/admin/pages/crm/ViewQuotation.jsx
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -23,9 +23,12 @@ import { showToast } from "../../../components/common/Toast";
 import {
   fetchQuotationById,
   updateQuotationStatusApi,
+  sendQuotationEmailApi,     
+  downloadQuotationPdfApi,
   clearCurrentQuotation,
   fromQuotationApi,
 } from "../../store/slices/quotationSlice";
+import SendQuotationModal from "../../components/crm/SendQuotationModal";
 
 // ---------- helpers ----------
 const formatDate = (d) => {
@@ -88,7 +91,9 @@ const ViewQuotation = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { currentQuotation, currentQuotationLoading, currentQuotationError } =
+  const [sendOpen, setSendOpen] = useState(false);
+
+  const { currentQuotation, currentQuotationLoading, currentQuotationError, downloadingPdf } =
     useSelector((state) => state.quotations);
 
   useEffect(() => {
@@ -108,15 +113,38 @@ const ViewQuotation = () => {
     }
   };
 
-  const handleSend = async () => {
-    try {
-      await dispatch(updateQuotationStatusApi({ id, status: "sent" })).unwrap();
-      showToast("Quotation sent", "success");
-      dispatch(fetchQuotationById(id));
-    } catch (err) {
-      showToast(err || "Failed to send", "error");
-    }
-  };
+ const handleSendClick = () => {
+  setSendOpen(true);
+};
+
+const handleDownloadPdf = async () => {
+  try {
+    await dispatch(
+  downloadQuotationPdfApi({ id, quotationNumber: q.quotationNumber }),
+).unwrap();
+    showToast("PDF downloaded", "success");
+  } catch (err) {
+    showToast(err || "Failed to download PDF", "error");
+  }
+};
+
+const handleSendConfirm = async ({ id, to, cc, subject, message, attach_pdf }) => {
+  try {
+    await dispatch(
+      sendQuotationEmailApi({ id, to, cc, subject, message, attach_pdf }),
+    ).unwrap();
+
+    await dispatch(
+      updateQuotationStatusApi({ id, status: "sent" }),
+    ).unwrap();
+
+    showToast(`Quotation sent${to ? ` to ${to}` : ""}`, "success");
+    setSendOpen(false);
+    dispatch(fetchQuotationById(id));
+  } catch (err) {
+    showToast(err || "Failed to send", "error");
+  }
+};
 
   if (currentQuotationLoading) {
     return (
@@ -178,15 +206,23 @@ const ViewQuotation = () => {
             <Pencil size={14} /> Edit
           </button>
 
+          <button
+    onClick={handleDownloadPdf}
+    disabled={downloadingPdf}
+    className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50"
+  >
+    <FileDown size={14} /> {downloadingPdf ? "Downloading…" : "PDF"}
+  </button>
+
           {/* Show Send only if not already sent / not in a terminal state */}
           {q.status === "draft" && (
-            <button
-              onClick={handleSend}
-              className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2"
-            >
-              <Send size={14} /> Send
-            </button>
-          )}
+  <button
+    onClick={handleSendClick}
+    className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2"
+  >
+    <Send size={14} /> Send
+  </button>
+)}
 
           {/* Accept / Reject only when sent or viewed */}
           {["sent", "viewed"].includes(q.status) && (
@@ -423,6 +459,12 @@ const ViewQuotation = () => {
           </div>
         </div>
       </div>
+      <SendQuotationModal
+  isOpen={sendOpen}
+  onClose={() => setSendOpen(false)}
+  quotation={q}
+  onSend={handleSendConfirm}
+/>
     </div>
   );
 };
