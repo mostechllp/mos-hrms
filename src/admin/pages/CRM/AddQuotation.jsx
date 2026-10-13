@@ -10,6 +10,7 @@ import {
   Plus,
   Trash2,
   X,
+  SaveIcon,
 } from "lucide-react";
 import { showToast } from "../../../components/common/Toast";
 import SearchableSelect from "../../../components/common/SearchableSelect";
@@ -314,9 +315,7 @@ const AddQuotation = () => {
           createQuotation(buildPayload("draft")),
         ).unwrap();
         showToast("Quotation saved as draft", "success");
-        const newId = created?.id ?? created?.data?.id;
-        if (newId) navigate(`/admin/crm/quotations/${newId}`);
-        else navigate("/admin/crm/quotations");
+        navigate("/admin/crm/quotations");
       }
     } catch (err) {
       showToast(err || "Failed to save quotation", "error");
@@ -591,11 +590,8 @@ const AddQuotation = () => {
         <button type="button" onClick={() => navigate(-1)} disabled={submitting} className="px-4 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50 flex items-center gap-2">
           <X size={15} /> Cancel
         </button>
-        <button type="button" onClick={handleSaveDraft} disabled={submitting} className="px-4 py-2.5 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all disabled:opacity-50 flex items-center gap-2">
-          <Save size={15} /> {isEdit ? "Update Draft" : "Save Draft"}
-        </button>
-        <button type="button" onClick={handleSend} disabled={submitting} className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-all disabled:opacity-50 flex items-center gap-2 shadow-sm">
-          <Send size={15} /> {isEdit ? "Update & Send" : "Send Quotation"}
+        <button type="button" onClick={handleSaveDraft} disabled={submitting} className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-all disabled:opacity-50 flex items-center gap-2 shadow-sm">
+          <SaveIcon size={15} /> {isEdit ? "Update & Save" : "Save Quatation"}
         </button>
       </div>
     </div>
