@@ -303,14 +303,7 @@ const OpportunityDetail = () => {
           onClick={() => setMenuOpen(false)}
         />
         <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
-          <MenuItem
-            icon={FileText}
-            label="Create Quotation"
-            onClick={() => {
-              setMenuOpen(false);
-              navigate(`/admin/crm/quotations/new?opportunity=${opp.id}`);
-            }}
-          />
+          
           <MenuItem
             icon={Upload}
             label="Upload Document"
