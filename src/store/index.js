@@ -28,7 +28,7 @@ import payrollReducer from "../admin/store/slices/payrollSlice";
 import publicHolidayReducer from "../admin/store/slices/publicHolidaySlice";
 import warningReducer from "../admin/store/slices/warningSlice";
 import leavePolicyReducer  from "../admin/store/slices/leavePolicySlice";
-import proposalReducer from "../admin/store/slices/payrollSlice";
+import proposalReducer from "../admin/store/slices/proposalSlice";
 import leadReducer  from "../admin/store/slices/leadSlice";
 import customerReducer  from "../admin/store/slices/customerSlice";
 import activityReducer from "../admin/store/slices/activitySlice";
