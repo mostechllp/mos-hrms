@@ -21,7 +21,17 @@ import {
   uploadOpportunityAttachmentsApi,
   clearCurrentOpportunity,
   fromOpportunityApi,
+  createLinkedQuotationApi,
+  scheduleLinkedActivityApi,
 } from "../../store/slices/opportunitySlice";
+import ActivityModal from "../../components/crm/ActivityModal";
+import {
+  fetchActivityEmployees,
+  fetchLeadLookup,
+  fetchCustomerLookup,
+  fetchOpportunityLookup,
+  toActivityApi,    
+} from "../../store/slices/activitySlice";
 
 // ------------------------------------------------------------
 // UI primitives
@@ -104,9 +114,31 @@ const AddOpportunity = () => {
     submitting,
   } = useSelector((s) => s.opportunities);
 
+  const {
+  employeesLookup = [],
+  employeesLookupLoading = false,
+  leadsLookup = [],
+  leadsLookupLoading = false,
+  customersLookup = [],
+  customersLookupLoading = false,
+  opportunitiesLookup = [],
+  opportunitiesLookupLoading = false,
+} = useSelector((s) => s.activities);
+
   const [form, setForm] = useState(emptyForm());
   const [attachments, setAttachments] = useState([]);
   const [hydrated, setHydrated] = useState(false);
+
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+const [savedOpportunityId, setSavedOpportunityId] = useState(null);
+
+// Preload activity lookups once so the "Schedule Activity" modal is populated
+useEffect(() => {
+  dispatch(fetchActivityEmployees());
+  dispatch(fetchLeadLookup());
+  dispatch(fetchCustomerLookup());
+  dispatch(fetchOpportunityLookup());
+}, [dispatch]);
 
   // ── Load form options ──
   useEffect(() => {
@@ -120,7 +152,9 @@ const AddOpportunity = () => {
       dispatch(clearCurrentOpportunity());
       setHydrated(false);
     }
-    return () => { if (isEdit) dispatch(clearCurrentOpportunity()); };
+    return () => {
+      if (isEdit) dispatch(clearCurrentOpportunity());
+    };
   }, [dispatch, isEdit, opportunityId]);
 
   // ── Hydrate form on edit ──
@@ -295,35 +329,104 @@ const AddOpportunity = () => {
     return true;
   };
 
-  // ── Submit ──
-  const submit = async (afterSave) => {
+  /**
+   * Save the opportunity (create or update) and return its id.
+   * Shared step for all three actions.
+   */
+  const saveOpportunity = async () => {
+    if (isEdit) {
+      const updated = await dispatch(
+        updateOpportunity({
+          id: opportunityId,
+          data: form,
+          files: attachments,
+        }),
+      ).unwrap();
+      return updated?.id ?? opportunityId;
+    }
+    const created = await dispatch(
+      createOpportunity({
+        form,
+        files: attachments,
+      }),
+    ).unwrap();
+    return created?.id;
+  };
+
+  // ── Save only ──
+  const handleSave = async () => {
     if (!validate()) return;
     try {
-      let savedId = opportunityId;
-      if (isEdit) {
-        await dispatch(updateOpportunity({ id: opportunityId, data: form })).unwrap();
-        showToast("Opportunity updated", "success");
-      } else {
-        const created = await dispatch(createOpportunity(form)).unwrap();
-        savedId = created?.id ?? created?.data?.id;
-        showToast("Opportunity created", "success");
-      }
-
-      if (savedId && attachments.length > 0) {
-        try {
-          await dispatch(
-            uploadOpportunityAttachmentsApi({ id: savedId, files: attachments }),
-          ).unwrap();
-        } catch (err) {
-          showToast(err || "Attachment upload failed", "error");
-        }
-      }
-      afterSave?.(savedId);
+      const savedId = await saveOpportunity();
+      showToast(
+        isEdit ? "Opportunity updated" : "Opportunity created",
+        "success",
+      );
+      navigate(`/admin/crm/opportunities`);
     } catch (err) {
       showToast(err || "Failed to save opportunity", "error");
     }
   };
 
+  // ── Save + Create Quotation ──
+  const handleSaveAndCreateQuotation = async () => {
+    if (!validate()) return;
+    try {
+      const savedId = await saveOpportunity();
+
+      // Call the dedicated backend endpoint that creates the linked quotation
+      const result = await dispatch(
+        createLinkedQuotationApi({
+          id: savedId,
+          // Pass any quotation-specific fields your API expects.
+          // Most backends auto-populate from the opportunity, so empty payload is fine.
+        }),
+      ).unwrap();
+
+      showToast("Opportunity saved · Quotation created", "success");
+
+      // If backend returns the new quotation id/number, jump straight to it.
+      // Otherwise, land on the opportunity detail page.
+      const quotationId =
+        result?.quotation?.id ?? result?.id ?? result?.quotation_id;
+      navigate(`/admin/crm/opportunities/${savedId}`);
+    } catch (err) {
+      showToast(err || "Failed to create quotation", "error");
+    }
+  };
+
+  // ── Save + Schedule Activity ──
+  const handleSaveAndScheduleActivity = async () => {
+  if (!validate()) return;
+  try {
+    const savedId = await saveOpportunity();
+    setSavedOpportunityId(savedId);
+    setScheduleModalOpen(true);      // open the modal
+    // Don't toast yet — wait until the modal's submit succeeds
+  } catch (err) {
+    showToast(err || "Failed to save opportunity", "error");
+  }
+};
+
+const handleScheduleSubmit = async (payload) => {
+  try {
+    // Convert camelCase modal payload → snake_case API payload
+    const apiPayload = toActivityApi(payload);
+
+    await dispatch(
+      scheduleLinkedActivityApi({
+        id: savedOpportunityId,
+        ...apiPayload,
+      }),
+    ).unwrap();
+
+    showToast("Opportunity saved · Activity scheduled", "success");
+    setScheduleModalOpen(false);
+    navigate(`/admin/crm/opportunities/${savedOpportunityId}`);
+  } catch (err) {
+    showToast(err || "Failed to schedule activity", "error");
+  }
+};
   // ── Loading ──
   if (isEdit && currentOpportunityLoading && !hydrated) {
     return (
@@ -579,7 +682,12 @@ const AddOpportunity = () => {
             <span className="text-sm text-gray-600 dark:text-gray-400">
               Click to upload files
             </span>
-            <input type="file" multiple onChange={handleFile} className="hidden" />
+            <input
+              type="file"
+              multiple
+              onChange={handleFile}
+              className="hidden"
+            />
           </label>
           {attachments.length > 0 && (
             <div className="mt-2 space-y-1">
@@ -589,7 +697,10 @@ const AddOpportunity = () => {
                   className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-900/40 rounded-lg border border-gray-100 dark:border-gray-700"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <FileText size={14} className="text-gray-400 flex-shrink-0" />
+                    <FileText
+                      size={14}
+                      className="text-gray-400 flex-shrink-0"
+                    />
                     <span className="text-xs text-gray-700 dark:text-gray-300 truncate">
                       {f.name}
                     </span>
@@ -624,11 +735,7 @@ const AddOpportunity = () => {
 
         <button
           type="button"
-          onClick={() =>
-            submit((id) =>
-              navigate(`/admin/crm/quotations/new?opportunity=${id}`),
-            )
-          }
+          onClick={handleSaveAndCreateQuotation}
           disabled={submitting}
           className="px-4 py-2.5 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 text-sm font-semibold hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
         >
@@ -637,11 +744,7 @@ const AddOpportunity = () => {
 
         <button
           type="button"
-          onClick={() =>
-            submit((id) =>
-              navigate(`/admin/crm/activities?opportunity=${id}`),
-            )
-          }
+          onClick={handleSaveAndScheduleActivity}
           disabled={submitting}
           className="px-4 py-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
         >
@@ -650,15 +753,35 @@ const AddOpportunity = () => {
 
         <button
           type="button"
-          onClick={() =>
-            submit((id) => navigate(`/admin/crm/opportunities`))
-          }
+          onClick={handleSave}
           disabled={submitting}
           className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
         >
-          <Save size={15} /> {isEdit ? "Update Opportunity" : "Save Opportunity"}
+          <Save size={15} />{" "}
+          {isEdit ? "Update Opportunity" : "Save Opportunity"}
         </button>
       </div>
+      <ActivityModal
+  isOpen={scheduleModalOpen}
+  onClose={() => setScheduleModalOpen(false)}
+  activity={null}
+  prefillRelated={
+    savedOpportunityId
+      ? { relatedToType: "Opportunity", relatedToId: savedOpportunityId }
+      : null
+  }
+  prefillDate={null}
+  onSubmit={(payload) => handleScheduleSubmit(payload)}
+  submitting={submitting}
+  employees={employeesLookup}
+  employeesLoading={employeesLookupLoading}
+  leads={leadsLookup}
+  leadsLoading={leadsLookupLoading}
+  customers={customersLookup}
+  customersLoading={customersLookupLoading}
+  opportunities={opportunitiesLookup}
+  opportunitiesLoading={opportunitiesLookupLoading}
+/>
     </div>
   );
 };

@@ -18,7 +18,38 @@ export const FALLBACK_OPPORTUNITY_OPTIONS = {
 // ----------------------------------------------------
 // SHAPE CONVERTERS
 // ----------------------------------------------------
+// Normalize an activity embedded in the opportunity detail response.
+// The API returns the full nested `assigned_employee.employee` object.
+const normalizeEmbeddedActivity = (a = {}) => {
+  const emp = a.assigned_employee || {};
+  const profile = emp.employee || {};
+  const fullName =
+    `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
+    emp.username ||
+    emp.email ||
+    `Employee #${a.assigned_employee_id ?? "—"}`;
 
+  return {
+    id: a.id,
+    title: a.title || a.subject || "",
+    type: a.activity_type || a.type || "Call",
+    priority: a.priority || "Medium",
+    status: a.status || "Planned",
+    reminder: a.reminder || "None",
+    description: a.description || "",
+
+    relatedToType: a.related_record_type || "",
+    relatedToId: a.related_record_id ?? "",
+
+    assignedToId: a.assigned_employee_id ?? emp.id ?? "",
+    assignedTo: fullName,
+
+    startAt: a.start_date_time || a.start_at || "",
+    endAt: a.end_date_time || a.end_at || "",
+    createdAt: a.created_at || "",
+    updatedAt: a.updated_at || "",
+  };
+};
 // API → Form
 // API → Form
 export const fromOpportunityApi = (api = {}) => {
@@ -110,7 +141,9 @@ export const fromOpportunityApi = (api = {}) => {
     // Relations
     attachments: Array.isArray(api.attachments) ? api.attachments : [],
     quotations: Array.isArray(api.quotations) ? api.quotations : [],
-    activities: Array.isArray(api.activities) ? api.activities : [],
+    activities: Array.isArray(api.activities)
+  ? api.activities.map(normalizeEmbeddedActivity)
+  : [],
     creator: api.creator || null,
 
     createdAt: api.created_at || "",
@@ -176,6 +209,67 @@ const buildOpportunityQuery = (params = {}) => {
     ...(sort_by && { sort_by }),
     ...(sort_order && { sort_order }),
   });
+};
+
+// ----------------------------------------------------
+// MULTIPART BUILDER
+// ----------------------------------------------------
+/**
+ * Convert the opportunity form into a multipart FormData:
+ *  - scalars → string values (empty strings sent as "" so backend can clear them)
+ *  - arrays  → `key[]` entries (Laravel parses them as arrays)
+ *  - files   → `attachments[]` entries
+ *
+ * Laravel specific rules:
+ *  - null   → send empty string (Laravel converts to null on validation `nullable`)
+ *  - false  → send "0"
+ *  - true   → send "1"
+ */
+const buildOpportunityFormData = (form = {}, files = []) => {
+  const fd = new FormData();
+
+  const append = (key, value) => {
+    if (value === undefined) return;
+    if (value === null) {
+      fd.append(key, "");
+      return;
+    }
+    if (typeof value === "boolean") {
+      fd.append(key, value ? "1" : "0");
+      return;
+    }
+    fd.append(key, String(value));
+  };
+
+  // ── Scalars ──
+  append("name", (form.name || "").trim());
+  append("customer_id", form.customerId ? Number(form.customerId) : "");
+  append("contact_person_id", form.contactPersonId ? Number(form.contactPersonId) : "");
+  append("contact_person", form.contactPerson || "");
+  append("lead_source", form.leadSource || "");
+  append("description", form.description || "");
+  append("estimated_value", Number(form.estimatedValue) || 0);
+  append("currency", form.currency || "INR");
+  append("stage", form.stage || "New");
+  append("probability", Number(form.probability) || 0);
+  append("expected_closing_date", form.expectedClose || "");
+  append("assigned_salesperson_id", form.assignedToId ? Number(form.assignedToId) : "");
+  append("sales_team", form.salesTeam || "");
+  append("priority", form.priority || "Medium");
+  append("competitor", form.competitor || "");
+  append("customer_requirements", form.requirements || "");
+  append("decision_maker", form.decisionMaker || "");
+  append("next_action", form.nextAction || "");
+  append("notes", form.notes || "");
+
+  // ── Arrays ──
+  const products = Array.isArray(form.productNames) ? form.productNames : [];
+  products.forEach((p) => fd.append("products[]", p));
+
+  // ── Files ──
+  (files || []).forEach((f) => fd.append("attachments[]", f));
+
+  return fd;
 };
 
 const unwrap = (body) => {
@@ -299,15 +393,22 @@ export const fetchOpportunityById = createAsyncThunk(
 );
 
 // POST /admin/crm/opportunities
+// POST /admin/crm/opportunities   (multipart when files are present)
 export const createOpportunity = createAsyncThunk(
   "opportunities/create",
-  async (form, { rejectWithValue }) => {
+  async ({ form, files = [] }, { rejectWithValue }) => {
     try {
-      const payload = toOpportunityApi(form);
-      const res = await apiClient.post("/admin/crm/opportunities", payload);
+      const fd = buildOpportunityFormData(form, files);
+
+      const res = await apiClient.post("/admin/crm/opportunities", fd, {
+        // ⚠️ do NOT set Content-Type manually — axios/browser sets it with the boundary
+      });
+
       const { ok, data, message } = unwrap(res.data);
-      if (ok) return data;
-      return rejectWithValue(message || "Failed to create opportunity");
+      if (!ok) return rejectWithValue(message || "Failed to create opportunity");
+
+      // API wraps the record: { data: { opportunity: {...} } }
+      return data?.opportunity ?? data;
     } catch (e) {
       if (e.response?.data?.errors) {
         return rejectWithValue(
@@ -322,15 +423,20 @@ export const createOpportunity = createAsyncThunk(
 );
 
 // PUT /admin/crm/opportunities/{id}
+// POST /admin/crm/opportunities/{id}?_method=PUT   (multipart when files present)
 export const updateOpportunity = createAsyncThunk(
   "opportunities/update",
-  async ({ id, data }, { rejectWithValue }) => {
+  async ({ id, data, files = [] }, { rejectWithValue }) => {
     try {
-      const payload = toOpportunityApi(data);
-      const res = await apiClient.put(`/admin/crm/opportunities/${id}`, payload);
+      const fd = buildOpportunityFormData(data, files);
+      fd.append("_method", "PUT");  // Laravel method spoofing
+
+      const res = await apiClient.post(`/admin/crm/opportunities/${id}`, fd);
+
       const { ok, data: body, message } = unwrap(res.data);
-      if (ok) return { id, ...(body || {}) };
-      return rejectWithValue(message || "Failed to update opportunity");
+      if (!ok) return rejectWithValue(message || "Failed to update opportunity");
+
+      return { id, ...(body?.opportunity ?? body ?? {}) };
     } catch (e) {
       if (e.response?.data?.errors) {
         return rejectWithValue(
@@ -366,7 +472,7 @@ export const updateOpportunityStageApi = createAsyncThunk(
   "opportunities/updateStage",
   async ({ id, stage, probability, notes, lost_reason, competitor }, { rejectWithValue }) => {
     try {
-      const res = await apiClient.post(
+      const res = await apiClient.patch(
         `/admin/crm/opportunities/${id}/stage`,
         { stage, probability, notes, lost_reason, competitor },
       );
@@ -422,21 +528,31 @@ export const scheduleLinkedActivityApi = createAsyncThunk(
 );
 
 // POST /admin/crm/opportunities/{id}/attachments
+// src/admin/store/slices/opportunitySlice.js
 export const uploadOpportunityAttachmentsApi = createAsyncThunk(
   "opportunities/uploadAttachments",
   async ({ id, files }, { rejectWithValue }) => {
     try {
       const fd = new FormData();
-      (files || []).forEach((f) => fd.append("files[]", f));
+
+      // ✅ Correct: `attachments[]` — the brackets tell PHP to build an array
+      (files || []).forEach((f) => fd.append("attachments[]", f));
+
       const res = await apiClient.post(
         `/admin/crm/opportunities/${id}/attachments`,
         fd,
-        { headers: { "Content-Type": "multipart/form-data" } },
+        // ⚠️ Do NOT set Content-Type — let the browser set the boundary
       );
+
       const { ok, data, message } = unwrap(res.data);
       if (ok) return data;
       return rejectWithValue(message || "Failed to upload attachments");
     } catch (e) {
+      if (e.response?.data?.errors) {
+        return rejectWithValue(
+          Object.values(e.response.data.errors).flat().join(", "),
+        );
+      }
       return rejectWithValue(
         e.response?.data?.message || "Failed to upload attachments",
       );
