@@ -189,7 +189,7 @@ const buildOpportunityQuery = (params = {}) => {
     search = "",
     stage = "",
     customer_id = "",
-    assigned_to = "",
+    assigned_to = "",           // internal key (kept as-is for compatibility)
     product = "",
     priority = "",
     date_from = "",
@@ -201,7 +201,10 @@ const buildOpportunityQuery = (params = {}) => {
     ...(search && { search }),
     ...(stage && { stage }),
     ...(customer_id && { customer_id }),
-    ...(assigned_to && { assigned_to }),
+
+    // ✅ backend expects `assigned_salesperson_id`, not `assigned_to`
+    ...(assigned_to && { assigned_salesperson_id: assigned_to }),
+
     ...(product && { product }),
     ...(priority && { priority }),
     ...(date_from && { date_from }),

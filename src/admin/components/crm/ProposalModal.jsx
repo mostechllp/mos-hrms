@@ -1,14 +1,7 @@
 // src/admin/components/crm/ProposalModal.jsx
 import { useEffect, useState } from "react";
 import {
-  X,
-  FileText,
-  Save,
-  Loader,
-  AlertCircle,
-  User,
-  Link as LinkIcon,
-  Hash,
+  X, FileText, Save, Loader, AlertCircle, User, Link as LinkIcon, Hash,
 } from "lucide-react";
 import { showToast } from "../../../components/common/Toast";
 import DateInput from "../common/DateInput";
@@ -17,6 +10,7 @@ const emptyForm = {
   sno: "",
   date: new Date().toISOString().split("T")[0],
   customer: "",
+  customerId: null,
   proposal_reference: "",
   drive_link: "",
   status: "Preparing",
@@ -29,7 +23,7 @@ const ProposalModal = ({
   onSave,
   submitting = false,
   statuses = ["Preparing", "Pending", "Sent", "Approved", "Reject"],
-  isSnoTaken = () => false,
+  defaultSerialNo = 1,
 }) => {
   const isEdit = Boolean(proposal?.id);
 
@@ -47,14 +41,20 @@ const ProposalModal = ({
           proposal.date?.split("T")[0] ||
           new Date().toISOString().split("T")[0],
         customer: proposal.customer || "",
+        customerId: proposal.customerId ?? null,
         proposal_reference: proposal.proposal_reference || "",
         drive_link: proposal.drive_link || "",
         status: proposal.status || "Preparing",
       });
     } else {
-      setForm(emptyForm);
+      setForm({
+        ...emptyForm,
+        sno: defaultSerialNo ? String(defaultSerialNo) : "",
+        status: statuses[0] || "Preparing",
+      });
     }
-  }, [isOpen, isEdit, proposal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isEdit, proposal, defaultSerialNo]);
 
   useEffect(() => {
     const onEsc = (e) => {
@@ -74,17 +74,11 @@ const ProposalModal = ({
   const validate = () => {
     const errs = {};
 
-    // S.No — required, integer, > 0, unique
     const snoStr = String(form.sno ?? "").trim();
-    if (!snoStr) {
-      errs.sno = "S.No is required";
-    } else if (!/^\d+$/.test(snoStr)) {
+    if (!snoStr) errs.sno = "S.No is required";
+    else if (!/^\d+$/.test(snoStr))
       errs.sno = "S.No must be a positive number";
-    } else if (Number(snoStr) < 1) {
-      errs.sno = "S.No must be at least 1";
-    } else if (isSnoTaken(Number(snoStr), proposal?.id)) {
-      errs.sno = `S.No ${snoStr} is already in use`;
-    }
+    else if (Number(snoStr) < 1) errs.sno = "S.No must be at least 1";
 
     if (!form.date) errs.date = "Date is required";
     if (!form.customer.trim()) errs.customer = "Customer is required";
@@ -323,7 +317,8 @@ const ProposalModal = ({
             <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/40 rounded-lg">
               <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-blue-800 dark:text-blue-300">
-                Enter a unique S.No to control the row order in the table.
+                S.No is prefilled from the server. Change it if you need a
+                different order.
               </p>
             </div>
           )}

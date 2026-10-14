@@ -1,27 +1,24 @@
 // src/admin/pages/CRM/Proposals.jsx
-import { useMemo, useState } from "react";
-import {
-  Plus,
-  Search,
-  Pencil,
-  Trash2,
-  FileText,
-  Link as LinkIcon,
-  ExternalLink,
-} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {createPortal} from "react-dom"
+import { useDispatch, useSelector } from "react-redux";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../../components/common/Paginations";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import ProposalModal from "../../components/crm/ProposalModal";
-
-// ── Allowed statuses ──
-export const PROPOSAL_STATUSES = [
-  "Preparing",
-  "Pending",
-  "Sent",
-  "Approved",
-  "Reject",
-];
+import {
+  fetchProposals,
+  fetchProposalFormOptions,
+  createProposal,
+  updateProposal,
+  deleteProposalApi,
+  updateProposalStatusApi,
+  fromProposalApi,
+  setCurrentPage,
+  setFilters,
+  resetFilters,
+} from "../../store/slices/proposalSlice";
+import { Plus, Search, Pencil, Trash2, FileText, Link as LinkIcon, ExternalLink, Loader, Check } from "lucide-react";
 
 // ── Status pill colors ──
 const STATUS_STYLES = {
@@ -35,148 +32,143 @@ const STATUS_STYLES = {
   Reject: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
-// ── Seed data (now includes user-facing `sno`) ──
-const SEED = [
-  {
-    id: 1,
-    sno: 1,
-    date: "2026-09-05",
-    customer: "Emirates NBD",
-    proposal_reference: "PR-2026-0041",
-    drive_link: "https://drive.google.com/file/d/example1",
-    status: "Sent",
-  },
-  {
-    id: 2,
-    sno: 2,
-    date: "2026-09-08",
-    customer: "Mostech Business Solutions",
-    proposal_reference: "PR-2026-0042",
-    drive_link: "https://drive.google.com/file/d/example2",
-    status: "Pending",
-  },
-  {
-    id: 3,
-    sno: 3,
-    date: "2026-09-11",
-    customer: "ADCB",
-    proposal_reference: "PR-2026-0043",
-    drive_link: "https://drive.google.com/file/d/example3",
-    status: "Approved",
-  },
-  {
-    id: 4,
-    sno: 4,
-    date: "2026-09-14",
-    customer: "First Abu Dhabi Bank",
-    proposal_reference: "PR-2026-0044",
-    drive_link: "https://drive.google.com/file/d/example4",
-    status: "Preparing",
-  },
-  {
-    id: 5,
-    sno: 5,
-    date: "2026-09-18",
-    customer: "Etisalat",
-    proposal_reference: "PR-2026-0045",
-    drive_link: "https://drive.google.com/file/d/example5",
-    status: "Reject",
-  },
-  {
-    id: 6,
-    sno: 6,
-    date: "2026-09-20",
-    customer: "Noon",
-    proposal_reference: "PR-2026-0046",
-    drive_link: "https://drive.google.com/file/d/example6",
-    status: "Sent",
-  },
-];
-
-const PER_PAGE = 5;
+const STATUS_DOT = {
+  Preparing: "#9ca3af",
+  Pending: "#f59e0b",
+  Sent: "#3b82f6",
+  Approved: "#10b981",
+  Reject: "#ef4444",
+};
 
 const Proposals = () => {
-  const [proposals, setProposals] = useState(SEED);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const dispatch = useDispatch();
 
+  const {
+    proposals = [],
+    loading,
+    totalCount,
+    currentPage,
+    perPage,
+    filters,
+    options,
+    submitting,
+  } = useSelector((s) => s.proposals);
+
+  const [searchInput, setSearchInput] = useState(filters.search || "");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
 
-  // ── Filtered + sorted by sno ──
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return proposals
-      .filter((p) => {
-        const matchesSearch =
-          !q ||
-          String(p.sno ?? "").includes(q) ||
-          p.customer?.toLowerCase().includes(q) ||
-          p.proposal_reference?.toLowerCase().includes(q) ||
-          p.drive_link?.toLowerCase().includes(q);
-        const matchesStatus = !statusFilter || p.status === statusFilter;
-        return matchesSearch && matchesStatus;
-      })
-      .sort((a, b) => Number(a.sno ?? 0) - Number(b.sno ?? 0));
-  }, [proposals, search, statusFilter]);
+  // ── load form options once on mount ──
+useEffect(() => {
+  dispatch(fetchProposalFormOptions());
+}, [dispatch]);
 
-  const totalCount = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(totalCount / PER_PAGE));
-  const safePage = Math.min(currentPage, totalPages);
-  const startIndex = (safePage - 1) * PER_PAGE;
-  const pageRows = filtered.slice(startIndex, startIndex + PER_PAGE);
+  // ── list fetch on filter/page change ──
+  useEffect(() => {
+    dispatch(
+      fetchProposals({
+        page: currentPage,
+        perPage,
+        search: filters.search,
+        status: filters.status,
+        from_date: filters.from_date,
+        to_date: filters.to_date,
+        sort_by: filters.sort_by,
+        sort_order: filters.sort_order,
+      }),
+    );
+  }, [dispatch, currentPage, perPage, filters]);
 
-  // ── Helpers ──
-  const isSnoTaken = (sno, exceptId = null) =>
-    proposals.some(
-      (p) => Number(p.sno) === Number(sno) && p.id !== exceptId,
+  // ── debounced search ──
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchInput !== filters.search) {
+        dispatch(setFilters({ search: searchInput }));
+      }
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
+  const refetchList = () =>
+    dispatch(
+      fetchProposals({
+        page: currentPage,
+        perPage,
+        search: filters.search,
+        status: filters.status,
+        from_date: filters.from_date,
+        to_date: filters.to_date,
+        sort_by: filters.sort_by,
+        sort_order: filters.sort_order,
+      }),
     );
 
-  // ── CRUD (local) ──
-  const openCreate = () => {
-    setEditing(null);
-    setModalOpen(true);
-  };
+  const normalized = useMemo(
+    () => (proposals || []).map((p) => fromProposalApi(p)),
+    [proposals],
+  );
 
-  const openEdit = (p) => {
-    setEditing(p);
-    setModalOpen(true);
-  };
+  const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
+  const statuses = options.statuses || [];
 
-  const handleSave = (data) => {
-    setSubmitting(true);
+  // ── CRUD ──
+  const openCreate = async () => {
+  setEditing(null);
+  // refresh options so next_serial_no + statuses are current
+  try {
+    await dispatch(fetchProposalFormOptions()).unwrap();
+  } catch {
+    /* non-fatal — modal falls back to slice defaults */
+  }
+  setModalOpen(true);
+};
+
+  const openEdit = async (p) => {
+  setEditing(p);
+  try {
+    await dispatch(fetchProposalFormOptions()).unwrap();
+  } catch {
+    /* non-fatal */
+  }
+  setModalOpen(true);
+};
+
+const handleQuickStatusChange = async (proposal, newStatus) => {
+  if (!proposal?.id || newStatus === proposal.status) return;
+  setStatusUpdatingId(proposal.id);
+  try {
+    await dispatch(
+      updateProposalStatusApi({ id: proposal.id, status: newStatus }),
+    ).unwrap();
+    showToast(`Status changed to ${newStatus}`, "success");
+    // Slice already mutates state; no need to refetch
+  } catch (err) {
+    showToast(err || "Failed to update status", "error");
+  } finally {
+    setStatusUpdatingId(null);
+  }
+};
+
+  const handleSave = async (data) => {
     try {
-      // Guard against duplicate S.No (modal also validates, this is belt & braces)
-      if (isSnoTaken(data.sno, editing?.id)) {
-        showToast(`S.No "${data.sno}" is already used`, "error");
-        return;
-      }
-
       if (editing?.id) {
-        setProposals((prev) =>
-          prev.map((p) =>
-            p.id === editing.id ? { ...p, ...data, sno: Number(data.sno) } : p,
-          ),
-        );
+        await dispatch(
+          updateProposal({ id: editing.id, data }),
+        ).unwrap();
         showToast("Proposal updated successfully", "success");
       } else {
-        const nextId =
-          proposals.reduce((max, p) => Math.max(max, p.id), 0) + 1;
-        setProposals((prev) => [
-          { id: nextId, ...data, sno: Number(data.sno) },
-          ...prev,
-        ]);
+        await dispatch(createProposal(data)).unwrap();
         showToast("Proposal created successfully", "success");
       }
       setModalOpen(false);
       setEditing(null);
-    } finally {
-      setSubmitting(false);
+      await refetchList();
+    } catch (err) {
+      showToast(err || "Failed to save proposal", "error");
     }
   };
 
@@ -185,16 +177,16 @@ const Proposals = () => {
     setConfirmOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!pendingDelete) return;
-    setSubmitting(true);
     try {
-      setProposals((prev) => prev.filter((p) => p.id !== pendingDelete.id));
+      await dispatch(deleteProposalApi(pendingDelete.id)).unwrap();
       showToast("Proposal deleted successfully", "success");
       setConfirmOpen(false);
       setPendingDelete(null);
-    } finally {
-      setSubmitting(false);
+      await refetchList();
+    } catch (err) {
+      showToast(err || "Failed to delete proposal", "error");
     }
   };
 
@@ -206,6 +198,9 @@ const Proposals = () => {
       year: "numeric",
     });
   };
+
+  const handleStatusFilterChange = (e) =>
+    dispatch(setFilters({ status: e.target.value }));
 
   return (
     <div className="w-full overflow-x-hidden">
@@ -242,29 +237,21 @@ const Proposals = () => {
           />
           <input
             type="text"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(1);
-            }}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search S.No, customer, ref #, or link..."
             className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           />
         </div>
 
         <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setCurrentPage(1);
-          }}
+          value={filters.status}
+          onChange={handleStatusFilterChange}
           className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
         >
           <option value="">All Statuses</option>
-          {PROPOSAL_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
+          {statuses.map((s) => (
+            <option key={s} value={s}>{s}</option>
           ))}
         </select>
       </div>
@@ -275,32 +262,31 @@ const Proposals = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 w-16">
-                  S.NO
-                </th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  DATE
-                </th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  CUSTOMER
-                </th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  PROPOSAL REFERENCE #
-                </th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  DRIVE LINK
-                </th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  STATUS
-                </th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  ACTION
-                </th>
+                {[
+                  "S.NO","DATE","CUSTOMER","PROPOSAL REFERENCE #",
+                  "DRIVE LINK","STATUS","ACTION",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {pageRows.length > 0 ? (
-                pageRows.map((p) => (
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                  >
+                    Loading proposals...
+                  </td>
+                </tr>
+              ) : normalized.length > 0 ? (
+                normalized.map((p) => (
                   <tr
                     key={p.id}
                     className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
@@ -335,15 +321,14 @@ const Proposals = () => {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 md:px-4 py-2 md:py-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] md:text-xs font-semibold ${
-                          STATUS_STYLES[p.status] || STATUS_STYLES.Preparing
-                        }`}
-                      >
-                        {p.status || "Preparing"}
-                      </span>
-                    </td>
+                    <td className="px-3 md:px-4 py-2 md:py-3" onClick={(e) => e.stopPropagation()}>
+  <StatusDropdown
+    value={p.status}
+    statuses={statuses}
+    onChange={(newStatus) => handleQuickStatusChange(p, newStatus)}
+    disabled={statusUpdatingId === p.id}
+  />
+</td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
                       <div className="flex gap-1 md:gap-2">
                         <button
@@ -367,7 +352,7 @@ const Proposals = () => {
               ) : (
                 <tr>
                   <td
-                    colSpan="7"
+                    colSpan={7}
                     className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                   >
                     No proposals found
@@ -380,13 +365,13 @@ const Proposals = () => {
       </div>
 
       {/* Pagination */}
-      {totalCount > PER_PAGE && (
+      {totalCount > 0 && (
         <Pagination
-          currentPage={safePage}
+          currentPage={currentPage}
           totalPages={totalPages}
-          onPageChange={setCurrentPage}
+          onPageChange={(p) => dispatch(setCurrentPage(p))}
           totalItems={totalCount}
-          itemsPerPage={PER_PAGE}
+          itemsPerPage={perPage}
         />
       )}
 
@@ -400,8 +385,8 @@ const Proposals = () => {
         proposal={editing}
         onSave={handleSave}
         submitting={submitting}
-        statuses={PROPOSAL_STATUSES}
-        isSnoTaken={isSnoTaken}
+        statuses={statuses}
+        defaultSerialNo={options.next_serial_no ?? 1}
       />
 
       {/* Delete confirm */}
@@ -421,6 +406,148 @@ const Proposals = () => {
         variant="danger"
       />
     </div>
+  );
+};
+
+
+const StatusDropdown = ({ value, statuses, onChange, disabled = false }) => {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+
+  // Position menu just below the trigger, and keep it on-screen
+  const updatePosition = () => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const MENU_W = 150;
+    const MENU_H = 20 + statuses.length * 30; // rough
+
+    let left = r.left;
+    let top = r.bottom + 4;
+
+    // Keep within viewport horizontally
+    if (left + MENU_W > window.innerWidth - 8) {
+      left = window.innerWidth - MENU_W - 8;
+    }
+    // Flip up if it would run off the bottom
+    if (top + MENU_H > window.innerHeight - 8) {
+      top = Math.max(8, r.top - MENU_H - 4);
+    }
+
+    setCoords({ top, left });
+  };
+
+  const toggle = () => {
+    if (disabled) return;
+    if (!open) updatePosition();
+    setOpen((o) => !o);
+  };
+
+  // close on outside click / Escape / scroll / resize
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e) => {
+      if (
+        triggerRef.current?.contains(e.target) ||
+        menuRef.current?.contains(e.target)
+      )
+        return;
+      setOpen(false);
+    };
+    const onEsc = (e) => e.key === "Escape" && setOpen(false);
+    const onScroll = () => setOpen(false);
+
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onEsc);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onEsc);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [open]);
+
+  const pillClass = STATUS_STYLES[value] || STATUS_STYLES.Preparing;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={toggle}
+        disabled={disabled}
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-semibold transition-colors ${pillClass} ${
+          disabled
+            ? "opacity-60 cursor-not-allowed"
+            : "cursor-pointer hover:opacity-90"
+        }`}
+      >
+        {disabled && <Loader size={10} className="animate-spin" />}
+        {value || "Preparing"}
+        {!disabled && (
+          <svg
+            width="8"
+            height="8"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            className={`transition-transform ${open ? "rotate-180" : ""}`}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        )}
+      </button>
+
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{
+              position: "fixed",
+              top: coords.top,
+              left: coords.left,
+              zIndex: 9999,
+            }}
+            className="min-w-[150px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden"
+          >
+            {statuses.map((s) => {
+              const active = s === value;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    if (!active) onChange(s);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between gap-2 transition-colors ${
+                    active
+                      ? "bg-gray-50 dark:bg-gray-700/60 text-gray-900 dark:text-white font-semibold"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="inline-block w-2 h-2 rounded-full"
+                      style={{
+                        backgroundColor: STATUS_DOT[s] || "#9ca3af",
+                      }}
+                    />
+                    {s}
+                  </span>
+                  {active && <Check size={12} />}
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 };
 
