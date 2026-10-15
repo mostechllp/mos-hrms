@@ -36,6 +36,7 @@ import quotationReducer from "../admin/store/slices/quotationSlice";
 import opportunityReducer from "../admin/store/slices/opportunitySlice";
 import productReducer from "../admin/store/slices/productSlice";
 import crmReportReducer from "../admin/store/slices/crmReportSlice";
+import crmSettingsReducer from "../admin/store/slices/crmSettingsSlice";
 
 
 // Employee reducers
@@ -91,6 +92,7 @@ export const store = configureStore({
     opportunities: opportunityReducer,
     products: productReducer,
     crmReports: crmReportReducer,
+    crmSettings: crmSettingsReducer,
 
     // Employee
     EmpLeaves: leavesReducer,

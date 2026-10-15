@@ -31,6 +31,7 @@ import {
   Search,
 } from "lucide-react";
 import { showToast } from "../../../components/common/Toast";
+import LeadSettings from "../../components/crm/settings/LeadSettings";
 
 // ============================================================
 // STATIC DEFAULTS — replace with API later
@@ -68,9 +69,27 @@ const INITIAL_SETTINGS = {
   ],
   opportunityStages: [
     { id: 1, name: "New", order: 1, defaultProbability: 20, color: "#3b82f6" },
-    { id: 2, name: "Qualified", order: 2, defaultProbability: 40, color: "#6366f1" },
-    { id: 3, name: "Proposal Sent", order: 3, defaultProbability: 60, color: "#8b5cf6" },
-    { id: 4, name: "Negotiation", order: 4, defaultProbability: 75, color: "#f59e0b" },
+    {
+      id: 2,
+      name: "Qualified",
+      order: 2,
+      defaultProbability: 40,
+      color: "#6366f1",
+    },
+    {
+      id: 3,
+      name: "Proposal Sent",
+      order: 3,
+      defaultProbability: 60,
+      color: "#8b5cf6",
+    },
+    {
+      id: 4,
+      name: "Negotiation",
+      order: 4,
+      defaultProbability: 75,
+      color: "#f59e0b",
+    },
     { id: 5, name: "Won", order: 5, defaultProbability: 100, color: "#10b981" },
     { id: 6, name: "Lost", order: 6, defaultProbability: 0, color: "#ef4444" },
   ],
@@ -259,13 +278,14 @@ const CrmSettings = () => {
             </p>
           </div>
         </div>
-
-        <button
-          onClick={handleSaveAll}
-          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm"
-        >
-          <Save size={15} /> Save Changes
-        </button>
+        {activeSection !== "lead" && (
+          <button
+            onClick={handleSaveAll}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm"
+          >
+            <Save size={15} /> Save Changes
+          </button>
+        )}
       </div>
 
       {/* ---------- Two-column layout ---------- */}
@@ -308,12 +328,7 @@ const CrmSettings = () => {
 
         {/* Content */}
         <div className="min-w-0 space-y-4">
-          {activeSection === "lead" && (
-            <LeadSettings
-              settings={settings}
-              updateSetting={updateSetting}
-            />
-          )}
+          {activeSection === "lead" && <LeadSettings />}
           {activeSection === "opportunity" && (
             <OpportunitySettings
               settings={settings}
@@ -530,159 +545,6 @@ const nextId = (list) =>
   list.length ? Math.max(...list.map((x) => x.id)) + 1 : 1;
 
 // ============================================================
-// A. LEAD SETTINGS
-// ============================================================
-
-const LeadSettings = ({ settings, updateSetting }) => (
-  <div className="space-y-4">
-    <SettingsCard
-      title="Lead Statuses"
-      description="Statuses a lead can be in through its lifecycle"
-    >
-      <EditableList
-        items={settings.leadStatuses}
-        placeholder="e.g. Nurturing"
-        onAdd={(name) =>
-          updateSetting("leadStatuses", [
-            ...settings.leadStatuses,
-            { id: nextId(settings.leadStatuses), name, color: "#6b7280" },
-          ])
-        }
-        onUpdate={(id, patch) =>
-          updateSetting(
-            "leadStatuses",
-            settings.leadStatuses.map((x) =>
-              x.id === id ? { ...x, ...patch } : x,
-            ),
-          )
-        }
-        onRemove={(id) =>
-          updateSetting(
-            "leadStatuses",
-            settings.leadStatuses.filter((x) => x.id !== id),
-          )
-        }
-        renderExtra={(item) => (
-          <span
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: item.color || "#6b7280" }}
-          />
-        )}
-      />
-    </SettingsCard>
-
-    <SettingsCard
-      title="Lead Sources"
-      description="Where your leads come from"
-    >
-      <EditableList
-        items={settings.leadSources}
-        placeholder="e.g. Webinar"
-        onAdd={(name) =>
-          updateSetting("leadSources", [
-            ...settings.leadSources,
-            { id: nextId(settings.leadSources), name },
-          ])
-        }
-        onUpdate={(id, patch) =>
-          updateSetting(
-            "leadSources",
-            settings.leadSources.map((x) =>
-              x.id === id ? { ...x, ...patch } : x,
-            ),
-          )
-        }
-        onRemove={(id) =>
-          updateSetting(
-            "leadSources",
-            settings.leadSources.filter((x) => x.id !== id),
-          )
-        }
-      />
-    </SettingsCard>
-
-    <SettingsCard
-      title="Lead Priorities"
-      description="Priority levels used to triage leads"
-    >
-      <EditableList
-        items={settings.leadPriorities}
-        placeholder="e.g. Urgent"
-        onAdd={(name) =>
-          updateSetting("leadPriorities", [
-            ...settings.leadPriorities,
-            { id: nextId(settings.leadPriorities), name, color: "#6b7280" },
-          ])
-        }
-        onUpdate={(id, patch) =>
-          updateSetting(
-            "leadPriorities",
-            settings.leadPriorities.map((x) =>
-              x.id === id ? { ...x, ...patch } : x,
-            ),
-          )
-        }
-        onRemove={(id) =>
-          updateSetting(
-            "leadPriorities",
-            settings.leadPriorities.filter((x) => x.id !== id),
-          )
-        }
-        renderExtra={(item) => (
-          <span
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: item.color || "#6b7280" }}
-          />
-        )}
-      />
-    </SettingsCard>
-
-    <SettingsCard
-      title="Lead Qualification Rules"
-      description="Criteria that determine when a lead becomes Qualified"
-    >
-      <div className="space-y-2">
-        {settings.qualificationRules.map((r) => (
-          <div
-            key={r.id}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700/60"
-          >
-            <input
-              type="checkbox"
-              checked={r.enabled}
-              onChange={() =>
-                updateSetting(
-                  "qualificationRules",
-                  settings.qualificationRules.map((x) =>
-                    x.id === r.id ? { ...x, enabled: !x.enabled } : x,
-                  ),
-                )
-              }
-              className="accent-blue-500"
-            />
-            <span className="flex-1 text-sm text-gray-800 dark:text-gray-200">
-              {r.rule}
-            </span>
-            <button
-              onClick={() =>
-                updateSetting(
-                  "qualificationRules",
-                  settings.qualificationRules.filter((x) => x.id !== r.id),
-                )
-              }
-              className="p-1.5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-              title="Delete"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ))}
-      </div>
-    </SettingsCard>
-  </div>
-);
-
-// ============================================================
 // B. OPPORTUNITY SETTINGS
 // ============================================================
 
@@ -764,7 +626,10 @@ const OpportunitySettings = ({ settings, updateSetting }) => (
       />
     </SettingsCard>
 
-    <SettingsCard title="Lost Reasons" description="Reasons to pick from when marking a deal lost">
+    <SettingsCard
+      title="Lost Reasons"
+      description="Reasons to pick from when marking a deal lost"
+    >
       <EditableList
         items={settings.lostReasons}
         placeholder="e.g. Budget freeze"
@@ -791,7 +656,10 @@ const OpportunitySettings = ({ settings, updateSetting }) => (
       />
     </SettingsCard>
 
-    <SettingsCard title="Win Reasons" description="Reasons to pick from when marking a deal won">
+    <SettingsCard
+      title="Win Reasons"
+      description="Reasons to pick from when marking a deal won"
+    >
       <EditableList
         items={settings.winReasons}
         placeholder="e.g. Referral trust"
@@ -818,7 +686,10 @@ const OpportunitySettings = ({ settings, updateSetting }) => (
       />
     </SettingsCard>
 
-    <SettingsCard title="Opportunity Types" description="Classification of opportunities">
+    <SettingsCard
+      title="Opportunity Types"
+      description="Classification of opportunities"
+    >
       <EditableList
         items={settings.opportunityTypes}
         placeholder="e.g. Trial"
@@ -1229,7 +1100,10 @@ const PERMISSION_FIELDS = [
   { key: "deleteCustomers", label: "Who can delete customer records?" },
   { key: "editQuotations", label: "Who can edit quotations?" },
   { key: "viewSalesReports", label: "Who can view sales reports?" },
-  { key: "changeOpportunityStage", label: "Who can change opportunity stages?" },
+  {
+    key: "changeOpportunityStage",
+    label: "Who can change opportunity stages?",
+  },
 ];
 
 const PermissionSettings = ({ settings, updateSetting }) => {
@@ -1278,13 +1152,9 @@ const PermissionSettings = ({ settings, updateSetting }) => {
                   </td>
                   {ALL_ROLES.map((role) => {
                     const checked =
-                      settings.permissions[field.key]?.includes(role) ||
-                      false;
+                      settings.permissions[field.key]?.includes(role) || false;
                     return (
-                      <td
-                        key={role}
-                        className="px-3 py-3 text-center"
-                      >
+                      <td key={role} className="px-3 py-3 text-center">
                         <input
                           type="checkbox"
                           checked={checked}
@@ -1320,7 +1190,8 @@ const NOTIFICATION_FIELDS = [
   {
     key: "overdueActivityAlerts",
     label: "Overdue activity alerts",
-    description: "Alert the assigned user and their manager when an activity is overdue",
+    description:
+      "Alert the assigned user and their manager when an activity is overdue",
   },
   {
     key: "leadAssignment",
@@ -1330,12 +1201,14 @@ const NOTIFICATION_FIELDS = [
   {
     key: "quotationStatus",
     label: "Quotation status notifications",
-    description: "Notify the salesperson when a quotation is viewed, accepted, or rejected",
+    description:
+      "Notify the salesperson when a quotation is viewed, accepted, or rejected",
   },
   {
     key: "opportunityStageChange",
     label: "Opportunity stage change notifications",
-    description: "Notify the salesperson or manager when an opportunity changes stage",
+    description:
+      "Notify the salesperson or manager when an opportunity changes stage",
   },
 ];
 
