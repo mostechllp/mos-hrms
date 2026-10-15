@@ -242,10 +242,6 @@ const CrmDashboard = () => {
     setTimeout(() => setRefreshing(false), 800);
   };
 
-  const handleExport = () => {
-    // TODO: trigger CSV/PDF export
-    console.log("Export dashboard report");
-  };
 
   return (
     <div className="w-full space-y-6">
@@ -313,16 +309,6 @@ const CrmDashboard = () => {
               className={refreshing ? "animate-spin" : ""}
             />
             <span className="sm:hidden lg:inline">Refresh</span>
-          </button>
-
-          {/* Export */}
-          <button
-            onClick={handleExport}
-            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm"
-            title="Export report"
-          >
-            <Download size={14} />
-            <span className="sm:hidden lg:inline">Export</span>
           </button>
         </div>
       </div>
