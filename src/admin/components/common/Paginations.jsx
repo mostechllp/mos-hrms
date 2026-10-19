@@ -21,7 +21,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange, totalItems, itemsPe
     return pages;
   };
 
-  if (totalPages <= 1) return null;
+  // if (totalPages <= 1) return null;
 
   return (
     <div className="mt-5 flex flex-wrap justify-between items-center gap-3">

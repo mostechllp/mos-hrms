@@ -293,8 +293,10 @@ const EditableList = ({
             Cancel
           </button>
         </div>
-      ) : !rich && editingId === "__new__" ? // not used — kept for symmetry
-      null : null}
+      ) : !rich &&
+        editingId ===
+          "__new__" ? null : null // not used — kept for symmetry
+      }
 
       {/* Simple-mode "adding" state is handled by a small inline form below */}
       {!rich && (
@@ -495,25 +497,30 @@ const LeadSettings = () => {
   };
 
   // -------- Sources --------
-  const handleCreateSource = async (name) => {
-    try {
-      await dispatch(createLeadSource({ name })).unwrap();
-      showToast("Lead source created", "success");
-    } catch (err) {
-      showToast(err || "Failed to create source", "error");
-      throw err;
-    }
-  };
+  // -------- Sources --------
+const handleCreateSource = async (payload) => {
+  const name = (typeof payload === "string" ? payload : payload?.name || "").trim();
+  if (!name) return;
+  try {
+    await dispatch(createLeadSource({ name })).unwrap();
+    showToast("Lead source created", "success");
+  } catch (err) {
+    showToast(err || "Failed to create source", "error");
+    throw err;
+  }
+};
 
-  const handleUpdateSource = async (id, patch) => {
-    try {
-      await dispatch(updateLeadSource({ id, data: patch })).unwrap();
-      showToast("Lead source updated", "success");
-    } catch (err) {
-      showToast(err || "Failed to update source", "error");
-      throw err;
-    }
-  };
+const handleUpdateSource = async (id, patch) => {
+  const name = (patch?.name || "").trim();
+  if (!name) return;
+  try {
+    await dispatch(updateLeadSource({ id, data: { name } })).unwrap();
+    showToast("Lead source updated", "success");
+  } catch (err) {
+    showToast(err || "Failed to update source", "error");
+    throw err;
+  }
+};
 
   const handleRemoveSource = async (id) => {
     try {
@@ -525,36 +532,36 @@ const LeadSettings = () => {
   };
 
   // -------- Priorities --------
- const handleCreatePriority = async (payload) => {
-  const body =
-    typeof payload === "string"
-      ? { name: payload, color: "#6b7280" }
-      : {
-          name: payload.name,
-          color: payload.color || "#6b7280",
-        };
+  const handleCreatePriority = async (payload) => {
+    const body =
+      typeof payload === "string"
+        ? { name: payload, color: "#6b7280" }
+        : {
+            name: payload.name,
+            color: payload.color || "#6b7280",
+          };
 
-  try {
-    await dispatch(createLeadPriority(body)).unwrap();
-    showToast("Lead priority created", "success");
-  } catch (err) {
-    showToast(err || "Failed to create priority", "error");
-    throw err;
-  }
-};
+    try {
+      await dispatch(createLeadPriority(body)).unwrap();
+      showToast("Lead priority created", "success");
+    } catch (err) {
+      showToast(err || "Failed to create priority", "error");
+      throw err;
+    }
+  };
 
-const handleUpdatePriority = async (id, patch) => {
-  // patch from rich mode is { name, color, is_default? } — the API
-  // ignores is_default for priorities, so it's fine either way.
-  const body = { name: patch.name, color: patch.color };
-  try {
-    await dispatch(updateLeadPriority({ id, data: body })).unwrap();
-    showToast("Lead priority updated", "success");
-  } catch (err) {
-    showToast(err || "Failed to update priority", "error");
-    throw err;
-  }
-};
+  const handleUpdatePriority = async (id, patch) => {
+    // patch from rich mode is { name, color, is_default? } — the API
+    // ignores is_default for priorities, so it's fine either way.
+    const body = { name: patch.name, color: patch.color };
+    try {
+      await dispatch(updateLeadPriority({ id, data: body })).unwrap();
+      showToast("Lead priority updated", "success");
+    } catch (err) {
+      showToast(err || "Failed to update priority", "error");
+      throw err;
+    }
+  };
 
   const handleRemovePriority = async (id) => {
     try {
@@ -660,36 +667,35 @@ const handleUpdatePriority = async (id, patch) => {
           onCreate={handleCreateSource}
           onUpdate={handleUpdateSource}
           onRemove={handleRemoveSource}
-          renderForm={(props) => <ColorRowForm {...props} />}
         />
       </SettingsCard>
 
       {/* -------- Lead Priorities (simple) -------- */}
       <SettingsCard
-  title="Lead Priorities"
-  description="Priority levels used to triage leads"
->
-  <EditableList
-    items={leadPriorities.data}
-    loading={leadPriorities.loading}
-    submitting={leadPriorities.submitting}
-    onCreate={handleCreatePriority}
-    onUpdate={handleUpdatePriority}
-    onRemove={handleRemovePriority}
-    renderForm={(props) => <ColorRowForm {...props} />}
-    initialForm={{
-      name: "",
-      color: "#F59E0B",    // Medium — a sensible default
-      isDefault: false,
-    }}
-    renderExtra={(item) => (
-      <span
-        className="w-3 h-3 rounded-full flex-shrink-0"
-        style={{ backgroundColor: item.color || "#6b7280" }}
-      />
-    )}
-  />
-</SettingsCard>
+        title="Lead Priorities"
+        description="Priority levels used to triage leads"
+      >
+        <EditableList
+          items={leadPriorities.data}
+          loading={leadPriorities.loading}
+          submitting={leadPriorities.submitting}
+          onCreate={handleCreatePriority}
+          onUpdate={handleUpdatePriority}
+          onRemove={handleRemovePriority}
+          renderForm={(props) => <ColorRowForm {...props} />}
+          initialForm={{
+            name: "",
+            color: "#F59E0B", // Medium — a sensible default
+            isDefault: false,
+          }}
+          renderExtra={(item) => (
+            <span
+              className="w-3 h-3 rounded-full flex-shrink-0"
+              style={{ backgroundColor: item.color || "#6b7280" }}
+            />
+          )}
+        />
+      </SettingsCard>
 
       {/* -------- Qualification rules (unchanged) -------- */}
       <SettingsCard
