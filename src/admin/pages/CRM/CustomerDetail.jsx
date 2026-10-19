@@ -251,7 +251,7 @@ const CustomerDetail = () => {
                       setMenuOpen(false);
                     }}
                   />
-                  <MenuItem
+                  {/* <MenuItem
                     icon={Briefcase}
                     label="Add Opportunity"
                     onClick={() => {
@@ -305,7 +305,7 @@ const CustomerDetail = () => {
                     icon={Repeat}
                     label="Mark as Blacklisted"
                     onClick={() => handleQuickStatus("Blacklisted")}
-                  />
+                  /> */}
                   <div className="border-t border-gray-100 dark:border-gray-700" />
                   <MenuItem
                     icon={Trash2}

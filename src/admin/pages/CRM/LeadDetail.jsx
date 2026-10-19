@@ -267,7 +267,7 @@ const LeadDetail = () => {
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
                 <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
-                  <MenuItem icon={Phone} label="Call"
+                  {/* <MenuItem icon={Phone} label="Call"
                     onClick={() => { showToast("Call — implement later", "info"); setMenuOpen(false); }} />
                   <MenuItem icon={Mail} label="Email"
                     onClick={() => { showToast("Email — implement later", "info"); setMenuOpen(false); }} />
@@ -282,7 +282,7 @@ const LeadDetail = () => {
                   <MenuItem icon={Repeat} label="Mark as Lost"
                     onClick={() => handleQuickStatus("Lost")} />
                   <MenuItem icon={UserCog} label="Reassign Lead"
-                    onClick={() => { showToast("Reassign — implement later", "info"); setMenuOpen(false); }} />
+                    onClick={() => { showToast("Reassign — implement later", "info"); setMenuOpen(false); }} /> */}
                   <div className="border-t border-gray-100 dark:border-gray-700" />
                   <MenuItem icon={Trash2} label="Delete Lead" danger
                     onClick={() => { setConfirmDelete(true); setMenuOpen(false); }} />
