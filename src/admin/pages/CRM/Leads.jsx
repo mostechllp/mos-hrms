@@ -501,176 +501,195 @@ const Leads = () => {
       )}
 
       {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-soft">
-        <table className="w-full border-collapse table-fixed">
-          <colgroup>
-            <col className="w-[90px]" /> {/* LEAD ID */}
-            <col className="w-[22%]" /> {/* NAME + COMPANY */}
-            <col className="w-[18%]" /> {/* CONTACT */}
-            <col className="w-[10%]" /> {/* SOURCE */}
-            <col className="w-[10%]" /> {/* STATUS */}
-            <col className="w-[16%]" /> {/* ASSIGNED TO + TEAM */}
-            <col className="w-[10%]" /> {/* CREATED */}
-            <col className="w-[120px]" /> {/* ACTIONS */}
-          </colgroup>
-          <thead>
-            <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-              {[
-                "LEAD ID",
-                "NAME",
-                "CONTACT",
-                "SOURCE",
-                "STATUS",
-                "ASSIGNED TO",
-                "CREATED",
-                "ACTIONS",
-              ].map((h) => (
-                <th
-                  key={h}
-                  className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
-                >
-                  Loading leads...
-                </td>
-              </tr>
-            ) : leads.length > 0 ? (
-              leads.map((l) => (
-                <tr
-                  key={l.id}
-                  onClick={() => navigate(`/admin/crm/leads/${l.id}`)}
-                  className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
-                >
-                  {/* LEAD ID */}
-                  <td className="px-2 py-2 text-[11px] font-mono text-gray-500 dark:text-gray-400 truncate">
-                    {l.lead_id || l.id}
-                  </td>
+<div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-soft">
+  <div className="overflow-x-auto">
+    <table className="w-full min-w-[900px] border-collapse">
+      <thead>
+        <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+          <th className="w-[90px] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+            Lead ID
+          </th>
+          <th className="w-[20%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+            Name
+          </th>
+          <th className="w-[16%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+            Contact
+          </th>
+          <th className="w-[10%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+            Source
+          </th>
+          <th className="w-[11%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+            Status
+          </th>
+          <th className="w-[14%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+            Assigned To
+          </th>
+          <th className="w-[100px] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+            Created
+          </th>
+          <th className="w-[120px] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+            Actions
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {loading ? (
+          <tr>
+            <td
+              colSpan={8}
+              className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+            >
+              Loading leads...
+            </td>
+          </tr>
+        ) : leads.length > 0 ? (
+          leads.map((l) => (
+            <tr
+              key={l.id}
+              onClick={() => navigate(`/admin/crm/leads/${l.id}`)}
+              className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
+            >
+              {/* LEAD ID */}
+              <td className="px-2 py-2 text-[11px] font-mono text-gray-500 dark:text-gray-400 truncate">
+                {l.lead_id || l.id}
+              </td>
 
-                  {/* NAME + COMPANY */}
-                  <td className="px-2 py-2 min-w-0">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${priorityDot(
-                          getLeadPriority(l),
-                        )}`}
-                        title={`Priority: ${getLeadPriority(l)}`}
-                      />
-                      <div className="min-w-0">
-                        <div className="text-[12px] font-semibold text-gray-800 dark:text-gray-200 truncate">
-                          {getLeadName(l)}
-                        </div>
-                        <div className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
-                          {getLeadCompany(l)}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* CONTACT */}
-                  <td className="px-2 py-2 min-w-0">
-                    <div className="text-[11px] text-gray-700 dark:text-gray-300 truncate">
-                      {getLeadPhone(l)}
-                    </div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
-                      {getLeadEmail(l)}
-                    </div>
-                  </td>
-
-                  {/* SOURCE */}
-                  <td className="px-2 py-2 text-[11px] text-gray-600 dark:text-gray-400 truncate">
-                    {getLeadSource(l)}
-                  </td>
-
-                  {/* STATUS */}
-                  <td className="px-2 py-2">
-                    <span
-                      className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${statusBadge(
-                        getLeadStatus(l),
-                      )}`}
+              {/* NAME + COMPANY */}
+              <td className="px-2 py-2 min-w-0">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${priorityDot(
+                      getLeadPriority(l),
+                    )}`}
+                    title={`Priority: ${getLeadPriority(l)}`}
+                  />
+                  <div className="min-w-0">
+                    <div
+                      className="text-[12px] font-semibold text-gray-800 dark:text-gray-200 truncate"
+                      title={getLeadName(l)}
                     >
-                      {getLeadStatus(l)}
-                    </span>
-                  </td>
-
-                  {/* ASSIGNED TO + TEAM */}
-                  <td className="px-2 py-2 min-w-0">
-                    <div className="text-[11px] text-gray-700 dark:text-gray-300 truncate">
-                      {getLeadAssigned(l)}
+                      {getLeadName(l)}
                     </div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
-                      {getLeadSalesTeam(l)}
+                    <div
+                      className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
+                      title={getLeadCompany(l)}
+                    >
+                      {getLeadCompany(l)}
                     </div>
-                  </td>
+                  </div>
+                </div>
+              </td>
 
-                  {/* CREATED */}
-                  <td className="px-2 py-2 text-[11px] text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    {formatDate(getLeadCreatedAt(l))}
-                  </td>
-
-                  {/* ACTIONS */}
-                  <td
-                    className="px-2 py-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex items-center gap-0.5">
-                      <IconBtn
-                        icon={Eye}
-                        color="text-blue-500"
-                        title="View"
-                        onClick={() => navigate(`/admin/crm/leads/${l.id}`)}
-                      />
-                      <IconBtn
-                        icon={Pencil}
-                        color="text-amber-500"
-                        title="Edit"
-                        onClick={() =>
-                          navigate(`/admin/crm/leads/${l.id}/edit`)
-                        }
-                      />
-                      <IconBtn
-                        icon={UserCheck}
-                        color="text-green-500"
-                        title="Convert"
-                        onClick={() => handleConvertClick(l)}
-                        disabled={
-                          getLeadStatus(l) === "Converted" ||
-                          convertingId === l.id
-                        }
-                      />
-                      <IconBtn
-                        icon={Trash2}
-                        color="text-red-500"
-                        title="Delete"
-                        onClick={() => handleDeleteClick(l)}
-                        disabled={submitting}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+              {/* CONTACT */}
+              <td className="px-2 py-2 min-w-0">
+                <div
+                  className="text-[11px] text-gray-700 dark:text-gray-300 truncate"
+                  title={getLeadPhone(l)}
                 >
-                  No leads found
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                  {getLeadPhone(l)}
+                </div>
+                <div
+                  className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
+                  title={getLeadEmail(l)}
+                >
+                  {getLeadEmail(l)}
+                </div>
+              </td>
+
+              {/* SOURCE */}
+              <td
+                className="px-2 py-2 text-[11px] text-gray-600 dark:text-gray-400 truncate"
+                title={getLeadSource(l)}
+              >
+                {getLeadSource(l)}
+              </td>
+
+              {/* STATUS */}
+              <td className="px-2 py-2">
+                <span
+                  className={`inline-flex items-center max-w-full truncate px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${statusBadge(
+                    getLeadStatus(l),
+                  )}`}
+                  title={getLeadStatus(l)}
+                >
+                  {getLeadStatus(l)}
+                </span>
+              </td>
+
+              {/* ASSIGNED TO + TEAM */}
+              <td className="px-2 py-2 min-w-0">
+                <div
+                  className="text-[11px] text-gray-700 dark:text-gray-300 truncate"
+                  title={getLeadAssigned(l)}
+                >
+                  {getLeadAssigned(l)}
+                </div>
+                <div
+                  className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
+                  title={getLeadSalesTeam(l)}
+                >
+                  {getLeadSalesTeam(l)}
+                </div>
+              </td>
+
+              {/* CREATED */}
+              <td className="px-2 py-2 text-[11px] text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                {formatDate(getLeadCreatedAt(l))}
+              </td>
+
+              {/* ACTIONS */}
+              <td
+                className="px-2 py-2 whitespace-nowrap"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-0.5">
+                  <IconBtn
+                    icon={Eye}
+                    color="text-blue-500"
+                    title="View"
+                    onClick={() => navigate(`/admin/crm/leads/${l.id}`)}
+                  />
+                  <IconBtn
+                    icon={Pencil}
+                    color="text-amber-500"
+                    title="Edit"
+                    onClick={() => navigate(`/admin/crm/leads/${l.id}/edit`)}
+                  />
+                  <IconBtn
+                    icon={UserCheck}
+                    color="text-green-500"
+                    title="Convert"
+                    onClick={() => handleConvertClick(l)}
+                    disabled={
+                      getLeadStatus(l) === "Converted" ||
+                      convertingId === l.id
+                    }
+                  />
+                  <IconBtn
+                    icon={Trash2}
+                    color="text-red-500"
+                    title="Delete"
+                    onClick={() => handleDeleteClick(l)}
+                    disabled={submitting}
+                  />
+                </div>
+              </td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td
+              colSpan={8}
+              className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+            >
+              No leads found
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
       {totalCount > 0 && (
         <Pagination
           currentPage={currentPage}
