@@ -12,6 +12,14 @@ import {
   updateLead,
   fromLeadApi,
 } from "../../store/slices/leadSlice";
+import {
+  createLeadSource,
+  createLeadStatus,
+  createLeadPriority,
+  fetchLeadSources,
+  fetchLeadStatuses,
+  fetchLeadPriorities,
+} from "../../store/slices/crmSettingsSlice";
 import { TimeInput } from "../../components/common/TimeInput";
 import DateInput from "../../components/common/DateInput";
 
@@ -80,6 +88,78 @@ const Section = ({ title, children }) => (
   </div>
 );
 
+// ----------------------------------------------------
+// Inline "Add new" popover — used by SearchableSelect's onAddNew
+// ----------------------------------------------------
+const AddNewInline = ({
+  open,
+  title,
+  placeholder,
+  submitting,
+  error,
+  onCancel,
+  onSubmit, // (value) => Promise<void>
+}) => {
+  const [value, setValue] = useState("");
+
+  useEffect(() => {
+    if (open) setValue("");
+  }, [open]);
+
+  if (!open) return null;
+
+  const submit = async () => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    await onSubmit(trimmed);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-xl">
+        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3">
+          {title}
+        </h3>
+
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submit();
+            if (e.key === "Escape" && !submitting) onCancel();
+          }}
+          placeholder={placeholder}
+          disabled={submitting}
+          className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+        />
+
+        {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+
+        <div className="flex justify-end gap-2 mt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={submitting || !value.trim()}
+            className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {submitting && <Loader size={12} className="animate-spin" />}
+            Add
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Helpers to turn string arrays into SearchableSelect options
 const strOptions = (arr) => (arr || []).map((v) => ({ value: v, label: v }));
 
@@ -89,6 +169,56 @@ const AddLead = () => {
   const dispatch = useDispatch();
 
   const isEdit = Boolean(leadId);
+
+  const [quickAdd, setQuickAdd] = useState({
+    open: false,
+    type: null, // "source" | "status" | "priority"
+    submitting: false,
+    error: null,
+  });
+
+  const openQuickAdd = (type) =>
+    setQuickAdd({ open: true, type, submitting: false, error: null });
+
+  const closeQuickAdd = () =>
+    setQuickAdd({ open: false, type: null, submitting: false, error: null });
+
+  const submitQuickAdd = async (name) => {
+    const { type } = quickAdd;
+    setQuickAdd((q) => ({ ...q, submitting: true, error: null }));
+
+    try {
+      if (type === "source") {
+        await dispatch(createLeadSource({ name })).unwrap();
+        // Refresh both the crm-settings bucket and the form-options list
+        dispatch(fetchLeadSources());
+        dispatch(fetchLeadFormOptions());
+        update("leadSource", name); // auto-select
+        showToast("Lead source created", "success");
+      } else if (type === "status") {
+        await dispatch(
+          createLeadStatus({ name, color: "#6b7280", is_default: false }),
+        ).unwrap();
+        dispatch(fetchLeadStatuses());
+        dispatch(fetchLeadFormOptions());
+        update("leadStatus", name);
+        showToast("Lead status created", "success");
+      } else if (type === "priority") {
+        await dispatch(createLeadPriority({ name, color: "#6b7280" })).unwrap();
+        dispatch(fetchLeadPriorities());
+        dispatch(fetchLeadFormOptions());
+        update("priority", name);
+        showToast("Lead priority created", "success");
+      }
+      closeQuickAdd();
+    } catch (err) {
+      setQuickAdd((q) => ({
+        ...q,
+        submitting: false,
+        error: typeof err === "string" ? err : "Failed to create",
+      }));
+    }
+  };
 
   const { options, currentLead, currentLeadLoading, submitting } = useSelector(
     (state) => state.leads,
@@ -326,8 +456,11 @@ const AddLead = () => {
               options={leadSourceOptions}
               placeholder="Select source..."
               searchPlaceholder="Search source..."
+              onAddNew={() => openQuickAdd("source")}
+              addNewLabel="Add new source"
             />
           </Field>
+
           <Field label="Lead Status">
             <SearchableSelect
               value={form.leadStatus}
@@ -335,8 +468,11 @@ const AddLead = () => {
               options={leadStatusOptions}
               placeholder="Select status..."
               searchPlaceholder="Search status..."
+              onAddNew={() => openQuickAdd("status")}
+              addNewLabel="Add new status"
             />
           </Field>
+
           <Field label="Priority">
             <SearchableSelect
               value={form.priority}
@@ -344,6 +480,8 @@ const AddLead = () => {
               options={priorityOptions}
               placeholder="Select priority..."
               searchPlaceholder="Search priority..."
+              onAddNew={() => openQuickAdd("priority")}
+              addNewLabel="Add new priority"
             />
           </Field>
         </div>
@@ -568,6 +706,28 @@ const AddLead = () => {
           )}
         </button>
       </div>
+      {/* Inline "Add new" modal for lead-settings fields */}
+      <AddNewInline
+        open={quickAdd.open}
+        title={
+          quickAdd.type === "source"
+            ? "Add Lead Source"
+            : quickAdd.type === "status"
+              ? "Add Lead Status"
+              : "Add Lead Priority"
+        }
+        placeholder={
+          quickAdd.type === "source"
+            ? "e.g. Webinar"
+            : quickAdd.type === "status"
+              ? "e.g. Contacted"
+              : "e.g. Urgent"
+        }
+        submitting={quickAdd.submitting}
+        error={quickAdd.error}
+        onCancel={closeQuickAdd}
+        onSubmit={submitQuickAdd}
+      />
     </div>
   );
 };
