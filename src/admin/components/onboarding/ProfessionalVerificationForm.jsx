@@ -43,13 +43,7 @@ const ProfessionalVerificationForm = () => {
     }
   })();
 
-  const resolvedUserId =
-    routeId ||
-    queryId ||
-    verificationId ||
-    employeeDetails?.userId ||
-    storedUserId ||
-    null;
+ const resolvedUserId = routeId || employeeDetails?.userId || queryId || storedUserId || null;
 
   const {
     register,

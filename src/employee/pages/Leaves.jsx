@@ -722,6 +722,7 @@ const Leaves = () => {
                   leave.duration_days ||
                   calculateDays(leave.start_date, leave.end_date);
                 const isPending = statusName === "pending";
+                const isLossOfPay = leaveTypeName?.toLowerCase().includes("loss of pay");
 
                 return (
                   <tr
@@ -732,7 +733,11 @@ const Leaves = () => {
                       {start + idx + 1}
                     </td>
                     <td className="py-3.5 px-4 border-b border-[var(--border)]">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full text-[11px] font-semibold">
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-semibold ${
+                        isLossOfPay 
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      }`}>
                         <FiCalendar className="text-xs" />
                         {leaveTypeName}
                       </span>

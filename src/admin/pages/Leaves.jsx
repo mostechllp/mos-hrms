@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import SearchBar from "@admin/components/common/SearchBar";
 import EntriesSelector from "@admin/components/common/EntriesSelector";
 import LeaveModal from "@admin/components/leaves/LeaveModal";
@@ -23,7 +23,8 @@ const Leaves = () => {
   const { leaves = [], error = null, currentLeave = null } = useSelector((state) => {
     return state.leaves || { leaves: [], currentLeave: null };
   });
-  console.log(leaves);
+  const location = useLocation();
+   const basePath = location.pathname.split("/")[1] || "admin";
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -357,6 +358,15 @@ const Leaves = () => {
             <span className="hidden sm:inline">Manage Leave Allocations</span>
             <span className="sm:hidden">Allocations</span>
           </Link>
+
+           <Link
+                to={`/${basePath}/leaves/leave-types`}
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg w-full sm:w-auto"
+              >
+                <i className="fas fa-briefcase"></i>
+                <span className="hidden sm:inline">Manage Leave Types</span>
+                <span className="sm:hidden">Leave Types</span>
+              </Link>
         </div>
       </div>
 
@@ -431,7 +441,15 @@ const Leaves = () => {
                       </button>
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                      {leave.leave_type?.name || leave.type || "-"}
+                      {(() => {
+                        const leaveTypeName = leave.leave_type?.name || leave.type || "-";
+                        const isLossOfPay = leaveTypeName.toLowerCase().includes("loss of pay");
+                        return (
+                          <span className={isLossOfPay ? "text-red-600 dark:text-red-400 font-semibold" : ""}>
+                            {leaveTypeName}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       {formatDate(leave.start_date || leave.from_date)}

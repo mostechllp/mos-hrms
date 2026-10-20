@@ -28,7 +28,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { showToast } from "../../components/common/Toast";
-import { fetchEmployees } from "../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../store/slices/employeeSlice";
 import ConfirmModal from "../components/common/ConfirmModal";
 import {
   deleteOffboarding,
@@ -123,7 +123,7 @@ const OffboardingDashboard = () => {
   }, [employees]);
 
   useEffect(() => {
-    dispatch(fetchEmployees());
+    dispatch(fetchActiveEmployees());
     dispatch(fetchAllOffboarding({ page: 1, perPage: 50 }));
   }, [dispatch]);
 

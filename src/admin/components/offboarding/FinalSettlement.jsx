@@ -1,11 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import {
-  ArrowRight,
-  Loader,
-  Plus,
-  Trash2,
-  ChevronDown,
-} from "lucide-react";
+import { ArrowRight, Loader, Plus, Trash2, ChevronDown } from "lucide-react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { showToast } from "../common/Toast";
@@ -19,6 +13,7 @@ import {
 } from "../../store/slices/offboardingSlice";
 import { fetchDepartments } from "../../store/slices/departmentSlice";
 import { fetchDesignations } from "../../store/slices/designationSlice";
+import SearchableSelect from "../../../components/common/SearchableSelect";
 
 // ------------------------------------------------------------
 // Editable input
@@ -87,9 +82,7 @@ const EditableSelect = ({
         disabled={loading}
         className="w-full pl-4 pr-10 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 font-semibold focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all appearance-none disabled:opacity-50"
       >
-        <option value="">
-          {loading ? "Loading..." : placeholder}
-        </option>
+        <option value="">{loading ? "Loading..." : placeholder}</option>
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
@@ -322,14 +315,20 @@ const FinalSettlement = () => {
     if (!Array.isArray(departments)) return [];
     return departments
       .filter((d) => d && d.name)
-      .map((d) => ({ value: d.name, label: d.name }));
+      .map((d) => ({ value: d.name, label: d.name }))
+      .sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+      );
   }, [departments]);
 
   const designationOptions = useMemo(() => {
     if (!Array.isArray(designations)) return [];
     return designations
       .filter((d) => d && d.name)
-      .map((d) => ({ value: d.name, label: d.name }));
+      .map((d) => ({ value: d.name, label: d.name }))
+      .sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+      );
   }, [designations]);
 
   // ── Live totals
@@ -521,21 +520,28 @@ const FinalSettlement = () => {
                 value={form.employee_id}
                 onChange={(e) => setField("employee_id", e.target.value)}
               />
-              <EditableSelect
+              <SearchableSelect
                 label="Department"
                 value={form.department}
-                onChange={(e) => setField("department", e.target.value)}
+                onChange={(val) => setField("department", val)}
                 options={departmentOptions}
                 loading={departmentsLoading}
-                placeholder="Select department"
+                placeholder="Search or select department..."
+                searchPlaceholder="Search departments..."
+                emptyMessage="No departments found"
+                clearable
               />
-              <EditableSelect
+
+              <SearchableSelect
                 label="Designation"
                 value={form.designation}
-                onChange={(e) => setField("designation", e.target.value)}
+                onChange={(val) => setField("designation", val)}
                 options={designationOptions}
                 loading={designationsLoading}
-                placeholder="Select designation"
+                placeholder="Search or select designation..."
+                searchPlaceholder="Search designations..."
+                emptyMessage="No designations found"
+                clearable
               />
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -609,9 +615,7 @@ const FinalSettlement = () => {
                 label="Notice Period (Days)"
                 type="number"
                 value={form.notice_period_days}
-                onChange={(e) =>
-                  setField("notice_period_days", e.target.value)
-                }
+                onChange={(e) => setField("notice_period_days", e.target.value)}
                 suffix="days"
               />
               <div className="space-y-1.5">
@@ -838,17 +842,13 @@ const FinalSettlement = () => {
                   label="Amount"
                   type="number"
                   value={form.gratuity_amount}
-                  onChange={(e) =>
-                    setField("gratuity_amount", e.target.value)
-                  }
+                  onChange={(e) => setField("gratuity_amount", e.target.value)}
                   currency={currency}
                 />
                 <EditableInput
                   label="Formula (reference)"
                   value={form.gratuity_formula}
-                  onChange={(e) =>
-                    setField("gratuity_formula", e.target.value)
-                  }
+                  onChange={(e) => setField("gratuity_formula", e.target.value)}
                 />
               </div>
 
@@ -918,7 +918,8 @@ const FinalSettlement = () => {
                   </div>
                   <div className="space-y-1.5 relative">
                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Amount ({currency}) <span className="text-red-500">*</span>
+                      Amount ({currency}){" "}
+                      <span className="text-red-500">*</span>
                     </label>
                     <div className="flex gap-2">
                       <input

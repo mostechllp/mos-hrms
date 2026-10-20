@@ -7,7 +7,7 @@ import Loader from "../components/common/Loader";
 import LeaveTypeModal from "../components/leaves/LeaveTypeModal";
 import { showToast } from "../../components/common/Toast";
 import {
-  fetchLeaveTypes,
+  fetchLeaveTypesForMgmt,
   deleteLeaveType,
   toggleLeaveTypeStatus,
 } from "../store/slices/LeaveSlice";
@@ -27,8 +27,12 @@ const LeaveTypeManagement = () => {
   const [selectedDelete, setSelectedDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   useEffect(() => {
-    dispatch(fetchLeaveTypes());
+    dispatch(fetchLeaveTypesForMgmt());
   }, [dispatch]);
+
+  const PROTECTED_LEAVE_TYPES = ["loss of pay"];
+  const isProtectedType = (name = "") =>
+    PROTECTED_LEAVE_TYPES.includes(name.trim().toLowerCase());
 
   const getFilteredTypes = () => {
     let filtered = leaveTypes;
@@ -200,15 +204,18 @@ const LeaveTypeManagement = () => {
                           >
                             <i className="fas fa-edit text-xs md:text-sm"></i>
                           </button>
-                          <button
-                            onClick={() =>
-                              handleDeleteClick(type.id, type.name)
-                            }
-                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
-                            title="Delete"
-                          >
-                            <i className="fas fa-trash text-xs md:text-sm"></i>
-                          </button>
+
+                          {!isProtectedType(type.name) && (
+                            <button
+                              onClick={() =>
+                                handleDeleteClick(type.id, type.name)
+                              }
+                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 transition-colors"
+                              title="Delete"
+                            >
+                              <i className="fas fa-trash text-xs md:text-sm"></i>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

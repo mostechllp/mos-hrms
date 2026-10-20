@@ -11,7 +11,7 @@ import {
   clearError,
 } from "../../store/slices/tasksSlice";
 import { fetchProjectById } from "../../store/slices/projectsSlice";
-import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../../store/slices/employeeSlice";
 
 const ProjectTasks = () => {
   const { id } = useParams();
@@ -39,7 +39,7 @@ const ProjectTasks = () => {
     // Fetch project details and its tasks
     dispatch(fetchProjectById(id));
     dispatch(fetchTasksByProject(id));
-    dispatch(fetchEmployees());
+    dispatch(fetchActiveEmployees());
   }, [dispatch, id]);
 
   useEffect(() => {

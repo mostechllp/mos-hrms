@@ -11,7 +11,7 @@ import {
   fetchTaskReports,
   exportTaskReports 
 } from "../../store/slices/reportSlice";
-import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../../store/slices/employeeSlice";
 
 const TaskReports = () => {
   const dispatch = useDispatch();
@@ -45,7 +45,7 @@ const TaskReports = () => {
 
   // Fetch employees on mount for filter dropdown
   useEffect(() => {
-    dispatch(fetchEmployees());
+    dispatch(fetchActiveEmployees());
   }, [dispatch]);
 
   // Get unique employees for filters from employees list (not from records)

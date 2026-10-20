@@ -75,6 +75,18 @@ const getLeaveTypeColor = (typeName) => {
   };
 };
 
+// Detect "loss of pay"-style leave types (case-insensitive, tolerant of
+// common naming variants) so we can hide the Claim Salary section.
+const isLossOfPay = (typeName = "") => {
+  const key = String(typeName).trim().toLowerCase();
+  return (
+    key.includes("loss of pay") ||
+    key.includes("loss-of-pay") ||
+    key.includes("lop") ||
+    key.includes("unpaid")
+  );
+};
+
 const RequestLeave = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -139,15 +151,22 @@ const RequestLeave = () => {
 
   // Set first leave type as default when leaveTypes are loaded
   useEffect(() => {
-    if (leaveTypes.length > 0 && isFirstLoad) {
-      const firstLeaveType = leaveTypes[0];
-      setFormData((prev) => ({
-        ...prev,
-        leave_type_id: firstLeaveType.id.toString(),
-      }));
-      setIsFirstLoad(false);
-    }
-  }, [leaveTypes, isFirstLoad]);
+    if (leaveTypes.length === 0) return;
+    if (!isFirstLoad) return;
+
+    // Prefer a type that actually has a balance
+    const withBalance = leaveTypes.find((t) => {
+      const b = leaveBalances?.[t.name];
+      return b && (b.remaining > 0 || b.allocated > 0);
+    });
+    const first = withBalance || leaveTypes[0];
+
+    setFormData((prev) => ({
+      ...prev,
+      leave_type_id: first.id.toString(),
+    }));
+    setIsFirstLoad(false);
+  }, [leaveTypes, leaveBalances, isFirstLoad]);
 
   // Check if data is ready
   useEffect(() => {
@@ -323,19 +342,6 @@ const RequestLeave = () => {
       return;
     }
 
-    const selectedLeaveType = leaveTypes.find(
-      (lt) => lt.id === parseInt(formData.leave_type_id),
-    );
-    if (selectedLeaveType) {
-      const balance = leaveBalances[selectedLeaveType.name] || { remaining: 0 };
-      if (totalDays > balance.remaining && balance.remaining >= 0) {
-        setLocalError(
-          `Requested days (${totalDays}) exceed available ${selectedLeaveType.name} balance (${balance.remaining} days)`,
-        );
-        return;
-      }
-    }
-
     const formDataToSend = new FormData();
     // Convert dates to YYYY-MM-DD for the API
     const startDateFormatted = formData.start_date.includes("/")
@@ -349,7 +355,10 @@ const RequestLeave = () => {
     formDataToSend.append("start_date", startDateFormatted);
     formDataToSend.append("end_date", endDateFormatted);
     formDataToSend.append("reason", formData.reason);
-    formDataToSend.append("claim_salary", formData.claim_salary);
+    formDataToSend.append(
+      "claim_salary",
+      selectedIsLossOfPay ? "0" : formData.claim_salary,
+    );
     formDataToSend.append("session1", formData.start_session);
     formDataToSend.append("session2", formData.end_session);
     formDataToSend.append("year", new Date().getFullYear().toString());
@@ -403,7 +412,20 @@ const RequestLeave = () => {
   const usedLeaves = selectedBalance.used ?? 0;
   const pendingLeaves = selectedBalance.pending ?? 0;
   const allocatedLeaves = selectedBalance.allocated ?? 0;
-  const exceedsBalance = totalDays > remaining && remaining >= 0;
+  const hasAllocation = allocatedLeaves > 0;
+  const exceedsBalance =
+    hasAllocation && totalDays > remaining && remaining >= 0;
+
+  const selectedLeaveType = leaveTypes.find(
+    (lt) => lt.id === parseInt(formData.leave_type_id),
+  );
+  const selectedIsLossOfPay = isLossOfPay(selectedLeaveType?.name);
+
+  // Current month name (e.g. "September 2026")
+  const currentMonthLabel = new Date().toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
 
   const getMinEndDate = () => {
     if (formData.start_date) {
@@ -473,7 +495,7 @@ const RequestLeave = () => {
               <FiCalendar /> Leave Details
             </div>
 
-            {/* Leave Type - Full Width - DISABLED */}
+            {/* Leave Type — selectable */}
             <div className="form-field flex flex-col gap-2 mb-5">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
                 <FiList className="text-green-500" /> Leave Type{" "}
@@ -481,19 +503,27 @@ const RequestLeave = () => {
               </label>
               <select
                 value={formData.leave_type_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, leave_type_id: e.target.value })
-                }
-                className="w-full px-3.5 py-2.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-300 focus:outline-none cursor-not-allowed opacity-80"
-                disabled={true}
+                onChange={(e) => {
+                  const newId = e.target.value;
+                  const newType = leaveTypes.find(
+                    (lt) => lt.id === parseInt(newId),
+                  );
+                  setFormData((prev) => ({
+                    ...prev,
+                    leave_type_id: newId,
+                    // Reset claim_salary whenever the selected type changes to/from LOP
+                    claim_salary: isLossOfPay(newType?.name)
+                      ? "0"
+                      : prev.claim_salary,
+                  }));
+                }}
+                className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all cursor-pointer"
               >
+                <option value="">Select Leave Type</option>
                 {leaveTypes.map((type) => {
-                  const balance = leaveBalances[type.name] || {
-                    remaining: 0,
-                  };
                   return (
                     <option key={type.id} value={type.id}>
-                      {type.name} (Available: {balance.remaining} days)
+                      {type.name}
                     </option>
                   );
                 })}
@@ -501,10 +531,6 @@ const RequestLeave = () => {
               {loadingLeaveTypes && (
                 <p className="text-xs text-gray-400">Loading leave types...</p>
               )}
-              <p className="text-xs text-gray-400 mt-1">
-                <i className="fas fa-info-circle mr-1"></i>
-                Leave type is automatically selected
-              </p>
             </div>
 
             {/* Date Inputs with Sessions */}
@@ -632,50 +658,45 @@ const RequestLeave = () => {
               </small>
             </div>
 
-            {/* Claim Salary */}
-            <div className="form-field flex flex-row items-center gap-4 mb-6">
-              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1 whitespace-nowrap">
-                <i className="fas fa-money-bill-wave text-green-500" /> Claim
-                Salary
-              </label>
-              <div className="flex gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="claimSalary"
-                    value="1"
-                    checked={formData.claim_salary === "1"}
-                    onChange={() =>
-                      setFormData({ ...formData, claim_salary: "1" })
-                    }
-                    className="w-4 h-4 text-green-500 focus:ring-green-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Yes
-                  </span>
+            {/* Claim Salary — hidden for Loss Of Pay */}
+            {!selectedIsLossOfPay && (
+              <div className="form-field flex flex-row items-center gap-4 mb-6">
+                <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1 whitespace-nowrap">
+                  <i className="fas fa-money-bill-wave text-green-500" /> Claim
+                  Salary
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="claimSalary"
-                    value="0"
-                    checked={formData.claim_salary === "0"}
-                    onChange={() =>
-                      setFormData({ ...formData, claim_salary: "0" })
-                    }
-                    className="w-4 h-4 text-green-500 focus:ring-green-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    No
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            {exceedsBalance && (
-              <div className="warning-message mb-6 p-3 bg-amber-500/10 border border-amber-500 rounded-lg text-amber-600 text-sm">
-                ⚠️ Warning: Requested days ({totalDays}) exceed available
-                balance ({remaining} days)
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="claimSalary"
+                      value="1"
+                      checked={formData.claim_salary === "1"}
+                      onChange={() =>
+                        setFormData({ ...formData, claim_salary: "1" })
+                      }
+                      className="w-4 h-4 text-green-500 focus:ring-green-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Yes
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="claimSalary"
+                      value="0"
+                      checked={formData.claim_salary === "0"}
+                      onChange={() =>
+                        setFormData({ ...formData, claim_salary: "0" })
+                      }
+                      className="w-4 h-4 text-green-500 focus:ring-green-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      No
+                    </span>
+                  </label>
+                </div>
               </div>
             )}
 
@@ -688,7 +709,7 @@ const RequestLeave = () => {
               </Link>
               <button
                 type="submit"
-                disabled={submitting || exceedsBalance}
+                disabled={submitting}
                 className="px-4 py-2 rounded-full text-xs font-semibold bg-green-500 text-white hover:bg-green-600 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
@@ -769,6 +790,22 @@ const RequestLeave = () => {
                   </div>
                 </div>
               </div>
+
+              {/* ── Accrual info ── */}
+              {!selectedIsLossOfPay && (
+                <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40">
+                  <div className="flex items-start gap-2">
+                    <i className="fas fa-clock text-amber-600 dark:text-amber-400 text-xs mt-0.5"></i>
+                    <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+                      The allocation shown reflects the leave accrued up to{" "}
+                      <span className="font-semibold">{currentMonthLabel}</span>
+                      . Additional days will be credited to your account each
+                      coming month, based on the accrual policy configured by
+                      HR/Admin.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="info-note mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <p className="text-xs text-blue-600 dark:text-blue-400">

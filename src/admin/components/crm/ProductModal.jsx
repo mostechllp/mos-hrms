@@ -1,32 +1,14 @@
 // src/admin/components/crm/ProductModal.jsx
-
 import { useEffect, useState } from "react";
-import { X, Save, Loader, Plus, Package } from "lucide-react";
+import { X, Save, Loader, Package, Layers } from "lucide-react";
+import { useDispatch } from "react-redux";
 import { showToast } from "../../../components/common/Toast";
-
-// ------------------------------------------------------------
-// Constants
-// ------------------------------------------------------------
-
-const TYPES = ["Product", "Service"];
-const CURRENCIES = ["INR", "USD", "AED", "GBP"];
-const UNITS = [
-  "Unit",
-  "License",
-  "Project",
-  "User/Month",
-  "Month",
-  "Year",
-  "Hour",
-  "Day",
-  "Other",
-];
-const STATUSES = ["Active", "Inactive"];
+import SearchableSelect from "../../../components/common/SearchableSelect";
+import { createProductCategory } from "../../store/slices/productSlice";
 
 // ------------------------------------------------------------
 // Field wrapper
 // ------------------------------------------------------------
-
 const Field = ({ label, required, hint, children }) => (
   <div>
     <label className="block text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-1.5">
@@ -40,76 +22,110 @@ const Field = ({ label, required, hint, children }) => (
 // ------------------------------------------------------------
 // Component
 // ------------------------------------------------------------
-
 const ProductModal = ({
   isOpen,
   onClose,
   product,
   categories = [],
+  categoriesLoading = false,
+  types = ["Product", "Service"],
+  units = ["Unit"],
+  currencies = ["INR", "USD", "AED", "GBP"],
+  statuses = ["Active", "Inactive"],
   onSubmit,
+  submitting: submittingProp = false,
+  onManageCategories = null,
+  onCategoryCreated = null, // 👈 optional: parent can refetch form-options
 }) => {
+  const dispatch = useDispatch();
   const isEdit = Boolean(product?.id);
 
   const [form, setForm] = useState({
     name: "",
     code: "",
-    type: "Product",
-    category: categories[0] || "",
+    type: types[0] || "Product",
+    categoryId: null, // 👈
+    category: "", // 👈 name
     description: "",
-    unit: "Unit",
+    unit: units[0] || "Unit",
     defaultPrice: "",
-    currency: "INR",
+    currency: currencies[0] || "INR",
     taxRate: "18",
-    status: "Active",
+    status: statuses[0] || "Active",
     notes: "",
   });
 
-  // Local category list (allows adding new ones inline)
-  const [localCategories, setLocalCategories] = useState(categories);
+  const [internalSubmitting, setInternalSubmitting] = useState(false);
+  const submitting = submittingProp || internalSubmitting;
+
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategory, setNewCategory] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
 
-  const [submitting, setSubmitting] = useState(false);
-
-  // Hydrate
+  // Hydrate form on open / product change
   useEffect(() => {
     if (!isOpen) return;
-    setLocalCategories(categories);
-    setAddingCategory(false);
-    setNewCategory("");
-    if (isEdit) {
+
+    const findCategoryIdByName = (name) =>
+      categories.find((c) => c.name === name)?.id ?? null;
+
+    if (isEdit && product) {
+      // if the product came with a categoryId, use it; otherwise look it up by name
+      const cid = product.categoryId ?? findCategoryIdByName(product.category);
+
       setForm({
         name: product.name || "",
         code: product.code || "",
-        type: product.type || "Product",
-        category: product.category || categories[0] || "",
+        type: product.type || types[0] || "Product",
+        categoryId: cid,
+        category: product.category || "",
         description: product.description || "",
-        unit: product.unit || "Unit",
+        unit: product.unit || units[0] || "Unit",
         defaultPrice: product.defaultPrice ?? "",
-        currency: product.currency || "INR",
+        currency: product.currency || currencies[0] || "INR",
         taxRate: product.taxRate ?? "18",
-        status: product.status || "Active",
+        status: product.status || statuses[0] || "Active",
         notes: product.notes || "",
       });
     } else {
+      const first = categories[0];
       setForm({
         name: "",
         code: "",
-        type: "Product",
-        category: categories[0] || "",
+        type: types[0] || "Product",
+        categoryId: first?.id ?? null,
+        category: first?.name ?? "",
         description: "",
-        unit: "Unit",
+        unit: units[0] || "Unit",
         defaultPrice: "",
-        currency: "INR",
+        currency: currencies[0] || "INR",
         taxRate: "18",
-        status: "Active",
+        status: statuses[0] || "Active",
         notes: "",
       });
     }
-    setSubmitting(false);
-  }, [isOpen, product, isEdit, categories]);
 
-  // Esc
+    setAddingCategory(false);
+    setNewCategory("");
+    setInternalSubmitting(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, product?.id, categories.length]); // 👈 re-hydrate when list arrives
+
+  // Reconcile selected category when the options list changes
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!form.categoryId) return;
+    if (categories.some((c) => c.id === form.categoryId)) return;
+    const first = categories[0];
+    setForm((f) => ({
+      ...f,
+      categoryId: first?.id ?? null,
+      category: first?.name ?? "",
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories, isOpen]);
+
+  // Esc to close
   useEffect(() => {
     const onEsc = (e) => {
       if (e.key === "Escape" && isOpen && !submitting) onClose();
@@ -122,20 +138,60 @@ const ProductModal = ({
 
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  const handleAddCategory = () => {
+  // ------------------------------------------------------------
+  // Options (all normalized to {value,label})
+  // ------------------------------------------------------------
+  const typeSelectOptions = types.map((t) => ({ value: t, label: t }));
+  const unitSelectOptions = units.map((u) => ({ value: u, label: u }));
+  const currencySelectOptions = currencies.map((c) => ({ value: c, label: c }));
+  const categorySelectOptions = categories.map((c) => ({
+    value: String(c.id), // 👈 select by id
+    label: c.name || `Category #${c.id}`,
+  }));
+
+  // ------------------------------------------------------------
+  // Add new category (inline, calls createProductCategory thunk)
+  // ------------------------------------------------------------
+  const handleAddCategory = async () => {
     const trimmed = newCategory.trim();
     if (!trimmed) {
       showToast("Category name cannot be empty", "error");
       return;
     }
-    if (localCategories.includes(trimmed)) {
+    if (
+      categories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())
+    ) {
       showToast("Category already exists", "error");
       return;
     }
-    setLocalCategories((prev) => [...prev, trimmed]);
-    update("category", trimmed);
-    setNewCategory("");
-    setAddingCategory(false);
+
+    setSavingCategory(true);
+    try {
+      const created = await dispatch(
+        createProductCategory({
+          name: trimmed,
+          description: "",
+          status: "Active",
+        }),
+      ).unwrap();
+
+      // use the id the API returned (fallback to name lookup)
+      const id = created?.id ?? created?.category?.id ?? null;
+      setForm((f) => ({
+        ...f,
+        categoryId: id,
+        category: trimmed,
+      }));
+
+      showToast("Category created", "success");
+      setNewCategory("");
+      setAddingCategory(false);
+      onCategoryCreated?.(); // parent refetches form-options
+    } catch (err) {
+      showToast(err || "Failed to create category", "error");
+    } finally {
+      setSavingCategory(false);
+    }
   };
 
   const validate = () => {
@@ -151,7 +207,10 @@ const ProductModal = ({
       showToast("Default price cannot be negative", "error");
       return false;
     }
-    if (form.taxRate !== "" && (Number(form.taxRate) < 0 || Number(form.taxRate) > 100)) {
+    if (
+      form.taxRate !== "" &&
+      (Number(form.taxRate) < 0 || Number(form.taxRate) > 100)
+    ) {
       showToast("Tax rate must be between 0 and 100", "error");
       return false;
     }
@@ -160,16 +219,16 @@ const ProductModal = ({
 
   const handleSave = async () => {
     if (!validate()) return;
-    setSubmitting(true);
+    setInternalSubmitting(true);
     try {
       const payload = {
         ...form,
         defaultPrice: Number(form.defaultPrice) || 0,
         taxRate: Number(form.taxRate) || 0,
       };
-      onSubmit?.(payload, isEdit);
+      await onSubmit?.(payload, isEdit);
     } finally {
-      setSubmitting(false);
+      setInternalSubmitting(false);
     }
   };
 
@@ -234,21 +293,20 @@ const ProductModal = ({
 
           {/* Row 2: Type / Category */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Type">
-              <select
-                value={form.type}
-                onChange={(e) => update("type", e.target.value)}
-                disabled={submitting}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              >
-                {TYPES.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-            </Field>
+            <SearchableSelect
+              label="Type"
+              value={form.type}
+              onChange={(v) => update("type", v)}
+              options={typeSelectOptions}
+              disabled={submitting}
+              placeholder="Select type..."
+              searchPlaceholder="Search types..."
+              clearable={false}
+            />
 
-            <Field label="Category">
-              {addingCategory ? (
+            {/* Category — SearchableSelect with inline "Add new" */}
+            {addingCategory ? (
+              <Field label="New Category" required>
                 <div className="flex gap-2">
                   <input
                     autoFocus
@@ -259,17 +317,26 @@ const ProductModal = ({
                         e.preventDefault();
                         handleAddCategory();
                       }
-                      if (e.key === "Escape") setAddingCategory(false);
+                      if (e.key === "Escape" && !savingCategory) {
+                        setAddingCategory(false);
+                        setNewCategory("");
+                      }
                     }}
-                    placeholder="New category name"
+                    placeholder="e.g. Human Resources"
+                    disabled={savingCategory}
                     className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   />
                   <button
                     type="button"
                     onClick={handleAddCategory}
-                    className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
+                    disabled={savingCategory}
+                    className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    Add
+                    {savingCategory ? (
+                      <Loader size={14} className="animate-spin" />
+                    ) : (
+                      "Add"
+                    )}
                   </button>
                   <button
                     type="button"
@@ -277,34 +344,37 @@ const ProductModal = ({
                       setAddingCategory(false);
                       setNewCategory("");
                     }}
-                    className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    disabled={savingCategory}
+                    className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
                   >
                     Cancel
                   </button>
                 </div>
-              ) : (
-                <div className="flex gap-2">
-                  <select
-                    value={form.category}
-                    onChange={(e) => update("category", e.target.value)}
-                    disabled={submitting}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    {localCategories.map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setAddingCategory(true)}
-                    className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                    title="Add new category"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              )}
-            </Field>
+              </Field>
+            ) : (
+              <SearchableSelect
+                label="Category"
+                value={form.categoryId != null ? String(form.categoryId) : ""}
+                onChange={(v) => {
+                  const selected = categories.find(
+                    (c) => String(c.id) === String(v),
+                  );
+                  setForm((f) => ({
+                    ...f,
+                    categoryId: selected?.id ?? null,
+                    category: selected?.name ?? "",
+                  }));
+                }}
+                options={categorySelectOptions}
+                loading={categoriesLoading}
+                disabled={submitting}
+                placeholder="Select category..."
+                searchPlaceholder="Search categories..."
+                emptyMessage="No categories yet"
+                addNewLabel="Add new category"
+                onAddNew={() => setAddingCategory(true)}
+              />
+            )}
           </div>
 
           {/* Description */}
@@ -321,18 +391,16 @@ const ProductModal = ({
 
           {/* Row 3: Unit / Price / Currency / Tax */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Field label="Unit">
-              <select
-                value={form.unit}
-                onChange={(e) => update("unit", e.target.value)}
-                disabled={submitting}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              >
-                {UNITS.map((u) => (
-                  <option key={u}>{u}</option>
-                ))}
-              </select>
-            </Field>
+            <SearchableSelect
+              label="Unit"
+              value={form.unit}
+              onChange={(v) => update("unit", v)}
+              options={unitSelectOptions}
+              disabled={submitting}
+              placeholder="Select unit..."
+              searchPlaceholder="Search units..."
+              clearable={false}
+            />
             <Field label="Default Price">
               <input
                 type="number"
@@ -345,18 +413,16 @@ const ProductModal = ({
                 className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
             </Field>
-            <Field label="Currency">
-              <select
-                value={form.currency}
-                onChange={(e) => update("currency", e.target.value)}
-                disabled={submitting}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </Field>
+            <SearchableSelect
+              label="Currency"
+              value={form.currency}
+              onChange={(v) => update("currency", v)}
+              options={currencySelectOptions}
+              disabled={submitting}
+              placeholder="Select currency..."
+              searchPlaceholder="Search currencies..."
+              clearable={false}
+            />
             <Field label="Tax Rate %">
               <input
                 type="number"
@@ -374,7 +440,7 @@ const ProductModal = ({
           {/* Row 4: Status */}
           <Field label="Status">
             <div className="flex gap-2">
-              {STATUSES.map((s) => (
+              {statuses.map((s) => (
                 <button
                   key={s}
                   type="button"

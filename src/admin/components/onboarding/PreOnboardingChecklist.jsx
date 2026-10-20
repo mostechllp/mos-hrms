@@ -42,12 +42,7 @@ const PreOnboardingChecklist = () => {
     }
   })();
 
-  const resolvedUserId =
-    routeId ||
-    queryId ||
-    employeeDetails?.userId ||
-    storedUserId ||
-    null;
+  const resolvedUserId = routeId || employeeDetails?.userId || queryId || storedUserId || null;
 
   // ── Fetch checklist on mount ──
   useEffect(() => {

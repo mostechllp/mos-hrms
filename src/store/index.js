@@ -27,6 +27,17 @@ import reportReducer from "../admin/store/slices/reportSlice";
 import payrollReducer from "../admin/store/slices/payrollSlice";
 import publicHolidayReducer from "../admin/store/slices/publicHolidaySlice";
 import warningReducer from "../admin/store/slices/warningSlice";
+import leavePolicyReducer  from "../admin/store/slices/leavePolicySlice";
+import proposalReducer from "../admin/store/slices/proposalSlice";
+import leadReducer  from "../admin/store/slices/leadSlice";
+import customerReducer  from "../admin/store/slices/customerSlice";
+import activityReducer from "../admin/store/slices/activitySlice";
+import quotationReducer from "../admin/store/slices/quotationSlice";
+import opportunityReducer from "../admin/store/slices/opportunitySlice";
+import productReducer from "../admin/store/slices/productSlice";
+import crmReportReducer from "../admin/store/slices/crmReportSlice";
+import crmSettingsReducer from "../admin/store/slices/crmSettingsSlice";
+import crmDashboardReducer from "../admin/store/slices/crmDashboardSlice";
 
 
 // Employee reducers
@@ -40,6 +51,7 @@ import EmpAttendanceReducer from "../employee/store/slices/attendanceSlice";
 import EmpAttendanceTypeReducer from "../employee/store/slices/attendanceTypeSlice";
 import employeeTasksReducer from "../employee/store/slices/taskSlice";
 import myPayrollReducer from "../employee/store/slices/myPayrollSlice";
+import employeeWarningReducer from "../employee/store/slices/employeeWarningSlice";
 
 
 export const store = configureStore({
@@ -72,6 +84,17 @@ export const store = configureStore({
     payroll: payrollReducer,
     publicHolidays: publicHolidayReducer,
     warnings: warningReducer,
+    leavePolicies: leavePolicyReducer,
+    proposals: proposalReducer,
+    leads: leadReducer,
+    customers: customerReducer,
+    activities: activityReducer,
+    quotations: quotationReducer,
+    opportunities: opportunityReducer,
+    products: productReducer,
+    crmReports: crmReportReducer,
+    crmSettings: crmSettingsReducer,
+    crmDashboard: crmDashboardReducer,
 
     // Employee
     EmpLeaves: leavesReducer,
@@ -84,6 +107,7 @@ export const store = configureStore({
     EmpAttendanceType: EmpAttendanceTypeReducer,
     employeeTasks: employeeTasksReducer,
     myPayroll: myPayrollReducer,
+    employeeWarnings: employeeWarningReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

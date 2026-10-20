@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../../store/slices/employeeSlice";
 import { updateLeave, fetchLeaveBalances, fetchLeaveTypes, fetchLeaves } from "../../store/slices/LeaveSlice";
 import { showToast } from "../../../components/common/Toast";
 import DateInput from "../common/DateInput";
@@ -59,7 +59,7 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
 
   useEffect(() => {
     if (isOpen) {
-      dispatch(fetchEmployees());
+      dispatch(fetchActiveEmployees());
       dispatch(fetchLeaveTypes());
       
       if (leaveToEdit) {
@@ -104,6 +104,8 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
           let allocationsData = [];
           if (result && result.allocations) {
             allocationsData = Object.values(result.allocations);
+          } else if (result && result.leave_types) {
+            allocationsData = result.leave_types;
           } else if (result && Array.isArray(result)) {
             allocationsData = result;
           } else if (result && result.data && Array.isArray(result.data)) {
@@ -112,7 +114,16 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
 
           const balances = {};
           allocationsData.forEach(alloc => {
-            const leaveTypeId = alloc.leave_type_id || alloc.leave_type?.id;
+            let leaveTypeId = alloc.leave_type_id || alloc.leave_type?.id;
+            
+            // Match by name if only string name is provided
+            if (!leaveTypeId && typeof alloc.leave_type === 'string') {
+              const foundType = leaveTypes.find(t => t.name === alloc.leave_type);
+              if (foundType) {
+                leaveTypeId = foundType.id;
+              }
+            }
+
             if (leaveTypeId) {
               const allocated = parseFloat(alloc.allocated_days || alloc.allocated || 0);
               const used = parseFloat(alloc.used_days || alloc.used || 0);
@@ -245,11 +256,6 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
     const extraDays = totalDays - originalDays;
 
     const balance = leaveBalances[formData.leave_type_id] || { remaining: 0 };
-    // Only warn if they are requesting extra days that exceed the balance
-    if (extraDays > 0 && extraDays > balance.remaining && balance.remaining >= 0) {
-        setLocalError(`Requested extra days (${extraDays}) exceed available balance (${balance.remaining} days)`);
-        return;
-    }
 
     setSubmitting(true);
     const formDataToSend = new FormData();
@@ -335,12 +341,11 @@ const EditLeaveModal = ({ isOpen, onClose, leaveToEdit }) => {
                   const balance = leaveBalances[type.id] || { remaining: 0 };
                   return (
                     <option key={type.id} value={type.id}>
-                      {type.name} {employeeId && !loadingBalances ? `(Available: ${balance.remaining})` : ''}
+                      {type.name} 
                     </option>
                   );
                 })}
               </select>
-              {loadingBalances && <p className="text-[10px] text-gray-400">Loading balances...</p>}
             </div>
 
             {/* Start Date & Session */}

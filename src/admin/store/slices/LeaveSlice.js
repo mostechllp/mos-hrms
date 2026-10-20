@@ -229,6 +229,34 @@ export const fetchLeaveTypes = createAsyncThunk(
   "leaves/fetchLeaveTypes",
   async (_, { rejectWithValue }) => {
     try {
+      const response = await apiClient.get("/admin/get-active-leave-types");
+      console.log("Leave types API response:", response.data);
+
+      let leaveTypesData = [];
+      if (response.data?.data && Array.isArray(response.data.data)) {
+        leaveTypesData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        leaveTypesData = response.data;
+      } else if (
+        response.data?.data?.data &&
+        Array.isArray(response.data.data.data)
+      ) {
+        leaveTypesData = response.data.data.data;
+      }
+
+      return leaveTypesData;
+    } catch (error) {
+      console.error("Fetch leave types error:", error);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch leave types",
+      );
+    }
+  },
+);
+export const fetchLeaveTypesForMgmt = createAsyncThunk(
+  "leaves/fetchLeaveTypes",
+  async (_, { rejectWithValue }) => {
+    try {
       const response = await apiClient.get("/admin/leave-types");
       console.log("Leave types API response:", response.data);
 

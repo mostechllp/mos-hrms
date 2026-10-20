@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useLocation } from "react-router-dom";
-import { fetchEmployees } from "../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../store/slices/employeeSlice";
 import { fetchOrganizations } from "../store/slices/organizationSlice";
 import { fetchAttendanceRecords } from "../store/slices/attendanceSlice";
 import { fetchLeaves } from "../store/slices/LeaveSlice";
@@ -58,7 +58,7 @@ const Reports = () => {
       // Fetch basic data
       await Promise.all([
         dispatch(fetchOrganizations()),
-        dispatch(fetchEmployees()),
+        dispatch(fetchActiveEmployees()),
         dispatch(fetchAttendanceRecords()),
         dispatch(fetchLeaves()),
       ]);

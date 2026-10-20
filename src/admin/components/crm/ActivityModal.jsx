@@ -1,80 +1,76 @@
 // src/admin/components/crm/ActivityModal.jsx
-
 import { useEffect, useState } from "react";
 import { X, Save, Loader, Check, CalendarClock } from "lucide-react";
 import { showToast } from "../../../components/common/Toast";
+import SearchableSelect from "../../../components/common/SearchableSelect";
+import DateInput from "../common/DateInput";
+import { TimeInput } from "../common/TimeInput";
 
-// ------------------------------------------------------------
-// Static option lists
-// ------------------------------------------------------------
-
-const TYPES = ["Call", "Email", "Meeting", "Task", "Site Visit"];
-const RELATED_TYPES = ["Lead", "Customer", "Opportunity", "Internal"];
-const PRIORITIES = ["Low", "Medium", "High"];
-const REMINDERS = ["None", "15 min", "1 hour", "1 day"];
-const STATUSES = ["Planned", "In Progress", "Completed", "Cancelled"];
-
-const ASSIGNEES = [
-  { value: "rahul", label: "Rahul Verma" },
-  { value: "amina", label: "Amina Khan" },
-  { value: "karthik", label: "Karthik Raj" },
-  { value: "riya", label: "Riya Roy" },
-  { value: "aarav", label: "Aarav Mehta" },
-];
-
-// Sample related records, keyed by type — replace with API lookups
-const RELATED_RECORDS = {
-  Lead: [
-    { value: "LED-0001", label: "Ramesh Kumar · Acme Corp" },
-    { value: "LED-0002", label: "Priya Sharma · Globex Ltd" },
-    { value: "LED-0003", label: "Amit Patel · Initech Solutions" },
-  ],
-  Customer: [
-    { value: "CUS-0001", label: "Acme Corp" },
-    { value: "CUS-0002", label: "Globex Ltd" },
-    { value: "CUS-0003", label: "Initech Solutions" },
-  ],
-  Opportunity: [
-    { value: "OPP-0001", label: "ABC Traders HRMS Rollout" },
-    { value: "OPP-0002", label: "XYZ Pvt Ltd ERP Migration" },
-    { value: "OPP-0003", label: "PQR Solutions CRM Setup" },
-  ],
-  Internal: [{ value: "—", label: "Internal" }],
+const FALLBACK = {
+  types: ["Call", "Email", "Meeting", "Task", "Site Visit"],
+  related_types: ["Lead", "Customer", "Opportunity", "Internal"],
+  priorities: ["Low", "Medium", "High"],
+  reminders: ["None", "15 min", "1 hour", "1 day"],
+  statuses: ["Planned", "In Progress", "Completed", "Cancelled"],
 };
 
-// ------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------
+const EMPTY_LOOKUP = [];
 
-const toLocalInput = (iso) => {
-  if (!iso) return "";
+// ---------- helpers ----------
+const pad = (n) => String(n).padStart(2, "0");
+
+const splitDateTime = (iso) => {
+  if (!iso) return { date: "", time: "" };
   const d = new Date(iso);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (isNaN(d.getTime())) return { date: "", time: "" };
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  };
 };
 
-const fromLocalInput = (v) => (v ? new Date(v).toISOString() : "");
+const combineDateTime = (date, time) => {
+  if (!date) return "";
+  const t = time || "00:00";
+  return `${date} ${t}:00`;
+};
 
 const defaultStart = (prefillDate) => {
   const d = prefillDate ? new Date(prefillDate) : new Date();
   d.setMinutes(0, 0, 0);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  };
 };
 
-const addHours = (localInput, hours) => {
-  if (!localInput) return "";
-  const d = new Date(localInput);
-  d.setHours(d.getHours() + hours);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const addHour = (time) => {
+  if (!time) return "";
+  const [h, m] = time.split(":").map(Number);
+  const nh = (h + 1) % 24;
+  return `${pad(nh)}:${pad(m)}`;
 };
 
-// ------------------------------------------------------------
-// Component
-// ------------------------------------------------------------
+const strOptions = (arr) => (arr || []).map((v) => ({ value: v, label: v }));
 
-const ActivityModal = ({ isOpen, onClose, activity, prefillDate, onSubmit }) => {
+// ---------- component ----------
+const ActivityModal = ({
+  isOpen,
+  onClose,
+  activity,
+  prefillDate,
+  options = FALLBACK,
+  onSubmit,
+  submitting = false,
+   employees = [],
+  leads = [],
+  customers = [],
+  opportunities = [],
+  employeesLoading = false,
+  leadsLoading = false,
+  customersLoading = false,
+  opportunitiesLoading = false,
+}) => {
   const isEdit = Boolean(activity?.id);
 
   const [form, setForm] = useState({
@@ -83,52 +79,61 @@ const ActivityModal = ({ isOpen, onClose, activity, prefillDate, onSubmit }) => 
     relatedToType: "Lead",
     relatedToId: "",
     assignedTo: "",
-    startAt: "",
-    endAt: "",
+    startDate: "",
+    startTime: "",
+    endDate: "",
+    endTime: "",
     priority: "Medium",
     reminder: "None",
     description: "",
     status: "Planned",
   });
-  const [submitting, setSubmitting] = useState(false);
 
   // Hydrate
   useEffect(() => {
     if (!isOpen) return;
     if (isEdit) {
+      const start = splitDateTime(activity.startAt);
+      const end = splitDateTime(activity.endAt);
       setForm({
         title: activity.title || "",
         type: activity.type || "Call",
         relatedToType: activity.relatedToType || "Lead",
         relatedToId: activity.relatedToId || "",
-        assignedTo: activity.assignedTo || "",
-        startAt: toLocalInput(activity.startAt),
-        endAt: toLocalInput(activity.endAt),
+        assignedTo: activity.assignedToId
+          ? String(activity.assignedToId)
+          : activity.assignedTo || "",
+        startDate: start.date,
+        startTime: start.time,
+        endDate: end.date,
+        endTime: end.time,
         priority: activity.priority || "Medium",
         reminder: activity.reminder || "None",
         description: activity.description || "",
         status: activity.status || "Planned",
       });
     } else {
-      const start = defaultStart(prefillDate);
+      const s = defaultStart(prefillDate);
       setForm({
         title: "",
         type: "Call",
         relatedToType: "Lead",
         relatedToId: "",
         assignedTo: "",
-        startAt: start,
-        endAt: addHours(start, 1),
+        startDate: s.date,
+        startTime: s.time,
+        endDate: s.date,
+        endTime: addHour(s.time),
         priority: "Medium",
         reminder: "None",
         description: "",
         status: "Planned",
       });
     }
-    setSubmitting(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, activity, prefillDate, isEdit]);
 
-  // Esc close
+  // Esc to close
   useEffect(() => {
     const onEsc = (e) => {
       if (e.key === "Escape" && isOpen && !submitting) onClose();
@@ -141,7 +146,80 @@ const ActivityModal = ({ isOpen, onClose, activity, prefillDate, onSubmit }) => 
 
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  const relatedOptions = RELATED_RECORDS[form.relatedToType] || [];
+    // Static enum options
+  const typeOptions = strOptions(FALLBACK.types);
+  const relatedTypeOptions = strOptions(FALLBACK.related_types);
+  const priorityOptions = strOptions(FALLBACK.priorities);
+  const reminderOptions = strOptions(FALLBACK.reminders);
+  const statusOptions = strOptions(FALLBACK.statuses);
+
+  // Employee options — from /admin/crm/activities/employees
+  const assigneeOptions = (employees || []).map((e) => {
+  const first = e.first_name || "";
+  const last = e.last_name || "";
+  const full = `${first} ${last}`.trim() || e.name || "";
+
+  // designation and department come back as nested objects
+  const designationName =
+    typeof e.designation === "string"
+      ? e.designation
+      : e.designation?.name || "";
+
+  const departmentName =
+    typeof e.department === "string" ? e.department : e.department?.name || "";
+
+  // Build a nice label. If we have designation use it; else fall back to
+  // department; else just the name.
+  const meta = designationName || departmentName;
+  const suffix = meta ? ` — ${meta}` : "";
+
+  return {
+    value: String(e.id),
+    label: full ? `${full}${suffix}` : `#${e.id}`,
+  };
+});
+
+  // Related records — one source per type, "Internal" is a no-op
+  const relatedOptions = (() => {
+    if (form.relatedToType === "Lead") {
+      return (leads || []).map((l) => ({
+        value: String(l.id),
+        label:
+          l.lead_name || l.lead_id
+            ? `${l.lead_name || ""}${
+                l.company_name ? ` · ${l.company_name}` : ""
+              }`.trim() || `#${l.id}`
+            : `#${l.id}`,
+      }));
+    }
+    if (form.relatedToType === "Customer") {
+      return (customers || []).map((c) => ({
+        value: String(c.id),
+        label: c.company_name || `#${c.id}`,
+      }));
+    }
+    if (form.relatedToType === "Opportunity") {
+      return (opportunities || []).map((o) => ({
+        value: String(o.id),
+        label:
+          o.opportunity_name ||
+          o.name ||
+          o.title ||
+          o.company_name ||
+          `#${o.id}`,
+      }));
+    }
+    return [{ value: "—", label: "Internal" }];
+  })();
+
+  const relatedLoading =
+    form.relatedToType === "Lead"
+      ? leadsLoading
+      : form.relatedToType === "Customer"
+        ? customersLoading
+        : form.relatedToType === "Opportunity"
+          ? opportunitiesLoading
+          : false;
 
   const validate = () => {
     if (!form.title.trim()) {
@@ -152,66 +230,67 @@ const ActivityModal = ({ isOpen, onClose, activity, prefillDate, onSubmit }) => 
       showToast("Please assign an employee", "error");
       return false;
     }
-    if (!form.startAt) {
+    if (!form.startDate || !form.startTime) {
       showToast("Please pick a start date and time", "error");
       return false;
     }
-    if (form.endAt && new Date(form.endAt) < new Date(form.startAt)) {
+    if (
+      form.endDate &&
+      form.endTime &&
+      combineDateTime(form.endDate, form.endTime) <
+        combineDateTime(form.startDate, form.startTime)
+    ) {
       showToast("End time cannot be before start time", "error");
       return false;
     }
     if (form.relatedToType !== "Internal" && !form.relatedToId) {
-      showToast(`Please select a ${form.relatedToType.toLowerCase()}`, "error");
+      showToast(
+        `Please select a ${form.relatedToType.toLowerCase()}`,
+        "error",
+      );
       return false;
     }
     return true;
   };
 
-  const buildPayload = (statusOverride) => {
-    const related = relatedOptions.find((r) => r.value === form.relatedToId);
-    return {
-      ...form,
-      startAt: fromLocalInput(form.startAt),
-      endAt: fromLocalInput(form.endAt),
-      status: statusOverride || form.status,
-      relatedToLabel:
-        related?.label ||
-        (form.relatedToType === "Internal" ? "Internal" : form.relatedToId),
-    };
-  };
+  const buildPayload = (statusOverride) => ({
+    title: form.title.trim(),
+    type: form.type,
+    relatedToType: form.relatedToType,
+    relatedToId: form.relatedToId,
+    assignedTo: form.assignedTo,
+    startAt: combineDateTime(form.startDate, form.startTime),
+    endAt: combineDateTime(form.endDate, form.endTime),
+    priority: form.priority,
+    reminder: form.reminder,
+    description: form.description,
+    status: statusOverride || form.status,
+  });
 
-  const submit = async (afterSubmit, statusOverride) => {
+  const submit = (statusOverride) => {
     if (!validate()) return;
-    setSubmitting(true);
-    try {
-      const payload = buildPayload(statusOverride);
-      onSubmit?.(payload, isEdit);
-      if (afterSubmit) afterSubmit();
-    } finally {
-      setSubmitting(false);
-    }
+    const payload = buildPayload(statusOverride);
+    onSubmit?.(payload, isEdit);
   };
 
-  const handleSave = () => submit(() => onClose());
-  const handleSaveAndAddAnother = () =>
-    submit(() => {
-      const start = defaultStart(prefillDate);
-      setForm((f) => ({
-        ...f,
-        title: "",
-        relatedToId: "",
-        startAt: start,
-        endAt: addHours(start, 1),
-        description: "",
-      }));
-    });
-  const handleMarkCompleted = () =>
-    submit(() => onClose(), "Completed");
-  const handleReschedule = () => {
-    showToast("Reschedule mode: pick a new date and save.", "info");
+  const handleSave = () => submit();
+  const handleSaveAndAddAnother = () => {
+    if (!validate()) return;
+    onSubmit?.(buildPayload(), false);
+    const s = defaultStart(prefillDate);
+    setForm((f) => ({
+      ...f,
+      title: "",
+      relatedToId: "",
+      startDate: s.date,
+      startTime: s.time,
+      endDate: s.date,
+      endTime: addHour(s.time),
+      description: "",
+    }));
   };
-  const handleCancelActivity = () =>
-    submit(() => onClose(), "Cancelled");
+  const handleMarkCompleted = () => submit("Completed");
+  const handleCancelActivity = () => submit("Cancelled");
 
   return (
     <div
@@ -250,7 +329,6 @@ const ActivityModal = ({ isOpen, onClose, activity, prefillDate, onSubmit }) => 
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* Title */}
           <Field label="Activity Title" required>
             <input
               value={form.title}
@@ -262,151 +340,127 @@ const ActivityModal = ({ isOpen, onClose, activity, prefillDate, onSubmit }) => 
           </Field>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Activity type */}
             <Field label="Activity Type">
-              <select
+              <SearchableSelect
                 value={form.type}
-                onChange={(e) => update("type", e.target.value)}
-                disabled={submitting}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              >
-                {TYPES.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
+                onChange={(v) => update("type", v)}
+                options={typeOptions}
+                placeholder="Select type..."
+              />
             </Field>
 
-            {/* Priority */}
             <Field label="Priority">
-              <select
+              <SearchableSelect
                 value={form.priority}
-                onChange={(e) => update("priority", e.target.value)}
-                disabled={submitting}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              >
-                {PRIORITIES.map((p) => (
-                  <option key={p}>{p}</option>
-                ))}
-              </select>
+                onChange={(v) => update("priority", v)}
+                options={priorityOptions}
+                placeholder="Select priority..."
+              />
             </Field>
 
-            {/* Related type */}
             <Field label="Related Record Type">
-              <select
+              <SearchableSelect
                 value={form.relatedToType}
-                onChange={(e) => {
-                  update("relatedToType", e.target.value);
+                onChange={(v) => {
+                  update("relatedToType", v);
                   update("relatedToId", "");
                 }}
-                disabled={submitting}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              >
-                {RELATED_TYPES.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
+                options={relatedTypeOptions}
+                placeholder="Select relation..."
+              />
             </Field>
 
-            {/* Related record */}
             <Field
-              label={`Related ${form.relatedToType}`}
-              required={form.relatedToType !== "Internal"}
-            >
-              <select
-                value={form.relatedToId}
-                onChange={(e) => update("relatedToId", e.target.value)}
-                disabled={submitting || form.relatedToType === "Internal"}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60"
-              >
-                <option value="">
-                  {form.relatedToType === "Internal"
-                    ? "—"
-                    : `Select ${form.relatedToType.toLowerCase()}...`}
-                </option>
-                {relatedOptions.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
+  label={`Related ${form.relatedToType}`}
+  required={form.relatedToType !== "Internal"}
+>
+  <SearchableSelect
+    value={form.relatedToId}
+    onChange={(v) => update("relatedToId", v)}
+    options={relatedOptions}
+    placeholder={
+      form.relatedToType === "Internal"
+        ? "—"
+        : `Select ${form.relatedToType.toLowerCase()}...`
+    }
+    disabled={form.relatedToType === "Internal"}
+    loading={relatedLoading}
+  />
+</Field>
 
-            {/* Assigned employee */}
             <Field label="Assigned Employee" required>
-              <select
-                value={form.assignedTo}
-                onChange={(e) => update("assignedTo", e.target.value)}
-                disabled={submitting}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              >
-                <option value="">Select employee...</option>
-                {ASSIGNEES.map((a) => (
-                  <option key={a.value} value={a.label}>
-                    {a.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
+  <SearchableSelect
+    value={form.assignedTo}
+    onChange={(v) => update("assignedTo", v)}
+    options={assigneeOptions}
+    placeholder="Select employee..."
+    searchPlaceholder="Search..."
+    loading={employeesLoading}
+  />
+</Field>
 
-            {/* Status */}
             <Field label="Status">
-              <select
+              <SearchableSelect
                 value={form.status}
-                onChange={(e) => update("status", e.target.value)}
-                disabled={submitting}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              >
-                {STATUSES.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
+                onChange={(v) => update("status", v)}
+                options={statusOptions}
+                placeholder="Select status..."
+              />
             </Field>
 
-            {/* Start */}
-            <Field label="Start Date & Time" required>
-              <input
-                type="datetime-local"
-                value={form.startAt}
-                onChange={(e) => {
-                  const start = e.target.value;
-                  update("startAt", start);
-                  // Auto-bump end if it's now before start
-                  if (!form.endAt || new Date(form.endAt) < new Date(start)) {
-                    update("endAt", addHours(start, 1));
-                  }
+            <Field label="Start Date" required>
+              <DateInput
+                value={form.startDate}
+                onChange={(val) => {
+                  update("startDate", val);
+                  if (!form.endDate) update("endDate", val);
                 }}
-                disabled={submitting}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                type="general"
+                placeholder="dd/mm/yyyy"
+                className="!bg-white dark:!bg-gray-900 !border-gray-200 dark:!border-gray-700 !rounded-lg !text-sm !px-3 !py-2"
               />
             </Field>
 
-            {/* End */}
-            <Field label="End Date & Time">
-              <input
-                type="datetime-local"
-                value={form.endAt}
-                onChange={(e) => update("endAt", e.target.value)}
-                disabled={submitting}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            <Field label="Start Time" required>
+              <TimeInput
+                value={form.startTime}
+                onChange={(e) => {
+                  const t = e.target.value;
+                  update("startTime", t);
+                  if (!form.endTime) update("endTime", addHour(t));
+                }}
+                className="!bg-white dark:!bg-gray-900 !border-gray-200 dark:!border-gray-700 !rounded-lg !text-sm !py-2"
               />
             </Field>
 
-            {/* Reminder */}
+            <Field label="End Date">
+              <DateInput
+                value={form.endDate}
+                onChange={(val) => update("endDate", val)}
+                type="general"
+                placeholder="dd/mm/yyyy"
+                className="!bg-white dark:!bg-gray-900 !border-gray-200 dark:!border-gray-700 !rounded-lg !text-sm !px-3 !py-2"
+              />
+            </Field>
+
+            <Field label="End Time">
+              <TimeInput
+                value={form.endTime}
+                onChange={(e) => update("endTime", e.target.value)}
+                className="!bg-white dark:!bg-gray-900 !border-gray-200 dark:!border-gray-700 !rounded-lg !text-sm !py-2"
+              />
+            </Field>
+
             <Field label="Reminder">
-              <select
+              <SearchableSelect
                 value={form.reminder}
-                onChange={(e) => update("reminder", e.target.value)}
-                disabled={submitting}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              >
-                {REMINDERS.map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
-              </select>
+                onChange={(v) => update("reminder", v)}
+                options={reminderOptions}
+                placeholder="Select reminder..."
+              />
             </Field>
           </div>
 
-          {/* Description */}
           <Field label="Description">
             <textarea
               rows={3}
@@ -431,13 +485,6 @@ const ActivityModal = ({ isOpen, onClose, activity, prefillDate, onSubmit }) => 
 
           {isEdit && (
             <>
-              <button
-                onClick={handleReschedule}
-                disabled={submitting}
-                className="px-4 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-semibold text-sm hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-all disabled:opacity-50"
-              >
-                Reschedule
-              </button>
               <button
                 onClick={handleCancelActivity}
                 disabled={submitting}
@@ -486,9 +533,6 @@ const ActivityModal = ({ isOpen, onClose, activity, prefillDate, onSubmit }) => 
   );
 };
 
-// ------------------------------------------------------------
-// Field wrapper
-// ------------------------------------------------------------
 const Field = ({ label, required, children }) => (
   <div>
     <label className="block text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-1.5">

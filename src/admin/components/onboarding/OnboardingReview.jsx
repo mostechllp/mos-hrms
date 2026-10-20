@@ -24,7 +24,7 @@ import {
   fetchOnboardingProgress,
 } from "../../store/slices/onboardingSlice";
 import { showToast } from "../../components/common/Toast";
-import { fetchEmployees } from "../../store/slices/employeeSlice";
+import { fetchActiveEmployees } from "../../store/slices/employeeSlice";
 
 const OnboardingReview = () => {
   const dispatch = useDispatch();
@@ -103,7 +103,7 @@ const OnboardingReview = () => {
       dispatch(completeOnboarding());
       dispatch(fetchOnboardingProgress(resolvedCompleteId));
       showToast("Onboarding completed successfully!", "success");
-      dispatch(fetchEmployees());
+      dispatch(fetchActiveEmployees());
     } catch (err) {
       const rawMsg =
         typeof err === "string"

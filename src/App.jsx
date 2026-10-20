@@ -12,6 +12,7 @@ import ProtectedRoute from "./shared/components/ProtectedRoute";
 import Login from "./pages/Login";
 import { ThemeProvider } from "./context/ThemeContext";
 import NotFound from "./pages/NotFound";
+import OnboardingDashboard from "./admin/pages/Onboarding";
 
 // Lazy load layouts with prefetch
 const AdminLayout = lazy(() => import("./shared/layouts/AdminLayout"));
@@ -41,6 +42,7 @@ const LeaveAllocations = lazy(() => import("./admin/pages/LeaveAllocations"));
 const EditLeaveAllocation = lazy(
   () => import("./admin/pages/EditLeaveAllocation"),
 );
+const LeavePolicy = lazy(() => import("./admin/pages/LeavePolicy"));
 const Designations = lazy(() => import("./admin/pages/Designations"));
 const Departments = lazy(() => import("./admin/pages/Departments"));
 const TaskReports = lazy(() => import("./admin/pages/TaskReports"));
@@ -145,9 +147,11 @@ const OpportunityDetail = lazy(
 const CrmActivities = lazy(() => import("./admin/pages/CRM/Activities"));
 const CrmQuotations = lazy(() => import("./admin/pages/CRM/Quotations"));
 const AddQuotation = lazy(() => import("./admin/pages/CRM/AddQuotation"));
+const ViewQuotation = lazy(() => import("./admin/pages/CRM/QuatationDetails"));
 const CrmProducts = lazy(() => import("./admin/pages/CRM/Products"));
 const CrmReports = lazy(() => import("./admin/pages/CRM/CrmReports"));
 const CrmSettings = lazy(() => import("./admin/pages/CRM/CrmSettings"));
+const CrmProposals = lazy(() => import("./admin/pages/CRM/Proposals"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -165,6 +169,7 @@ const AttendanceRequests = lazy(
 );
 const MyPayroll = lazy(() => import("./employee/pages/MyPayroll"));
 const Warnings = lazy(() => import("./admin/pages/Warnings"));
+const EmployeeWarnings = lazy(() => import("./employee/pages/Warnings"));
 
 // Custom wrapper for lazy-loaded components
 const LazyWrapper = ({ children }) => {
@@ -230,7 +235,10 @@ function App() {
             path="employees/onboarding-initiation"
             element={<OnboardingInitalize />}
           />
-          <Route path="employees/onboarding" element={<Onboarding />} />
+          <Route path="employees/onboarding">
+            <Route index element={<OnboardingDashboard />} />
+            <Route path=":section" element={<OnboardingInitalize />} />
+          </Route>
           <Route path="employees/offboarding" element={<Offboarding />} />
           <Route
             path="employees/offboarding-initiation"
@@ -354,6 +362,7 @@ function App() {
           <Route path="leaves" element={<Leaves />} />
           <Route path="leaves/leave-types" element={<LeaveTypeManagement />} />
           <Route path="leaves/allocations" element={<LeaveAllocations />} />
+          <Route path="leaves/leave-policies" element={<LeavePolicy />} />
           <Route
             path="leaves/allocations/:id"
             element={<EditLeaveAllocation />}
@@ -401,14 +410,12 @@ function App() {
             <Route path="activities" element={<CrmActivities />} />
             <Route path="quotations" element={<CrmQuotations />} />
             <Route path="quotations/new" element={<AddQuotation />} />
-            <Route path="quotations/:quotationId" element={<AddQuotation />} />
-            <Route
-              path="quotations/:quotationId/edit"
-              element={<AddQuotation />}
-            />
+            <Route path="quotations/:id" element={<ViewQuotation />} />
+            <Route path="quotations/:id/edit" element={<AddQuotation />} />
             <Route path="products" element={<CrmProducts />} />
             <Route path="reports" element={<CrmReports />} />
             <Route path="settings" element={<CrmSettings />} />
+            <Route path="proposals" element={<CrmProposals />} />
           </Route>
         </Route>
 
@@ -436,6 +443,8 @@ function App() {
             element={<EditLeaveAllocation />}
           />
           <Route path="leaves" element={<EmployeeLeaves />} />
+          <Route path="leaves/leave-types" element={<LeaveTypeManagement />} />
+          <Route path="leaves/leave-policies" element={<LeavePolicy />} />
           <Route path="request-leave" element={<RequestLeave />} />
           <Route path="wfh" element={<EmployeeWFH />} />
           <Route path="my-tasks" element={<EmployeeTaskReports />} />
@@ -445,6 +454,58 @@ function App() {
           <Route path="profile" element={<EmployeeProfile />} />
           <Route path="attendance-requests" element={<AttendanceRequests />} />
           <Route path="organizations" element={<Organizations />} />
+          <Route path="my-warnings" element={<EmployeeWarnings />} />
+
+          {/* Employee Offboarding Routes */}
+          <Route path="offboarding" element={<Offboarding />} />
+          <Route path="employees/offboarding" element={<Offboarding />} />
+          <Route
+            path="employees/offboarding-initiation"
+            element={<OffboardingInitiation />}
+          />
+          <Route
+            path="employees/offboarding-checklist-manager"
+            element={<OffboardingChecklistManager />}
+          />
+          <Route
+            path="employees/checklist-categories"
+            element={<ChecklistCategories />}
+          />
+          <Route
+            path="employees/asset-management"
+            element={<AssetManagement />}
+          />
+          <Route
+            path="employees/assets/types"
+            element={<AssetTypeManagement />}
+          />
+          <Route
+            path="employees/visa-cancellation"
+            element={<VisaCancellationAndExit />}
+          />
+          <Route
+            path="employees/offboarding-checklist"
+            element={<OffboardingChecklist />}
+          />
+          <Route path="employees/asset-return" element={<AssetReturn />} />
+          <Route path="employees/exit-interview" element={<ExitInterview />} />
+          <Route
+            path="employees/final-settlement"
+            element={<FinalSettlement />}
+          />
+          <Route
+            path="employees/letters-and-clearance"
+            element={<LettersAndClearance />}
+          />
+          <Route path="employees/offboarding/handover" element={<Handover />} />
+          <Route
+            path="employees/offboarding/leave-check"
+            element={<LeaveCheck />}
+          />
+          <Route
+            path="employees/offboarding/access-removal"
+            element={<AccessRemoval />}
+          />
 
           {/* Add admin-style routes for HR managers */}
           <Route path="employees" element={<Employees />} />
@@ -452,7 +513,11 @@ function App() {
           <Route path="employees/edit/:id" element={<EditEmployee />} />
           <Route path="employees/:id" element={<EmployeeDetails />} />
 
-          <Route path="onboarding" element={<Onboarding />} />
+          <Route path="onboarding">
+            <Route index element={<OnboardingDashboard />} />
+            <Route path=":section" element={<OnboardingInitalize />} />
+          </Route>
+
           <Route
             path="employees/onboarding-initiation"
             element={<OnboardingInitalize />}
@@ -526,6 +591,41 @@ function App() {
             element={<EditCompany />}
           />
           <Route path="warnings" element={<Warnings />} />
+
+          <Route path="crm/dashboard" element={<CrmDashboard />} />
+          <Route path="crm">
+            <Route path="dashboard" element={<CrmDashboard />} />
+            <Route path="leads" element={<CrmLeads />} />
+            <Route path="leads/new" element={<AddLead />} />
+            <Route path="leads/:leadId" element={<LeadDetail />} />
+            <Route path="leads/:leadId/edit" element={<AddLead />} />
+            <Route path="customers" element={<CrmCustomers />} />
+            <Route path="customers/new" element={<AddCustomer />} />
+            <Route path="customers/:customerId" element={<CustomerDetail />} />
+            <Route
+              path="customers/:customerId/edit"
+              element={<AddCustomer />}
+            />
+            <Route path="opportunities" element={<CrmOpportunities />} />
+            <Route path="opportunities/new" element={<AddOpportunity />} />
+            <Route
+              path="opportunities/:opportunityId"
+              element={<OpportunityDetail />}
+            />
+            <Route
+              path="opportunities/:opportunityId/edit"
+              element={<AddOpportunity />}
+            />
+            <Route path="activities" element={<CrmActivities />} />
+            <Route path="quotations" element={<CrmQuotations />} />
+            <Route path="quotations/new" element={<AddQuotation />} />
+            <Route path="quotations/:id" element={<ViewQuotation />} />
+            <Route path="quotations/:id/edit" element={<AddQuotation />} />
+            <Route path="products" element={<CrmProducts />} />
+            <Route path="reports" element={<CrmReports />} />
+            <Route path="settings" element={<CrmSettings />} />
+            <Route path="proposals" element={<CrmProposals />} />
+          </Route>
         </Route>
 
         <Route

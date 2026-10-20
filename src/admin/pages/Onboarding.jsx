@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// src/admin/pages/Onboarding.jsx
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -6,7 +7,6 @@ import {
   FileText,
   CheckCircle2,
   Clock,
-  AlertCircle,
   Users,
   Briefcase,
   Calendar,
@@ -14,27 +14,46 @@ import {
   ArrowRight,
   PlusCircle,
   UserCheck,
-  Upload,
-  Award,
   Building2,
   RefreshCw,
   Play,
   Trash2,
   Eye,
 } from "lucide-react";
-import { fetchEmployees } from "../store/slices/employeeSlice";
-import { deleteOnboardingEmployee } from "../store/slices/onboardingSlice";
+import { fetchActiveEmployees } from "../store/slices/employeeSlice";
+import {
+  deleteOnboardingEmployee,
+  resetOnboarding,
+} from "../store/slices/onboardingSlice";
 import ConfirmModal from "../components/common/ConfirmModal";
 import apiClient from "../../utils/apiClient";
 
-// Map the API progress step key → our wizard step number
+// API step key → wizard step number
 const STEP_KEY_TO_WIZARD_STEP = {
   details: 2,
   verification: 3,
   salary: 4,
-  banks: 4,
   checklist: 6,
   complete: 7,
+};
+
+// API step number → wizard step number
+const API_STEP_TO_WIZARD_STEP = {
+  1: 2, // details
+  2: 3, // verification
+  3: 4, // salary
+  4: 6, // checklist
+  5: 7, // complete
+};
+
+// Wizard step number → URL section slug
+const WIZARD_STEP_TO_SECTION = {
+  2: "details",
+  3: "verification",
+  4: "salary",
+  5: "offer",
+  6: "checklist",
+  7: "review",
 };
 
 const OnboardingDashboard = () => {
@@ -42,9 +61,13 @@ const OnboardingDashboard = () => {
   const location = useLocation();
   const dispatch = useDispatch();
 
-  // ── Detect which layout we're in ──
   const isEmployee = location.pathname.startsWith("/employee");
   const base = isEmployee ? "/employee" : "/admin";
+
+  // Where the wizard lives — different parent for admin vs employee
+  const onboardingBase = isEmployee
+    ? "/employee/onboarding"
+    : "/admin/employees/onboarding";
 
   const [stats, setStats] = useState({
     activeOnboarding: 0,
@@ -68,7 +91,7 @@ const OnboardingDashboard = () => {
   );
 
   useEffect(() => {
-    dispatch(fetchEmployees());
+    dispatch(fetchActiveEmployees());
   }, [dispatch]);
 
   const fetchProgressForEmployees = async (onboardingEmployees) => {
@@ -79,9 +102,6 @@ const OnboardingDashboard = () => {
       const results = await Promise.allSettled(
         onboardingEmployees.map((emp) => {
           const userId = emp.userId || emp.user_id || emp.id;
-          // Use the base prefix so employee context hits an employee endpoint if it exists.
-          // If your backend only has /admin/..., replace with the correct employee endpoint
-          // or keep /admin if employees are permitted to call it.
           return apiClient
             .get(`${base}/employees/onboard/progress/${userId}`)
             .then((res) => res.data?.data ?? res.data)
@@ -111,8 +131,6 @@ const OnboardingDashboard = () => {
 
       const onboardingEmployees = employees.filter(isOnboarding);
 
-      const onboardingCount = onboardingEmployees.length;
-
       const completedCount = employees.filter((emp) => {
         if (emp.status === "Active" || emp.status === "active") {
           const completionDate = emp.completionDate || emp.updatedAt;
@@ -127,16 +145,24 @@ const OnboardingDashboard = () => {
         return false;
       }).length;
 
-      const progressPairs = await fetchProgressForEmployees(
-        onboardingEmployees,
-      );
+      const progressPairs =
+        await fetchProgressForEmployees(onboardingEmployees);
 
       const progressMap = new Map();
       progressPairs.forEach(({ emp, progress }) => {
-        if (progress) {
-          progressMap.set(emp.id, progress);
-        }
+        if (progress) progressMap.set(emp.id, progress);
       });
+
+      const activeOnboardingEmployees = onboardingEmployees.filter((emp) => {
+        const p = progressMap.get(emp.id);
+        if (!p) return true; // no progress yet → still active
+        const pct = Number(p.percentage) || 0;
+        const completed = Number(p.completed_steps) || 0;
+        const total = Number(p.total_steps) || 0;
+        return pct < 100 && (total === 0 || completed < total);
+      });
+
+      const onboardingCount = activeOnboardingEmployees.length;
 
       let pendingTasksCount = 0;
       let pendingDocsCount = 0;
@@ -145,7 +171,7 @@ const OnboardingDashboard = () => {
         const p = progressMap.get(emp.id);
         if (p) {
           const remaining =
-            (Number(p.total_steps) || 6) - (Number(p.completed_steps) || 0);
+            (Number(p.total_steps) || 5) - (Number(p.completed_steps) || 0);
           pendingTasksCount += Math.max(remaining, 0);
 
           const checklistStep = (p.steps || []).find(
@@ -155,7 +181,7 @@ const OnboardingDashboard = () => {
             pendingDocsCount += 1;
           }
         } else {
-          pendingTasksCount += 5;
+          pendingTasksCount += 4;
           pendingDocsCount += 2;
         }
       });
@@ -179,11 +205,15 @@ const OnboardingDashboard = () => {
         const p = progressMap.get(emp.id);
         const percentage = p ? Number(p.percentage) || 0 : 0;
         const completedSteps = p ? Number(p.completed_steps) || 0 : 0;
-        const totalSteps = p ? Number(p.total_steps) || 6 : 6;
+        const totalSteps = p ? Number(p.total_steps) || 5 : 5;
         const steps = Array.isArray(p?.steps) ? p.steps : [];
 
+        const isStepCompleted = (s) =>
+          s?.completed === true || s?.completed === "true";
+
+        const firstIncomplete = steps.find((s) => !isStepCompleted(s));
         const currentStepEntry =
-          steps.find((s) => !s.completed) || steps[steps.length - 1] || null;
+          firstIncomplete || steps[steps.length - 1] || null;
 
         return {
           id: emp.id,
@@ -207,6 +237,7 @@ const OnboardingDashboard = () => {
           totalSteps,
           stepLabel: currentStepEntry?.label || "Initiation",
           currentStepKey: currentStepEntry?.key || "details",
+          apiStepNumber: firstIncomplete?.step ?? null,
           steps,
         };
       });
@@ -219,23 +250,45 @@ const OnboardingDashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employees, employeesLoading, base]);
 
+  const handleStartFreshOnboarding = () => {
+    // Wipe any stale wizard state
+    dispatch(resetOnboarding());
+
+    // Wipe persisted keys so the mount effects can't reload them
+    try {
+      localStorage.removeItem("onboarding_user_id");
+      localStorage.removeItem("onboarding-draft");
+    } catch {
+      /* ignore */
+    }
+
+    // Navigate to a clean initiate URL (no ?id=)
+    navigate(`${onboardingBase}/initiate`);
+  };
+
   // ── Continue: resume where the user left off ──
   const handleContinue = (employee) => {
     if (employee.percentage >= 100) {
-      navigate(
-        `${base}/employees/onboarding-initiation?step=7&id=${employee.userId}`,
-      );
+      navigate(`${onboardingBase}/review?id=${employee.userId}`);
       return;
     }
 
-    const step =
-      employee.completedSteps === 0
-        ? 2
-        : STEP_KEY_TO_WIZARD_STEP[employee.currentStepKey] || 2;
+    // 1. Prefer numeric API step
+    let wizardStep = null;
+    if (employee.apiStepNumber != null) {
+      wizardStep = API_STEP_TO_WIZARD_STEP[employee.apiStepNumber] ?? null;
+    }
 
-    navigate(
-      `${base}/employees/onboarding-initiation?step=${step}&id=${employee.userId}`,
-    );
+    // 2. Fall back to key map
+    if (!wizardStep && employee.currentStepKey) {
+      wizardStep = STEP_KEY_TO_WIZARD_STEP[employee.currentStepKey] ?? null;
+    }
+
+    // 3. Never started → details
+    if (employee.completedSteps === 0 || !wizardStep) wizardStep = 2;
+
+    const section = WIZARD_STEP_TO_SECTION[wizardStep] || "initiate";
+    navigate(`${onboardingBase}/${section}?id=${employee.userId}`);
   };
 
   // ── View details (for completed onboarding) ──
@@ -257,7 +310,7 @@ const OnboardingDashboard = () => {
     try {
       await dispatch(deleteOnboardingEmployee(employee.id)).unwrap();
       setRecentOnboarding((prev) => prev.filter((e) => e.id !== employee.id));
-      dispatch(fetchEmployees());
+      dispatch(fetchActiveEmployees());
       setDeleteModal({ isOpen: false, employee: null });
     } catch (err) {
       console.error("Delete failed:", err);
@@ -278,7 +331,7 @@ const OnboardingDashboard = () => {
       description:
         "Start the onboarding process for a new employee. Fill in personal details, job information, and visa requirements.",
       icon: <UserPlus size={28} />,
-      path: `${base}/employees/onboarding-initiation`,
+      path: `${onboardingBase}/initiate`,
       color: "blue",
       bgClass:
         "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400",
@@ -629,9 +682,9 @@ const OnboardingDashboard = () => {
                 Onboarding Best Practices
               </h4>
               <p className="text-[10px] md:text-xs text-green-700 dark:text-green-400 mt-1">
-                Ensure all documents are collected before joining date.
-                Complete visa processing at least 2 weeks prior to start date.
-                Schedule orientation and IT setup in advance.
+                Ensure all documents are collected before joining date. Complete
+                visa processing at least 2 weeks prior to start date. Schedule
+                orientation and IT setup in advance.
               </p>
             </div>
           </div>

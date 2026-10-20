@@ -16,13 +16,14 @@ import ConfirmModal from "../components/common/ConfirmModal";
 
 const Employees = () => {
   const dispatch = useDispatch();
-  const navigate = useNavigate(); // ✅ added for row navigation
+  const navigate = useNavigate();
   const { employees = [], loading } = useSelector(
     (state) => state.employees || { employees: [] },
   );
 
   // Local state for filtering and pagination
-  const [statusFilter, setStatusFilter] = useState("all");
+  // ✅ Default to "Active" so only active employees show initially
+  const [statusFilter, setStatusFilter] = useState("Active");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -37,12 +38,12 @@ const Employees = () => {
   }, [dispatch]);
 
   // Filter employees based on status and search term
+  // ✅ Since "all" is removed, it always filters by the selected status
   const getFilteredEmployees = () => {
     let filtered = Array.isArray(employees) ? employees : [];
 
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((emp) => emp.status === statusFilter);
-    }
+    filtered = filtered.filter((emp) => emp.status === statusFilter);
+
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -55,7 +56,7 @@ const Employees = () => {
     return filtered;
   };
 
-  // Get initials from a full name — first letter of first word + first letter of last word
+  // Get initials from a full name
   const getInitials = (fullName) => {
     if (!fullName || typeof fullName !== "string") return "?";
     const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -86,7 +87,7 @@ const Employees = () => {
     setStatusFilter(status);
   };
 
-  // ✅ Navigate to employee details
+  // Navigate to employee details
   const handleViewEmployee = (emp) => {
     dispatch({ type: "employees/clearCurrentEmployee" });
     navigate(`/admin/employees/${emp.id}`);
@@ -134,8 +135,8 @@ const Employees = () => {
 
   return (
     <div className="w-full overflow-x-hidden">
-      {/* Stats Cards */}
-      <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
+      {/* Stats Cards — ✅ removed "Total Employees" card */}
+      <div className="stats-grid grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
           <div className="flex justify-between items-start mb-2 md:mb-3">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
@@ -166,20 +167,6 @@ const Employees = () => {
 
         <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
           <div className="flex justify-between items-start mb-2 md:mb-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-              <i className="fas fa-users text-blue-600 dark:text-blue-400 text-sm md:text-lg"></i>
-            </div>
-          </div>
-          <div className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {employees.length}
-          </div>
-          <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
-            Total Employees
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
-          <div className="flex justify-between items-start mb-2 md:mb-3">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
               <i className="fas fa-user-clock text-amber-600 dark:text-amber-400 text-sm md:text-lg"></i>
             </div>
@@ -193,13 +180,13 @@ const Employees = () => {
         </div>
       </div>
 
-      {/* Header with Filters */}
+      {/* Header with Filters — ✅ removed "all" option */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
         <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
           Employee Directory
         </h2>
         <div className="flex gap-2 w-full sm:w-auto">
-          {["all", "Active", "Inactive", "Onboarding"].map((status) => (
+          {["Active", "Inactive", "Onboarding"].map((status) => (
             <button
               key={status}
               onClick={() => handleStatusFilter(status)}
@@ -209,7 +196,7 @@ const Employees = () => {
                   : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
               }`}
             >
-              {status === "all" ? "All" : status}
+              {status}
             </button>
           ))}
         </div>
@@ -274,7 +261,6 @@ const Employees = () => {
             <tbody>
               {!loading && pageEmployees.length > 0 ? (
                 pageEmployees.map((emp, idx) => {
-                  // Helper function to get photo URL
                   const getEmployeePhoto = () => {
                     const photoValue =
                       emp.avatar ||
@@ -320,7 +306,6 @@ const Employees = () => {
                   return (
                     <tr
                       key={emp.id}
-                      // ✅ Row is clickable → opens employee view/details
                       onClick={() => handleViewEmployee(emp)}
                       className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                     >
@@ -329,7 +314,6 @@ const Employees = () => {
                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3">
                         <div className="flex items-center gap-2 md:gap-3">
-                          {/* Avatar: initials circle underneath, image overlays when loaded */}
                           <div className="relative w-8 h-8 md:w-10 md:h-10 flex-shrink-0">
                             <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 text-[10px] md:text-xs font-bold uppercase">
                               {getInitials(emp.name)}
@@ -367,7 +351,6 @@ const Employees = () => {
                         {emp.department}
                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3">
-                        {/* ✅ stopPropagation so status toggle doesn't open details */}
                         <label
                           className="inline-flex items-center gap-1 md:gap-2 cursor-pointer"
                           onClick={(e) => e.stopPropagation()}
@@ -397,7 +380,6 @@ const Employees = () => {
                         </label>
                       </td>
                       <td className="px-3 md:px-4 py-2 md:py-3">
-                        {/* ✅ stopPropagation so action buttons don't trigger row click */}
                         <div
                           className="flex gap-1 md:gap-2"
                           onClick={(e) => e.stopPropagation()}
@@ -439,7 +421,9 @@ const Employees = () => {
                     colSpan="7"
                     className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                   >
-                    {loading ? "Loading employees..." : "No employees found"}
+                    {loading
+                      ? "Loading employees..."
+                      : `No ${statusFilter.toLowerCase()} employees found`}
                   </td>
                 </tr>
               )}

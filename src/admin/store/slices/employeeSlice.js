@@ -15,6 +15,20 @@ export const fetchEmployees = createAsyncThunk(
     }
   },
 );
+export const fetchActiveEmployees = createAsyncThunk(
+  "employees/fetchActiveAll",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get("/admin/active-employees");
+      return response.data;
+    } catch (error) {
+      console.error("FETCH EMPLOYEES ERROR:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch employees",
+      );
+    }
+  },
+);
 
 // In your addEmployee async thunk
 export const addEmployee = createAsyncThunk(
@@ -23,7 +37,7 @@ export const addEmployee = createAsyncThunk(
     try {
       console.log("========== API REQUEST DEBUG ==========");
       console.log("Sending to backend:", employeeData);
-      
+
       // Log FormData contents if it's FormData
       if (employeeData instanceof FormData) {
         console.log("FormData contents:");
@@ -31,13 +45,13 @@ export const addEmployee = createAsyncThunk(
           console.log(`  ${pair[0]}: ${pair[1]}`);
         }
       }
-      
+
       const response = await apiClient.post("/admin/employees", employeeData);
-      
+
       console.log("API Response status:", response.status);
       console.log("API Response data:", response.data);
       console.log("========== API REQUEST DEBUG END ==========");
-      
+
       return response.data.data;
     } catch (error) {
       console.error("API Error:", error.response?.status, error.response?.data);
@@ -61,13 +75,13 @@ export const fetchEmployeeById = createAsyncThunk(
     try {
       console.log(`========== FETCH EMPLOYEE ${id} DEBUG ==========`);
       const response = await apiClient.get(`/admin/employees/${id}`);
-      
+
       console.log("Fetch response status:", response.status);
       console.log("Fetch response data:", response.data);
-      
+
       if (response.data && response.data.status === "success") {
         const employee = response.data.data;
-        
+
         // Log specific step 3 fields from response
         console.log("Step 3 fields in response:");
         console.log("  - visa_number:", employee.visa_number);
@@ -80,7 +94,7 @@ export const fetchEmployeeById = createAsyncThunk(
         console.log("  - eid_number:", employee.eid_number);
         console.log("  - eid_issued_date:", employee.eid_issued_date);
         console.log("  - eid_expiry_date:", employee.eid_expiry_date);
-        
+
         console.log("========== FETCH EMPLOYEE DEBUG END ==========");
         return employee;
       } else {
@@ -137,7 +151,6 @@ export const updateEmployee = createAsyncThunk(
     try {
       let response;
 
-
       // Log the data being sent for debugging
       if (data instanceof FormData) {
         const formDataObj = {};
@@ -167,9 +180,8 @@ export const updateEmployee = createAsyncThunk(
         response = await apiClient.put(`/admin/employees/${id}`, data);
       }
 
-
       if (response.data && response.data.status === "success") {
-        return response.data.data; 
+        return response.data.data;
       } else {
         console.warn(
           "⚠️ UPDATE EMPLOYEE - Response indicated failure:",
@@ -180,7 +192,6 @@ export const updateEmployee = createAsyncThunk(
         );
       }
     } catch (error) {
-
       if (error.response?.data?.errors) {
         console.error("Validation errors:", error.response.data.errors);
         return rejectWithValue({
@@ -231,10 +242,10 @@ const employeeSlice = createSlice({
       state.currentPage = 1;
     },
     clearCurrentEmployee: (state) => {
-    state.currentEmployee = null;
-    state.loading = false;
-    state.error = null;
-  },
+      state.currentEmployee = null;
+      state.loading = false;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -260,7 +271,12 @@ const employeeSlice = createSlice({
           return {
             id: emp.id,
             name: [emp.first_name, emp.last_name].filter(Boolean).join(" "),
-            status: emp.user?.status === "active" ? "Active" : emp.user?.status === "onboarding" ? "Onboarding" : "Inactive",
+            status:
+              emp.user?.status === "active"
+                ? "Active"
+                : emp.user?.status === "onboarding"
+                  ? "Onboarding"
+                  : "Inactive",
             designation: emp.user?.designation?.name || "-",
             department: emp.user?.department?.name || "-",
             company: emp.user?.company?.name || "-",
@@ -274,6 +290,53 @@ const employeeSlice = createSlice({
         state.perPage = action.payload.data?.per_page || 10;
       })
       .addCase(fetchEmployees.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(fetchActiveEmployees.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchActiveEmployees.fulfilled, (state, action) => {
+        state.loading = false;
+        const apiData =
+          action.payload.data?.data || // if paginated
+          action.payload.data || // if non-paginated (array)
+          [];
+
+        state.employees = apiData.map((emp) => {
+          // Handle avatar that might be an object or string
+          let avatarValue = null;
+          if (emp.avatar) {
+            if (typeof emp.avatar === "string") {
+              avatarValue = emp.avatar;
+            } else if (typeof emp.avatar === "object" && emp.avatar.path) {
+              avatarValue = emp.avatar.path;
+            }
+          }
+
+          return {
+            id: emp.id,
+            name: [emp.first_name, emp.last_name].filter(Boolean).join(" "),
+            status:
+              emp.user?.status === "active"
+                ? "Active"
+                : emp.user?.status === "onboarding"
+                  ? "Onboarding"
+                  : "Inactive",
+            designation: emp.user?.designation?.name || "-",
+            department: emp.user?.department?.name || "-",
+            company: emp.user?.company?.name || "-",
+            avatar: avatarValue,
+            raw: emp,
+          };
+        });
+
+        state.totalCount = action.payload.data?.total || 0;
+        state.currentPage = action.payload.data?.current_page || 1;
+        state.perPage = action.payload.data?.per_page || 10;
+      })
+      .addCase(fetchActiveEmployees.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })

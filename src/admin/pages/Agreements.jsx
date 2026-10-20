@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import SearchBar from "@admin/components/common/SearchBar";
 import EntriesSelector from "@admin/components/common/EntriesSelector";
 import { showToast } from "../../components/common/Toast";
@@ -62,17 +62,14 @@ const FolderIconLarge = () => (
         <stop offset="100%" stopColor="#f4b845" />
       </linearGradient>
     </defs>
-    {/* back of folder */}
     <path
       d="M6 12 a6 6 0 0 1 6 -6 h18 l8 8 h34 a6 6 0 0 1 6 6 v6 H6 z"
       fill="url(#folderBack)"
     />
-    {/* front flap */}
     <path
       d="M6 22 h84 a6 6 0 0 1 6 6 l-8 34 a6 6 0 0 1 -6 5 H14 a6 6 0 0 1 -6 -5 L0 28 a6 6 0 0 1 6 -6 z"
       fill="url(#folderFront)"
     />
-    {/* inner shadow line */}
     <path
       d="M6 22 h84 a6 6 0 0 1 6 6 l-1 5 H1 l1 -5 a6 6 0 0 1 4 -6 z"
       fill="#c98c26"
@@ -106,9 +103,11 @@ const FolderIconOpen = () => (
 
 const Agreements = () => {
   const dispatch = useDispatch();
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const location = useLocation();
   const basePath = location.pathname.split("/")[1] || "admin";
+
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { documents: documentsState = [], error = null } = useSelector(
     (state) =>
@@ -117,9 +116,18 @@ const Agreements = () => {
 
   const documents = Array.isArray(documentsState) ? documentsState : [];
 
-  const { childrenOf, ensureLoaded } = useFolderTree();
+  const { childrenOf, ensureLoaded, foldersById } = useFolderTree();
 
-  const [currentFolderId, setCurrentFolderId] = useState(null);
+  // ── Normalize folder id from URL ──
+  const folderIdFromUrl = useMemo(() => {
+    const raw = searchParams.get("folder");
+    if (raw == null || raw === "") return null;
+    // Try to preserve numeric ids when possible; fall back to string.
+    const asNum = Number(raw);
+    return Number.isFinite(asNum) && String(asNum) === raw ? asNum : raw;
+  }, [searchParams]);
+
+  const [currentFolderId, setCurrentFolderId] = useState(folderIdFromUrl);
   const [breadcrumbStack, setBreadcrumbStack] = useState([]);
 
   const [viewMode, setViewMode] = useState(() => {
@@ -165,11 +173,40 @@ const Agreements = () => {
     }
   }, [error, dispatch]);
 
+  // ── Fetch children for the current folder whenever it changes ──
   useEffect(() => {
     if (currentFolderId != null) {
       ensureLoaded(currentFolderId);
+    } else {
+      ensureLoaded(null);
     }
   }, [currentFolderId, ensureLoaded]);
+
+  // ── URL → state sync (handles refresh, back/forward, manual edits) ──
+  useEffect(() => {
+    if (String(folderIdFromUrl) === String(currentFolderId)) return;
+    setCurrentFolderId(folderIdFromUrl);
+  }, [folderIdFromUrl, currentFolderId]);
+
+  // ── Rebuild breadcrumb stack from the flat folder map ──
+  useEffect(() => {
+    if (currentFolderId == null) {
+      setBreadcrumbStack([]);
+      return;
+    }
+    if (!foldersById) return;
+
+    const chain = [];
+    let cursor = foldersById[currentFolderId];
+    let safety = 0;
+    while (cursor && safety < 50) {
+      chain.unshift(cursor);
+      cursor =
+        cursor.parent_id != null ? foldersById[cursor.parent_id] : null;
+      safety += 1;
+    }
+    setBreadcrumbStack(chain);
+  }, [currentFolderId, foldersById]);
 
   const currentFolders =
     currentFolderId == null ? childrenOf(null) : childrenOf(currentFolderId);
@@ -186,27 +223,34 @@ const Agreements = () => {
     [documents],
   );
 
+  // ── Push a folder id into the URL (or clear it for root) ──
+  const pushFolderToUrl = useCallback(
+    (folderId) => {
+      const next = new URLSearchParams(searchParams);
+      if (folderId == null) next.delete("folder");
+      else next.set("folder", String(folderId));
+      // Preserve view mode param if present
+      setSearchParams(next, { replace: false });
+    },
+    [searchParams, setSearchParams],
+  );
+
   const openFolder = (folder) => {
     setCurrentFolderId(folder.id);
-    setBreadcrumbStack((prev) => {
-      const last = prev[prev.length - 1];
-      if (last && String(last.id) === String(folder.parent_id)) {
-        return [...prev, folder];
-      }
-      const idx = prev.findIndex((f) => String(f.id) === String(folder.id));
-      if (idx !== -1) return prev.slice(0, idx + 1);
-      return [...prev, folder];
-    });
+    ensureLoaded(folder.id);
+    pushFolderToUrl(folder.id);
   };
 
   const goToRoot = () => {
     setCurrentFolderId(null);
     setBreadcrumbStack([]);
+    pushFolderToUrl(null);
   };
 
   const goToBreadcrumb = (folder, index) => {
     setCurrentFolderId(folder.id);
     setBreadcrumbStack((prev) => prev.slice(0, index + 1));
+    pushFolderToUrl(folder.id);
   };
 
   const folderDocuments = useMemo(() => {
@@ -234,7 +278,6 @@ const Agreements = () => {
     );
   }, [currentFolders, searchTerm]);
 
-  // Paginated documents (folders always shown in full at top)
   const totalFiltered = filteredDocuments.length;
   const totalPages = Math.ceil(totalFiltered / perPage);
   const start = (currentPage - 1) * perPage;
@@ -282,18 +325,20 @@ const Agreements = () => {
       await dispatch(deleteDocumentFolder(folder.id)).unwrap();
       showToast(`Folder "${folder.name}" deleted`, "success");
 
+      // If the deleted folder was the current one, jump to its parent
       if (String(currentFolderId) === String(folder.id)) {
         const parentId = folder.parent_id ?? null;
         setCurrentFolderId(parentId);
+        pushFolderToUrl(parentId);
         setBreadcrumbStack((prev) => {
           const idx = prev.findIndex((f) => String(f.id) === String(folder.id));
           return idx === -1 ? prev : prev.slice(0, idx);
         });
+      } else {
+        setBreadcrumbStack((prev) =>
+          prev.filter((f) => String(f.id) !== String(folder.id)),
+        );
       }
-
-      setBreadcrumbStack((prev) =>
-        prev.filter((f) => String(f.id) !== String(folder.id)),
-      );
 
       ensureLoaded(folder.parent_id ?? null, true);
       if (
@@ -393,7 +438,6 @@ const Agreements = () => {
         breadcrumbPath,
       )}`;
 
-  // Combined list for list-view: folders first, then documents
   const listItems = useMemo(() => {
     const folderItems = filteredFolders.map((f) => ({
       kind: "folder",
@@ -439,7 +483,6 @@ const Agreements = () => {
         </h2>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* View mode toggle */}
           <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full p-0.5">
             <button
               type="button"
@@ -540,9 +583,8 @@ const Agreements = () => {
       {/* ── GRID VIEW (OS Explorer style) ── */}
       {viewMode === "grid" && (
         <>
-         {hasFolders || pageDocuments.length > 0 ? (
-  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-0.5 md:gap-1 mb-4">
-              {/* Folders */}
+          {hasFolders || pageDocuments.length > 0 ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-0.5 md:gap-1 mb-4">
               {filteredFolders.map((folder) => {
                 const docCount = documentCountFor(folder.id);
                 return (
@@ -557,20 +599,20 @@ const Agreements = () => {
                 );
               })}
 
-              {/* Documents (inside a folder) */}
               {!isAtRoot &&
                 pageDocuments.map((doc) => (
                   <GridDocumentTile
                     key={doc.id}
                     document={doc}
                     onView={() => handleViewDocument(doc.file_path)}
-                    onEdit={() => navigate(`/${basePath}/documents/edit-agreement/${doc.id}`)}
+                    onEdit={() =>
+                      navigate(`/${basePath}/documents/edit-agreement/${doc.id}`)
+                    }
                     onDelete={() => handleDeleteClick(doc)}
                     basePath={basePath}
                   />
                 ))}
 
-              {/* Inline add-subfolder tile */}
               {!isAtRoot && (
                 <button
                   onClick={() => openAddFolder(currentFolderId)}
@@ -583,9 +625,8 @@ const Agreements = () => {
                 </button>
               )}
             </div>
-          ): null}
+          ) : null}
 
-          {/* Empty state at root */}
           {isAtRoot && !hasFolders && (
             <div className="flex flex-col items-center justify-center py-16 px-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl mb-6">
               <div className="mb-3">
@@ -606,7 +647,6 @@ const Agreements = () => {
             </div>
           )}
 
-          {/* Empty state inside folder */}
           {!isAtRoot && !hasFolders && !hasDocuments && (
             <div className="flex flex-col items-center justify-center py-14 px-4 bg-gray-50 dark:bg-gray-900/40 border border-dashed border-gray-200 dark:border-gray-700 rounded-2xl mb-6">
               <div className="mb-3">
@@ -657,7 +697,6 @@ const Agreements = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Folders first */}
                     {filteredFolders.map((folder) => {
                       const docCount = documentCountFor(folder.id);
                       return (
@@ -674,7 +713,6 @@ const Agreements = () => {
                       );
                     })}
 
-                    {/* Then documents of the current folder */}
                     {pageDocuments.map((doc) => (
                       <ListRow
                         key={doc.id}
@@ -688,7 +726,6 @@ const Agreements = () => {
                       />
                     ))}
 
-                    {/* Inline add subfolder row */}
                     {!isAtRoot && (
                       <tr className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30">
                         <td colSpan={6} className="px-3 md:px-4 py-3">
@@ -826,7 +863,6 @@ const StatCard = ({ icon, color, value, label }) => (
   </div>
 );
 
-/* ── GRID: folder tile (OS Explorer–style) ── */
 const GridFolderTile = ({ folder, docCount, onClick, onEdit, onDelete }) => (
   <div
     onClick={onClick}
@@ -845,7 +881,6 @@ const GridFolderTile = ({ folder, docCount, onClick, onEdit, onDelete }) => (
       {folder.name}
     </div>
 
-    {/* Hover actions toolbar */}
     <div className="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-md shadow border border-gray-200 dark:border-gray-700 p-0.5">
       <button
         onClick={(e) => {
@@ -871,13 +906,7 @@ const GridFolderTile = ({ folder, docCount, onClick, onEdit, onDelete }) => (
   </div>
 );
 
-/* ── GRID: document tile ── */
-const GridDocumentTile = ({
-  document,
-  onView,
-  onEdit,
-  onDelete,
-}) => {
+const GridDocumentTile = ({ document, onView, onEdit, onDelete }) => {
   const meta = getFileMeta(document.name || "");
   return (
     <div
@@ -928,7 +957,6 @@ const GridDocumentTile = ({
   );
 };
 
-/* ── LIST VIEW row ── */
 const ListRow = ({
   kind,
   data,
@@ -997,7 +1025,6 @@ const ListRow = ({
     );
   }
 
-  // Document row
   const meta = getFileMeta(data.name || "");
   const ext = getFileExt(data.name || "");
   const sizeStr = data.size ? `${(data.size / 1024).toFixed(1)} KB` : "—";

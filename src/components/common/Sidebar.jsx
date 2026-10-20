@@ -34,6 +34,7 @@ const ADMIN_ROUTE_MAP = {
   "crm-products": "/admin/crm/products",
   "crm-reports": "/admin/crm/reports",
   "crm-settings": "/admin/crm/settings",
+  "crm-proposals": "/admin/crm/proposals",
 };
 
 const EMPLOYEE_ROUTE_MAP = {
@@ -41,6 +42,7 @@ const EMPLOYEE_ROUTE_MAP = {
   onboarding: "/employee/onboarding",
   employees: "/employee/employees",
   attendance: "/employee/attendance",
+  offboarding: "/employee/offboarding",
   "attendance-requests": "/employee/attendance-requests",
   documents: "/employee/documents",
   "task-reports": "/employee/task-reports",
@@ -56,7 +58,8 @@ const EMPLOYEE_ROUTE_MAP = {
   "my-tasks": "/employee/my-tasks",
   organizations: "/employee/organizations",
   "my-payroll": "/employee/my-payroll",
-  warnings: "/employee/warnings",
+  warnings: "/employee/warnings",        // kept for backward compat
+  "my-warnings": "/employee/my-warnings",   // NEW — employee-facing slug
   // CRM
   "crm-dashboard": "/employee/crm/dashboard",
   "crm-leads": "/employee/crm/leads",
@@ -67,6 +70,7 @@ const EMPLOYEE_ROUTE_MAP = {
   "crm-products": "/employee/crm/products",
   "crm-reports": "/employee/crm/reports",
   "crm-settings": "/employee/crm/settings",
+  "crm-proposals": "/employee/crm/proposals",
 };
 
 const ICON_MAP = {
@@ -91,6 +95,7 @@ const ICON_MAP = {
   organizations: "fas fa-building",
   "my-payroll": "fas fa-file-invoice-dollar",
   warnings: "fas fa-triangle-exclamation",
+  "my-warnings": "fas fa-triangle-exclamation", // NEW
   // CRM
   "crm-dashboard": "fas fa-gauge-high",
   "crm-leads": "fas fa-user-tag",
@@ -101,24 +106,18 @@ const ICON_MAP = {
   "crm-products": "fas fa-box-open",
   "crm-reports": "fas fa-chart-pie",
   "crm-settings": "fas fa-sliders",
+  "crm-proposals": "fas fa-file-lines",
 };
 
 // ============================================================
 // PARENT MENU CONFIG
-// ------------------------------------------------------------
-// Gated by a single permission key (or any of several). If the
-// user has read access to that key, the whole group renders.
-//
-// `expandOnHover: false` keeps the group collapsed until the
-// user clicks its header — regardless of the sidebar's
-// hover-expand behaviour.
 // ============================================================
 const PARENT_MENU_CONFIG = {
   crm: {
     label: "CRM",
     icon: "fas fa-handshake",
     permissionKeys: ["crm", "crm-dashboard"],
-    expandOnHover: false, // only expands on click
+    expandOnHover: false,
     children: [
       { slug: "crm-dashboard", label: "Dashboard", path: ADMIN_ROUTE_MAP["crm-dashboard"], employeePath: EMPLOYEE_ROUTE_MAP["crm-dashboard"] },
       { slug: "crm-leads", label: "Leads", path: ADMIN_ROUTE_MAP["crm-leads"], employeePath: EMPLOYEE_ROUTE_MAP["crm-leads"] },
@@ -126,6 +125,7 @@ const PARENT_MENU_CONFIG = {
       { slug: "crm-opportunities", label: "Opportunities", path: ADMIN_ROUTE_MAP["crm-opportunities"], employeePath: EMPLOYEE_ROUTE_MAP["crm-opportunities"] },
       { slug: "crm-activities", label: "Activities", path: ADMIN_ROUTE_MAP["crm-activities"], employeePath: EMPLOYEE_ROUTE_MAP["crm-activities"] },
       { slug: "crm-quotations", label: "Quotations", path: ADMIN_ROUTE_MAP["crm-quotations"], employeePath: EMPLOYEE_ROUTE_MAP["crm-quotations"] },
+      { slug: "crm-proposals",     label: "Proposals",           path: ADMIN_ROUTE_MAP["crm-proposals"],     employeePath: EMPLOYEE_ROUTE_MAP["crm-proposals"] },
       { slug: "crm-products", label: "Products & Services", path: ADMIN_ROUTE_MAP["crm-products"], employeePath: EMPLOYEE_ROUTE_MAP["crm-products"] },
       { slug: "crm-reports", label: "Reports", path: ADMIN_ROUTE_MAP["crm-reports"], employeePath: EMPLOYEE_ROUTE_MAP["crm-reports"] },
       { slug: "crm-settings", label: "CRM Settings", path: ADMIN_ROUTE_MAP["crm-settings"], employeePath: EMPLOYEE_ROUTE_MAP["crm-settings"] },
@@ -143,6 +143,7 @@ const MODULE_ORDER = {
   onboarding: 2,
   employees: 3,
   warnings: 4,
+  "my-warnings": 4, // NEW — same slot, only one renders per user type
   offboarding: 5,
   projects: 6,
   "project-tasks": 7,
@@ -157,7 +158,14 @@ const MODULE_ORDER = {
   "my-payroll": 16,
 };
 
-const HIDDEN_FOR_ADMIN = ["my-leaves", "task-reports", "my-tasks"];
+// Admins should never see employee-only entries
+const HIDDEN_FOR_ADMIN = [
+  "my-leaves",
+  "my-tasks",
+  "my-warnings", // NEW
+];
+
+// Modules always shown to admins regardless of permission config
 const ALWAYS_SHOWN_MODULES = ["projects", "project-tasks"];
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -204,7 +212,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   };
 
   const shouldShowForAdmin = (slug) => {
-    if (hasAllPermissions) return !HIDDEN_FOR_ADMIN.includes(slug);
+    if (isAdmin) return !HIDDEN_FOR_ADMIN.includes(slug);
     return true;
   };
 
@@ -246,7 +254,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         children,
         isActive,
         order: config.order || 500,
-        expandOnHover: config.expandOnHover !== false, // default true
+        expandOnHover: config.expandOnHover !== false,
       });
 
       children.forEach((c) => processedSlugs.add(c.slug));
@@ -260,13 +268,17 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       let moduleName = module?.name || slug;
 
       if (moduleName === "My Tasks" || slug === "my-tasks") {
-        moduleName = "Task Reports";
+        moduleName = "My Task Reports";
       }
       if (slug === "project-tasks") {
         moduleName = "Project Tasks";
       }
+      // NEW — distinct labels for admin vs employee warnings
       if (slug === "warnings") {
-        moduleName = isAdmin ? "Warnings" : "My Warnings";
+        moduleName = "Warnings";
+      }
+      if (slug === "my-warnings") {
+        moduleName = "My Warnings";
       }
 
       standaloneItems.push({
@@ -290,14 +302,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     setExpandedMenus((prev) => ({ ...prev, [slug]: !prev[slug] }));
   };
 
-  // ------------------------------------------------------------
-  // Per-parent expansion rule:
-  //  - On mobile: always driven by `expandedMenus` (click).
-  //  - On desktop:
-  //      * if the parent has `expandOnHover === false`, only
-  //        expands when the user has clicked it.
-  //      * otherwise it follows the sidebar's hover-expand state.
-  // ------------------------------------------------------------
   const isMenuExpanded = (parentItem) => {
     if (isMobile) return expandedMenus[parentItem.slug] || false;
     if (parentItem.expandOnHover === false) {
