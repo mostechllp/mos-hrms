@@ -14,39 +14,13 @@ export const PunchOutModal = ({
   breakStartTime,
   workingHours, // Object from Redux: { monday: { enabled, start, end }, ... }
   workingHoursFromAPI, // "10 hrs" or "6 hrs 48 mins" from API
-  employeeBreaks = [], // Break data from API
+  employeeBreaks = null, // Break data from API: { breaks: [...] } (or a plain array)
 }) => {
   const [tasksCompleted, setTasksCompleted] = useState("");
   const [planTomorrow, setPlanTomorrow] = useState("");
   const [pendingWorks, setPendingWorks] = useState("");
   const [isOvertimeConfirmed, setIsOvertimeConfirmed] = useState(false);
   const [workingMs, setWorkingMs] = useState(0);
-  const [totalBreakMsFromAPI, setTotalBreakMsFromAPI] = useState(0);
-
-  // Calculate total break minutes from API data
-  useEffect(() => {
-    if (employeeBreaks && employeeBreaks.length > 0) {
-      const totalMinutes = employeeBreaks.reduce((sum, breakItem) => {
-        // If break has duration_minutes, use it
-        if (breakItem.duration_minutes) {
-          return sum + breakItem.duration_minutes;
-        }
-        // Otherwise calculate from start and end times
-        if (breakItem.start_time && breakItem.end_time) {
-          const start = new Date(breakItem.start_time);
-          const end = new Date(breakItem.end_time);
-          const diffMs = end - start;
-          if (diffMs > 0) {
-            return sum + diffMs / 60000; // Convert to minutes
-          }
-        }
-        return sum;
-      }, 0);
-
-      setTotalBreakMsFromAPI(totalMinutes * 60 * 1000); // Convert to milliseconds
-      console.log(`📊 Total break time from API: ${totalMinutes} minutes`);
-    }
-  }, [employeeBreaks]);
 
   // Format duration helper (Xh Ym)
   const formatDuration = (ms) => {
@@ -268,7 +242,7 @@ export const PunchOutModal = ({
     totalBreakMs,
     isOnBreak,
     breakStartTime,
-    totalBreakMsFromAPI,
+    employeeBreaks,
   ]);
 
   // ─────────────────────────────────────────────────────────────
@@ -291,9 +265,47 @@ export const PunchOutModal = ({
     return Math.max(0, new Date() - startTime);
   };
 
-  // Actual break taken (prefers API value, falls back to local)
-  const getActualBreakMs = () =>
-    totalBreakMsFromAPI > 0 ? totalBreakMsFromAPI : totalBreakMs || 0;
+  // Server is the source of truth for breaks (HR can edit them).
+  // Accepts either { breaks: [...] } (what the API returns) or a plain array.
+  const getServerBreaks = () => {
+    let list = null;
+    if (Array.isArray(employeeBreaks)) list = employeeBreaks;
+    else if (employeeBreaks && Array.isArray(employeeBreaks.breaks))
+      list = employeeBreaks.breaks;
+    if (!list) return null; // not loaded yet
+
+    // The API returns breaks from ALL days (and a lifetime total_break_minutes),
+    // so keep only today's. Use the break's own `date` field (the attendance day),
+    // NOT start_time, because HR edits can move start_time to another day.
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    return list.filter(
+      (b) => b && String(b.date || b.start_time || "").slice(0, 10) === todayStr,
+    );
+  };
+
+  // Total break taken, computed from the server's (possibly HR-edited) breaks.
+  // An HR-edited duration_minutes wins; an open break counts up to "now".
+  // Only if breaks were never loaded do we fall back to the local counter.
+  const getActualBreakMs = () => {
+    const serverBreaks = getServerBreaks();
+    if (!serverBreaks) return totalBreakMs || 0;
+
+    return serverBreaks.reduce((sum, b) => {
+      if (!b) return sum;
+      if (b.end_time && b.duration_minutes != null && b.duration_minutes !== "") {
+        return sum + Number(b.duration_minutes) * 60000;
+      }
+      if (b.start_time) {
+        const start = parsePunchTime(b.start_time);
+        const end = b.end_time ? parsePunchTime(b.end_time) : new Date();
+        const diff = end - start;
+        if (diff > 0) return sum + diff;
+      }
+      return sum;
+    }, 0);
+  };
 
   // Only the break beyond the 1h grace is chargeable
   const getChargeableBreakMs = () =>
@@ -321,8 +333,7 @@ export const PunchOutModal = ({
   const totalTimeWithBreaks = totalDurationMs;
 
   // For display, show both: work time and break time
-  const breakTimeDisplay =
-    totalBreakMsFromAPI > 0 ? totalBreakMsFromAPI : totalBreakMs || 0;
+  const breakTimeDisplay = actualBreakMs;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -408,7 +419,11 @@ export const PunchOutModal = ({
                     : "Working Hours Summary"}
                 </h4>
 
-                <div className="grid grid-cols-4 gap-2 text-center text-xs mb-3 text-[var(--text)]">
+                <div
+                  className={`grid ${
+                    isOvertimeThresholdExceeded ? "grid-cols-4" : "grid-cols-3"
+                  } gap-2 text-center text-xs mb-3 text-[var(--text)]`}
+                >
                   <div className="p-2 bg-[var(--surface2)] rounded-lg">
                     <span className="text-[var(--muted)] block mb-0.5">
                       Working Hours
@@ -440,22 +455,13 @@ export const PunchOutModal = ({
                         : `${formatDuration(ALLOWED_BREAK_MS)} allowed · fully within grace`}
                     </span>
                   </div>
-                  <div
-                    className={`p-2 rounded-lg font-bold ${
-                      isOvertimeThresholdExceeded
-                        ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
-                        : "bg-green-500/20 text-green-600 dark:text-green-400"
-                    }`}
-                  >
-                    <span className="block mb-0.5">
-                      {isOvertimeThresholdExceeded ? "Overtime" : "Remaining"}
-                    </span>
-                    <span>
-                      {isOvertimeThresholdExceeded
-                        ? formatDuration(overtimeMs)
-                        : formatDuration(LIMIT_MS - effectiveWorkedMs)}
-                    </span>
-                  </div>
+                  {/* Overtime tile only - no "Remaining" tile */}
+                  {isOvertimeThresholdExceeded && (
+                    <div className="p-2 rounded-lg font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                      <span className="block mb-0.5">Overtime</span>
+                      <span>{formatDuration(overtimeMs)}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Show total duration breakdown */}

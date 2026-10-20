@@ -591,6 +591,41 @@ function App() {
             element={<EditCompany />}
           />
           <Route path="warnings" element={<Warnings />} />
+
+          <Route path="crm/dashboard" element={<CrmDashboard />} />
+          <Route path="crm">
+            <Route path="dashboard" element={<CrmDashboard />} />
+            <Route path="leads" element={<CrmLeads />} />
+            <Route path="leads/new" element={<AddLead />} />
+            <Route path="leads/:leadId" element={<LeadDetail />} />
+            <Route path="leads/:leadId/edit" element={<AddLead />} />
+            <Route path="customers" element={<CrmCustomers />} />
+            <Route path="customers/new" element={<AddCustomer />} />
+            <Route path="customers/:customerId" element={<CustomerDetail />} />
+            <Route
+              path="customers/:customerId/edit"
+              element={<AddCustomer />}
+            />
+            <Route path="opportunities" element={<CrmOpportunities />} />
+            <Route path="opportunities/new" element={<AddOpportunity />} />
+            <Route
+              path="opportunities/:opportunityId"
+              element={<OpportunityDetail />}
+            />
+            <Route
+              path="opportunities/:opportunityId/edit"
+              element={<AddOpportunity />}
+            />
+            <Route path="activities" element={<CrmActivities />} />
+            <Route path="quotations" element={<CrmQuotations />} />
+            <Route path="quotations/new" element={<AddQuotation />} />
+            <Route path="quotations/:id" element={<ViewQuotation />} />
+            <Route path="quotations/:id/edit" element={<AddQuotation />} />
+            <Route path="products" element={<CrmProducts />} />
+            <Route path="reports" element={<CrmReports />} />
+            <Route path="settings" element={<CrmSettings />} />
+            <Route path="proposals" element={<CrmProposals />} />
+          </Route>
         </Route>
 
         <Route

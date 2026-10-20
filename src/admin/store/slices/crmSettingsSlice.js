@@ -17,7 +17,7 @@ export const fromLeadStatusApi = (api = {}) => ({
 export const fromLeadSourceApi = (api = {}) => ({
   id: api.id,
   name: api.name || api.source_name || "",
-  order: Number(api.order) || 0,
+  order: Number(api.sort_order ?? api.order) || 0,
 });
 
 export const fromLeadPriorityApi = (api = {}) => ({
