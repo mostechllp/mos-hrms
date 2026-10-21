@@ -33,6 +33,7 @@ import {
 import { showToast } from "../../../components/common/Toast";
 import LeadSettings from "../../components/crm/settings/LeadSettings";
 import OpportunitySettings from "../../components/crm/settings/OpportunitySettings";
+import CustomerSettings from "../../components/crm/settings/CustomerSettings";
 
 // ============================================================
 // STATIC DEFAULTS — replace with API later
@@ -279,14 +280,6 @@ const CrmSettings = () => {
             </p>
           </div>
         </div>
-        {activeSection !== "lead" && (
-          <button
-            onClick={handleSaveAll}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm"
-          >
-            <Save size={15} /> Save Changes
-          </button>
-        )}
       </div>
 
       {/* ---------- Two-column layout ---------- */}
@@ -332,10 +325,7 @@ const CrmSettings = () => {
           {activeSection === "lead" && <LeadSettings />}
           {activeSection === "opportunity" && <OpportunitySettings />}
           {activeSection === "customer" && (
-            <CustomerSettings
-              settings={settings}
-              updateSetting={updateSetting}
-            />
+            <CustomerSettings/>
           )}
           {activeSection === "activity" && (
             <ActivitySettings
@@ -540,127 +530,6 @@ const EditableList = ({
 const nextId = (list) =>
   list.length ? Math.max(...list.map((x) => x.id)) + 1 : 1;
 
-// ============================================================
-// C. CUSTOMER SETTINGS
-// ============================================================
-
-const CustomerSettings = ({ settings, updateSetting }) => (
-  <div className="space-y-4">
-    <SettingsCard title="Customer Categories">
-      <EditableList
-        items={settings.customerCategories}
-        placeholder="e.g. Reseller"
-        onAdd={(name) =>
-          updateSetting("customerCategories", [
-            ...settings.customerCategories,
-            { id: nextId(settings.customerCategories), name },
-          ])
-        }
-        onUpdate={(id, patch) =>
-          updateSetting(
-            "customerCategories",
-            settings.customerCategories.map((x) =>
-              x.id === id ? { ...x, ...patch } : x,
-            ),
-          )
-        }
-        onRemove={(id) =>
-          updateSetting(
-            "customerCategories",
-            settings.customerCategories.filter((x) => x.id !== id),
-          )
-        }
-      />
-    </SettingsCard>
-
-    <SettingsCard title="Industry List">
-      <EditableList
-        items={settings.industries}
-        placeholder="e.g. Hospitality"
-        onAdd={(name) =>
-          updateSetting("industries", [
-            ...settings.industries,
-            { id: nextId(settings.industries), name },
-          ])
-        }
-        onUpdate={(id, patch) =>
-          updateSetting(
-            "industries",
-            settings.industries.map((x) =>
-              x.id === id ? { ...x, ...patch } : x,
-            ),
-          )
-        }
-        onRemove={(id) =>
-          updateSetting(
-            "industries",
-            settings.industries.filter((x) => x.id !== id),
-          )
-        }
-      />
-    </SettingsCard>
-
-    <SettingsCard title="Customer Statuses">
-      <EditableList
-        items={settings.customerStatuses}
-        placeholder="e.g. Churned"
-        onAdd={(name) =>
-          updateSetting("customerStatuses", [
-            ...settings.customerStatuses,
-            { id: nextId(settings.customerStatuses), name, color: "#6b7280" },
-          ])
-        }
-        onUpdate={(id, patch) =>
-          updateSetting(
-            "customerStatuses",
-            settings.customerStatuses.map((x) =>
-              x.id === id ? { ...x, ...patch } : x,
-            ),
-          )
-        }
-        onRemove={(id) =>
-          updateSetting(
-            "customerStatuses",
-            settings.customerStatuses.filter((x) => x.id !== id),
-          )
-        }
-        renderExtra={(item) => (
-          <span
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: item.color || "#6b7280" }}
-          />
-        )}
-      />
-    </SettingsCard>
-
-    <SettingsCard title="Customer Types">
-      <EditableList
-        items={settings.customerTypes}
-        placeholder="e.g. Government"
-        onAdd={(name) =>
-          updateSetting("customerTypes", [
-            ...settings.customerTypes,
-            { id: nextId(settings.customerTypes), name },
-          ])
-        }
-        onUpdate={(id, patch) =>
-          updateSetting(
-            "customerTypes",
-            settings.customerTypes.map((x) =>
-              x.id === id ? { ...x, ...patch } : x,
-            ),
-          )
-        }
-        onRemove={(id) =>
-          updateSetting(
-            "customerTypes",
-            settings.customerTypes.filter((x) => x.id !== id),
-          )
-        }
-      />
-    </SettingsCard>
-  </div>
-);
 
 // ============================================================
 // D. ACTIVITY SETTINGS
