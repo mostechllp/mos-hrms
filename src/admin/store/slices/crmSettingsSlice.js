@@ -35,6 +35,34 @@ export const fromQualificationRuleApi = (api = {}) => ({
 });
 
 // ----------------------------------------------------
+// SHAPE CONVERTERS — Customer
+// ----------------------------------------------------
+export const fromCustomerCategoryApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromCustomerIndustryApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromCustomerStatusApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  color: api.color || "#6b7280",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromCustomerTypeApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+// ----------------------------------------------------
 // HELPERS
 // ----------------------------------------------------
 
@@ -390,6 +418,122 @@ export const updateOpportunityType = oppTypeThunks.update;
 export const deleteOpportunityTypeApi = oppTypeThunks.remove;
 
 // ----------------------------------------------------
+// CUSTOMER SETTINGS — thunks
+// ----------------------------------------------------
+const makeCustomerListThunks = (prefix, name, path, normalize) => {
+  const apiBase = `/admin/crm/customer-settings/${path}`;
+
+  const fetch = createAsyncThunk(
+    `${prefix}/fetchCustomer_${path}`,
+    async (params = {}, { rejectWithValue }) => {
+      try {
+        const qs = new URLSearchParams();
+        if (params.search) qs.set("search", params.search);
+        const url = qs.toString() ? `${apiBase}?${qs}` : apiBase;
+        const res = await apiClient.get(url);
+        const { ok, data, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to load ${name}s`);
+        return extractList(data).map(normalize);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to load ${name}s`);
+      }
+    },
+  );
+
+  const create = createAsyncThunk(
+    `${prefix}/createCustomer_${path}`,
+    async (payload, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.post(apiBase, payload);
+        const { ok, data, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to create ${name}`);
+        return normalize(data?.item ?? data);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to create ${name}`);
+      }
+    },
+  );
+
+  const update = createAsyncThunk(
+    `${prefix}/updateCustomer_${path}`,
+    async ({ id, data }, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.put(`${apiBase}/${id}`, data);
+        const { ok, data: body, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to update ${name}`);
+        return { id, ...normalize(body?.item ?? body ?? {}) };
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to update ${name}`);
+      }
+    },
+  );
+
+  const remove = createAsyncThunk(
+    `${prefix}/deleteCustomer_${path}`,
+    async (id, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.delete(`${apiBase}/${id}`);
+        const { ok, message } = unwrap(res.data);
+        if (ok) return { id };
+        return rejectWithValue(message || `Failed to delete ${name}`);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to delete ${name}`);
+      }
+    },
+  );
+
+  return { fetch, create, update, remove };
+};
+
+// Categories
+const customerCategoryThunks = makeCustomerListThunks(
+  "crmSettings",
+  "customer category",
+  "categories",
+  fromCustomerCategoryApi,
+);
+export const fetchCustomerCategories = customerCategoryThunks.fetch;
+export const createCustomerCategory = customerCategoryThunks.create;
+export const updateCustomerCategory = customerCategoryThunks.update;
+export const deleteCustomerCategoryApi = customerCategoryThunks.remove;
+
+// Industries
+const customerIndustryThunks = makeCustomerListThunks(
+  "crmSettings",
+  "customer industry",
+  "industries",
+  fromCustomerIndustryApi,
+);
+export const fetchCustomerIndustries = customerIndustryThunks.fetch;
+export const createCustomerIndustry = customerIndustryThunks.create;
+export const updateCustomerIndustry = customerIndustryThunks.update;
+export const deleteCustomerIndustryApi = customerIndustryThunks.remove;
+
+// Statuses
+const customerStatusThunks = makeCustomerListThunks(
+  "crmSettings",
+  "customer status",
+  "statuses",
+  fromCustomerStatusApi,
+);
+export const fetchCustomerStatuses = customerStatusThunks.fetch;
+export const createCustomerStatus = customerStatusThunks.create;
+export const updateCustomerStatus = customerStatusThunks.update;
+export const deleteCustomerStatusApi = customerStatusThunks.remove;
+
+// Types
+const customerTypeThunks = makeCustomerListThunks(
+  "crmSettings",
+  "customer type",
+  "types",
+  fromCustomerTypeApi,
+);
+export const fetchCustomerTypes = customerTypeThunks.fetch;
+export const createCustomerType = customerTypeThunks.create;
+export const updateCustomerType = customerTypeThunks.update;
+export const deleteCustomerTypeApi = customerTypeThunks.remove;
+
+// ----------------------------------------------------
 // INITIAL STATE
 // ----------------------------------------------------
 const emptyBucket = () => ({
@@ -398,8 +542,6 @@ const emptyBucket = () => ({
   error: null,
   submitting: false,
   submittingError: null,
-
-  
 });
 
 const initialState = {
@@ -414,6 +556,12 @@ const initialState = {
   lostReasons: emptyBucket(),
   winReasons: emptyBucket(),
   opportunityTypes: emptyBucket(),
+
+  // ── Customer Settings buckets ──
+  customerCategories: emptyBucket(),
+  customerIndustries: emptyBucket(),
+  customerStatuses: emptyBucket(),
+  customerTypes: emptyBucket(),
 
   // ── Placeholders for future sections ──
   customer: null,
@@ -498,7 +646,7 @@ const wireBucket = (builder, thunks, bucketKey, options = {}) => {
 const crmSettingsSlice = createSlice({
   name: "crmSettings",
   initialState,
-    reducers: {
+  reducers: {
     clearLeadSettings: (s) => {
       s.leadStatuses = emptyBucket();
       s.leadSources = emptyBucket();
@@ -510,6 +658,13 @@ const crmSettingsSlice = createSlice({
       s.lostReasons = emptyBucket();
       s.winReasons = emptyBucket();
       s.opportunityTypes = emptyBucket();
+    },
+
+    clearCustomerSettings: (s) => {
+      s.customerCategories = emptyBucket();
+      s.customerIndustries = emptyBucket();
+      s.customerStatuses = emptyBucket();
+      s.customerTypes = emptyBucket();
     },
   },
   extraReducers: (builder) => {
@@ -556,7 +711,7 @@ const crmSettingsSlice = createSlice({
       "qualificationRules",
     );
 
-        // ── Opportunity Settings buckets ──
+    // ── Opportunity Settings buckets ──
     wireBucket(
       builder,
       {
@@ -599,6 +754,52 @@ const crmSettingsSlice = createSlice({
         remove: deleteOpportunityTypeApi,
       },
       "opportunityTypes",
+      { sortBy: "sortOrder" },
+    );
+
+    // ── Customer Settings buckets ──
+    wireBucket(
+      builder,
+      {
+        fetch: fetchCustomerCategories,
+        create: createCustomerCategory,
+        update: updateCustomerCategory,
+        remove: deleteCustomerCategoryApi,
+      },
+      "customerCategories",
+      { sortBy: "sortOrder" },
+    );
+    wireBucket(
+      builder,
+      {
+        fetch: fetchCustomerIndustries,
+        create: createCustomerIndustry,
+        update: updateCustomerIndustry,
+        remove: deleteCustomerIndustryApi,
+      },
+      "customerIndustries",
+      { sortBy: "sortOrder" },
+    );
+    wireBucket(
+      builder,
+      {
+        fetch: fetchCustomerStatuses,
+        create: createCustomerStatus,
+        update: updateCustomerStatus,
+        remove: deleteCustomerStatusApi,
+      },
+      "customerStatuses",
+      { sortBy: "sortOrder" },
+    );
+    wireBucket(
+      builder,
+      {
+        fetch: fetchCustomerTypes,
+        create: createCustomerType,
+        update: updateCustomerType,
+        remove: deleteCustomerTypeApi,
+      },
+      "customerTypes",
       { sortBy: "sortOrder" },
     );
 
