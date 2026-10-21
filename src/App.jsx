@@ -152,6 +152,7 @@ const CrmProducts = lazy(() => import("./admin/pages/CRM/Products"));
 const CrmReports = lazy(() => import("./admin/pages/CRM/CrmReports"));
 const CrmSettings = lazy(() => import("./admin/pages/CRM/CrmSettings"));
 const CrmProposals = lazy(() => import("./admin/pages/CRM/Proposals"));
+const Meetings = lazy(() => import("./admin/pages/Meetings"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -170,6 +171,7 @@ const AttendanceRequests = lazy(
 const MyPayroll = lazy(() => import("./employee/pages/MyPayroll"));
 const Warnings = lazy(() => import("./admin/pages/Warnings"));
 const EmployeeWarnings = lazy(() => import("./employee/pages/Warnings"));
+const MyMeetings = lazy(() => import("./employee/pages/MyMeetings"));
 
 // Custom wrapper for lazy-loaded components
 const LazyWrapper = ({ children }) => {
@@ -417,6 +419,7 @@ function App() {
             <Route path="settings" element={<CrmSettings />} />
             <Route path="proposals" element={<CrmProposals />} />
           </Route>
+          <Route path="meetings" element={<Meetings />} />
         </Route>
 
         {/* Employee Routes - Layout wrapper */}
@@ -626,6 +629,8 @@ function App() {
             <Route path="settings" element={<CrmSettings />} />
             <Route path="proposals" element={<CrmProposals />} />
           </Route>
+          <Route path="meetings" element={<Meetings />} />
+          <Route path="my-meetings" element={<MyMeetings />} />
         </Route>
 
         <Route
