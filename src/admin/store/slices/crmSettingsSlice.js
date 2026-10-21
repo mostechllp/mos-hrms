@@ -238,6 +238,158 @@ export const fetchAllLeadSettings = createAsyncThunk(
 );
 
 // ----------------------------------------------------
+// SHAPE CONVERTERS — Opportunity
+// ----------------------------------------------------
+
+export const fromOpportunityStageApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || api.stage_name || "",
+  color: api.color || "#6b7280",
+  defaultProbability: Number(
+    api.default_probability ?? api.defaultProbability ?? 0,
+  ),
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromLostReasonApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || api.reason || "",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromWinReasonApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || api.reason || "",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromOpportunityTypeApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || api.type_name || "",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+// ----------------------------------------------------
+// OPPORTUNITY SETTINGS — thunks
+// ----------------------------------------------------
+// NOTE: these hit /admin/crm/opportunity-settings/... (different base
+// than lead-settings). We reuse a small wrapper so `makeListThunks`
+// stays untouched.
+
+const makeOpportunityListThunks = (prefix, name, path, normalize) => {
+  const apiBase = `/admin/crm/opportunity-settings/${path}`;
+
+  const fetch = createAsyncThunk(
+    `${prefix}/fetchOpportunity_${path}`,
+    async (params = {}, { rejectWithValue }) => {
+      try {
+        const qs = new URLSearchParams();
+        if (params.search) qs.set("search", params.search);
+        const url = qs.toString() ? `${apiBase}?${qs}` : apiBase;
+        const res = await apiClient.get(url);
+        const { ok, data, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to load ${name}s`);
+        return extractList(data).map(normalize);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to load ${name}s`);
+      }
+    },
+  );
+
+  const create = createAsyncThunk(
+    `${prefix}/createOpportunity_${path}`,
+    async (payload, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.post(apiBase, payload);
+        const { ok, data, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to create ${name}`);
+        return normalize(data?.item ?? data);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to create ${name}`);
+      }
+    },
+  );
+
+  const update = createAsyncThunk(
+    `${prefix}/updateOpportunity_${path}`,
+    async ({ id, data }, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.put(`${apiBase}/${id}`, data);
+        const { ok, data: body, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to update ${name}`);
+        return { id, ...normalize(body?.item ?? body ?? {}) };
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to update ${name}`);
+      }
+    },
+  );
+
+  const remove = createAsyncThunk(
+    `${prefix}/deleteOpportunity_${path}`,
+    async (id, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.delete(`${apiBase}/${id}`);
+        const { ok, message } = unwrap(res.data);
+        if (ok) return { id };
+        return rejectWithValue(message || `Failed to delete ${name}`);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to delete ${name}`);
+      }
+    },
+  );
+
+  return { fetch, create, update, remove };
+};
+
+// Stages
+const stageThunks = makeOpportunityListThunks(
+  "crmSettings",
+  "opportunity stage",
+  "stages",
+  fromOpportunityStageApi,
+);
+export const fetchOpportunityStages = stageThunks.fetch;
+export const createOpportunityStage = stageThunks.create;
+export const updateOpportunityStage = stageThunks.update;
+export const deleteOpportunityStageApi = stageThunks.remove;
+
+// Lost reasons
+const lostReasonThunks = makeOpportunityListThunks(
+  "crmSettings",
+  "lost reason",
+  "lost-reasons",
+  fromLostReasonApi,
+);
+export const fetchLostReasons = lostReasonThunks.fetch;
+export const createLostReason = lostReasonThunks.create;
+export const updateLostReason = lostReasonThunks.update;
+export const deleteLostReasonApi = lostReasonThunks.remove;
+
+// Win reasons
+const winReasonThunks = makeOpportunityListThunks(
+  "crmSettings",
+  "win reason",
+  "win-reasons",
+  fromWinReasonApi,
+);
+export const fetchWinReasons = winReasonThunks.fetch;
+export const createWinReason = winReasonThunks.create;
+export const updateWinReason = winReasonThunks.update;
+export const deleteWinReasonApi = winReasonThunks.remove;
+
+// Types
+const oppTypeThunks = makeOpportunityListThunks(
+  "crmSettings",
+  "opportunity type",
+  "types",
+  fromOpportunityTypeApi,
+);
+export const fetchOpportunityTypes = oppTypeThunks.fetch;
+export const createOpportunityType = oppTypeThunks.create;
+export const updateOpportunityType = oppTypeThunks.update;
+export const deleteOpportunityTypeApi = oppTypeThunks.remove;
+
+// ----------------------------------------------------
 // INITIAL STATE
 // ----------------------------------------------------
 const emptyBucket = () => ({
@@ -246,6 +398,8 @@ const emptyBucket = () => ({
   error: null,
   submitting: false,
   submittingError: null,
+
+  
 });
 
 const initialState = {
@@ -255,8 +409,13 @@ const initialState = {
   leadPriorities: emptyBucket(),
   qualificationRules: emptyBucket(),
 
+  // ── Opportunity Settings buckets ──
+  opportunityStages: emptyBucket(),
+  lostReasons: emptyBucket(),
+  winReasons: emptyBucket(),
+  opportunityTypes: emptyBucket(),
+
   // ── Placeholders for future sections ──
-  opportunity: null,
   customer: null,
   activity: null,
   product: null,
@@ -266,7 +425,6 @@ const initialState = {
   savingAll: false,
   savingAllError: null,
 };
-
 // ----------------------------------------------------
 // Generic reducer wiring helper
 // ----------------------------------------------------
@@ -340,12 +498,18 @@ const wireBucket = (builder, thunks, bucketKey, options = {}) => {
 const crmSettingsSlice = createSlice({
   name: "crmSettings",
   initialState,
-  reducers: {
+    reducers: {
     clearLeadSettings: (s) => {
       s.leadStatuses = emptyBucket();
       s.leadSources = emptyBucket();
       s.leadPriorities = emptyBucket();
       s.qualificationRules = emptyBucket();
+    },
+    clearOpportunitySettings: (s) => {
+      s.opportunityStages = emptyBucket();
+      s.lostReasons = emptyBucket();
+      s.winReasons = emptyBucket();
+      s.opportunityTypes = emptyBucket();
     },
   },
   extraReducers: (builder) => {
@@ -390,6 +554,52 @@ const crmSettingsSlice = createSlice({
         remove: deleteQualificationRuleApi,
       },
       "qualificationRules",
+    );
+
+        // ── Opportunity Settings buckets ──
+    wireBucket(
+      builder,
+      {
+        fetch: fetchOpportunityStages,
+        create: createOpportunityStage,
+        update: updateOpportunityStage,
+        remove: deleteOpportunityStageApi,
+      },
+      "opportunityStages",
+      { sortBy: "sortOrder" },
+    );
+    wireBucket(
+      builder,
+      {
+        fetch: fetchLostReasons,
+        create: createLostReason,
+        update: updateLostReason,
+        remove: deleteLostReasonApi,
+      },
+      "lostReasons",
+      { sortBy: "sortOrder" },
+    );
+    wireBucket(
+      builder,
+      {
+        fetch: fetchWinReasons,
+        create: createWinReason,
+        update: updateWinReason,
+        remove: deleteWinReasonApi,
+      },
+      "winReasons",
+      { sortBy: "sortOrder" },
+    );
+    wireBucket(
+      builder,
+      {
+        fetch: fetchOpportunityTypes,
+        create: createOpportunityType,
+        update: updateOpportunityType,
+        remove: deleteOpportunityTypeApi,
+      },
+      "opportunityTypes",
+      { sortBy: "sortOrder" },
     );
 
     // Fetch-all lead settings
@@ -440,5 +650,6 @@ const crmSettingsSlice = createSlice({
   },
 });
 
-export const { clearLeadSettings } = crmSettingsSlice.actions;
+export const { clearLeadSettings, clearOpportunitySettings } =
+  crmSettingsSlice.actions;
 export default crmSettingsSlice.reducer;
