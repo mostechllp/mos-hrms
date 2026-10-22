@@ -34,6 +34,7 @@ import { showToast } from "../../../components/common/Toast";
 import LeadSettings from "../../components/crm/settings/LeadSettings";
 import OpportunitySettings from "../../components/crm/settings/OpportunitySettings";
 import CustomerSettings from "../../components/crm/settings/CustomerSettings";
+import ActivitySettings from "../../components/crm/settings/ActivitySettings";
 
 // ============================================================
 // STATIC DEFAULTS — replace with API later
@@ -328,10 +329,7 @@ const CrmSettings = () => {
             <CustomerSettings/>
           )}
           {activeSection === "activity" && (
-            <ActivitySettings
-              settings={settings}
-              updateSetting={updateSetting}
-            />
+            <ActivitySettings/>
           )}
           {activeSection === "product" && (
             <ProductSettings
@@ -531,127 +529,6 @@ const nextId = (list) =>
   list.length ? Math.max(...list.map((x) => x.id)) + 1 : 1;
 
 
-// ============================================================
-// D. ACTIVITY SETTINGS
-// ============================================================
-
-const ActivitySettings = ({ settings, updateSetting }) => (
-  <div className="space-y-4">
-    <SettingsCard title="Activity Types">
-      <EditableList
-        items={settings.activityTypes}
-        placeholder="e.g. Webinar"
-        onAdd={(name) =>
-          updateSetting("activityTypes", [
-            ...settings.activityTypes,
-            { id: nextId(settings.activityTypes), name },
-          ])
-        }
-        onUpdate={(id, patch) =>
-          updateSetting(
-            "activityTypes",
-            settings.activityTypes.map((x) =>
-              x.id === id ? { ...x, ...patch } : x,
-            ),
-          )
-        }
-        onRemove={(id) =>
-          updateSetting(
-            "activityTypes",
-            settings.activityTypes.filter((x) => x.id !== id),
-          )
-        }
-      />
-    </SettingsCard>
-
-    <SettingsCard
-      title="Reminder Options"
-      description="Time before an activity to notify the assigned user"
-    >
-      <div className="space-y-2">
-        {settings.reminderOptions.map((r) => (
-          <div
-            key={r.id}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700/60"
-          >
-            <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200">
-              {r.name}
-            </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {r.minutes} min
-            </span>
-            <button
-              onClick={() =>
-                updateSetting(
-                  "reminderOptions",
-                  settings.reminderOptions.filter((x) => x.id !== r.id),
-                )
-              }
-              className="p-1.5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-              title="Delete"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ))}
-      </div>
-    </SettingsCard>
-
-    <SettingsCard title="Priority Values">
-      <EditableList
-        items={settings.priorityValues}
-        placeholder="e.g. Critical"
-        onAdd={(name) =>
-          updateSetting("priorityValues", [
-            ...settings.priorityValues,
-            { id: nextId(settings.priorityValues), name, color: "#6b7280" },
-          ])
-        }
-        onUpdate={(id, patch) =>
-          updateSetting(
-            "priorityValues",
-            settings.priorityValues.map((x) =>
-              x.id === id ? { ...x, ...patch } : x,
-            ),
-          )
-        }
-        onRemove={(id) =>
-          updateSetting(
-            "priorityValues",
-            settings.priorityValues.filter((x) => x.id !== id),
-          )
-        }
-        renderExtra={(item) => (
-          <span
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: item.color || "#6b7280" }}
-          />
-        )}
-      />
-    </SettingsCard>
-
-    <SettingsCard
-      title="Default Activity Duration"
-      description="Used to prefill the end time when creating a new activity"
-    >
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min="5"
-          max="480"
-          value={settings.defaultActivityDuration}
-          onChange={(e) =>
-            updateSetting("defaultActivityDuration", e.target.value)
-          }
-          className="w-24 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-        />
-        <span className="text-sm text-gray-600 dark:text-gray-400">
-          minutes
-        </span>
-      </div>
-    </SettingsCard>
-  </div>
-);
 
 // ============================================================
 // E. PRODUCT SETTINGS
