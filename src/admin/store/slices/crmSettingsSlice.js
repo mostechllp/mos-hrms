@@ -534,6 +534,180 @@ export const updateCustomerType = customerTypeThunks.update;
 export const deleteCustomerTypeApi = customerTypeThunks.remove;
 
 // ----------------------------------------------------
+// SHAPE CONVERTERS — Activity
+// ----------------------------------------------------
+export const fromActivityTypeApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromReminderOptionApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  minutes: Number(api.minutes ?? api.duration_minutes ?? 0),
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromActivityPriorityApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  color: api.color || "#6b7280",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+// ----------------------------------------------------
+// ACTIVITY SETTINGS — thunks
+// ----------------------------------------------------
+const makeActivityListThunks = (prefix, name, path, normalize) => {
+  const apiBase = `/admin/crm/activity-settings/${path}`;
+
+  const fetch = createAsyncThunk(
+    `${prefix}/fetchActivity_${path}`,
+    async (params = {}, { rejectWithValue }) => {
+      try {
+        const qs = new URLSearchParams();
+        if (params.search) qs.set("search", params.search);
+        const url = qs.toString() ? `${apiBase}?${qs}` : apiBase;
+        const res = await apiClient.get(url);
+        const { ok, data, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to load ${name}s`);
+        return extractList(data).map(normalize);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to load ${name}s`);
+      }
+    },
+  );
+
+  const create = createAsyncThunk(
+    `${prefix}/createActivity_${path}`,
+    async (payload, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.post(apiBase, payload);
+        const { ok, data, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to create ${name}`);
+        return normalize(data?.item ?? data);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to create ${name}`);
+      }
+    },
+  );
+
+  const update = createAsyncThunk(
+    `${prefix}/updateActivity_${path}`,
+    async ({ id, data }, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.put(`${apiBase}/${id}`, data);
+        const { ok, data: body, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to update ${name}`);
+        return { id, ...normalize(body?.item ?? body ?? {}) };
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to update ${name}`);
+      }
+    },
+  );
+
+  const remove = createAsyncThunk(
+    `${prefix}/deleteActivity_${path}`,
+    async (id, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.delete(`${apiBase}/${id}`);
+        const { ok, message } = unwrap(res.data);
+        if (ok) return { id };
+        return rejectWithValue(message || `Failed to delete ${name}`);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to delete ${name}`);
+      }
+    },
+  );
+
+  return { fetch, create, update, remove };
+};
+
+// Types
+const activityTypeThunks = makeActivityListThunks(
+  "crmSettings",
+  "activity type",
+  "types",
+  fromActivityTypeApi,
+);
+export const fetchActivityTypes = activityTypeThunks.fetch;
+export const createActivityType = activityTypeThunks.create;
+export const updateActivityType = activityTypeThunks.update;
+export const deleteActivityTypeApi = activityTypeThunks.remove;
+
+// Reminders
+const reminderOptionThunks = makeActivityListThunks(
+  "crmSettings",
+  "reminder option",
+  "reminders",
+  fromReminderOptionApi,
+);
+export const fetchReminderOptions = reminderOptionThunks.fetch;
+export const createReminderOption = reminderOptionThunks.create;
+export const updateReminderOption = reminderOptionThunks.update;
+export const deleteReminderOptionApi = reminderOptionThunks.remove;
+
+// Priorities
+const activityPriorityThunks = makeActivityListThunks(
+  "crmSettings",
+  "activity priority",
+  "priorities",
+  fromActivityPriorityApi,
+);
+export const fetchActivityPriorities = activityPriorityThunks.fetch;
+export const createActivityPriority = activityPriorityThunks.create;
+export const updateActivityPriority = activityPriorityThunks.update;
+export const deleteActivityPriorityApi = activityPriorityThunks.remove;
+
+// Default Duration — specific thunk
+// Default Duration — specific thunk
+export const fetchActivityDuration = createAsyncThunk(
+  "crmSettings/fetchActivityDuration",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.get("/admin/crm/activity-settings/duration");
+      const { ok, data, message } = unwrap(res.data);
+      if (!ok) return rejectWithValue(message || "Failed to load duration");
+      
+      // 👈 Read default_duration_minutes, fallback to other keys just in case
+      return Number(
+        data?.default_duration_minutes ?? 
+        data?.duration ?? 
+        data?.value ?? 
+        data ?? 
+        60
+      );
+    } catch (e) {
+      return rejectWithValue(flattenErrors(e) || "Failed to load duration");
+    }
+  },
+);
+
+export const updateActivityDuration = createAsyncThunk(
+  "crmSettings/updateActivityDuration",
+  async (minutes, { rejectWithValue }) => {
+    try {
+      // 👈 Send the correct key the backend expects
+      const res = await apiClient.put("/admin/crm/activity-settings/duration", { 
+        default_duration_minutes: minutes 
+      });
+      const { ok, data, message } = unwrap(res.data);
+      if (!ok) return rejectWithValue(message || "Failed to update duration");
+      
+      // 👈 Read the correct key from the response
+      return Number(
+        data?.default_duration_minutes ?? 
+        data?.duration ?? 
+        minutes
+      );
+    } catch (e) {
+      return rejectWithValue(flattenErrors(e) || "Failed to update duration");
+    }
+  },
+);
+
+// ----------------------------------------------------
 // INITIAL STATE
 // ----------------------------------------------------
 const emptyBucket = () => ({
@@ -562,6 +736,19 @@ const initialState = {
   customerIndustries: emptyBucket(),
   customerStatuses: emptyBucket(),
   customerTypes: emptyBucket(),
+
+  // ── Activity Settings buckets ──
+  activityTypes: emptyBucket(),
+  reminderOptions: emptyBucket(),
+  activityPriorities: emptyBucket(),
+
+  // Special state for the single duration value
+  activityDuration: {
+    value: 60,
+    loading: false,
+    submitting: false,
+    error: null,
+  },
 
   // ── Placeholders for future sections ──
   customer: null,
@@ -665,6 +852,17 @@ const crmSettingsSlice = createSlice({
       s.customerIndustries = emptyBucket();
       s.customerStatuses = emptyBucket();
       s.customerTypes = emptyBucket();
+    },
+    clearActivitySettings: (s) => {
+      s.activityTypes = emptyBucket();
+      s.reminderOptions = emptyBucket();
+      s.activityPriorities = emptyBucket();
+      s.activityDuration = {
+        value: 60,
+        loading: false,
+        submitting: false,
+        error: null,
+      };
     },
   },
   extraReducers: (builder) => {
@@ -803,6 +1001,41 @@ const crmSettingsSlice = createSlice({
       { sortBy: "sortOrder" },
     );
 
+    // ── Activity Settings buckets ──
+    wireBucket(
+      builder,
+      {
+        fetch: fetchActivityTypes,
+        create: createActivityType,
+        update: updateActivityType,
+        remove: deleteActivityTypeApi,
+      },
+      "activityTypes",
+      { sortBy: "sortOrder" },
+    );
+    wireBucket(
+      builder,
+      {
+        fetch: fetchReminderOptions,
+        create: createReminderOption,
+        update: updateReminderOption,
+        remove: deleteReminderOptionApi,
+      },
+      "reminderOptions",
+      { sortBy: "sortOrder" },
+    );
+    wireBucket(
+      builder,
+      {
+        fetch: fetchActivityPriorities,
+        create: createActivityPriority,
+        update: updateActivityPriority,
+        remove: deleteActivityPriorityApi,
+      },
+      "activityPriorities",
+      { sortBy: "sortOrder" },
+    );
+
     // Fetch-all lead settings
     builder
       .addCase(fetchAllLeadSettings.pending, (s) => {
@@ -847,6 +1080,33 @@ const crmSettingsSlice = createSlice({
         const idx = s.qualificationRules.data.findIndex((r) => r.id === id);
         if (idx !== -1) s.qualificationRules.data[idx].enabled = !enabled;
         s.qualificationRules.error = a.payload;
+      });
+
+    // Activity Duration
+    builder
+      .addCase(fetchActivityDuration.pending, (s) => {
+        s.activityDuration.loading = true;
+        s.activityDuration.error = null;
+      })
+      .addCase(fetchActivityDuration.fulfilled, (s, a) => {
+        s.activityDuration.loading = false;
+        s.activityDuration.value = a.payload;
+      })
+      .addCase(fetchActivityDuration.rejected, (s, a) => {
+        s.activityDuration.loading = false;
+        s.activityDuration.error = a.payload;
+      })
+      .addCase(updateActivityDuration.pending, (s) => {
+        s.activityDuration.submitting = true;
+        s.activityDuration.error = null;
+      })
+      .addCase(updateActivityDuration.fulfilled, (s, a) => {
+        s.activityDuration.submitting = false;
+        s.activityDuration.value = a.payload;
+      })
+      .addCase(updateActivityDuration.rejected, (s, a) => {
+        s.activityDuration.submitting = false;
+        s.activityDuration.error = a.payload;
       });
   },
 });
