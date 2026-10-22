@@ -669,14 +669,14 @@ export const fetchActivityDuration = createAsyncThunk(
       const res = await apiClient.get("/admin/crm/activity-settings/duration");
       const { ok, data, message } = unwrap(res.data);
       if (!ok) return rejectWithValue(message || "Failed to load duration");
-      
+
       // 👈 Read default_duration_minutes, fallback to other keys just in case
       return Number(
-        data?.default_duration_minutes ?? 
-        data?.duration ?? 
-        data?.value ?? 
-        data ?? 
-        60
+        data?.default_duration_minutes ??
+          data?.duration ??
+          data?.value ??
+          data ??
+          60,
       );
     } catch (e) {
       return rejectWithValue(flattenErrors(e) || "Failed to load duration");
@@ -689,17 +689,15 @@ export const updateActivityDuration = createAsyncThunk(
   async (minutes, { rejectWithValue }) => {
     try {
       // 👈 Send the correct key the backend expects
-      const res = await apiClient.put("/admin/crm/activity-settings/duration", { 
-        default_duration_minutes: minutes 
+      const res = await apiClient.put("/admin/crm/activity-settings/duration", {
+        default_duration_minutes: minutes,
       });
       const { ok, data, message } = unwrap(res.data);
       if (!ok) return rejectWithValue(message || "Failed to update duration");
-      
+
       // 👈 Read the correct key from the response
       return Number(
-        data?.default_duration_minutes ?? 
-        data?.duration ?? 
-        minutes
+        data?.default_duration_minutes ?? data?.duration ?? minutes,
       );
     } catch (e) {
       return rejectWithValue(flattenErrors(e) || "Failed to update duration");
@@ -707,6 +705,305 @@ export const updateActivityDuration = createAsyncThunk(
   },
 );
 
+// ----------------------------------------------------
+// SHAPE CONVERTERS — Product
+// ----------------------------------------------------
+export const fromProductCategoryApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromProductUnitApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromProductCurrencyApi = (api = {}) => ({
+  id: api.id,
+  code: api.code || "",
+  symbol: api.symbol || "",
+  isDefault: !!api.is_default,
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromProductTaxApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  rate: Number(api.rate ?? api.tax_rate ?? 0),
+  isDefault: !!api.is_default,
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+// ----------------------------------------------------
+// PRODUCT SETTINGS — thunks
+// ----------------------------------------------------
+const makeProductListThunks = (prefix, name, path, normalize) => {
+  const apiBase = `/admin/crm/product-settings/${path}`;
+
+  const fetch = createAsyncThunk(
+    `${prefix}/fetchProduct_${path}`,
+    async (params = {}, { rejectWithValue }) => {
+      try {
+        const qs = new URLSearchParams();
+        if (params.search) qs.set("search", params.search);
+        const url = qs.toString() ? `${apiBase}?${qs}` : apiBase;
+        const res = await apiClient.get(url);
+        const { ok, data, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to load ${name}s`);
+        return extractList(data).map(normalize);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to load ${name}s`);
+      }
+    },
+  );
+
+  const create = createAsyncThunk(
+    `${prefix}/createProduct_${path}`,
+    async (payload, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.post(apiBase, payload);
+        const { ok, data, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to create ${name}`);
+        return normalize(data?.item ?? data);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to create ${name}`);
+      }
+    },
+  );
+
+  const update = createAsyncThunk(
+    `${prefix}/updateProduct_${path}`,
+    async ({ id, data }, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.put(`${apiBase}/${id}`, data);
+        const { ok, data: body, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to update ${name}`);
+        return { id, ...normalize(body?.item ?? body ?? {}) };
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to update ${name}`);
+      }
+    },
+  );
+
+  const remove = createAsyncThunk(
+    `${prefix}/deleteProduct_${path}`,
+    async (id, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.delete(`${apiBase}/${id}`);
+        const { ok, message } = unwrap(res.data);
+        if (ok) return { id };
+        return rejectWithValue(message || `Failed to delete ${name}`);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to delete ${name}`);
+      }
+    },
+  );
+
+  return { fetch, create, update, remove };
+};
+
+// Categories
+const productCategoryThunks = makeProductListThunks(
+  "crmSettings",
+  "product category",
+  "categories",
+  fromProductCategoryApi,
+);
+export const fetchProductCategories = productCategoryThunks.fetch;
+export const createProductCategory = productCategoryThunks.create;
+export const updateProductCategory = productCategoryThunks.update;
+export const deleteProductCategoryApi = productCategoryThunks.remove;
+
+// Units
+const productUnitThunks = makeProductListThunks(
+  "crmSettings",
+  "product unit",
+  "units",
+  fromProductUnitApi,
+);
+export const fetchProductUnits = productUnitThunks.fetch;
+export const createProductUnit = productUnitThunks.create;
+export const updateProductUnit = productUnitThunks.update;
+export const deleteProductUnitApi = productUnitThunks.remove;
+
+// Currencies
+const productCurrencyThunks = makeProductListThunks(
+  "crmSettings",
+  "product currency",
+  "currencies",
+  fromProductCurrencyApi,
+);
+export const fetchProductCurrencies = productCurrencyThunks.fetch;
+export const createProductCurrency = productCurrencyThunks.create;
+export const updateProductCurrency = productCurrencyThunks.update;
+export const deleteProductCurrencyApi = productCurrencyThunks.remove;
+
+// Taxes
+const productTaxThunks = makeProductListThunks(
+  "crmSettings",
+  "product tax",
+  "taxes",
+  fromProductTaxApi,
+);
+export const fetchProductTaxes = productTaxThunks.fetch;
+export const createProductTax = productTaxThunks.create;
+export const updateProductTax = productTaxThunks.update;
+export const deleteProductTaxApi = productTaxThunks.remove;
+
+// Set Default Currency
+export const setDefaultCurrencyApi = createAsyncThunk(
+  "crmSettings/setDefaultCurrency",
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.patch(
+        `/admin/crm/product-settings/currencies/${id}/set-default`,
+      );
+      const { ok, data, message } = unwrap(res.data);
+      if (!ok)
+        return rejectWithValue(message || "Failed to set default currency");
+      return { id, ...data };
+    } catch (e) {
+      return rejectWithValue(
+        flattenErrors(e) || "Failed to set default currency",
+      );
+    }
+  },
+);
+
+// Set Default Tax
+export const setDefaultTaxApi = createAsyncThunk(
+  "crmSettings/setDefaultTax",
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.patch(
+        `/admin/crm/product-settings/taxes/${id}/set-default`,
+      );
+      const { ok, data, message } = unwrap(res.data);
+      if (!ok) return rejectWithValue(message || "Failed to set default tax");
+      return { id, ...data };
+    } catch (e) {
+      return rejectWithValue(flattenErrors(e) || "Failed to set default tax");
+    }
+  },
+);
+
+// ----------------------------------------------------
+// SHAPE CONVERTERS — Permissions
+// ----------------------------------------------------
+export const fromCrmPermissionsApi = (api = {}) => {
+  const roles = api.roles || [];
+  const permissions = api.permissions || {};
+
+  // UI shape: { view_all_customers: ["Super Admin", ...], ... }
+  const uiPermissions = {};
+  Object.keys(permissions).forEach((key) => {
+    const entries = permissions[key] || [];
+    uiPermissions[key] = entries
+      .filter((e) => e.is_allowed)
+      .map((e) => {
+        const role = roles.find((r) => r.id === e.role_id);
+        return role ? role.name : `Role #${e.role_id}`;
+      });
+  });
+
+  return {
+    roles,
+    permissionKeys: api.permission_keys || Object.keys(permissions),
+    data: uiPermissions,
+  };
+};
+
+// Payload for the "all" endpoint — flat array of entries
+const toCrmPermissionsAllPayload = (uiPermissions, roles, permissionKeys) => {
+  const flat = [];
+  permissionKeys.forEach((key) => {
+    roles.forEach((role) => {
+      flat.push({
+        role_id: role.id,
+        permission_key: key,
+        is_allowed: (uiPermissions[key] || []).includes(role.name),
+      });
+    });
+  });
+  return { permissions: flat };
+};
+
+// Payload for the "single role" endpoint — { permission_key: boolean }
+const toCrmPermissionsRolePayload = (uiPermissions, role, permissionKeys) => {
+  const map = {};
+  permissionKeys.forEach((key) => {
+    map[key] = (uiPermissions[key] || []).includes(role.name);
+  });
+  return { permissions: map };
+};
+
+// ----------------------------------------------------
+// PERMISSIONS — thunks
+// ----------------------------------------------------
+export const fetchCrmPermissions = createAsyncThunk(
+  "crmSettings/fetchCrmPermissions",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.get("/admin/crm/crm-permissions");
+      const { ok, data, message } = unwrap(res.data);
+      if (!ok) return rejectWithValue(message || "Failed to load permissions");
+      return fromCrmPermissionsApi(data);
+    } catch (e) {
+      return rejectWithValue(flattenErrors(e) || "Failed to load permissions");
+    }
+  },
+);
+
+// PUT all permissions at once
+export const updateCrmPermissionsAll = createAsyncThunk(
+  "crmSettings/updateCrmPermissionsAll",
+  async ({ uiPermissions, roles, permissionKeys }, { rejectWithValue }) => {
+    try {
+      const payload = toCrmPermissionsAllPayload(
+        uiPermissions,
+        roles,
+        permissionKeys,
+      );
+      const res = await apiClient.put("/admin/crm/crm-permissions", payload);
+      const { ok, data, message } = unwrap(res.data);
+      if (!ok)
+        return rejectWithValue(message || "Failed to update permissions");
+      return fromCrmPermissionsApi(data);
+    } catch (e) {
+      return rejectWithValue(
+        flattenErrors(e) || "Failed to update permissions",
+      );
+    }
+  },
+);
+
+// PUT for a single role
+export const updateCrmPermissionsForRole = createAsyncThunk(
+  "crmSettings/updateCrmPermissionsForRole",
+  async ({ uiPermissions, role, permissionKeys }, { rejectWithValue }) => {
+    try {
+      const payload = toCrmPermissionsRolePayload(
+        uiPermissions,
+        role,
+        permissionKeys,
+      );
+      const res = await apiClient.put(
+        `/admin/crm/crm-permissions/roles/${role.id}`,
+        payload,
+      );
+      const { ok, data, message } = unwrap(res.data);
+      if (!ok)
+        return rejectWithValue(message || "Failed to update role permissions");
+      return fromCrmPermissionsApi(data);
+    } catch (e) {
+      return rejectWithValue(
+        flattenErrors(e) || "Failed to update role permissions",
+      );
+    }
+  },
+);
 // ----------------------------------------------------
 // INITIAL STATE
 // ----------------------------------------------------
@@ -742,6 +1039,12 @@ const initialState = {
   reminderOptions: emptyBucket(),
   activityPriorities: emptyBucket(),
 
+  // ── Product Settings buckets ──
+  productCategories: emptyBucket(),
+  productUnits: emptyBucket(),
+  productCurrencies: emptyBucket(),
+  productTaxes: emptyBucket(),
+
   // Special state for the single duration value
   activityDuration: {
     value: 60,
@@ -750,12 +1053,22 @@ const initialState = {
     error: null,
   },
 
+  // ── Permissions & Notifications ──
+  permissions: {
+    // Reshaped to include roles + permissionKeys
+    // { roles: [], permissionKeys: [], data: { ... } }
+    roles: [],
+    permissionKeys: [],
+    data: null,
+    loading: false,
+    error: null,
+    submitting: false,
+    submittingError: null,
+  },
   // ── Placeholders for future sections ──
   customer: null,
   activity: null,
   product: null,
-  permissions: null,
-  notifications: null,
 
   savingAll: false,
   savingAllError: null,
@@ -862,6 +1175,21 @@ const crmSettingsSlice = createSlice({
         loading: false,
         submitting: false,
         error: null,
+      };
+    },
+    clearProductSettings: (s) => {
+      s.productCategories = emptyBucket();
+      s.productUnits = emptyBucket();
+      s.productCurrencies = emptyBucket();
+      s.productTaxes = emptyBucket();
+    },
+    clearPermissionsAndNotifications: (s) => {
+      s.permissions = {
+        data: null,
+        loading: false,
+        error: null,
+        submitting: false,
+        submittingError: null,
       };
     },
   },
@@ -1036,6 +1364,52 @@ const crmSettingsSlice = createSlice({
       { sortBy: "sortOrder" },
     );
 
+    // ── Product Settings buckets ──
+    wireBucket(
+      builder,
+      {
+        fetch: fetchProductCategories,
+        create: createProductCategory,
+        update: updateProductCategory,
+        remove: deleteProductCategoryApi,
+      },
+      "productCategories",
+      { sortBy: "sortOrder" },
+    );
+    wireBucket(
+      builder,
+      {
+        fetch: fetchProductUnits,
+        create: createProductUnit,
+        update: updateProductUnit,
+        remove: deleteProductUnitApi,
+      },
+      "productUnits",
+      { sortBy: "sortOrder" },
+    );
+    wireBucket(
+      builder,
+      {
+        fetch: fetchProductCurrencies,
+        create: createProductCurrency,
+        update: updateProductCurrency,
+        remove: deleteProductCurrencyApi,
+      },
+      "productCurrencies",
+      { sortBy: "sortOrder" },
+    );
+    wireBucket(
+      builder,
+      {
+        fetch: fetchProductTaxes,
+        create: createProductTax,
+        update: updateProductTax,
+        remove: deleteProductTaxApi,
+      },
+      "productTaxes",
+      { sortBy: "sortOrder" },
+    );
+
     // Fetch-all lead settings
     builder
       .addCase(fetchAllLeadSettings.pending, (s) => {
@@ -1107,6 +1481,67 @@ const crmSettingsSlice = createSlice({
       .addCase(updateActivityDuration.rejected, (s, a) => {
         s.activityDuration.submitting = false;
         s.activityDuration.error = a.payload;
+      });
+
+    builder
+      .addCase(setDefaultCurrencyApi.fulfilled, (s, a) => {
+        s.productCurrencies.data = s.productCurrencies.data.map((c) => ({
+          ...c,
+          isDefault: c.id === a.payload.id,
+        }));
+      })
+      .addCase(setDefaultTaxApi.fulfilled, (s, a) => {
+        s.productTaxes.data = s.productTaxes.data.map((t) => ({
+          ...t,
+          isDefault: t.id === a.payload.id,
+        }));
+      });
+
+    // Permissions
+    builder
+      .addCase(fetchCrmPermissions.pending, (s) => {
+        s.permissions.loading = true;
+        s.permissions.error = null;
+      })
+      .addCase(fetchCrmPermissions.fulfilled, (s, a) => {
+        s.permissions.loading = false;
+        s.permissions.roles = a.payload.roles;
+        s.permissions.permissionKeys = a.payload.permissionKeys;
+        s.permissions.data = a.payload.data;
+      })
+      .addCase(fetchCrmPermissions.rejected, (s, a) => {
+        s.permissions.loading = false;
+        s.permissions.error = a.payload;
+      });
+    builder
+      .addCase(updateCrmPermissionsAll.pending, (s) => {
+        s.permissions.submitting = true;
+        s.permissions.submittingError = null;
+      })
+      .addCase(updateCrmPermissionsAll.fulfilled, (s, a) => {
+        s.permissions.submitting = false;
+        s.permissions.roles = a.payload.roles;
+        s.permissions.permissionKeys = a.payload.permissionKeys;
+        s.permissions.data = a.payload.data;
+      })
+      .addCase(updateCrmPermissionsAll.rejected, (s, a) => {
+        s.permissions.submitting = false;
+        s.permissions.submittingError = a.payload;
+      })
+
+      .addCase(updateCrmPermissionsForRole.pending, (s) => {
+        s.permissions.submitting = true;
+        s.permissions.submittingError = null;
+      })
+      .addCase(updateCrmPermissionsForRole.fulfilled, (s, a) => {
+        s.permissions.submitting = false;
+        s.permissions.roles = a.payload.roles;
+        s.permissions.permissionKeys = a.payload.permissionKeys;
+        s.permissions.data = a.payload.data;
+      })
+      .addCase(updateCrmPermissionsForRole.rejected, (s, a) => {
+        s.permissions.submitting = false;
+        s.permissions.submittingError = a.payload;
       });
   },
 });
