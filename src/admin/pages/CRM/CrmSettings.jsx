@@ -10,6 +10,7 @@ import {
   Shield,
   Settings as SettingsIcon,
   Search,
+  FileText,
 } from "lucide-react";
 import LeadSettings from "../../components/crm/settings/LeadSettings";
 import OpportunitySettings from "../../components/crm/settings/OpportunitySettings";
@@ -17,6 +18,7 @@ import CustomerSettings from "../../components/crm/settings/CustomerSettings";
 import ActivitySettings from "../../components/crm/settings/ActivitySettings";
 import ProductSettings from "../../components/crm/settings/ProductSettings";
 import PermissionSettings from "../../components/crm/settings/PermissionSettings";
+import QuotationSettings from "../../components/crm/settings/QuotationSettings";
 
 // ============================================================
 // SECTION TABS
@@ -26,6 +28,7 @@ const SECTIONS = [
   { key: "opportunity", label: "Opportunity Settings", icon: GripVertical },
   { key: "customer", label: "Customer Settings", icon: Building2 },
   { key: "activity", label: "Activity Settings", icon: Activity },
+  { key: "quotation", label: "Quotation Settings", icon: FileText },
   { key: "product", label: "Product Settings", icon: Package },
   { key: "permissions", label: "CRM Permissions", icon: Shield },
 ];
@@ -132,6 +135,7 @@ const CrmSettings = () => {
           {activeSection === "opportunity" && <OpportunitySettings />}
           {activeSection === "customer" && <CustomerSettings />}
           {activeSection === "activity" && <ActivitySettings />}
+          {activeSection === "quotation" && <QuotationSettings />}
           {activeSection === "product" && <ProductSettings />}
           {activeSection === "permissions" && <PermissionSettings />}
         </div>

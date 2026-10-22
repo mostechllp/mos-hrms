@@ -1004,6 +1004,135 @@ export const updateCrmPermissionsForRole = createAsyncThunk(
     }
   },
 );
+
+// ----------------------------------------------------
+// SHAPE CONVERTERS — Quotation
+// ----------------------------------------------------
+export const fromQuotationCurrencyApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromQuotationPaymentTermApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+export const fromQuotationTaxApi = (api = {}) => ({
+  id: api.id,
+  name: api.name || "",
+  rate: Number(api.rate ?? 0),
+  isDefault: !!api.is_default,
+  sortOrder: Number(api.sort_order ?? api.order ?? 0),
+});
+
+// ----------------------------------------------------
+// QUOTATION SETTINGS — thunks
+// ----------------------------------------------------
+const makeQuotationListThunks = (prefix, name, path, normalize) => {
+  const apiBase = `/admin/crm/quotation-settings/${path}`;
+
+  const fetch = createAsyncThunk(
+    `${prefix}/fetchQuotation_${path}`,
+    async (params = {}, { rejectWithValue }) => {
+      try {
+        const qs = new URLSearchParams();
+        if (params.search) qs.set("search", params.search);
+        const url = qs.toString() ? `${apiBase}?${qs}` : apiBase;
+        const res = await apiClient.get(url);
+        const { ok, data, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to load ${name}s`);
+        return extractList(data).map(normalize);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to load ${name}s`);
+      }
+    }
+  );
+
+  const create = createAsyncThunk(
+    `${prefix}/createQuotation_${path}`,
+    async (payload, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.post(apiBase, payload);
+        const { ok, data, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to create ${name}`);
+        return normalize(data?.item ?? data);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to create ${name}`);
+      }
+    }
+  );
+
+  const update = createAsyncThunk(
+    `${prefix}/updateQuotation_${path}`,
+    async ({ id, data }, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.put(`${apiBase}/${id}`, data);
+        const { ok, data: body, message } = unwrap(res.data);
+        if (!ok) return rejectWithValue(message || `Failed to update ${name}`);
+        return { id, ...normalize(body?.item ?? body ?? {}) };
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to update ${name}`);
+      }
+    }
+  );
+
+  const remove = createAsyncThunk(
+    `${prefix}/deleteQuotation_${path}`,
+    async (id, { rejectWithValue }) => {
+      try {
+        const res = await apiClient.delete(`${apiBase}/${id}`);
+        const { ok, message } = unwrap(res.data);
+        if (ok) return { id };
+        return rejectWithValue(message || `Failed to delete ${name}`);
+      } catch (e) {
+        return rejectWithValue(flattenErrors(e) || `Failed to delete ${name}`);
+      }
+    }
+  );
+
+  return { fetch, create, update, remove };
+};
+
+// Currencies
+const quotationCurrencyThunks = makeQuotationListThunks("crmSettings", "quotation currency", "currencies", fromQuotationCurrencyApi);
+export const fetchQuotationCurrencies = quotationCurrencyThunks.fetch;
+export const createQuotationCurrency = quotationCurrencyThunks.create;
+export const updateQuotationCurrency = quotationCurrencyThunks.update;
+export const deleteQuotationCurrencyApi = quotationCurrencyThunks.remove;
+
+// Payment Terms
+const quotationPaymentTermThunks = makeQuotationListThunks("crmSettings", "payment term", "payment-terms", fromQuotationPaymentTermApi);
+export const fetchQuotationPaymentTerms = quotationPaymentTermThunks.fetch;
+export const createQuotationPaymentTerm = quotationPaymentTermThunks.create;
+export const updateQuotationPaymentTerm = quotationPaymentTermThunks.update;
+export const deleteQuotationPaymentTermApi = quotationPaymentTermThunks.remove;
+
+// Taxes
+const quotationTaxThunks = makeQuotationListThunks("crmSettings", "quotation tax", "taxes", fromQuotationTaxApi);
+export const fetchQuotationTaxes = quotationTaxThunks.fetch;
+export const createQuotationTax = quotationTaxThunks.create;
+export const updateQuotationTax = quotationTaxThunks.update;
+export const deleteQuotationTaxApi = quotationTaxThunks.remove;
+
+// Set Default Tax
+export const setDefaultQuotationTaxApi = createAsyncThunk(
+  "crmSettings/setDefaultQuotationTax",
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.patch(`/admin/crm/quotation-settings/taxes/${id}/set-default`);
+      const { ok, data, message } = unwrap(res.data);
+      if (!ok) return rejectWithValue(message || "Failed to set default tax");
+      return { id, ...data };
+    } catch (e) {
+      return rejectWithValue(flattenErrors(e) || "Failed to set default tax");
+    }
+  }
+);
+
+
 // ----------------------------------------------------
 // INITIAL STATE
 // ----------------------------------------------------
@@ -1044,6 +1173,11 @@ const initialState = {
   productUnits: emptyBucket(),
   productCurrencies: emptyBucket(),
   productTaxes: emptyBucket(),
+
+   // ── Quotation Settings buckets ──
+  quotationCurrencies: emptyBucket(),
+  quotationPaymentTerms: emptyBucket(),
+  quotationTaxes: emptyBucket(),
 
   // Special state for the single duration value
   activityDuration: {
@@ -1191,6 +1325,11 @@ const crmSettingsSlice = createSlice({
         submitting: false,
         submittingError: null,
       };
+    },
+    clearQuotationSettings: (s) => {
+      s.quotationCurrencies = emptyBucket();
+      s.quotationPaymentTerms = emptyBucket();
+      s.quotationTaxes = emptyBucket();
     },
   },
   extraReducers: (builder) => {
@@ -1410,6 +1549,11 @@ const crmSettingsSlice = createSlice({
       { sortBy: "sortOrder" },
     );
 
+    // ── Quotation Settings buckets ──
+    wireBucket(builder, { fetch: fetchQuotationCurrencies, create: createQuotationCurrency, update: updateQuotationCurrency, remove: deleteQuotationCurrencyApi }, "quotationCurrencies", { sortBy: "sortOrder" });
+    wireBucket(builder, { fetch: fetchQuotationPaymentTerms, create: createQuotationPaymentTerm, update: updateQuotationPaymentTerm, remove: deleteQuotationPaymentTermApi }, "quotationPaymentTerms", { sortBy: "sortOrder" });
+    wireBucket(builder, { fetch: fetchQuotationTaxes, create: createQuotationTax, update: updateQuotationTax, remove: deleteQuotationTaxApi }, "quotationTaxes", { sortBy: "sortOrder" });
+
     // Fetch-all lead settings
     builder
       .addCase(fetchAllLeadSettings.pending, (s) => {
@@ -1543,6 +1687,10 @@ const crmSettingsSlice = createSlice({
         s.permissions.submitting = false;
         s.permissions.submittingError = a.payload;
       });
+
+       builder.addCase(setDefaultQuotationTaxApi.fulfilled, (s, a) => {
+      s.quotationTaxes.data = s.quotationTaxes.data.map(t => ({ ...t, isDefault: t.id === a.payload.id }));
+    });
   },
 });
 
