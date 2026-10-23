@@ -379,10 +379,6 @@ const StagesList = ({
             </>
           ) : (
             <>
-              <GripVertical
-                size={14}
-                className="text-gray-400 flex-shrink-0 cursor-grab"
-              />
               <span
                 className="w-3 h-3 rounded-full flex-shrink-0"
                 style={{ backgroundColor: item.color || "#6b7280" }}
