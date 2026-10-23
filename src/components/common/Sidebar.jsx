@@ -35,6 +35,7 @@ const ADMIN_ROUTE_MAP = {
   "crm-reports": "/admin/crm/reports",
   "crm-settings": "/admin/crm/settings",
   "crm-proposals": "/admin/crm/proposals",
+  meetings: "/admin/meetings",
 };
 
 const EMPLOYEE_ROUTE_MAP = {
@@ -71,6 +72,8 @@ const EMPLOYEE_ROUTE_MAP = {
   "crm-reports": "/employee/crm/reports",
   "crm-settings": "/employee/crm/settings",
   "crm-proposals": "/employee/crm/proposals",
+  meetings: "/employee/meetings",
+  "my-meetings": "/employee/my-meetings",
 };
 
 const ICON_MAP = {
@@ -107,6 +110,8 @@ const ICON_MAP = {
   "crm-reports": "fas fa-chart-pie",
   "crm-settings": "fas fa-sliders",
   "crm-proposals": "fas fa-file-lines",
+  meetings: "fas fa-calendar-days",
+  "my-meetings": "fas fa-calendar-alt",
 };
 
 // ============================================================
@@ -156,6 +161,8 @@ const MODULE_ORDER = {
   leaves: 14,
   organization: 15,
   "my-payroll": 16,
+  meetings: 18,
+  "my-meetings": 19,
 };
 
 // Admins should never see employee-only entries

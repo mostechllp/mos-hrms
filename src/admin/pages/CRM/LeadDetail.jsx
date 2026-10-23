@@ -673,7 +673,7 @@ const FollowUpsTab = ({ followUps, loading }) => {
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               {a.performed_by?.name ||
-                a.performed_by?.first_name ||
+                getSalespersonName(a.performer) ||
                 a.user ||
                 "—"}{" "}
               · {formatDateTime(a.follow_up_date || a.when || a.scheduled_at)} ·{" "}

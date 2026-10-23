@@ -244,33 +244,33 @@ const Leads = () => {
   };
 
   const handleExport = async (format) => {
-  // Build the same filter set the list uses
-  const exportFilters = {
-    search: filters.search,
-    lead_status: filters.lead_status,
-    priority: filters.priority,
-    lead_source: filters.lead_source,
-    lead_type: filters.lead_type,
-    assigned_salesperson_id: filters.assigned_salesperson_id,
-    sales_team: filters.sales_team,
-    industry: filters.industry,
-    date_from: filters.date_from,
-    date_to: filters.date_to,
-    sort_by: filters.sort_by,
-    sort_order: filters.sort_order,
+    // Build the same filter set the list uses
+    const exportFilters = {
+      search: filters.search,
+      lead_status: filters.lead_status,
+      priority: filters.priority,
+      lead_source: filters.lead_source,
+      lead_type: filters.lead_type,
+      assigned_salesperson_id: filters.assigned_salesperson_id,
+      sales_team: filters.sales_team,
+      industry: filters.industry,
+      date_from: filters.date_from,
+      date_to: filters.date_to,
+      sort_by: filters.sort_by,
+      sort_order: filters.sort_order,
+    };
+
+    if (format === "pdf") {
+      await dispatch(exportLeadsPdf({ filters: exportFilters })).unwrap();
+    } else {
+      const serverFormat = format === "csv" ? "csv" : "xlsx";
+      await dispatch(
+        exportLeadsExcel({ format: serverFormat, filters: exportFilters }),
+      ).unwrap();
+    }
+
+    showToast("Export downloaded successfully", "success");
   };
-
-  if (format === "pdf") {
-    await dispatch(exportLeadsPdf({ filters: exportFilters })).unwrap();
-  } else {
-    const serverFormat = format === "csv" ? "csv" : "xlsx";
-    await dispatch(
-      exportLeadsExcel({ format: serverFormat, filters: exportFilters }),
-    ).unwrap();
-  }
-
-  showToast("Export downloaded successfully", "success");
-};
 
   const handleConfirmDelete = async () => {
     if (!pendingDelete) return;
@@ -337,11 +337,11 @@ const Leads = () => {
             <Upload size={15} /> Import
           </button> */}
           <button
-  onClick={() => setExportOpen(true)}
-  className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
->
-  <Download size={15} /> Export
-</button>
+            onClick={() => setExportOpen(true)}
+            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+          >
+            <Download size={15} /> Export
+          </button>
           <button
             onClick={() => navigate("/admin/crm/leads/new")}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm"
@@ -501,195 +501,197 @@ const Leads = () => {
       )}
 
       {/* Table */}
-<div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-soft">
-  <div className="overflow-x-auto">
-    <table className="w-full min-w-[900px] border-collapse">
-      <thead>
-        <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-          <th className="w-[90px] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
-            Lead ID
-          </th>
-          <th className="w-[20%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
-            Name
-          </th>
-          <th className="w-[16%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
-            Contact
-          </th>
-          <th className="w-[10%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
-            Source
-          </th>
-          <th className="w-[11%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
-            Status
-          </th>
-          <th className="w-[14%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
-            Assigned To
-          </th>
-          <th className="w-[100px] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
-            Created
-          </th>
-          <th className="w-[120px] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
-            Actions
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {loading ? (
-          <tr>
-            <td
-              colSpan={8}
-              className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
-            >
-              Loading leads...
-            </td>
-          </tr>
-        ) : leads.length > 0 ? (
-          leads.map((l) => (
-            <tr
-              key={l.id}
-              onClick={() => navigate(`/admin/crm/leads/${l.id}`)}
-              className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
-            >
-              {/* LEAD ID */}
-              <td className="px-2 py-2 text-[11px] font-mono text-gray-500 dark:text-gray-400 truncate">
-                {l.lead_id || l.id}
-              </td>
-
-              {/* NAME + COMPANY */}
-              <td className="px-2 py-2 min-w-0">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${priorityDot(
-                      getLeadPriority(l),
-                    )}`}
-                    title={`Priority: ${getLeadPriority(l)}`}
-                  />
-                  <div className="min-w-0">
-                    <div
-                      className="text-[12px] font-semibold text-gray-800 dark:text-gray-200 truncate"
-                      title={getLeadName(l)}
-                    >
-                      {getLeadName(l)}
-                    </div>
-                    <div
-                      className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
-                      title={getLeadCompany(l)}
-                    >
-                      {getLeadCompany(l)}
-                    </div>
-                  </div>
-                </div>
-              </td>
-
-              {/* CONTACT */}
-              <td className="px-2 py-2 min-w-0">
-                <div
-                  className="text-[11px] text-gray-700 dark:text-gray-300 truncate"
-                  title={getLeadPhone(l)}
-                >
-                  {getLeadPhone(l)}
-                </div>
-                <div
-                  className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
-                  title={getLeadEmail(l)}
-                >
-                  {getLeadEmail(l)}
-                </div>
-              </td>
-
-              {/* SOURCE */}
-              <td
-                className="px-2 py-2 text-[11px] text-gray-600 dark:text-gray-400 truncate"
-                title={getLeadSource(l)}
-              >
-                {getLeadSource(l)}
-              </td>
-
-              {/* STATUS */}
-              <td className="px-2 py-2">
-                <span
-                  className={`inline-flex items-center max-w-full truncate px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${statusBadge(
-                    getLeadStatus(l),
-                  )}`}
-                  title={getLeadStatus(l)}
-                >
-                  {getLeadStatus(l)}
-                </span>
-              </td>
-
-              {/* ASSIGNED TO + TEAM */}
-              <td className="px-2 py-2 min-w-0">
-                <div
-                  className="text-[11px] text-gray-700 dark:text-gray-300 truncate"
-                  title={getLeadAssigned(l)}
-                >
-                  {getLeadAssigned(l)}
-                </div>
-                <div
-                  className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
-                  title={getLeadSalesTeam(l)}
-                >
-                  {getLeadSalesTeam(l)}
-                </div>
-              </td>
-
-              {/* CREATED */}
-              <td className="px-2 py-2 text-[11px] text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                {formatDate(getLeadCreatedAt(l))}
-              </td>
-
-              {/* ACTIONS */}
-              <td
-                className="px-2 py-2 whitespace-nowrap"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center gap-0.5">
-                  <IconBtn
-                    icon={Eye}
-                    color="text-blue-500"
-                    title="View"
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-soft">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] border-collapse">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                <th className="w-[90px] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                  Lead ID
+                </th>
+                <th className="w-[20%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                  Name
+                </th>
+                <th className="w-[16%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                  Contact
+                </th>
+                <th className="w-[10%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                  Source
+                </th>
+                <th className="w-[11%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                  Status
+                </th>
+                <th className="w-[14%] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                  Assigned To
+                </th>
+                <th className="w-[100px] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                  Created
+                </th>
+                <th className="w-[120px] px-2 py-2 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                  >
+                    Loading leads...
+                  </td>
+                </tr>
+              ) : leads.length > 0 ? (
+                leads.map((l) => (
+                  <tr
+                    key={l.id}
                     onClick={() => navigate(`/admin/crm/leads/${l.id}`)}
-                  />
-                  <IconBtn
-                    icon={Pencil}
-                    color="text-amber-500"
-                    title="Edit"
-                    onClick={() => navigate(`/admin/crm/leads/${l.id}/edit`)}
-                  />
-                  <IconBtn
-                    icon={UserCheck}
-                    color="text-green-500"
-                    title="Convert"
-                    onClick={() => handleConvertClick(l)}
-                    disabled={
-                      getLeadStatus(l) === "Converted" ||
-                      convertingId === l.id
-                    }
-                  />
-                  <IconBtn
-                    icon={Trash2}
-                    color="text-red-500"
-                    title="Delete"
-                    onClick={() => handleDeleteClick(l)}
-                    disabled={submitting}
-                  />
-                </div>
-              </td>
-            </tr>
-          ))
-        ) : (
-          <tr>
-            <td
-              colSpan={8}
-              className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
-            >
-              No leads found
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-</div>
+                    className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
+                  >
+                    {/* LEAD ID */}
+                    <td className="px-2 py-2 text-[11px] font-mono text-gray-500 dark:text-gray-400 truncate">
+                      {l.lead_id || l.id}
+                    </td>
+
+                    {/* NAME + COMPANY */}
+                    <td className="px-2 py-2 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${priorityDot(
+                            getLeadPriority(l),
+                          )}`}
+                          title={`Priority: ${getLeadPriority(l)}`}
+                        />
+                        <div className="min-w-0">
+                          <div
+                            className="text-[12px] font-semibold text-gray-800 dark:text-gray-200 truncate"
+                            title={getLeadName(l)}
+                          >
+                            {getLeadName(l)}
+                          </div>
+                          <div
+                            className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
+                            title={getLeadCompany(l)}
+                          >
+                            {getLeadCompany(l)}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* CONTACT */}
+                    <td className="px-2 py-2 min-w-0">
+                      <div
+                        className="text-[11px] text-gray-700 dark:text-gray-300 truncate"
+                        title={getLeadPhone(l)}
+                      >
+                        {getLeadPhone(l)}
+                      </div>
+                      <div
+                        className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
+                        title={getLeadEmail(l)}
+                      >
+                        {getLeadEmail(l)}
+                      </div>
+                    </td>
+
+                    {/* SOURCE */}
+                    <td
+                      className="px-2 py-2 text-[11px] text-gray-600 dark:text-gray-400 truncate"
+                      title={getLeadSource(l)}
+                    >
+                      {getLeadSource(l)}
+                    </td>
+
+                    {/* STATUS */}
+                    <td className="px-2 py-2">
+                      <span
+                        className={`inline-flex items-center max-w-full truncate px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${statusBadge(
+                          getLeadStatus(l),
+                        )}`}
+                        title={getLeadStatus(l)}
+                      >
+                        {getLeadStatus(l)}
+                      </span>
+                    </td>
+
+                    {/* ASSIGNED TO + TEAM */}
+                    <td className="px-2 py-2 min-w-0">
+                      <div
+                        className="text-[11px] text-gray-700 dark:text-gray-300 truncate"
+                        title={getLeadAssigned(l)}
+                      >
+                        {getLeadAssigned(l)}
+                      </div>
+                      <div
+                        className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
+                        title={getLeadSalesTeam(l)}
+                      >
+                        {getLeadSalesTeam(l)}
+                      </div>
+                    </td>
+
+                    {/* CREATED */}
+                    <td className="px-2 py-2 text-[11px] text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                      {formatDate(getLeadCreatedAt(l))}
+                    </td>
+
+                    {/* ACTIONS */}
+                    <td
+                      className="px-2 py-2 whitespace-nowrap"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-0.5">
+                        <IconBtn
+                          icon={Eye}
+                          color="text-blue-500"
+                          title="View"
+                          onClick={() => navigate(`/admin/crm/leads/${l.id}`)}
+                        />
+                        <IconBtn
+                          icon={Pencil}
+                          color="text-amber-500"
+                          title="Edit"
+                          onClick={() =>
+                            navigate(`/admin/crm/leads/${l.id}/edit`)
+                          }
+                        />
+                        <IconBtn
+                          icon={UserCheck}
+                          color="text-green-500"
+                          title="Convert"
+                          onClick={() => handleConvertClick(l)}
+                          disabled={
+                            getLeadStatus(l) === "Converted" ||
+                            convertingId === l.id
+                          }
+                        />
+                        <IconBtn
+                          icon={Trash2}
+                          color="text-red-500"
+                          title="Delete"
+                          onClick={() => handleDeleteClick(l)}
+                          disabled={submitting}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                  >
+                    No leads found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
       {totalCount > 0 && (
         <Pagination
           currentPage={currentPage}
@@ -724,15 +726,15 @@ const Leads = () => {
         onSubmit={handleConvertSubmit}
       />
       <ExportModal
-  isOpen={exportOpen}
-  onClose={() => setExportOpen(false)}
-  onExport={handleExport}
-  title="Export Leads"
-  subtitle="Download the current filtered list"
-  totalRecords={totalCount}
-  formats={["csv", "xlsx", "pdf"]}
-  defaultFormat="xlsx"
-/>
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        onExport={handleExport}
+        title="Export Leads"
+        subtitle="Download the current filtered list"
+        totalRecords={totalCount}
+        formats={["csv", "xlsx", "pdf"]}
+        defaultFormat="xlsx"
+      />
     </div>
   );
 };
