@@ -156,7 +156,6 @@ const CrmProposals = lazy(() => import("./admin/pages/CRM/Proposals"));
 const Meetings = lazy(() => import("./admin/pages/Meetings"));
 
 // 👇 NEW: Accounts module
-const Accounts = lazy(() => import("./admin/pages/accounts/Accounts"));
 const AccountsDashboard = lazy(
   () => import("./admin/pages/accounts/AccountsDashboard"),
 );
