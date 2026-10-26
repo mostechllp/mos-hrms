@@ -36,6 +36,17 @@ const ADMIN_ROUTE_MAP = {
   "crm-settings": "/admin/crm/settings",
   "crm-proposals": "/admin/crm/proposals",
   meetings: "/admin/meetings",
+
+  // Accounts
+  accounts: "/admin/accounts",
+  "accounts-dashboard": "/admin/accounts/dashboard",
+  "chart-of-accounts": "/admin/accounts/chart-of-accounts",
+  "journal-entries": "/admin/accounts/journal-entries",
+  incomes: "/admin/accounts/incomes",
+  expenses: "/admin/accounts/expenses",
+  "general-ledger": "/admin/accounts/general-ledger",
+  "trial-balance": "/admin/accounts/trial-balance",
+  "accounts-reports": "/admin/accounts/reports",
 };
 
 const EMPLOYEE_ROUTE_MAP = {
@@ -59,8 +70,8 @@ const EMPLOYEE_ROUTE_MAP = {
   "my-tasks": "/employee/my-tasks",
   organizations: "/employee/organizations",
   "my-payroll": "/employee/my-payroll",
-  warnings: "/employee/warnings",        // kept for backward compat
-  "my-warnings": "/employee/my-warnings",   // NEW — employee-facing slug
+  warnings: "/employee/warnings", // kept for backward compat
+  "my-warnings": "/employee/my-warnings", // NEW — employee-facing slug
   // CRM
   "crm-dashboard": "/employee/crm/dashboard",
   "crm-leads": "/employee/crm/leads",
@@ -74,6 +85,16 @@ const EMPLOYEE_ROUTE_MAP = {
   "crm-proposals": "/employee/crm/proposals",
   meetings: "/employee/meetings",
   "my-meetings": "/employee/my-meetings",
+
+  accounts: "/employee/accounts",
+  "accounts-dashboard": "/employee/accounts/dashboard",
+  "chart-of-accounts": "/employee/accounts/chart-of-accounts",
+  "journal-entries": "/employee/accounts/journal-entries",
+  incomes: "/employee/accounts/incomes",
+  expenses: "/employee/accounts/expenses",
+  "general-ledger": "/employee/accounts/general-ledger",
+  "trial-balance": "/employee/accounts/trial-balance",
+  "accounts-reports": "/employee/accounts/reports",
 };
 
 const ICON_MAP = {
@@ -112,6 +133,16 @@ const ICON_MAP = {
   "crm-proposals": "fas fa-file-lines",
   meetings: "fas fa-calendar-days",
   "my-meetings": "fas fa-calendar-alt",
+
+  accounts: "fas fa-calculator",
+  "accounts-dashboard": "fas fa-chart-pie",
+  "chart-of-accounts": "fas fa-sitemap",
+  "journal-entries": "fas fa-book",
+  incomes: "fas fa-arrow-trend-up",
+  expenses: "fas fa-arrow-trend-down",
+  "general-ledger": "fas fa-list-ul",
+  "trial-balance": "fas fa-scale-balanced",
+  "accounts-reports": "fas fa-file-invoice",
 };
 
 // ============================================================
@@ -124,18 +155,125 @@ const PARENT_MENU_CONFIG = {
     permissionKeys: ["crm", "crm-dashboard"],
     expandOnHover: false,
     children: [
-      { slug: "crm-dashboard", label: "Dashboard", path: ADMIN_ROUTE_MAP["crm-dashboard"], employeePath: EMPLOYEE_ROUTE_MAP["crm-dashboard"] },
-      { slug: "crm-leads", label: "Leads", path: ADMIN_ROUTE_MAP["crm-leads"], employeePath: EMPLOYEE_ROUTE_MAP["crm-leads"] },
-      { slug: "crm-customers", label: "Customers", path: ADMIN_ROUTE_MAP["crm-customers"], employeePath: EMPLOYEE_ROUTE_MAP["crm-customers"] },
-      { slug: "crm-opportunities", label: "Opportunities", path: ADMIN_ROUTE_MAP["crm-opportunities"], employeePath: EMPLOYEE_ROUTE_MAP["crm-opportunities"] },
-      { slug: "crm-activities", label: "Activities", path: ADMIN_ROUTE_MAP["crm-activities"], employeePath: EMPLOYEE_ROUTE_MAP["crm-activities"] },
-      { slug: "crm-quotations", label: "Quotations", path: ADMIN_ROUTE_MAP["crm-quotations"], employeePath: EMPLOYEE_ROUTE_MAP["crm-quotations"] },
-      { slug: "crm-proposals",     label: "Proposals",           path: ADMIN_ROUTE_MAP["crm-proposals"],     employeePath: EMPLOYEE_ROUTE_MAP["crm-proposals"] },
-      { slug: "crm-products", label: "Products & Services", path: ADMIN_ROUTE_MAP["crm-products"], employeePath: EMPLOYEE_ROUTE_MAP["crm-products"] },
-      { slug: "crm-reports", label: "Reports", path: ADMIN_ROUTE_MAP["crm-reports"], employeePath: EMPLOYEE_ROUTE_MAP["crm-reports"] },
-      { slug: "crm-settings", label: "CRM Settings", path: ADMIN_ROUTE_MAP["crm-settings"], employeePath: EMPLOYEE_ROUTE_MAP["crm-settings"] },
+      {
+        slug: "crm-dashboard",
+        label: "Dashboard",
+        path: ADMIN_ROUTE_MAP["crm-dashboard"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-dashboard"],
+      },
+      {
+        slug: "crm-leads",
+        label: "Leads",
+        path: ADMIN_ROUTE_MAP["crm-leads"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-leads"],
+      },
+      {
+        slug: "crm-customers",
+        label: "Customers",
+        path: ADMIN_ROUTE_MAP["crm-customers"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-customers"],
+      },
+      {
+        slug: "crm-opportunities",
+        label: "Opportunities",
+        path: ADMIN_ROUTE_MAP["crm-opportunities"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-opportunities"],
+      },
+      {
+        slug: "crm-activities",
+        label: "Activities",
+        path: ADMIN_ROUTE_MAP["crm-activities"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-activities"],
+      },
+      {
+        slug: "crm-quotations",
+        label: "Quotations",
+        path: ADMIN_ROUTE_MAP["crm-quotations"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-quotations"],
+      },
+      {
+        slug: "crm-proposals",
+        label: "Proposals",
+        path: ADMIN_ROUTE_MAP["crm-proposals"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-proposals"],
+      },
+      {
+        slug: "crm-products",
+        label: "Products & Services",
+        path: ADMIN_ROUTE_MAP["crm-products"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-products"],
+      },
+      {
+        slug: "crm-reports",
+        label: "Reports",
+        path: ADMIN_ROUTE_MAP["crm-reports"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-reports"],
+      },
+      {
+        slug: "crm-settings",
+        label: "CRM Settings",
+        path: ADMIN_ROUTE_MAP["crm-settings"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-settings"],
+      },
     ],
     order: 20,
+  },
+  accounts: {
+    label: "Accounts",
+    icon: "fas fa-calculator",
+    permissionKeys: ["accounts", "accounts-dashboard"],
+    expandOnHover: false,
+    children: [
+      {
+        slug: "accounts-dashboard",
+        label: "Dashboard",
+        path: ADMIN_ROUTE_MAP["accounts-dashboard"],
+        employeePath: EMPLOYEE_ROUTE_MAP["accounts-dashboard"],
+      },
+      {
+        slug: "chart-of-accounts",
+        label: "Chart of Accounts",
+        path: ADMIN_ROUTE_MAP["chart-of-accounts"],
+        employeePath: EMPLOYEE_ROUTE_MAP["chart-of-accounts"],
+      },
+      {
+        slug: "journal-entries",
+        label: "Journal Entries",
+        path: ADMIN_ROUTE_MAP["journal-entries"],
+        employeePath: EMPLOYEE_ROUTE_MAP["journal-entries"],
+      },
+      {
+        slug: "incomes",
+        label: "Income",
+        path: ADMIN_ROUTE_MAP["incomes"],
+        employeePath: EMPLOYEE_ROUTE_MAP["incomes"],
+      },
+      {
+        slug: "expenses",
+        label: "Expenses",
+        path: ADMIN_ROUTE_MAP["expenses"],
+        employeePath: EMPLOYEE_ROUTE_MAP["expenses"],
+      },
+      {
+        slug: "general-ledger",
+        label: "General Ledger",
+        path: ADMIN_ROUTE_MAP["general-ledger"],
+        employeePath: EMPLOYEE_ROUTE_MAP["general-ledger"],
+      },
+      {
+        slug: "trial-balance",
+        label: "Trial Balance",
+        path: ADMIN_ROUTE_MAP["trial-balance"],
+        employeePath: EMPLOYEE_ROUTE_MAP["trial-balance"],
+      },
+      {
+        slug: "accounts-reports",
+        label: "Reports",
+        path: ADMIN_ROUTE_MAP["accounts-reports"],
+        employeePath: EMPLOYEE_ROUTE_MAP["accounts-reports"],
+      },
+    ],
+    order: 25,
   },
 };
 
@@ -163,6 +301,16 @@ const MODULE_ORDER = {
   "my-payroll": 16,
   meetings: 18,
   "my-meetings": 19,
+
+  accounts: 25,
+  "accounts-dashboard": 26,
+  "chart-of-accounts": 27,
+  "journal-entries": 28,
+  incomes: 29,
+  expenses: 30,
+  "general-ledger": 31,
+  "trial-balance": 32,
+  "accounts-reports": 33,
 };
 
 // Admins should never see employee-only entries
@@ -239,6 +387,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     const parentItems = [];
     const standaloneItems = [];
 
+    // Inside buildNavItems function:
     Object.entries(PARENT_MENU_CONFIG).forEach(([parentKey, config]) => {
       if (!canAccessParent(config)) return;
 
@@ -264,6 +413,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         expandOnHover: config.expandOnHover !== false,
       });
 
+      // 👈 FIX: Add parentKey to processedSlugs so the standalone "accounts" doesn't render
+      processedSlugs.add(parentKey);
       children.forEach((c) => processedSlugs.add(c.slug));
     });
 
@@ -403,7 +554,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                             }`
                           }
                         >
-                          <i className={`${child.icon} w-6 text-sm flex-shrink-0`}></i>
+                          <i
+                            className={`${child.icon} w-6 text-sm flex-shrink-0`}
+                          ></i>
                           <span className="text-sm">{child.label}</span>
                         </NavLink>
                       ))}

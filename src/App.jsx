@@ -1,3 +1,4 @@
+// src/App.jsx
 import { lazy, useEffect, Suspense, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
@@ -154,6 +155,25 @@ const CrmSettings = lazy(() => import("./admin/pages/CRM/CrmSettings"));
 const CrmProposals = lazy(() => import("./admin/pages/CRM/Proposals"));
 const Meetings = lazy(() => import("./admin/pages/Meetings"));
 
+// 👇 NEW: Accounts module
+const Accounts = lazy(() => import("./admin/pages/accounts/Accounts"));
+const AccountsDashboard = lazy(
+  () => import("./admin/pages/accounts/AccountsDashboard"),
+);
+const ChartOfAccounts = lazy(
+  () => import("./admin/pages/accounts/ChartOfAccounts"),
+);
+const JournalEntries = lazy(
+  () => import("./admin/pages/accounts/JournalEntries"),
+);
+const Incomes = lazy(() => import("./admin/pages/accounts/Incomes"));
+const Expenses = lazy(() => import("./admin/pages/accounts/Expenses"));
+const GeneralLedger = lazy(
+  () => import("./admin/pages/accounts/GeneralLedger"),
+);
+const TrialBalance = lazy(() => import("./admin/pages/accounts/TrialBalance"));
+const AccountsReports = lazy(() => import("./admin/pages/accounts/Reports"));
+
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
 const EmployeeLeaves = lazy(() => import("./employee/pages/Leaves"));
@@ -227,7 +247,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* Admin nested routes - these will render inside AdminLayout */}
+          {/* Admin nested routes */}
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="notifications" element={<Notifications />} />
@@ -314,7 +334,6 @@ function App() {
           />
           <Route path="documents" element={<Agreements />} />
           <Route path="documents/add-agreement" element={<AddAgreement />} />
-          {/* <Route path="documents/add-document" element={<AddDocument />} /> */}
           <Route
             path="documents/edit-agreement/:id"
             element={<EditAgreement />}
@@ -420,6 +439,23 @@ function App() {
             <Route path="proposals" element={<CrmProposals />} />
           </Route>
           <Route path="meetings" element={<Meetings />} />
+
+          {/* ───────────── ACCOUNTS ───────────── */}
+          <Route
+            path="accounts"
+            element={<Navigate to="/admin/accounts/dashboard" replace />}
+          />
+          <Route path="accounts/dashboard" element={<AccountsDashboard />} />
+          <Route
+            path="accounts/chart-of-accounts"
+            element={<ChartOfAccounts />}
+          />
+          <Route path="accounts/journal-entries" element={<JournalEntries />} />
+          <Route path="accounts/incomes" element={<Incomes />} />
+          <Route path="accounts/expenses" element={<Expenses />} />
+          <Route path="accounts/general-ledger" element={<GeneralLedger />} />
+          <Route path="accounts/trial-balance" element={<TrialBalance />} />
+          <Route path="accounts/reports" element={<AccountsReports />} />
         </Route>
 
         {/* Employee Routes - Layout wrapper */}
@@ -433,7 +469,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* Employee nested routes - these will render inside EmployeeLayout */}
+          {/* Employee nested routes */}
           <Route
             index
             element={<Navigate to="/employee/dashboard" replace />}
@@ -631,6 +667,17 @@ function App() {
           </Route>
           <Route path="meetings" element={<Meetings />} />
           <Route path="my-meetings" element={<MyMeetings />} />
+
+          {/* ───────────── ACCOUNTS (employee) ───────────── */}
+          <Route path="accounts" element={<Accounts />} />
+          <Route path="accounts/dashboard" element={<Accounts />} />
+          <Route path="accounts/chart-of-accounts" element={<Accounts />} />
+          <Route path="accounts/journal-entries" element={<Accounts />} />
+          <Route path="accounts/incomes" element={<Accounts />} />
+          <Route path="accounts/expenses" element={<Accounts />} />
+          <Route path="accounts/general-ledger" element={<Accounts />} />
+          <Route path="accounts/trial-balance" element={<Accounts />} />
+          <Route path="accounts/reports" element={<Accounts />} />
         </Route>
 
         <Route
