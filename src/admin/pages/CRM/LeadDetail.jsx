@@ -21,6 +21,26 @@ import {
   clearCurrentLead,
 } from "../../store/slices/leadSlice";
 
+// ----------------------------------------------------
+// Dynamic labels based on country (matches AddLead page)
+// ----------------------------------------------------
+const getRegionLabels = (countryName) => {
+  const c = (countryName || "").toLowerCase();
+  if (c === "united arab emirates" || c === "uae")
+    return { state: "Emirate", postal: "Postal Code" };
+  if (c === "united kingdom" || c === "uk")
+    return { state: "County", postal: "Postcode" };
+  if (c === "united states" || c === "usa")
+    return { state: "State", postal: "ZIP Code" };
+  if (c === "canada")
+    return { state: "Province", postal: "Postal Code" };
+  if (c === "australia")
+    return { state: "State", postal: "Postcode" };
+  if (c === "india")
+    return { state: "State", postal: "PIN Code" };
+  return { state: "State", postal: "Postal Code" };
+};
+
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "contact", label: "Contact Information" },
@@ -97,7 +117,7 @@ const getSalespersonAvatar = (sp) => {
 
 // ---------- component ----------
 const LeadDetail = () => {
-  const { leadId } = useParams(); // numeric id
+  const { leadId } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -189,7 +209,6 @@ const LeadDetail = () => {
   const creator = currentLead?.creator;
   const updater = currentLead?.updater;
 
-  // Follow-ups may live either in the redux list or inside the lead object itself
   const inlineFollowUps = Array.isArray(currentLead?.follow_ups)
     ? currentLead.follow_ups
     : [];
@@ -267,22 +286,6 @@ const LeadDetail = () => {
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
                 <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
-                  {/* <MenuItem icon={Phone} label="Call"
-                    onClick={() => { showToast("Call — implement later", "info"); setMenuOpen(false); }} />
-                  <MenuItem icon={Mail} label="Email"
-                    onClick={() => { showToast("Email — implement later", "info"); setMenuOpen(false); }} />
-                  <MenuItem icon={CalendarPlus} label="Schedule Meeting"
-                    onClick={() => { showToast("Schedule — implement later", "info"); setMenuOpen(false); }} />
-                  <MenuItem icon={FileText} label="Add Note"
-                    onClick={() => { showToast("Add note — implement later", "info"); setMenuOpen(false); }} />
-                  <MenuItem icon={Briefcase} label="Create Opportunity"
-                    onClick={() => { showToast("Create opportunity — implement later", "info"); setMenuOpen(false); }} />
-                  <MenuItem icon={Repeat} label="Mark as Qualified"
-                    onClick={() => handleQuickStatus("Qualified")} />
-                  <MenuItem icon={Repeat} label="Mark as Lost"
-                    onClick={() => handleQuickStatus("Lost")} />
-                  <MenuItem icon={UserCog} label="Reassign Lead"
-                    onClick={() => { showToast("Reassign — implement later", "info"); setMenuOpen(false); }} /> */}
                   <div className="border-t border-gray-100 dark:border-gray-700" />
                   <MenuItem icon={Trash2} label="Delete Lead" danger
                     onClick={() => { setConfirmDelete(true); setMenuOpen(false); }} />
@@ -293,7 +296,7 @@ const LeadDetail = () => {
         </div>
       </div>
 
-      {/* Info card — all key attributes at a glance */}
+      {/* Info card */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 sm:p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <InfoBlock icon={Hash} label="Lead ID" value={lead.leadId} mono />
@@ -472,70 +475,74 @@ const OverviewTab = ({ lead, assignedSp }) => (
   </div>
 );
 
-const ContactTab = ({ lead }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <div>
-      <SectionTitle>Reach</SectionTitle>
-      <div className="space-y-0">
-        <Row
-          label="Email"
-          value={
-            lead.email ? (
-              <a
-                href={`mailto:${lead.email}`}
-                className="text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                {lead.email}
-              </a>
-            ) : (
-              "—"
-            )
-          }
-        />
-        <Row
-          label="Primary Phone"
-          value={
-            lead.primaryPhone ? (
-              <a
-                href={`tel:${lead.primaryPhone}`}
-                className="text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                {lead.primaryPhone}
-              </a>
-            ) : (
-              "—"
-            )
-          }
-        />
-        <Row
-          label="Alternate Phone"
-          value={
-            lead.alternatePhone ? (
-              <a
-                href={`tel:${lead.alternatePhone}`}
-                className="text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                {lead.alternatePhone}
-              </a>
-            ) : (
-              "—"
-            )
-          }
-        />
+const ContactTab = ({ lead }) => {
+  const regionLabels = getRegionLabels(lead.country);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <SectionTitle>Reach</SectionTitle>
+        <div className="space-y-0">
+          <Row
+            label="Email"
+            value={
+              lead.email ? (
+                <a
+                  href={`mailto:${lead.email}`}
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {lead.email}
+                </a>
+              ) : (
+                "—"
+              )
+            }
+          />
+          <Row
+            label="Primary Phone"
+            value={
+              lead.primaryPhone ? (
+                <a
+                  href={`tel:${lead.primaryPhone}`}
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {lead.primaryPhone}
+                </a>
+              ) : (
+                "—"
+              )
+            }
+          />
+          <Row
+            label="Alternate Phone"
+            value={
+              lead.alternatePhone ? (
+                <a
+                  href={`tel:${lead.alternatePhone}`}
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {lead.alternatePhone}
+                </a>
+              ) : (
+                "—"
+              )
+            }
+          />
+        </div>
+      </div>
+      <div>
+        <SectionTitle>Address</SectionTitle>
+        <div className="space-y-0">
+          <Row label="Street" value={lead.address} />
+          <Row label="City" value={lead.city} />
+          <Row label={regionLabels.state} value={lead.state} />
+          <Row label="Country" value={lead.country} />
+          <Row label={regionLabels.postal} value={lead.postalCode} />
+        </div>
       </div>
     </div>
-    <div>
-      <SectionTitle>Address</SectionTitle>
-      <div className="space-y-0">
-        <Row label="Street" value={lead.address} />
-        <Row label="City" value={lead.city} />
-        <Row label="State" value={lead.state} />
-        <Row label="Country" value={lead.country} />
-        <Row label="Postal Code" value={lead.postalCode} />
-      </div>
-    </div>
-  </div>
-);
+  );
+};
 
 const AssignmentTab = ({ lead, assignedSp }) => {
   const avatar = getSalespersonAvatar(assignedSp);
@@ -543,7 +550,6 @@ const AssignmentTab = ({ lead, assignedSp }) => {
 
   return (
     <div className="space-y-6">
-      {/* Salesperson card */}
       <div>
         <SectionTitle>Assigned Salesperson</SectionTitle>
         {assignedSp ? (
@@ -603,7 +609,6 @@ const AssignmentTab = ({ lead, assignedSp }) => {
         )}
       </div>
 
-      {/* Assignment details */}
       <div>
         <SectionTitle>Assignment Details</SectionTitle>
         <div className="space-y-0">
@@ -621,7 +626,6 @@ const AssignmentTab = ({ lead, assignedSp }) => {
         </div>
       </div>
 
-      {/* Interested products as pills */}
       {lead.interestedProducts.length > 0 && (
         <div>
           <SectionTitle>Products</SectionTitle>

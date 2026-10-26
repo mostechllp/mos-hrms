@@ -1,10 +1,30 @@
 // src/admin/components/meetings/AddMeetingModal.jsx
-import { useEffect, useMemo, useState } from "react";
-import { X, Loader, Link2 } from "lucide-react";
-import SearchableSelect from "../../../components/common/SearchableSelect";
+import { useEffect, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { X, Loader, Link2, User } from "lucide-react";
 import DateInput from "../../components/common/DateInput";
 import { TimeInput } from "../../components/common/TimeInput";
-import { EMPLOYEES, RELATED_TO_OPTIONS } from "../../pages/Meetings";
+import {
+  fetchMeetingFormOptions,
+  searchMeetingParticipants,
+  clearSearchResults,
+} from "../../store/slices/meetingSlice";
+
+// ----------------------------------------------------
+// Helper: build full avatar URL from relative path
+// ----------------------------------------------------
+const getAvatarUrl = (avatar, username) => {
+  if (avatar) {
+    if (String(avatar).startsWith("http")) return avatar;
+    const base = (import.meta.env.VITE_API_URL || "").replace("/api", "");
+    return `${base}/storage/${avatar}`;
+  }
+  // 👇 Fallback to UI-Avatars if no avatar exists in API
+  const name = username || "User";
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    name
+  )}&background=6366f1&color=fff&bold=true`;
+};
 
 const Field = ({ label, required, children, hint }) => (
   <div>
@@ -30,28 +50,42 @@ const Textarea = (props) => (
   />
 );
 
+const Select = (props) => (
+  <select
+    {...props}
+    className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+  />
+);
+
+// ----------------------------------------------------
+// Participant picker
+// ----------------------------------------------------
 const ParticipantPicker = ({ selected, onChange }) => {
+  const dispatch = useDispatch();
+  const { searchResults, searching } = useSelector((s) => s.meetings);
+  const { users } = useSelector((s) => s.meetings.formOptions);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return EMPLOYEES;
-    return EMPLOYEES.filter(
-      (e) =>
-        e.name.toLowerCase().includes(q) ||
-        (e.designation || "").toLowerCase().includes(q),
-    );
-  }, [query]);
+  const displayList = query.trim() ? searchResults : users;
 
   const toggle = (emp) =>
     onChange(
       selected.includes(emp.id)
         ? selected.filter((id) => id !== emp.id)
-        : [...selected, emp.id],
+        : [...selected, emp.id]
     );
 
-  const selectedEmployees = EMPLOYEES.filter((e) => selected.includes(e.id));
+  const selectedEmployees = users.filter((e) => selected.includes(e.id));
+
+  const handleSearch = (val) => {
+    setQuery(val);
+    if (val.trim().length >= 2) {
+      dispatch(searchMeetingParticipants(val));
+    } else {
+      dispatch(clearSearchResults());
+    }
+  };
 
   return (
     <div className="relative">
@@ -63,25 +97,34 @@ const ParticipantPicker = ({ selected, onChange }) => {
         {selectedEmployees.length === 0 ? (
           <span className="text-gray-400">Select participants…</span>
         ) : (
-          selectedEmployees.map((emp) => (
-            <span
-              key={emp.id}
-              className="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-semibold"
-            >
-              <img src={emp.avatar} alt="" className="w-5 h-5 rounded-full object-cover" />
-              {emp.name.split(" ")[0]}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggle(emp);
-                }}
-                className="ml-0.5 text-blue-500 hover:text-blue-700"
+          selectedEmployees.map((emp) => {
+            // Use username for the avatar and label
+            const displayName = emp.username || emp.name || "User";
+            const avatar = getAvatarUrl(emp.avatar, displayName);
+            return (
+              <span
+                key={emp.id}
+                className="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-semibold"
               >
-                <X size={10} />
-              </button>
-            </span>
-          ))
+                <img
+                  src={avatar}
+                  alt=""
+                  className="w-5 h-5 rounded-full object-cover bg-white"
+                />
+                {displayName.split("@")[0]}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggle(emp);
+                  }}
+                  className="ml-0.5 text-blue-500 hover:text-blue-700"
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            );
+          })
         )}
       </button>
 
@@ -91,41 +134,59 @@ const ParticipantPicker = ({ selected, onChange }) => {
             <input
               autoFocus
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search employees…"
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Search users…"
               className="w-full bg-transparent text-sm focus:outline-none"
             />
           </div>
           <div className="max-h-64 overflow-y-auto py-1">
-            {filtered.length === 0 && (
+            {searching && (
+              <p className="px-3 py-2 text-xs text-gray-500">Searching…</p>
+            )}
+            {!searching && displayList.length === 0 && (
               <p className="px-3 py-3 text-xs text-gray-500 text-center">
-                No employees found
+                No users found
               </p>
             )}
-            {filtered.map((emp) => {
-              const checked = selected.includes(emp.id);
-              return (
-                <button
-                  type="button"
-                  key={emp.id}
-                  onClick={() => toggle(emp)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700/40 ${
-                    checked ? "bg-blue-50/50 dark:bg-blue-900/20" : ""
-                  }`}
-                >
-                  <input type="checkbox" checked={checked} readOnly className="accent-blue-500" />
-                  <img src={emp.avatar} alt="" className="w-7 h-7 rounded-full object-cover" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-semibold text-gray-800 dark:text-gray-200 truncate">
-                      {emp.name}
+            {!searching &&
+              displayList.map((emp) => {
+                const checked = selected.includes(emp.id);
+                const displayName = emp.username || emp.name || "User";
+                const avatar = getAvatarUrl(emp.avatar, displayName);
+                
+                return (
+                  <button
+                    type="button"
+                    key={emp.id}
+                    onClick={() => toggle(emp)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700/40 ${
+                      checked ? "bg-blue-50/50 dark:bg-blue-900/20" : ""
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      readOnly
+                      className="accent-blue-500"
+                    />
+                    <img
+                      src={avatar}
+                      alt=""
+                      className="w-7 h-7 rounded-full object-cover bg-white"
+                    />
+                    <div className="min-w-0 flex-1">
+                      {/* Display username */}
+                      <div className="text-[13px] font-semibold text-gray-800 dark:text-gray-200 truncate">
+                        {emp.username || emp.name}
+                      </div>
+                      {/* Display email as subtitle */}
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                        {emp.email || emp.type}
+                      </div>
                     </div>
-                    <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                      {emp.designation}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })}
           </div>
         </div>
       )}
@@ -133,13 +194,17 @@ const ParticipantPicker = ({ selected, onChange }) => {
   );
 };
 
+// ----------------------------------------------------
+// Empty form (includes status)
+// ----------------------------------------------------
 const emptyForm = (host) => ({
   title: "",
   date: "",
   startTime: "10:00",
   endTime: "11:00",
-  hostId: host?.id || 1,
-  hostName: host?.name || "You",
+  status: "Scheduled",
+  hostId: host?.id || "",
+  hostName: host?.name || "",
   participantIds: [],
   relatedTo: "",
   clientName: "",
@@ -148,24 +213,48 @@ const emptyForm = (host) => ({
   meetingLink: "",
 });
 
-// 👇 Added initialData prop
-const AddMeetingModal = ({ isOpen, onClose, onSave, defaultDate, host, initialData }) => {
+const AddMeetingModal = ({
+  isOpen,
+  onClose,
+  onSave,
+  defaultDate,
+  host,
+  initialData,
+}) => {
+  const dispatch = useDispatch();
+  const { formOptions, submitting } = useSelector((s) => s.meetings);
   const [form, setForm] = useState(emptyForm(host));
-  const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+
+  const optionsFetched = useRef(false);
+  const lastInitId = useRef(null);
 
   const isEditing = !!initialData;
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
+      optionsFetched.current = false;
+      lastInitId.current = null;
+      return;
+    }
+
+    if (!optionsFetched.current) {
+      dispatch(fetchMeetingFormOptions());
+      optionsFetched.current = true;
+    }
+
+    const initId = initialData?.id || "__new__";
+    if (lastInitId.current !== initId) {
       if (initialData) {
-        setForm(initialData); // Pre-fill for edit
+        setForm({ ...emptyForm(host), ...initialData });
       } else {
-        setForm({ ...emptyForm(host), date: defaultDate || "" }); // Blank for add
+        setForm({ ...emptyForm(host), date: defaultDate || "" });
       }
       setErrors({});
+      lastInitId.current = initId;
     }
-  }, [isOpen, defaultDate, host, initialData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialData?.id]);
 
   if (!isOpen) return null;
 
@@ -173,31 +262,47 @@ const AddMeetingModal = ({ isOpen, onClose, onSave, defaultDate, host, initialDa
 
   const validate = () => {
     const next = {};
-    if (!form.title.trim()) next.title = "Title is required";
+    if (!form.title?.trim()) next.title = "Title is required";
     if (!form.date) next.date = "Date is required";
     if (!form.startTime) next.startTime = "Start time is required";
     if (form.endTime && form.endTime <= form.startTime)
       next.endTime = "End time must be after start time";
-    if (!form.relatedTo) next.relatedTo = "Select what this relates to";
+    if (!form.relatedTo?.trim()) next.relatedTo = "Related To is required";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
   const handleSubmit = async () => {
     if (!validate()) return;
-    setSubmitting(true);
     try {
-      await onSave?.(form);
+      const apiPayload = {
+        title: form.title,
+        date: form.date,
+        start_time: form.startTime,
+        end_time: form.endTime,
+        status: form.status,
+        host_id: form.hostId,
+        participant_ids: form.participantIds,
+        related_to: form.relatedTo,
+        client_name: form.clientName,
+        client_email: form.clientEmail,
+        description: form.description,
+        meeting_link: form.meetingLink,
+      };
+      await onSave?.(apiPayload, isEditing ? form.id : null);
       onClose();
-    } finally {
-      setSubmitting(false);
+    } catch {
+      // Error handled by parent
     }
   };
+
+  const currentUsername = formOptions.currentUser?.username || "";
+  const hostAvatar = getAvatarUrl(formOptions.currentUser?.avatar, currentUsername);
+  const hostName = currentUsername || host?.name || "You";
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl">
-        {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">
             {isEditing ? "Edit Meeting" : "Schedule Meeting"}
@@ -211,11 +316,10 @@ const AddMeetingModal = ({ isOpen, onClose, onSave, defaultDate, host, initialDa
           </button>
         </div>
 
-        {/* Body */}
         <div className="p-5 space-y-4">
           <Field label="Meeting Title" required>
             <Input
-              value={form.title}
+              value={form.title || ""}
               onChange={(e) => update("title", e.target.value)}
               placeholder="e.g. Demo with Acme Corp"
             />
@@ -225,7 +329,7 @@ const AddMeetingModal = ({ isOpen, onClose, onSave, defaultDate, host, initialDa
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label="Date" required>
               <DateInput
-                value={form.date}
+                value={form.date || ""}
                 onChange={(val) => update("date", val)}
                 type="general"
                 placeholder="dd/mm/yyyy"
@@ -235,7 +339,7 @@ const AddMeetingModal = ({ isOpen, onClose, onSave, defaultDate, host, initialDa
             </Field>
             <Field label="Start Time" required>
               <TimeInput
-                value={form.startTime}
+                value={form.startTime || ""}
                 onChange={(e) => update("startTime", e.target.value)}
                 className="!bg-white dark:!bg-gray-900 !border-gray-200 dark:!border-gray-700 !rounded-lg !text-sm !py-2"
                 required
@@ -244,7 +348,7 @@ const AddMeetingModal = ({ isOpen, onClose, onSave, defaultDate, host, initialDa
             </Field>
             <Field label="End Time">
               <TimeInput
-                value={form.endTime}
+                value={form.endTime || ""}
                 onChange={(e) => update("endTime", e.target.value)}
                 className="!bg-white dark:!bg-gray-900 !border-gray-200 dark:!border-gray-700 !rounded-lg !text-sm !py-2"
               />
@@ -252,29 +356,49 @@ const AddMeetingModal = ({ isOpen, onClose, onSave, defaultDate, host, initialDa
             </Field>
           </div>
 
+          {/* ── Status ── */}
+          <Field label="Status">
+            <Select
+              value={form.status || "Scheduled"}
+              onChange={(e) => update("status", e.target.value)}
+            >
+              {(formOptions.statuses || [
+                "Scheduled",
+                "Ongoing",
+                "Completed",
+                "Cancelled",
+              ]).map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
           <Field label="Host" hint="Defaults to you (current user)">
             <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 rounded-lg">
               <img
-                src={EMPLOYEES.find((e) => e.id === form.hostId)?.avatar || "https://i.pravatar.cc/150?img=1"}
+                src={hostAvatar}
                 alt=""
-                className="w-6 h-6 rounded-full object-cover"
+                className="w-6 h-6 rounded-full object-cover bg-white"
               />
-              <span className="text-sm text-gray-800 dark:text-gray-200">{form.hostName}</span>
+              <span className="text-sm text-gray-800 dark:text-gray-200">
+                {hostName}
+              </span>
             </div>
           </Field>
 
           <Field label="Participants">
             <ParticipantPicker
-              selected={form.participantIds}
+              selected={form.participantIds || []}
               onChange={(ids) => update("participantIds", ids)}
             />
           </Field>
 
-          {/* ── Client Info Fields ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Client Name">
               <Input
-                value={form.clientName}
+                value={form.clientName || ""}
                 onChange={(e) => update("clientName", e.target.value)}
                 placeholder="e.g. Jane Doe"
               />
@@ -282,7 +406,7 @@ const AddMeetingModal = ({ isOpen, onClose, onSave, defaultDate, host, initialDa
             <Field label="Client Email">
               <Input
                 type="email"
-                value={form.clientEmail}
+                value={form.clientEmail || ""}
                 onChange={(e) => update("clientEmail", e.target.value)}
                 placeholder="jane@company.com"
               />
@@ -290,12 +414,10 @@ const AddMeetingModal = ({ isOpen, onClose, onSave, defaultDate, host, initialDa
           </div>
 
           <Field label="Related To" required>
-            <SearchableSelect
-              value={form.relatedTo}
-              onChange={(v) => update("relatedTo", v)}
-              options={RELATED_TO_OPTIONS}
-              placeholder="Lead, Contact, Internal, Other…"
-              searchPlaceholder="Search leads, contacts, internal…"
+            <Input
+              value={form.relatedTo || ""}
+              onChange={(e) => update("relatedTo", e.target.value)}
+              placeholder="e.g. Sales review, Vendor call, Acme Corp…"
             />
             {errors.relatedTo && <p className="text-xs text-red-500 mt-1">{errors.relatedTo}</p>}
           </Field>
@@ -303,7 +425,7 @@ const AddMeetingModal = ({ isOpen, onClose, onSave, defaultDate, host, initialDa
           <Field label="Description">
             <Textarea
               rows={3}
-              value={form.description}
+              value={form.description || ""}
               onChange={(e) => update("description", e.target.value)}
               placeholder="Agenda, context, notes…"
             />
@@ -311,10 +433,13 @@ const AddMeetingModal = ({ isOpen, onClose, onSave, defaultDate, host, initialDa
 
           <Field label="Meeting Link">
             <div className="relative">
-              <Link2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <Link2
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+              />
               <Input
                 type="text"
-                value={form.meetingLink}
+                value={form.meetingLink || ""}
                 onChange={(e) => update("meetingLink", e.target.value)}
                 placeholder="https://meet.google.com/…"
                 className="!pl-9"
@@ -323,7 +448,6 @@ const AddMeetingModal = ({ isOpen, onClose, onSave, defaultDate, host, initialDa
           </Field>
         </div>
 
-        {/* Footer */}
         <div className="sticky bottom-0 flex justify-end gap-2 px-5 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
           <button
             type="button"
