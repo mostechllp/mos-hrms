@@ -667,16 +667,22 @@ function App() {
           <Route path="meetings" element={<Meetings />} />
           <Route path="my-meetings" element={<MyMeetings />} />
 
-          {/* ───────────── ACCOUNTS (employee) ───────────── */}
-          <Route path="accounts" element={<Accounts />} />
-          <Route path="accounts/dashboard" element={<Accounts />} />
-          <Route path="accounts/chart-of-accounts" element={<Accounts />} />
-          <Route path="accounts/journal-entries" element={<Accounts />} />
-          <Route path="accounts/incomes" element={<Accounts />} />
-          <Route path="accounts/expenses" element={<Accounts />} />
-          <Route path="accounts/general-ledger" element={<Accounts />} />
-          <Route path="accounts/trial-balance" element={<Accounts />} />
-          <Route path="accounts/reports" element={<Accounts />} />
+          {/* ───────────── ACCOUNTS ───────────── */}
+          <Route
+            path="accounts"
+            element={<Navigate to="/admin/accounts/dashboard" replace />}
+          />
+          <Route path="accounts/dashboard" element={<AccountsDashboard />} />
+          <Route
+            path="accounts/chart-of-accounts"
+            element={<ChartOfAccounts />}
+          />
+          <Route path="accounts/journal-entries" element={<JournalEntries />} />
+          <Route path="accounts/incomes" element={<Incomes />} />
+          <Route path="accounts/expenses" element={<Expenses />} />
+          <Route path="accounts/general-ledger" element={<GeneralLedger />} />
+          <Route path="accounts/trial-balance" element={<TrialBalance />} />
+          <Route path="accounts/reports" element={<AccountsReports />} />
         </Route>
 
         <Route
