@@ -53,6 +53,7 @@ import EmpAttendanceTypeReducer from "../employee/store/slices/attendanceTypeSli
 import employeeTasksReducer from "../employee/store/slices/taskSlice";
 import myPayrollReducer from "../employee/store/slices/myPayrollSlice";
 import employeeWarningReducer from "../employee/store/slices/employeeWarningSlice";
+import employeeMeetingReducer from "../employee/store/slices/employeeMeetingSlice";
 
 
 export const store = configureStore({
@@ -110,6 +111,7 @@ export const store = configureStore({
     employeeTasks: employeeTasksReducer,
     myPayroll: myPayrollReducer,
     employeeWarnings: employeeWarningReducer,
+    employeeMeetings: employeeMeetingReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
