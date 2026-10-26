@@ -19,16 +19,35 @@ import {
   CalendarDays,
   CalendarRange,
   Sun,
+  Loader,
+  Filter,
+  Search,
 } from "lucide-react";
 import { showToast } from "../../components/common/Toast";
 import AddMeetingModal from "../components/meetings/AddMeetingModal";
 import {
   fetchMeetings,
+  fetchMeetingById,
   createMeeting,
   updateMeeting,
   deleteMeetingApi,
   fetchMeetingFormOptions,
+  clearCurrentMeeting,
 } from "../store/slices/meetingSlice";
+
+// ----------------------------------------------------
+// Avatar helper
+// ----------------------------------------------------
+const getAvatarUrl = (avatar, name = "User") => {
+  if (avatar) {
+    if (String(avatar).startsWith("http")) return avatar;
+    const base = (import.meta.env.VITE_API_URL || "").replace("/api", "");
+    return `${base}/storage/${avatar}`;
+  }
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    name
+  )}&background=6366f1&color=fff&bold=true`;
+};
 
 // ----------------------------------------------------
 // Helpers
@@ -36,21 +55,13 @@ import {
 const pad = (n) => String(n).padStart(2, "0");
 const toISO = (d) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
 const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const STATUSES = ["Scheduled", "Ongoing", "Completed", "Cancelled"];
 
 const formatTime = (t) => {
   if (!t) return "";
@@ -97,16 +108,11 @@ const getWeekDates = (cursor) => {
   });
 };
 
-// ==========================================
+// ----------------------------------------------------
 // Sub-components
-// ==========================================
+// ----------------------------------------------------
 const DayMeetingsModal = ({
-  isOpen,
-  onClose,
-  dateStr,
-  meetings,
-  onSelectMeeting,
-  onAddClick,
+  isOpen, onClose, dateStr, meetings, onSelectMeeting, onAddClick,
 }) => {
   if (!isOpen || !dateStr) return null;
   return (
@@ -116,14 +122,11 @@ const DayMeetingsModal = ({
           <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">
               {new Date(dateStr).toLocaleDateString("en-GB", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
+                weekday: "long", day: "numeric", month: "long",
               })}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              {meetings.length} meeting{meetings.length === 1 ? "" : "s"}{" "}
-              scheduled
+              {meetings.length} meeting{meetings.length === 1 ? "" : "s"} scheduled
             </p>
           </div>
           <button
@@ -139,27 +142,29 @@ const DayMeetingsModal = ({
               No meetings on this day.
             </p>
           ) : (
-            meetings.map((m) => (
-              <div
-                key={m.id}
-                onClick={() => onSelectMeeting(m)}
-                className="p-3 rounded-lg border border-gray-100 dark:border-gray-700/60 hover:border-blue-300 bg-gray-50/50 cursor-pointer transition-colors"
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate pr-2">
-                    {m.title}
-                  </h4>
-                  <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold whitespace-nowrap">
-                    {formatTime(m.startTime)}
-                  </span>
+            meetings.map((m) => {
+              const avatar = getAvatarUrl(m.hostAvatar, m.hostName);
+              return (
+                <div
+                  key={m.id}
+                  onClick={() => onSelectMeeting(m)}
+                  className="p-3 rounded-lg border border-gray-100 dark:border-gray-700/60 hover:border-blue-300 bg-gray-50/50 cursor-pointer transition-colors"
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate pr-2">
+                      {m.title}
+                    </h4>
+                    <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold whitespace-nowrap">
+                      {formatTime(m.startTime)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <img src={avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
+                    <span className="truncate">{m.hostName}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                  <span className="flex items-center gap-1">
-                    <Users size={12} /> {m.hostName}
-                  </span>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
@@ -176,13 +181,10 @@ const DayMeetingsModal = ({
 };
 
 const MeetingDetailsModal = ({
-  isOpen,
-  onClose,
-  meeting,
-  onDelete,
-  onEditClick,
+  isOpen, onClose, meeting, loading, onDelete, onEditClick,
 }) => {
   if (!isOpen || !meeting) return null;
+  const hostAvatar = getAvatarUrl(meeting.hostAvatar, meeting.hostName);
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
       <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl">
@@ -190,13 +192,17 @@ const MeetingDetailsModal = ({
           <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
             Meeting Details
           </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            {loading && <Loader size={14} className="animate-spin text-blue-500" />}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
+
         <div className="p-5 space-y-4">
           <div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
@@ -206,10 +212,7 @@ const MeetingDetailsModal = ({
               <span className="flex items-center gap-1">
                 <CalendarIcon size={14} className="text-gray-400" />
                 {new Date(meeting.date).toLocaleDateString("en-GB", {
-                  weekday: "long",
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
+                  weekday: "long", day: "2-digit", month: "long", year: "numeric",
                 })}
               </span>
               <span className="flex items-center gap-1">
@@ -219,22 +222,20 @@ const MeetingDetailsModal = ({
               </span>
             </div>
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100 dark:border-gray-700/60">
             <div>
               <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-0.5">
                 Host
               </span>
               <div className="flex items-center gap-2">
-                <img
-                  src={meeting.hostAvatar || "https://i.pravatar.cc/150?img=1"}
-                  alt=""
-                  className="w-6 h-6 rounded-full"
-                />
+                <img src={hostAvatar} alt="" className="w-6 h-6 rounded-full object-cover" />
                 <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
                   {meeting.hostName}
                 </span>
               </div>
             </div>
+
             {meeting.relatedTo && (
               <div>
                 <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-0.5">
@@ -246,6 +247,7 @@ const MeetingDetailsModal = ({
                 </div>
               </div>
             )}
+
             {(meeting.clientName || meeting.clientEmail) && (
               <div className="sm:col-span-2">
                 <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-0.5">
@@ -254,41 +256,44 @@ const MeetingDetailsModal = ({
                 <div className="flex flex-col gap-1 text-sm text-gray-800 dark:text-gray-200">
                   {meeting.clientName && (
                     <span className="flex items-center gap-1.5">
-                      <Users size={14} className="text-gray-400" />{" "}
-                      {meeting.clientName}
+                      <Users size={14} className="text-gray-400" /> {meeting.clientName}
                     </span>
                   )}
                   {meeting.clientEmail && (
                     <span className="flex items-center gap-1.5">
-                      <Mail size={14} className="text-gray-400" />{" "}
-                      {meeting.clientEmail}
+                      <Mail size={14} className="text-gray-400" /> {meeting.clientEmail}
                     </span>
                   )}
                 </div>
               </div>
             )}
+
             {meeting.participants?.length > 0 && (
               <div className="sm:col-span-2">
                 <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">
                   Participants ({meeting.participants.length})
                 </span>
                 <div className="flex flex-wrap gap-2">
-                  {meeting.participants.map((p) => (
-                    <span
-                      key={p.id}
-                      className="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-semibold"
-                    >
-                      <img
-                        src={p.avatar}
-                        alt=""
-                        className="w-5 h-5 rounded-full object-cover"
-                      />
-                      {p.name}
-                    </span>
-                  ))}
+                  {meeting.participants.map((p) => {
+                    const pAvatar = getAvatarUrl(p.avatar, p.name);
+                    return (
+                      <span
+                        key={p.id}
+                        className="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-semibold"
+                      >
+                        <img
+                          src={pAvatar}
+                          alt=""
+                          className="w-5 h-5 rounded-full object-cover"
+                        />
+                        {p.name}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             )}
+
             {meeting.description && (
               <div className="sm:col-span-2">
                 <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-0.5">
@@ -301,6 +306,7 @@ const MeetingDetailsModal = ({
             )}
           </div>
         </div>
+
         <div className="sticky bottom-0 flex items-center justify-between px-5 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
           <button
             onClick={() => onDelete(meeting.id)}
@@ -311,7 +317,8 @@ const MeetingDetailsModal = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onEditClick(meeting)}
-              className="px-4 py-2 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center gap-1.5"
+              disabled={loading}
+              className="px-4 py-2 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center gap-1.5 disabled:opacity-50"
             >
               <Pencil size={14} /> Edit
             </button>
@@ -338,7 +345,13 @@ const MeetingDetailsModal = ({
 const Meetings = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((s) => s.auth) || {};
-  const { meetings, loading, submitting } = useSelector((s) => s.meetings);
+  const {
+    meetings,
+    loading,
+    currentMeeting,
+    currentMeetingLoading,
+    formOptions,
+  } = useSelector((s) => s.meetings);
 
   const today = new Date();
   const [viewMode, setViewMode] = useState("month");
@@ -348,17 +361,64 @@ const Meetings = () => {
     day: today.getDate(),
   });
 
+  // Filters (server-side)
+  const [statusFilter, setStatusFilter] = useState("");
+  const [hostFilter, setHostFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Modals
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addModalDate, setAddModalDate] = useState("");
   const [editingMeeting, setEditingMeeting] = useState(null);
 
+  // Debounce the search input
   useEffect(() => {
-    dispatch(fetchMeetings());
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Initial load of form options
+  useEffect(() => {
     dispatch(fetchMeetingFormOptions());
   }, [dispatch]);
 
+  // Build server-side filter payload based on view + cursor
+  const buildFilters = () => {
+    const f = {
+      status: statusFilter || undefined,
+      host_user_id: hostFilter || undefined,
+      search: debouncedSearch || undefined,
+    };
+
+    if (viewMode === "month") {
+      const start = new Date(cursor.year, cursor.month, 1);
+      const end = new Date(cursor.year, cursor.month + 1, 0);
+      f.date_from = toISO(start);
+      f.date_to = toISO(end);
+    } else if (viewMode === "week") {
+      const dates = getWeekDates(cursor);
+      f.date_from = toISO(dates[0]);
+      f.date_to = toISO(dates[6]);
+    } else if (viewMode === "today") {
+      f.date = toISO(today);
+    }
+    // For "list" view — no date filters, use status/host/search only
+
+    return f;
+  };
+
+  // Re-fetch whenever view/cursor/filters change
+  useEffect(() => {
+    dispatch(fetchMeetings(buildFilters()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, viewMode, cursor.year, cursor.month, cursor.day, statusFilter, hostFilter, debouncedSearch]);
+
+  // Group meetings by date for display only (no filtering here)
   const byDate = useMemo(() => {
     const map = {};
     meetings.forEach((m) => {
@@ -373,9 +433,9 @@ const Meetings = () => {
   const todayISO = toISO(today);
   const monthGrid = useMemo(
     () => buildMonthGrid(cursor.year, cursor.month),
-    [cursor],
+    [cursor.year, cursor.month],
   );
-  const weekDates = useMemo(() => getWeekDates(cursor), [cursor]);
+  const weekDates = useMemo(() => getWeekDates(cursor), [cursor.year, cursor.month, cursor.day]);
   const listMeetings = useMemo(
     () =>
       [...meetings].sort((a, b) =>
@@ -397,6 +457,19 @@ const Meetings = () => {
     [user?.id, user?.first_name, user?.last_name, user?.name, user?.username],
   );
 
+  // For the day modal — fetch filtered by that exact date when opened
+  useEffect(() => {
+    if (!selectedDay) return;
+    const f = {
+      date: selectedDay,
+      status: statusFilter || undefined,
+      host_user_id: hostFilter || undefined,
+      search: debouncedSearch || undefined,
+    };
+    dispatch(fetchMeetings(f));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, selectedDay, statusFilter, hostFilter, debouncedSearch]);
+
   const handlePrev = () => {
     if (viewMode === "month")
       setCursor((c) =>
@@ -406,11 +479,7 @@ const Meetings = () => {
       );
     else if (viewMode === "week") {
       const d = new Date(cursor.year, cursor.month, cursor.day - 7);
-      setCursor({
-        year: d.getFullYear(),
-        month: d.getMonth(),
-        day: d.getDate(),
-      });
+      setCursor({ year: d.getFullYear(), month: d.getMonth(), day: d.getDate() });
     }
   };
 
@@ -423,11 +492,7 @@ const Meetings = () => {
       );
     else if (viewMode === "week") {
       const d = new Date(cursor.year, cursor.month, cursor.day + 7);
-      setCursor({
-        year: d.getFullYear(),
-        month: d.getMonth(),
-        day: d.getDate(),
-      });
+      setCursor({ year: d.getFullYear(), month: d.getMonth(), day: d.getDate() });
     }
   };
 
@@ -443,10 +508,24 @@ const Meetings = () => {
     setAddModalOpen(true);
   };
 
-  const openEdit = (meeting) => {
+  const openDetails = async (summary) => {
+    setSelectedMeeting(summary);
+    try {
+      await dispatch(fetchMeetingById(summary.id)).unwrap();
+    } catch {
+      /* keep snapshot */
+    }
+  };
+
+  const openEdit = async (summary) => {
     setSelectedMeeting(null);
-    setEditingMeeting(meeting);
-    setAddModalOpen(true);
+    try {
+      const fresh = await dispatch(fetchMeetingById(summary.id)).unwrap();
+      setEditingMeeting(fresh);
+      setAddModalOpen(true);
+    } catch (err) {
+      showToast(err || "Failed to load meeting", "error");
+    }
   };
 
   const handleSaveMeeting = async (apiPayload, id) => {
@@ -458,6 +537,8 @@ const Meetings = () => {
         await dispatch(createMeeting(apiPayload)).unwrap();
         showToast("Meeting scheduled", "success");
       }
+      // Refresh current view with same filters
+      dispatch(fetchMeetings(buildFilters()));
     } catch (err) {
       showToast(err || "Failed to save meeting", "error");
       throw err;
@@ -468,21 +549,38 @@ const Meetings = () => {
     if (!window.confirm("Delete this meeting?")) return;
     try {
       await dispatch(deleteMeetingApi(id)).unwrap();
+      dispatch(clearCurrentMeeting());
       setSelectedMeeting(null);
       showToast("Meeting deleted", "success");
+      dispatch(fetchMeetings(buildFilters()));
     } catch (err) {
       showToast(err || "Failed to delete meeting", "error");
     }
   };
 
-  const selectedDayMeetings = selectedDay ? byDate[selectedDay] || [] : [];
+  const closeDetails = () => {
+    setSelectedMeeting(null);
+    dispatch(clearCurrentMeeting());
+  };
+
+  const closeAddModal = () => {
+    setAddModalOpen(false);
+    setEditingMeeting(null);
+    dispatch(clearCurrentMeeting());
+  };
+
+  // Day modal meetings: when opened, use the date-filtered results already fetched
+  const selectedDayMeetings = useMemo(() => {
+    if (!selectedDay) return [];
+    return byDate[selectedDay] || [];
+  }, [byDate, selectedDay]);
 
   const renderMeetingPill = (m, isMonthView = false) => (
     <div
       key={m.id}
       onClick={(e) => {
         e.stopPropagation();
-        setSelectedMeeting(m);
+        openDetails(m);
       }}
       className={`flex items-center gap-1 px-1.5 py-1 rounded text-xs transition-colors cursor-pointer border ${
         isMonthView
@@ -492,7 +590,9 @@ const Meetings = () => {
       title={`${m.title} — ${formatTime(m.startTime)}`}
     >
       <span
-        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isMonthView ? "bg-blue-500" : "bg-indigo-500"}`}
+        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+          isMonthView ? "bg-blue-500" : "bg-indigo-500"
+        }`}
       />
       <span className="font-semibold whitespace-nowrap">
         {formatTime(m.startTime)}
@@ -500,6 +600,14 @@ const Meetings = () => {
       <span className="truncate">{m.title}</span>
     </div>
   );
+
+  const detailsMeeting =
+    currentMeeting?.id === selectedMeeting?.id
+      ? currentMeeting
+      : selectedMeeting;
+
+  const activeFilterCount =
+    (statusFilter ? 1 : 0) + (hostFilter ? 1 : 0) + (debouncedSearch ? 1 : 0);
 
   return (
     <div className="w-full space-y-6">
@@ -527,62 +635,176 @@ const Meetings = () => {
       </div>
 
       {loading && (
-        <div className="text-center py-4 text-sm text-gray-500">
-          Loading meetings…
+        <div className="text-center py-4 text-sm text-gray-500 flex items-center justify-center gap-2">
+          <Loader size={14} className="animate-spin" /> Loading meetings…
         </div>
       )}
 
       {/* Toolbar */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-          <button
-            onClick={() => setViewMode("month")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${viewMode === "month" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"}`}
-          >
-            <LayoutGrid size={16} /> Month
-          </button>
-          <button
-            onClick={() => setViewMode("week")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${viewMode === "week" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"}`}
-          >
-            <CalendarRange size={16} /> Week
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${viewMode === "list" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"}`}
-          >
-            <ListIcon size={16} /> List
-          </button>
-          <button
-            onClick={goToday}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${viewMode === "today" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"}`}
-          >
-            <Sun size={16} /> Today
-          </button>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          {/* View switcher */}
+          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+            <button
+              onClick={() => setViewMode("month")}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${
+                viewMode === "month"
+                  ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+              }`}
+            >
+              <LayoutGrid size={16} /> Month
+            </button>
+            <button
+              onClick={() => setViewMode("week")}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${
+                viewMode === "week"
+                  ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+              }`}
+            >
+              <CalendarRange size={16} /> Week
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${
+                viewMode === "list"
+                  ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+              }`}
+            >
+              <ListIcon size={16} /> List
+            </button>
+            <button
+              onClick={goToday}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${
+                viewMode === "today"
+                  ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+              }`}
+            >
+              <Sun size={16} /> Today
+            </button>
+          </div>
+
+          {/* Month/week navigation + Filters toggle */}
+          <div className="flex items-center gap-2 justify-between sm:justify-end">
+            {viewMode !== "list" && viewMode !== "today" && (
+              <>
+                <div className="text-sm font-bold text-gray-900 dark:text-white min-w-[120px] text-center">
+                  {viewMode === "month" &&
+                    `${MONTH_NAMES[cursor.month]} ${cursor.year}`}
+                  {viewMode === "week" &&
+                    `${MONTH_NAMES[weekDates[0].getMonth()]} ${weekDates[0].getFullYear()}`}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handlePrev}
+                    className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={handleNext}
+                    className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </>
+            )}
+
+            <button
+              onClick={() => setFiltersOpen((v) => !v)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold border flex items-center gap-2 transition-colors ${
+                activeFilterCount > 0
+                  ? "bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 text-blue-700 dark:text-blue-400"
+                  : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+              }`}
+            >
+              <Filter size={14} />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
-        {viewMode !== "list" && viewMode !== "today" && (
-          <div className="flex items-center gap-3">
-            <div className="text-sm font-bold text-gray-900 dark:text-white min-w-[120px] text-center">
-              {viewMode === "month" &&
-                `${MONTH_NAMES[cursor.month]} ${cursor.year}`}
-              {viewMode === "week" &&
-                `${MONTH_NAMES[weekDates[0].getMonth()]} ${weekDates[0].getFullYear()}`}
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handlePrev}
-                className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
+        {/* Filters panel */}
+        {filtersOpen && (
+          <div className="border-t border-gray-100 dark:border-gray-700 pt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                Status
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500"
               >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                onClick={handleNext}
-                className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
-              >
-                <ChevronRight size={16} />
-              </button>
+                <option value="">All statuses</option>
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                Host
+              </label>
+              <select
+                value={hostFilter}
+                onChange={(e) => setHostFilter(e.target.value)}
+                className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+              >
+                <option value="">All hosts</option>
+                {(formOptions.users || []).map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.username || u.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                Search
+              </label>
+              <div className="relative">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search meetings…"
+                  className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            {activeFilterCount > 0 && (
+              <div className="sm:col-span-3 flex justify-end">
+                <button
+                  onClick={() => {
+                    setStatusFilter("");
+                    setHostFilter("");
+                    setSearchQuery("");
+                  }}
+                  className="text-xs font-semibold text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 flex items-center gap-1"
+                >
+                  <X size={12} /> Clear all filters
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -617,7 +839,11 @@ const Meetings = () => {
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span
-                      className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${isToday ? "bg-blue-600 text-white" : "text-gray-700 dark:text-gray-300"}`}
+                      className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
+                        isToday
+                          ? "bg-blue-600 text-white"
+                          : "text-gray-700 dark:text-gray-300"
+                      }`}
                     >
                       {date.getDate()}
                     </span>
@@ -633,9 +859,7 @@ const Meetings = () => {
                     </button>
                   </div>
                   <div className="flex-1 space-y-1 overflow-hidden">
-                    {dayMeetings
-                      .slice(0, 2)
-                      .map((m) => renderMeetingPill(m, true))}
+                    {dayMeetings.slice(0, 2).map((m) => renderMeetingPill(m, true))}
                     {dayMeetings.length > 2 && (
                       <div
                         onClick={(e) => {
@@ -734,50 +958,58 @@ const Meetings = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {listMeetings.map((m) => (
-                  <tr
-                    key={m.id}
-                    onClick={() => setSelectedMeeting(m)}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer transition-colors"
-                  >
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-sm font-bold text-gray-900 dark:text-white">
-                        {new Date(m.date).toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {formatTime(m.startTime)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                        {m.title}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={
-                            m.hostAvatar || "https://i.pravatar.cc/150?img=1"
-                          }
-                          alt=""
-                          className="w-6 h-6 rounded-full"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                          {m.hostName}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:text-indigo-400 px-2 py-1 rounded-md">
-                        {describeRelatedTo(m.relatedTo)}
-                      </span>
+                {listMeetings.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                      No meetings found.
                     </td>
                   </tr>
-                ))}
+                )}
+                {listMeetings.map((m) => {
+                  const hostAvatar = getAvatarUrl(m.hostAvatar, m.hostName);
+                  return (
+                    <tr
+                      key={m.id}
+                      onClick={() => openDetails(m)}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-bold text-gray-900 dark:text-white">
+                          {new Date(m.date).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {formatTime(m.startTime)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          {m.title}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={hostAvatar}
+                            alt=""
+                            className="w-6 h-6 rounded-full object-cover"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            {m.hostName}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:text-indigo-400 px-2 py-1 rounded-md">
+                          {describeRelatedTo(m.relatedTo)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -818,40 +1050,43 @@ const Meetings = () => {
             </div>
           ) : (
             <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 dark:before:via-gray-700 before:to-transparent">
-              {todayMeetings.map((m) => (
-                <div
-                  key={m.id}
-                  className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
-                  onClick={() => setSelectedMeeting(m)}
-                >
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-gray-800 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 cursor-pointer z-10">
-                    <Clock size={16} />
-                  </div>
-                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 shadow-sm cursor-pointer hover:border-blue-300 transition-colors">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                        {formatTime(m.startTime)}
-                      </span>
-                      <span className="text-xs font-semibold text-gray-500 bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
-                        {describeRelatedTo(m.relatedTo)}
-                      </span>
+              {todayMeetings.map((m) => {
+                const hostAvatar = getAvatarUrl(m.hostAvatar, m.hostName);
+                return (
+                  <div
+                    key={m.id}
+                    className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
+                    onClick={() => openDetails(m)}
+                  >
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-gray-800 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 cursor-pointer z-10">
+                      <Clock size={16} />
                     </div>
-                    <h3 className="text-base font-bold text-gray-900 dark:text-white">
-                      {m.title}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-2">
-                      <img
-                        src={m.hostAvatar || "https://i.pravatar.cc/150?img=1"}
-                        alt=""
-                        className="w-5 h-5 rounded-full"
-                      />
-                      <span className="text-xs text-gray-500">
-                        Host: {m.hostName}
-                      </span>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 shadow-sm cursor-pointer hover:border-blue-300 transition-colors">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                          {formatTime(m.startTime)}
+                        </span>
+                        <span className="text-xs font-semibold text-gray-500 bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
+                          {describeRelatedTo(m.relatedTo)}
+                        </span>
+                      </div>
+                      <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                        {m.title}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-2">
+                        <img
+                          src={hostAvatar}
+                          alt=""
+                          className="w-5 h-5 rounded-full object-cover"
+                        />
+                        <span className="text-xs text-gray-500">
+                          Host: {m.hostName}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -863,7 +1098,10 @@ const Meetings = () => {
         onClose={() => setSelectedDay(null)}
         dateStr={selectedDay}
         meetings={selectedDayMeetings}
-        onSelectMeeting={(m) => setSelectedMeeting(m)}
+        onSelectMeeting={(m) => {
+          setSelectedDay(null);
+          openDetails(m);
+        }}
         onAddClick={(date) => {
           setSelectedDay(null);
           openAdd(date);
@@ -872,15 +1110,16 @@ const Meetings = () => {
 
       <MeetingDetailsModal
         isOpen={!!selectedMeeting}
-        onClose={() => setSelectedMeeting(null)}
-        meeting={selectedMeeting}
+        onClose={closeDetails}
+        meeting={detailsMeeting}
+        loading={currentMeetingLoading}
         onDelete={handleDeleteMeeting}
         onEditClick={openEdit}
       />
 
       <AddMeetingModal
         isOpen={addModalOpen}
-        onClose={() => setAddModalOpen(false)}
+        onClose={closeAddModal}
         onSave={handleSaveMeeting}
         defaultDate={addModalDate}
         initialData={editingMeeting}

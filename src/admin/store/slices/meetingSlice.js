@@ -234,6 +234,10 @@ const initialState = {
   loading: false,
   error: null,
 
+  currentMeeting: null,
+  currentMeetingLoading: false,
+  currentMeetingError: null,
+
   formOptions: {
     currentUser: null,
     users: [],
@@ -248,6 +252,7 @@ const initialState = {
   submittingError: null,
 };
 
+
 const meetingSlice = createSlice({
   name: "meetings",
   initialState,
@@ -258,6 +263,10 @@ const meetingSlice = createSlice({
     },
     clearSearchResults: (s) => {
       s.searchResults = [];
+    },
+    clearCurrentMeeting: (s) => {
+      s.currentMeeting = null;
+      s.currentMeetingError = null;
     },
   },
   extraReducers: (builder) => {
@@ -296,6 +305,19 @@ const meetingSlice = createSlice({
       .addCase(fetchMeetings.rejected, (s, a) => {
         s.loading = false;
         s.error = a.payload;
+      })
+
+      .addCase(fetchMeetingById.pending, (s) => {
+        s.currentMeetingLoading = true;
+        s.currentMeetingError = null;
+      })
+      .addCase(fetchMeetingById.fulfilled, (s, a) => {
+        s.currentMeetingLoading = false;
+        s.currentMeeting = a.payload;
+      })
+      .addCase(fetchMeetingById.rejected, (s, a) => {
+        s.currentMeetingLoading = false;
+        s.currentMeetingError = a.payload;
       })
 
       .addCase(createMeeting.pending, (s) => {
@@ -340,5 +362,9 @@ const meetingSlice = createSlice({
   },
 });
 
-export const { clearMeetingErrors, clearSearchResults } = meetingSlice.actions;
+export const {
+  clearMeetingErrors,
+  clearSearchResults,
+  clearCurrentMeeting,
+} = meetingSlice.actions;
 export default meetingSlice.reducer;
