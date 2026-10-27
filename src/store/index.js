@@ -38,6 +38,8 @@ import productReducer from "../admin/store/slices/productSlice";
 import crmReportReducer from "../admin/store/slices/crmReportSlice";
 import crmSettingsReducer from "../admin/store/slices/crmSettingsSlice";
 import crmDashboardReducer from "../admin/store/slices/crmDashboardSlice";
+import meetingReducer from "../admin/store/slices/meetingSlice";
+import accountsReducer from "../admin/store/slices/accountsSlice";
 
 
 // Employee reducers
@@ -52,6 +54,7 @@ import EmpAttendanceTypeReducer from "../employee/store/slices/attendanceTypeSli
 import employeeTasksReducer from "../employee/store/slices/taskSlice";
 import myPayrollReducer from "../employee/store/slices/myPayrollSlice";
 import employeeWarningReducer from "../employee/store/slices/employeeWarningSlice";
+import employeeMeetingReducer from "../employee/store/slices/employeeMeetingSlice";
 
 
 export const store = configureStore({
@@ -95,6 +98,8 @@ export const store = configureStore({
     crmReports: crmReportReducer,
     crmSettings: crmSettingsReducer,
     crmDashboard: crmDashboardReducer,
+    meetings: meetingReducer,
+    accounts: accountsReducer,
 
     // Employee
     EmpLeaves: leavesReducer,
@@ -108,6 +113,7 @@ export const store = configureStore({
     employeeTasks: employeeTasksReducer,
     myPayroll: myPayrollReducer,
     employeeWarnings: employeeWarningReducer,
+    employeeMeetings: employeeMeetingReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

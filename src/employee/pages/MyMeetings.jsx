@@ -1,27 +1,46 @@
-// src/admin/pages/MyMeetings.jsx
-import { useMemo, useState } from "react";
-import { useSelector } from "react-redux";
+// src/employee/pages/MyMeetings.jsx
+import { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon,
   Users, Clock, Link2, Trash2, Pencil, X, Briefcase, Mail,
-  LayoutGrid, List as ListIcon, CalendarDays, CalendarRange, Sun
+  LayoutGrid, List as ListIcon, CalendarDays, CalendarRange, Sun,
+  Loader, Filter, Search,
 } from "lucide-react";
 import { showToast } from "../../components/common/Toast";
-import AddMeetingModal from "../../admin/components/meetings/AddMeetingModal";
+import AddMeetingModal from "../components/meetings/AddMeetingModal";
+import {
+  fetchMeetings,
+  fetchMeetingById,
+  createMeeting,
+  updateMeeting,
+  deleteMeetingApi,
+  fetchMeetingFormOptions,
+  clearCurrentMeeting,
+} from "../store/slices/employeeMeetingSlice";
 
-// --- Import the same data from the admin side ---
-import { 
-  EMPLOYEES, 
-  RELATED_TO_OPTIONS, 
-  MEETINGS, 
-  describeRelatedTo 
-} from "../../admin/pages/Meetings"; // 👈 Adjust path if needed
+// Avatar helper
+const getAvatarUrl = (avatar, name = "User") => {
+  if (avatar) {
+    if (String(avatar).startsWith("http")) return avatar;
+    const base = (import.meta.env.VITE_API_URL || "").replace("/api", "");
+    return `${base}/storage/${avatar}`;
+  }
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    name
+  )}&background=6366f1&color=fff&bold=true`;
+};
 
-// --- Helpers ---
+// Helpers
 const pad = (n) => String(n).padStart(2, "0");
-const toISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const toISO = (d) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const MONTH_NAMES = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
+];
+const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const STATUSES = ["Scheduled", "Ongoing", "Completed", "Cancelled"];
 
 const formatTime = (t) => {
   if (!t) return "";
@@ -32,9 +51,11 @@ const formatTime = (t) => {
   return `${h12}:${m} ${suffix}`;
 };
 
+const describeRelatedTo = (v) => v || "—";
+
 const buildMonthGrid = (year, month) => {
   const first = new Date(year, month, 1);
-  const startDay = first.getDay(); 
+  const startDay = first.getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells = [];
   for (let i = startDay - 1; i >= 0; i--) {
@@ -66,39 +87,46 @@ const getWeekDates = (cursor) => {
   });
 };
 
-// ==========================================
-// 1. Day Meetings Modal
-// ==========================================
+// Day modal
 const DayMeetingsModal = ({ isOpen, onClose, dateStr, meetings, onSelectMeeting, onAddClick }) => {
   if (!isOpen || !dateStr) return null;
-
   return (
     <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50 px-4">
       <div className="w-full max-w-md max-h-[80vh] flex flex-col bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
           <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-              {new Date(dateStr).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
+              {new Date(dateStr).toLocaleDateString("en-GB", {
+                weekday: "long", day: "numeric", month: "long",
+              })}
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">{meetings.length} meeting{meetings.length === 1 ? "" : "s"} scheduled</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {meetings.length} meeting{meetings.length === 1 ? "" : "s"} scheduled
+            </p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">
+            <X size={16} />
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {meetings.length === 0 ? (
-             <p className="text-sm text-gray-500 text-center py-6">No meetings on this day.</p>
+            <p className="text-sm text-gray-500 text-center py-6">No meetings on this day.</p>
           ) : (
-            meetings.map(m => (
-              <div key={m.id} onClick={() => onSelectMeeting(m)} className="p-3 rounded-lg border border-gray-100 dark:border-gray-700/60 hover:border-blue-300 dark:hover:border-blue-700 bg-gray-50/50 dark:bg-gray-900/20 cursor-pointer transition-colors">
-                <div className="flex justify-between items-start mb-1">
-                  <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate pr-2">{m.title}</h4>
-                  <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold whitespace-nowrap">{formatTime(m.startTime)}</span>
+            meetings.map((m) => {
+              const avatar = getAvatarUrl(m.hostAvatar, m.hostName);
+              return (
+                <div key={m.id} onClick={() => onSelectMeeting(m)} className="p-3 rounded-lg border border-gray-100 dark:border-gray-700/60 hover:border-blue-300 bg-gray-50/50 cursor-pointer transition-colors">
+                  <div className="flex justify-between items-start mb-1">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate pr-2">{m.title}</h4>
+                    <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold whitespace-nowrap">{formatTime(m.startTime)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <img src={avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
+                    <span className="truncate">{m.hostName}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                  <span className="flex items-center gap-1"><Users size={12} /> {m.hostName}</span>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
@@ -111,63 +139,92 @@ const DayMeetingsModal = ({ isOpen, onClose, dateStr, meetings, onSelectMeeting,
   );
 };
 
-// ==========================================
-// 2. View Meeting Modal (Details)
-// ==========================================
-const MeetingDetailsModal = ({ isOpen, onClose, meeting, onDelete, onEditClick, isHost }) => {
+// Details modal
+const MeetingDetailsModal = ({ isOpen, onClose, meeting, loading, onDelete, onEditClick, isHost }) => {
   if (!isOpen || !meeting) return null;
-  const participantNames = EMPLOYEES.filter((e) => meeting.participantIds?.includes(e.id));
-
+  const hostAvatar = getAvatarUrl(meeting.hostAvatar, meeting.hostName);
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
       <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl">
         <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">Meeting Details</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
+          <div className="flex items-center gap-2">
+            {loading && <Loader size={14} className="animate-spin text-blue-500" />}
+            <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">
+              <X size={16} />
+            </button>
+          </div>
         </div>
+
         <div className="p-5 space-y-4">
           <div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{meeting.title}</h3>
             <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
-              <span className="flex items-center gap-1"><CalendarIcon size={14} className="text-gray-400" />{new Date(meeting.date).toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</span>
-              <span className="flex items-center gap-1"><Clock size={14} className="text-gray-400" />{formatTime(meeting.startTime)} {meeting.endTime ? ` – ${formatTime(meeting.endTime)}` : ""}</span>
+              <span className="flex items-center gap-1">
+                <CalendarIcon size={14} className="text-gray-400" />
+                {new Date(meeting.date).toLocaleDateString("en-GB", {
+                  weekday: "long", day: "2-digit", month: "long", year: "numeric",
+                })}
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock size={14} className="text-gray-400" />
+                {formatTime(meeting.startTime)} {meeting.endTime ? ` – ${formatTime(meeting.endTime)}` : ""}
+              </span>
             </div>
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100 dark:border-gray-700/60">
             <div>
               <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-0.5">Host</span>
               <div className="flex items-center gap-2">
-                <img src={EMPLOYEES.find(e => e.id === meeting.hostId)?.avatar || "https://i.pravatar.cc/150?img=1"} alt="" className="w-6 h-6 rounded-full" />
+                <img src={hostAvatar} alt="" className="w-6 h-6 rounded-full object-cover" />
                 <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{meeting.hostName}</span>
               </div>
             </div>
+
             {meeting.relatedTo && (
               <div>
                 <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-0.5">Related To</span>
-                <div className="flex items-center gap-1.5 text-sm text-indigo-700 dark:text-indigo-400 font-semibold"><Briefcase size={14} />{describeRelatedTo(meeting.relatedTo)}</div>
+                <div className="flex items-center gap-1.5 text-sm text-indigo-700 dark:text-indigo-400 font-semibold">
+                  <Briefcase size={14} />
+                  {describeRelatedTo(meeting.relatedTo)}
+                </div>
               </div>
             )}
+
             {(meeting.clientName || meeting.clientEmail) && (
               <div className="sm:col-span-2">
                 <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-0.5">Client Info</span>
                 <div className="flex flex-col gap-1 text-sm text-gray-800 dark:text-gray-200">
-                  {meeting.clientName && <span className="flex items-center gap-1.5"><Users size={14} className="text-gray-400" /> {meeting.clientName}</span>}
-                  {meeting.clientEmail && <span className="flex items-center gap-1.5"><Mail size={14} className="text-gray-400" /> {meeting.clientEmail}</span>}
+                  {meeting.clientName && (
+                    <span className="flex items-center gap-1.5"><Users size={14} className="text-gray-400" /> {meeting.clientName}</span>
+                  )}
+                  {meeting.clientEmail && (
+                    <span className="flex items-center gap-1.5"><Mail size={14} className="text-gray-400" /> {meeting.clientEmail}</span>
+                  )}
                 </div>
               </div>
             )}
-            {participantNames.length > 0 && (
+
+            {meeting.participants?.length > 0 && (
               <div className="sm:col-span-2">
-                <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Participants ({participantNames.length})</span>
+                <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">
+                  Participants ({meeting.participants.length})
+                </span>
                 <div className="flex flex-wrap gap-2">
-                  {participantNames.map((p) => (
-                    <span key={p.id} className="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-semibold">
-                      <img src={p.avatar} alt="" className="w-5 h-5 rounded-full object-cover" />{p.name}
-                    </span>
-                  ))}
+                  {meeting.participants.map((p) => {
+                    const pAvatar = getAvatarUrl(p.avatar, p.name);
+                    return (
+                      <span key={p.id} className="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-semibold">
+                        <img src={pAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                        {p.name}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             )}
+
             {meeting.description && (
               <div className="sm:col-span-2">
                 <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-0.5">Description</span>
@@ -176,19 +233,25 @@ const MeetingDetailsModal = ({ isOpen, onClose, meeting, onDelete, onEditClick, 
             )}
           </div>
         </div>
+
         <div className="sticky bottom-0 flex items-center justify-between px-5 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
           <div>
-            {/* Only allow delete if the current user is the host */}
-            {isHost ? (
-              <button onClick={() => onDelete(meeting.id)} className="px-3 py-2 rounded-lg text-red-600 dark:text-red-400 text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-1.5"><Trash2 size={14} /> Delete</button>
-            ) : <div />}
+            {isHost && (
+              <button onClick={() => onDelete(meeting.id)} className="px-3 py-2 rounded-lg text-red-600 dark:text-red-400 text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-1.5">
+                <Trash2 size={14} /> Delete
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {isHost && (
-              <button onClick={() => onEditClick(meeting)} className="px-4 py-2 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center gap-1.5"><Pencil size={14} /> Edit</button>
+              <button onClick={() => onEditClick(meeting)} disabled={loading} className="px-4 py-2 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center gap-1.5 disabled:opacity-50">
+                <Pencil size={14} /> Edit
+              </button>
             )}
             {meeting.meetingLink && (
-              <a href={meeting.meetingLink} target="_blank" rel="noreferrer" className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 flex items-center gap-1.5 shadow-sm"><Link2 size={14} /> Join</a>
+              <a href={meeting.meetingLink} target="_blank" rel="noreferrer" className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 flex items-center gap-1.5 shadow-sm">
+                <Link2 size={14} /> Join
+              </a>
             )}
           </div>
         </div>
@@ -197,61 +260,113 @@ const MeetingDetailsModal = ({ isOpen, onClose, meeting, onDelete, onEditClick, 
   );
 };
 
-// ==========================================
-// Main Component
-// ==========================================
+// Main page
 const MyMeetings = () => {
+  const dispatch = useDispatch();
   const { user } = useSelector((s) => s.auth) || {};
-  const today = new Date();
-  const currentUserId = user?.id || 1; // Fallback to 1 for demo
-  
-  // State
-  const [viewMode, setViewMode] = useState("month");
-  const [cursor, setCursor] = useState({ year: today.getFullYear(), month: today.getMonth(), day: today.getDate() });
-  const [meetings, setMeetings] = useState(MEETINGS);
+  const {
+    meetings, loading, currentMeeting, currentMeetingLoading, formOptions,
+  } = useSelector((s) => s.employeeMeetings);
 
-  // Modals
+  const today = new Date();
+  const [viewMode, setViewMode] = useState("month");
+  const [cursor, setCursor] = useState({
+    year: today.getFullYear(), month: today.getMonth(), day: today.getDate(),
+  });
+
+  const [statusFilter, setStatusFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addModalDate, setAddModalDate] = useState("");
   const [editingMeeting, setEditingMeeting] = useState(null);
 
-  // 👇 FILTER DATA: Only show meetings where the user is Host OR a Participant
-  const myMeetings = useMemo(() => {
-    return meetings.filter(m => 
-      m.hostId === currentUserId || 
-      m.participantIds?.includes(currentUserId)
-    );
-  }, [meetings, currentUserId]);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
-  // Data grouping (Based on filtered meetings)
+  useEffect(() => {
+    dispatch(fetchMeetingFormOptions());
+  }, [dispatch]);
+
+  const buildFilters = () => {
+    const f = {
+      status: statusFilter || undefined,
+      search: debouncedSearch || undefined,
+    };
+    if (viewMode === "month") {
+      const start = new Date(cursor.year, cursor.month, 1);
+      const end = new Date(cursor.year, cursor.month + 1, 0);
+      f.date_from = toISO(start);
+      f.date_to = toISO(end);
+    } else if (viewMode === "week") {
+      const dates = getWeekDates(cursor);
+      f.date_from = toISO(dates[0]);
+      f.date_to = toISO(dates[6]);
+    } else if (viewMode === "today") {
+      f.date = toISO(today);
+    }
+    return f;
+  };
+
+  useEffect(() => {
+    dispatch(fetchMeetings(buildFilters()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, viewMode, cursor.year, cursor.month, cursor.day, statusFilter, debouncedSearch]);
+
   const byDate = useMemo(() => {
     const map = {};
-    myMeetings.forEach((m) => { (map[m.date] ||= []).push(m); });
-    Object.values(map).forEach((list) => list.sort((a, b) => a.startTime.localeCompare(b.startTime)));
+    meetings.forEach((m) => {
+      (map[m.date] ||= []).push(m);
+    });
+    Object.values(map).forEach((list) =>
+      list.sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    );
     return map;
-  }, [myMeetings]);
+  }, [meetings]);
 
   const todayISO = toISO(today);
-  
-  // View calculations
-  const monthGrid = useMemo(() => buildMonthGrid(cursor.year, cursor.month), [cursor]);
-  const weekDates = useMemo(() => getWeekDates(cursor), [cursor]);
-  const listMeetings = useMemo(() => [...myMeetings].sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime)), [myMeetings]);
+  const monthGrid = useMemo(() => buildMonthGrid(cursor.year, cursor.month), [cursor.year, cursor.month]);
+  const weekDates = useMemo(() => getWeekDates(cursor), [cursor.year, cursor.month, cursor.day]);
+  const listMeetings = useMemo(
+    () => [...meetings].sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime)),
+    [meetings],
+  );
   const todayMeetings = byDate[todayISO] || [];
 
-  // Handlers
+  const currentUserHost = useMemo(() => ({
+    id: user?.id || 1,
+    name: `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || user?.name || user?.username || "You",
+  }), [user?.id, user?.first_name, user?.last_name, user?.name, user?.username]);
+
+  useEffect(() => {
+    if (!selectedDay) return;
+    const f = {
+      date: selectedDay,
+      status: statusFilter || undefined,
+      search: debouncedSearch || undefined,
+    };
+    dispatch(fetchMeetings(f));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, selectedDay, statusFilter, debouncedSearch]);
+
   const handlePrev = () => {
-    if (viewMode === "month") setCursor(c => c.month === 0 ? { ...c, year: c.year - 1, month: 11 } : { ...c, month: c.month - 1 });
+    if (viewMode === "month")
+      setCursor((c) => c.month === 0 ? { ...c, year: c.year - 1, month: 11 } : { ...c, month: c.month - 1 });
     else if (viewMode === "week") {
       const d = new Date(cursor.year, cursor.month, cursor.day - 7);
       setCursor({ year: d.getFullYear(), month: d.getMonth(), day: d.getDate() });
     }
   };
-  
+
   const handleNext = () => {
-    if (viewMode === "month") setCursor(c => c.month === 11 ? { ...c, year: c.year + 1, month: 0 } : { ...c, month: c.month + 1 });
+    if (viewMode === "month")
+      setCursor((c) => c.month === 11 ? { ...c, year: c.year + 1, month: 0 } : { ...c, month: c.month + 1 });
     else if (viewMode === "week") {
       const d = new Date(cursor.year, cursor.month, cursor.day + 7);
       setCursor({ year: d.getFullYear(), month: d.getMonth(), day: d.getDate() });
@@ -270,40 +385,76 @@ const MyMeetings = () => {
     setAddModalOpen(true);
   };
 
-  const openEdit = (meeting) => {
-    setSelectedMeeting(null);
-    setEditingMeeting(meeting);
-    setAddModalOpen(true);
+  const openDetails = async (summary) => {
+    setSelectedMeeting(summary);
+    try {
+      await dispatch(fetchMeetingById(summary.id)).unwrap();
+    } catch {}
   };
 
-  const handleSaveMeeting = async (form) => {
-    if (editingMeeting) {
-      setMeetings((prev) => prev.map((m) => (m.id === form.id ? form : m)));
-      showToast("Meeting updated", "success");
-    } else {
-      const host = EMPLOYEES.find((e) => e.id === form.hostId) || { id: form.hostId, name: form.hostName };
-      setMeetings((prev) => [...prev, { id: Date.now(), ...form, hostName: host.name }]);
-      showToast("Meeting scheduled", "success");
+  const openEdit = async (summary) => {
+    setSelectedMeeting(null);
+    try {
+      const fresh = await dispatch(fetchMeetingById(summary.id)).unwrap();
+      setEditingMeeting(fresh);
+      setAddModalOpen(true);
+    } catch (err) {
+      showToast(err || "Failed to load meeting", "error");
     }
   };
 
-  const handleDeleteMeeting = (id) => {
-    if(!window.confirm("Delete this meeting?")) return;
-    setMeetings((prev) => prev.filter((m) => m.id !== id));
-    setSelectedMeeting(null);
-    showToast("Meeting deleted", "success");
+  const handleSaveMeeting = async (apiPayload, id) => {
+    try {
+      if (id) {
+        await dispatch(updateMeeting({ id, data: apiPayload })).unwrap();
+        showToast("Meeting updated", "success");
+      } else {
+        await dispatch(createMeeting(apiPayload)).unwrap();
+        showToast("Meeting scheduled", "success");
+      }
+      dispatch(fetchMeetings(buildFilters()));
+    } catch (err) {
+      showToast(err || "Failed to save meeting", "error");
+      throw err;
+    }
   };
 
-  const selectedDayMeetings = selectedDay ? byDate[selectedDay] || [] : [];
+  const handleDeleteMeeting = async (id) => {
+    if (!window.confirm("Delete this meeting?")) return;
+    try {
+      await dispatch(deleteMeetingApi(id)).unwrap();
+      dispatch(clearCurrentMeeting());
+      setSelectedMeeting(null);
+      showToast("Meeting deleted", "success");
+      dispatch(fetchMeetings(buildFilters()));
+    } catch (err) {
+      showToast(err || "Failed to delete meeting", "error");
+    }
+  };
 
-  // --- Render Helpers ---
+  const closeDetails = () => {
+    setSelectedMeeting(null);
+    dispatch(clearCurrentMeeting());
+  };
+
+  const closeAddModal = () => {
+    setAddModalOpen(false);
+    setEditingMeeting(null);
+    dispatch(clearCurrentMeeting());
+  };
+
+  const selectedDayMeetings = useMemo(() => {
+    if (!selectedDay) return [];
+    return byDate[selectedDay] || [];
+  }, [byDate, selectedDay]);
+
   const renderMeetingPill = (m, isMonthView = false) => (
     <div
       key={m.id}
-      onClick={(e) => { e.stopPropagation(); setSelectedMeeting(m); }}
+      onClick={(e) => { e.stopPropagation(); openDetails(m); }}
       className={`flex items-center gap-1 px-1.5 py-1 rounded text-xs transition-colors cursor-pointer border ${
-        isMonthView 
-          ? "bg-blue-50 border-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-800/50" 
+        isMonthView
+          ? "bg-blue-50 border-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-800/50"
           : "bg-white border-gray-200 text-gray-700 hover:border-blue-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 shadow-sm"
       }`}
       title={`${m.title} — ${formatTime(m.startTime)}`}
@@ -314,9 +465,15 @@ const MyMeetings = () => {
     </div>
   );
 
+  const detailsMeeting =
+    currentMeeting?.id === selectedMeeting?.id ? currentMeeting : selectedMeeting;
+
+  const activeFilterCount = (statusFilter ? 1 : 0) + (debouncedSearch ? 1 : 0);
+  const currentUserId = user?.id;
+
   return (
     <div className="w-full space-y-6">
-      {/* Top Header */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -332,38 +489,98 @@ const MyMeetings = () => {
         </button>
       </div>
 
+      {loading && (
+        <div className="text-center py-4 text-sm text-gray-500 flex items-center justify-center gap-2">
+          <Loader size={14} className="animate-spin" /> Loading meetings…
+        </div>
+      )}
+
       {/* Toolbar */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-          <button onClick={() => setViewMode("month")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${viewMode === "month" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"}`}>
-            <LayoutGrid size={16} /> Month
-          </button>
-          <button onClick={() => setViewMode("week")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${viewMode === "week" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"}`}>
-            <CalendarRange size={16} /> Week
-          </button>
-          <button onClick={() => setViewMode("list")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${viewMode === "list" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"}`}>
-            <ListIcon size={16} /> List
-          </button>
-          <button onClick={goToday} className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${viewMode === "today" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"}`}>
-            <Sun size={16} /> Today
-          </button>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+            <button onClick={() => setViewMode("month")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${viewMode === "month" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"}`}>
+              <LayoutGrid size={16} /> Month
+            </button>
+            <button onClick={() => setViewMode("week")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${viewMode === "week" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"}`}>
+              <CalendarRange size={16} /> Week
+            </button>
+            <button onClick={() => setViewMode("list")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${viewMode === "list" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"}`}>
+              <ListIcon size={16} /> List
+            </button>
+            <button onClick={goToday} className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors ${viewMode === "today" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"}`}>
+              <Sun size={16} /> Today
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 justify-between sm:justify-end">
+            {viewMode !== "list" && viewMode !== "today" && (
+              <>
+                <div className="text-sm font-bold text-gray-900 dark:text-white min-w-[120px] text-center">
+                  {viewMode === "month" && `${MONTH_NAMES[cursor.month]} ${cursor.year}`}
+                  {viewMode === "week" && `${MONTH_NAMES[weekDates[0].getMonth()]} ${weekDates[0].getFullYear()}`}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={handlePrev} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700">
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button onClick={handleNext} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700">
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </>
+            )}
+
+            <button onClick={() => setFiltersOpen((v) => !v)} className={`px-3 py-1.5 rounded-lg text-sm font-semibold border flex items-center gap-2 transition-colors ${activeFilterCount > 0 ? "bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 text-blue-700 dark:text-blue-400" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"}`}>
+              <Filter size={14} />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold">{activeFilterCount}</span>
+              )}
+            </button>
+          </div>
         </div>
 
-        {viewMode !== "list" && viewMode !== "today" && (
-          <div className="flex items-center gap-3">
-            <div className="text-sm font-bold text-gray-900 dark:text-white min-w-[120px] text-center">
-              {viewMode === "month" && `${MONTH_NAMES[cursor.month]} ${cursor.year}`}
-              {viewMode === "week" && `${MONTH_NAMES[weekDates[0].getMonth()]} ${weekDates[0].getFullYear()}`}
+        {filtersOpen && (
+          <div className="border-t border-gray-100 dark:border-gray-700 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+              >
+                <option value="">All statuses</option>
+                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
-            <div className="flex items-center gap-1">
-              <button onClick={handlePrev} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"><ChevronLeft size={16} /></button>
-              <button onClick={handleNext} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"><ChevronRight size={16} /></button>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Search</label>
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search meetings…"
+                  className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
             </div>
+
+            {activeFilterCount > 0 && (
+              <div className="sm:col-span-2 flex justify-end">
+                <button onClick={() => { setStatusFilter(""); setSearchQuery(""); }} className="text-xs font-semibold text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 flex items-center gap-1">
+                  <X size={12} /> Clear all filters
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* 1. MONTH VIEW */}
+      {/* Month */}
       {viewMode === "month" && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
           <div className="grid grid-cols-7 gap-1 mb-1">
@@ -380,7 +597,9 @@ const MyMeetings = () => {
                 <div key={iso} onClick={() => setSelectedDay(iso)} className={`group relative min-h-[100px] rounded-lg border p-1.5 flex flex-col transition-colors cursor-pointer ${!inMonth ? "opacity-40 border-transparent" : "border-gray-100 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600"}`}>
                   <div className="flex items-center justify-between mb-1">
                     <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${isToday ? "bg-blue-600 text-white" : "text-gray-700 dark:text-gray-300"}`}>{date.getDate()}</span>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); openAdd(iso); }} className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-blue-600 hover:bg-blue-100 transition-opacity"><Plus size={14} /></button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); openAdd(iso); }} className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-blue-600 hover:bg-blue-100 transition-opacity">
+                      <Plus size={14} />
+                    </button>
                   </div>
                   <div className="flex-1 space-y-1 overflow-hidden">
                     {dayMeetings.slice(0, 2).map((m) => renderMeetingPill(m, true))}
@@ -397,7 +616,7 @@ const MyMeetings = () => {
         </div>
       )}
 
-      {/* 2. WEEK VIEW */}
+      {/* Week */}
       {viewMode === "week" && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 overflow-x-auto">
           <div className="min-w-[800px]">
@@ -414,13 +633,15 @@ const MyMeetings = () => {
               })}
             </div>
             <div className="grid grid-cols-7 gap-2 min-h-[400px]">
-              {weekDates.map(d => {
+              {weekDates.map((d) => {
                 const iso = toISO(d);
                 const dayMeetings = byDate[iso] || [];
                 return (
                   <div key={iso} className="bg-gray-50/50 dark:bg-gray-900/20 rounded-lg p-2 border border-gray-100 dark:border-gray-700/50 space-y-2" onClick={() => setSelectedDay(iso)}>
-                    {dayMeetings.map(m => renderMeetingPill(m))}
-                    {dayMeetings.length === 0 && <div className="text-xs text-gray-400 text-center mt-4">No meetings</div>}
+                    {dayMeetings.map((m) => renderMeetingPill(m))}
+                    {dayMeetings.length === 0 && (
+                      <div className="text-xs text-gray-400 text-center mt-4">No meetings</div>
+                    )}
                   </div>
                 );
               })}
@@ -429,7 +650,7 @@ const MyMeetings = () => {
         </div>
       )}
 
-      {/* 3. LIST VIEW */}
+      {/* List */}
       {viewMode === "list" && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
@@ -443,46 +664,54 @@ const MyMeetings = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {listMeetings.map(m => (
-                  <tr key={m.id} onClick={() => setSelectedMeeting(m)} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-sm font-bold text-gray-900 dark:text-white">{new Date(m.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</div>
-                      <div className="text-xs text-gray-500">{formatTime(m.startTime)}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">{m.title}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <img src={EMPLOYEES.find(e => e.id === m.hostId)?.avatar} alt="" className="w-6 h-6 rounded-full" />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">{m.hostName}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:text-indigo-400 px-2 py-1 rounded-md">{describeRelatedTo(m.relatedTo)}</span>
-                    </td>
-                  </tr>
-                ))}
                 {listMeetings.length === 0 && (
-                  <tr><td colSpan={4} className="text-center py-8 text-gray-500">No meetings scheduled.</td></tr>
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">No meetings found.</td></tr>
                 )}
+                {listMeetings.map((m) => {
+                  const hostAvatar = getAvatarUrl(m.hostAvatar, m.hostName);
+                  return (
+                    <tr key={m.id} onClick={() => openDetails(m)} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-bold text-gray-900 dark:text-white">
+                          {new Date(m.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                        </div>
+                        <div className="text-xs text-gray-500">{formatTime(m.startTime)}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">{m.title}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <img src={hostAvatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{m.hostName}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:text-indigo-400 px-2 py-1 rounded-md">{describeRelatedTo(m.relatedTo)}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* 4. TODAY VIEW */}
+      {/* Today */}
       {viewMode === "today" && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Sun className="text-amber-500" /> My Schedule Today
-              <span className="text-sm font-normal text-gray-500 ml-2">({new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })})</span>
+              <span className="text-sm font-normal text-gray-500 ml-2">
+                ({new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })})
+              </span>
             </h2>
-            <button onClick={() => openAdd(todayISO)} className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"><Plus size={16} /> Add</button>
+            <button onClick={() => openAdd(todayISO)} className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
+              <Plus size={16} /> Add
+            </button>
           </div>
-          
           {todayMeetings.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -492,24 +721,29 @@ const MyMeetings = () => {
             </div>
           ) : (
             <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 dark:before:via-gray-700 before:to-transparent">
-              {todayMeetings.map(m => (
-                <div key={m.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active" onClick={() => setSelectedMeeting(m)}>
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-gray-800 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 cursor-pointer z-10">
-                    <Clock size={16} />
-                  </div>
-                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 shadow-sm cursor-pointer hover:border-blue-300 transition-colors">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{formatTime(m.startTime)}</span>
-                      <span className="text-xs font-semibold text-gray-500 bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">{describeRelatedTo(m.relatedTo)}</span>
+              {todayMeetings.map((m) => {
+                const hostAvatar = getAvatarUrl(m.hostAvatar, m.hostName);
+                return (
+                  <div key={m.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active" onClick={() => openDetails(m)}>
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-gray-800 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 cursor-pointer z-10">
+                      <Clock size={16} />
                     </div>
-                    <h3 className="text-base font-bold text-gray-900 dark:text-white">{m.title}</h3>
-                    <div className="flex items-center gap-2 mt-2">
-                      <img src={EMPLOYEES.find(e => e.id === m.hostId)?.avatar} alt="" className="w-5 h-5 rounded-full" />
-                      <span className="text-xs text-gray-500">Host: {m.hostName}</span>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 shadow-sm cursor-pointer hover:border-blue-300 transition-colors">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{formatTime(m.startTime)}</span>
+                        <span className="text-xs font-semibold text-gray-500 bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
+                          {describeRelatedTo(m.relatedTo)}
+                        </span>
+                      </div>
+                      <h3 className="text-base font-bold text-gray-900 dark:text-white">{m.title}</h3>
+                      <div className="flex items-center gap-2 mt-2">
+                        <img src={hostAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                        <span className="text-xs text-gray-500">Host: {m.hostName}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -521,29 +755,27 @@ const MyMeetings = () => {
         onClose={() => setSelectedDay(null)}
         dateStr={selectedDay}
         meetings={selectedDayMeetings}
-        onSelectMeeting={(m) => setSelectedMeeting(m)}
+        onSelectMeeting={(m) => { setSelectedDay(null); openDetails(m); }}
         onAddClick={(date) => { setSelectedDay(null); openAdd(date); }}
       />
 
       <MeetingDetailsModal
         isOpen={!!selectedMeeting}
-        onClose={() => setSelectedMeeting(null)}
-        meeting={selectedMeeting}
+        onClose={closeDetails}
+        meeting={detailsMeeting}
+        loading={currentMeetingLoading}
         onDelete={handleDeleteMeeting}
         onEditClick={openEdit}
-        isHost={selectedMeeting?.hostId === currentUserId} // 👈 Only allow edit/delete if they are the host
+        isHost={detailsMeeting?.hostId === currentUserId}
       />
 
       <AddMeetingModal
         isOpen={addModalOpen}
-        onClose={() => setAddModalOpen(false)}
+        onClose={closeAddModal}
         onSave={handleSaveMeeting}
         defaultDate={addModalDate}
         initialData={editingMeeting}
-        host={{
-          id: user?.id || 1,
-          name: `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || user?.name || "You",
-        }}
+        host={currentUserHost}
       />
     </div>
   );

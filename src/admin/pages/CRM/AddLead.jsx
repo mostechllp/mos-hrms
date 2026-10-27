@@ -1,5 +1,5 @@
 // src/admin/pages/CRM/AddLead.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { ArrowLeft, Save, Plus, CalendarClock, X, Loader } from "lucide-react";
@@ -22,6 +22,27 @@ import {
 } from "../../store/slices/crmSettingsSlice";
 import { TimeInput } from "../../components/common/TimeInput";
 import DateInput from "../../components/common/DateInput";
+import { countries, getCountryFlag } from "../../utils/countries"; // 👈 import helper
+
+// ----------------------------------------------------
+// Dynamic field labels based on selected country
+// ----------------------------------------------------
+const getRegionLabels = (countryName) => {
+  const c = (countryName || "").toLowerCase();
+  if (c === "united arab emirates" || c === "uae")
+    return { state: "Emirate", postal: "Postal Code" };
+  if (c === "united kingdom" || c === "uk")
+    return { state: "County", postal: "Postcode" };
+  if (c === "united states" || c === "usa")
+    return { state: "State", postal: "ZIP Code" };
+  if (c === "canada")
+    return { state: "Province", postal: "Postal Code" };
+  if (c === "australia")
+    return { state: "State", postal: "Postcode" };
+  if (c === "india")
+    return { state: "State", postal: "PIN Code" };
+  return { state: "State", postal: "Postal Code" };
+};
 
 const emptyForm = {
   leadId: "",
@@ -44,7 +65,7 @@ const emptyForm = {
   postalCode: "",
   assignedSalespersonId: "",
   salesTeam: "",
-  expectedValue: "0", // ← default 0
+  expectedValue: "0",
   expectedClosingDate: "",
   interestedProducts: [],
   notes: "",
@@ -98,7 +119,7 @@ const AddNewInline = ({
   submitting,
   error,
   onCancel,
-  onSubmit, // (value) => Promise<void>
+  onSubmit,
 }) => {
   const [value, setValue] = useState("");
 
@@ -120,7 +141,6 @@ const AddNewInline = ({
         <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3">
           {title}
         </h3>
-
         <input
           autoFocus
           value={value}
@@ -133,9 +153,7 @@ const AddNewInline = ({
           disabled={submitting}
           className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
         />
-
         {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
-
         <div className="flex justify-end gap-2 mt-4">
           <button
             type="button"
@@ -160,19 +178,17 @@ const AddNewInline = ({
   );
 };
 
-// Helpers to turn string arrays into SearchableSelect options
 const strOptions = (arr) => (arr || []).map((v) => ({ value: v, label: v }));
 
 const AddLead = () => {
-  const { leadId } = useParams(); // numeric id in edit mode
+  const { leadId } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
   const isEdit = Boolean(leadId);
 
   const [quickAdd, setQuickAdd] = useState({
     open: false,
-    type: null, // "source" | "status" | "priority"
+    type: null,
     submitting: false,
     error: null,
   });
@@ -190,14 +206,13 @@ const AddLead = () => {
     try {
       if (type === "source") {
         await dispatch(createLeadSource({ name })).unwrap();
-        // Refresh both the crm-settings bucket and the form-options list
         dispatch(fetchLeadSources());
         dispatch(fetchLeadFormOptions());
-        update("leadSource", name); // auto-select
+        update("leadSource", name);
         showToast("Lead source created", "success");
       } else if (type === "status") {
         await dispatch(
-          createLeadStatus({ name, color: "#6b7280", is_default: false }),
+          createLeadStatus({ name, color: "#6b7280", is_default: false })
         ).unwrap();
         dispatch(fetchLeadStatuses());
         dispatch(fetchLeadFormOptions());
@@ -221,7 +236,7 @@ const AddLead = () => {
   };
 
   const { options, currentLead, currentLeadLoading, submitting } = useSelector(
-    (state) => state.leads,
+    (state) => state.leads
   );
 
   const [form, setForm] = useState(emptyForm);
@@ -236,18 +251,15 @@ const AddLead = () => {
     }
   }, [dispatch, isEdit, leadId]);
 
-  // Hydrate form on edit
   useEffect(() => {
     if (isEdit && currentLead) {
       const mapped = fromLeadApi(currentLead);
-
-      // Split datetime into date + time
       let nextDate = "";
       let nextTime = "";
       if (mapped.nextFollowUpAt && mapped.nextFollowUpAt.includes(" ")) {
         const [d, t] = mapped.nextFollowUpAt.split(" ");
         nextDate = d;
-        nextTime = t.slice(0, 5); // HH:MM
+        nextTime = t.slice(0, 5);
       } else if (mapped.nextFollowUpAt) {
         nextDate = mapped.nextFollowUpAt;
       }
@@ -298,7 +310,6 @@ const AddLead = () => {
   const submitLead = async (afterSuccess) => {
     if (!validate()) return;
     try {
-      // Recombine date + time into the API's expected format
       const nextFollowUpAt =
         form.nextFollowUpDate && form.nextFollowUpTime
           ? `${form.nextFollowUpDate} ${form.nextFollowUpTime}:00`
@@ -329,7 +340,6 @@ const AddLead = () => {
   };
 
   const handleSave = () => submitLead(() => navigate("/admin/crm/leads"));
-
   const handleSaveAndAddAnother = () => {
     if (isEdit) {
       submitLead(() => {});
@@ -337,7 +347,6 @@ const AddLead = () => {
     }
     submitLead(() => setForm(emptyForm));
   };
-
   const handleSaveAndScheduleFollowUp = () => {
     submitLead((created) => {
       const newId = created?.id || created?.lead_id || leadId;
@@ -346,7 +355,6 @@ const AddLead = () => {
     });
   };
 
-  // SearchableSelect option arrays
   const salespersonOptions = (options.salespersons || []).map((s) => ({
     value: String(s.id),
     label: s.designation ? `${s.name} — ${s.designation}` : s.name,
@@ -359,6 +367,22 @@ const AddLead = () => {
   const priorityOptions = strOptions(options.priorities);
   const salesTeamOptions = strOptions(options.sales_teams);
   const followUpTypeOptions = strOptions(options.follow_up_types);
+
+  // Build country options with flag emojis
+  const countryOptions = useMemo(
+    () =>
+      countries.map((c) => ({
+        value: c.name,
+        label: `${getCountryFlag(c.code)} ${c.name}`,
+      })),
+    []
+  );
+
+  // Dynamically change the "State" and "Postal Code" labels
+  const regionLabels = useMemo(
+    () => getRegionLabels(form.country),
+    [form.country]
+  );
 
   if (isEdit && currentLeadLoading && !currentLead) {
     return (
@@ -511,12 +535,18 @@ const AddLead = () => {
               onChange={(e) => update("alternatePhone", e.target.value)}
             />
           </Field>
-          <Field label="Postal Code">
-            <Input
-              value={form.postalCode}
-              onChange={(e) => update("postalCode", e.target.value)}
+
+          {/* Country comes first (before address fields) */}
+          <Field label="Country">
+            <SearchableSelect
+              value={form.country}
+              onChange={(v) => update("country", v)}
+              options={countryOptions}
+              placeholder="Select country..."
+              searchPlaceholder="Search country..."
             />
           </Field>
+
           <div className="md:col-span-2">
             <Field label="Address">
               <Textarea
@@ -527,22 +557,27 @@ const AddLead = () => {
               />
             </Field>
           </div>
+
+          {/* State label is dynamic based on the country */}
+          <Field label={regionLabels.state}>
+            <Input
+              value={form.state}
+              onChange={(e) => update("state", e.target.value)}
+              placeholder={`e.g. ${regionLabels.state}`}
+            />
+          </Field>
           <Field label="City">
             <Input
               value={form.city}
               onChange={(e) => update("city", e.target.value)}
             />
           </Field>
-          <Field label="State">
+
+          {/* Postal code label is dynamic too */}
+          <Field label={regionLabels.postal}>
             <Input
-              value={form.state}
-              onChange={(e) => update("state", e.target.value)}
-            />
-          </Field>
-          <Field label="Country">
-            <Input
-              value={form.country}
-              onChange={(e) => update("country", e.target.value)}
+              value={form.postalCode}
+              onChange={(e) => update("postalCode", e.target.value)}
             />
           </Field>
         </div>
@@ -706,7 +741,6 @@ const AddLead = () => {
           )}
         </button>
       </div>
-      {/* Inline "Add new" modal for lead-settings fields */}
       <AddNewInline
         open={quickAdd.open}
         title={
