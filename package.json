@@ -36,6 +36,7 @@
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.15.0",
     "recharts": "^3.8.1",
+    "tz-lookup": "^6.1.25",
     "zod": "^4.4.3"
   },
   "devDependencies": {

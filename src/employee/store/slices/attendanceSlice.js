@@ -1,5 +1,20 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import apiClient from "../../../utils/apiClient";
+import { setStoredWorkTimezone } from "../../utils/timezone";
+
+// Timezone fields sent with every punch. The timezone is the one of the punch
+// LOCATION (resolved from coordinates in LocationModal) - not the device's.
+const timezoneFields = (location) => {
+  const fields = {};
+  if (location?.timezone) {
+    fields.timezone = location.timezone;
+    if (location.timezone_offset) fields.timezone_offset = location.timezone_offset;
+    if (location.timezone_offset_minutes !== undefined && location.timezone_offset_minutes !== null) {
+      fields.timezone_offset_minutes = location.timezone_offset_minutes;
+    }
+  }
+  return fields;
+};
 
 // Fetch Dashboard Data
 export const fetchDashboardData = createAsyncThunk(
@@ -63,10 +78,7 @@ export const punchIn = createAsyncThunk(
         requestBody.punch_in_longitude = locationData.location.longitude;
         requestBody.punch_in_address = locationData.location.address;
 
-        // Only send timezone if backend expects it
-        if (locationData.location.timezone) {
-          requestBody.timezone = locationData.location.timezone;
-        }
+        Object.assign(requestBody, timezoneFields(locationData.location));
       }
 
       console.log("📤 Sending request:", requestBody);
@@ -79,6 +91,9 @@ export const punchIn = createAsyncThunk(
       // Handle both 200 and 201 status codes
       if (response.status === 200 || response.status === 201) {
         const data = response.data.data || response.data;
+
+        // Remember the timezone this shift runs in (used for all displays)
+        setStoredWorkTimezone(locationData?.location?.timezone);
 
         // Store in localStorage
         localStorage.setItem("attendance-punched-in", "true");
@@ -149,9 +164,7 @@ export const punchOut = createAsyncThunk(
         requestBody.longitude = location.longitude;
         requestBody.address = location.address;
 
-        if (location.timezone) {
-          requestBody.timezone = location.timezone;
-        }
+        Object.assign(requestBody, timezoneFields(location));
       }
 
       console.log("📤 Sending punch out request:", requestBody);
@@ -224,9 +237,7 @@ export const pendingPunchOut = createAsyncThunk(
         requestBody.longitude = location.longitude;
         requestBody.address = location.address;
 
-        if (location.timezone) {
-          requestBody.timezone = location.timezone;
-        }
+        Object.assign(requestBody, timezoneFields(location));
       }
 
       const response = await apiClient.post("/employee/punch-out", requestBody);
