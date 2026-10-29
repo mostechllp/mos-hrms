@@ -49,6 +49,8 @@ import recurringInvoicesReducer  from "../admin/store/slices/accounts/recurringI
 import deliveryChallansReducer  from "../admin/store/slices/accounts/deliveryChallansSlice";
 import paymentsReceivedReducer  from "../admin/store/slices/accounts/paymentsReceivedSlice";
 import creditNotesReducer  from "../admin/store/slices/accounts/creditNotesSlice";
+import vendorsReducer  from "../admin/store/slices/accounts/vendorsSlice";
+import expensesReducer  from "../admin/store/slices/accounts/expensesSlice";
 
 // Employee reducers
 import leavesReducer from "../employee/store/slices/leavesSlice";
@@ -116,6 +118,8 @@ export const store = configureStore({
     deliveryChallans: deliveryChallansReducer,
     paymentsReceived: paymentsReceivedReducer,
     creditNotes: creditNotesReducer,
+    vendors: vendorsReducer,
+    expenses: expensesReducer,
 
     // Employee
     EmpLeaves: leavesReducer,
