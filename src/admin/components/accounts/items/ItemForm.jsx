@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { addItem, updateItem } from "../../store/slices/accounts/itemsSlice";
+import { addItem, updateItem } from "../../../store/slices/accounts/itemsSlice";
 import { X, HelpCircle, ChevronRight } from "lucide-react";
 import { Button, inputCls } from "../ui";
 import SearchableSelect from "../../../../components/common/SearchableSelect";
