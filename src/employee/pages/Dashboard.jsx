@@ -203,33 +203,33 @@ const Dashboard = () => {
 
   // Sync break state from server (source of truth across devices)
   useEffect(() => {
-  const breaks = employeeBreaks?.breaks || [];
+    const breaks = employeeBreaks?.breaks || [];
 
-  // Only consider breaks that started *today* as "currently open".
-  // A break with no end_time from a previous day is stale / abandoned,
-  // not an active break.
-  const todayStr = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+    // Only consider breaks that started *today* as "currently open".
+    // A break with no end_time from a previous day is stale / abandoned,
+    // not an active break.
+    const todayStr = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
 
-  const openBreak = breaks.find((b) => {
-    if (!b || !b.start_time) return false;
-    // Must have no end_time (still open)
-    if (b.end_time && b.end_time !== null) return false;
-    // Must have started today (compare the date part)
-    const breakDate = String(b.start_time).split("T")[0];
-    return breakDate === todayStr;
-  });
+    const openBreak = breaks.find((b) => {
+      if (!b || !b.start_time) return false;
+      // Must have no end_time (still open)
+      if (b.end_time && b.end_time !== null) return false;
+      // Must have started today (compare the date part)
+      const breakDate = String(b.start_time).split("T")[0];
+      return breakDate === todayStr;
+    });
 
-  if (openBreak) {
-    setIsOnBreak(true);
-    setBreakStartTime(openBreak.start_time);
-    localStorage.setItem("attendance-on-break", "true");
-    localStorage.setItem("attendance-break-start-time", openBreak.start_time);
-  } else {
-    setIsOnBreak(false);
-    localStorage.setItem("attendance-on-break", "false");
-    localStorage.removeItem("attendance-break-start-time");
-  }
-}, [employeeBreaks]);
+    if (openBreak) {
+      setIsOnBreak(true);
+      setBreakStartTime(openBreak.start_time);
+      localStorage.setItem("attendance-on-break", "true");
+      localStorage.setItem("attendance-break-start-time", openBreak.start_time);
+    } else {
+      setIsOnBreak(false);
+      localStorage.setItem("attendance-on-break", "false");
+      localStorage.removeItem("attendance-break-start-time");
+    }
+  }, [employeeBreaks]);
 
   // Poll + refresh breaks whenever the tab regains focus (cross-device sync)
   useEffect(() => {
@@ -1196,24 +1196,19 @@ const Dashboard = () => {
   };
 
   const formatBreakDuration = (ms) => {
-    let currentTotalMs = ms;
-    if (isOnBreak && breakStartTime) {
-      currentTotalMs += Math.max(0, new Date() - new Date(breakStartTime));
-    }
+    if (!ms || ms <= 0) return "00h 00m 00s";
 
-    if (currentTotalMs <= 0) return "00h 00m 00s";
-
-    const h = Math.floor(currentTotalMs / 3600000);
-    const m = Math.floor((currentTotalMs % 3600000) / 60000);
-    const s = Math.floor((currentTotalMs % 60000) / 1000);
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
 
     return `${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
   };
 
   const isHR =
-  dashboardData?.is_hr === true ||
-  user?.type === "hr" ||
-  user?.role?.name?.toLowerCase() === "hr";
+    dashboardData?.is_hr === true ||
+    user?.type === "hr" ||
+    user?.role?.name?.toLowerCase() === "hr";
 
   // Debug log to see what time we're getting
   useEffect(() => {
@@ -1282,6 +1277,7 @@ const Dashboard = () => {
               {currentDate}
             </div>
           </div>
+
           <div className="punch-item text-center">
             <div className="punch-label text-xs text-[var(--muted)] mb-2">
               Punch In Time
@@ -1299,6 +1295,19 @@ const Dashboard = () => {
             <div className={`punch-value text-2xl font-bold text-blue-500`}>
               {currentDuration}
             </div>
+
+            {/* Show live break duration ONLY while on break */}
+            {isOnBreak && breakStartTime && (
+              <div className="mt-1 text-[11px] font-semibold text-amber-500 flex items-center justify-center gap-1 animate-pulse">
+                <i className="fas fa-coffee"></i>
+                <span>
+                  Break:{" "}
+                  {formatBreakDuration(
+                    Math.max(0, new Date() - new Date(breakStartTime)),
+                  )}
+                </span>
+              </div>
+            )}
           </div>
           <div className="punch-item text-center">
             <div className="punch-label text-xs text-[var(--muted)] mb-2">
@@ -1382,30 +1391,30 @@ const Dashboard = () => {
       </div>
 
       {/* ─── Upcoming Reminders (HR only) ───────────────────────── */}
-{isHR && (
-  <>
-    <div className="section-label text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-6 mb-2">
-      Reminders
-    </div>
-    <div className="mb-7 h-[480px]">
-      <UpcomingReminders
-        birthdays={
-          dashboardData?.birthdays ||
-          dashboardData?.recent_data?.birthdays ||
-          []
-        }
-        specialDays={
-          dashboardData?.employee_special_days ||
-          dashboardData?.special_days ||
-          dashboardData?.recent_data?.employee_special_days ||
-          dashboardData?.recent_data?.special_days ||
-          []
-        }
-        maxItems={10}
-      />
-    </div>
-  </>
-)}
+      {isHR && (
+        <>
+          <div className="section-label text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-6 mb-2">
+            Reminders
+          </div>
+          <div className="mb-7 h-[480px]">
+            <UpcomingReminders
+              birthdays={
+                dashboardData?.birthdays ||
+                dashboardData?.recent_data?.birthdays ||
+                []
+              }
+              specialDays={
+                dashboardData?.employee_special_days ||
+                dashboardData?.special_days ||
+                dashboardData?.recent_data?.employee_special_days ||
+                dashboardData?.recent_data?.special_days ||
+                []
+              }
+              maxItems={10}
+            />
+          </div>
+        </>
+      )}
 
       {(dashboardData?.is_hr || dashboardData?.is_team_lead) && (
         <div className="mb-7">
