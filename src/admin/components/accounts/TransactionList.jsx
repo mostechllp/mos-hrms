@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Plus, Pencil, Trash2, CheckCircle2, Download, Receipt } from "lucide-react";
 import { EXPENSE_STATUSES, INCOME_STATUSES } from "../../pages/accounts/accountsData";
-import { saveExpense, saveIncome, deleteExpenses, deleteIncomes } from "../../store/accounts/accountsSlice";
+import { saveExpense, saveIncome, deleteExpenses, deleteIncomes } from "../../store/slices/accounts/accountsSlice";
 import { TransactionModal } from "./modals";
 import {
   Card, Button, IconBtn, StatusBadge, SearchBox, SelectSm, StatTile, Th, Pagination, EmptyState,
