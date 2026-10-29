@@ -217,33 +217,32 @@ const Dashboard = () => {
 
   // Sync break state from server (source of truth across devices)
   useEffect(() => {
-    const breaks = employeeBreaks?.breaks || [];
+  const breaks = employeeBreaks?.breaks || [];
+  const todayStr = getTodayInTimezone(workTimezone);
 
-    // Only consider breaks that started *today* as "currently open".
-    // A break with no end_time from a previous day is stale / abandoned,
-    // not an active break.
-    const todayStr = getTodayInTimezone(workTimezone); // "YYYY-MM-DD" in the work timezone
+  const openBreak = breaks.find((b) => {
+    if (!b || !b.start_time) return false;
+    if (b.end_time) return false;
+    return getDatePartInTimezone(b.start_time, workTimezone) === todayStr;
+  });
 
-    const openBreak = breaks.find((b) => {
-      if (!b || !b.start_time) return false;
-      // Must have no end_time (still open)
-      if (b.end_time && b.end_time !== null) return false;
-      // Must have started today (compare the date part)
-      const breakDate = getDatePartInTimezone(b.start_time, workTimezone);
-      return breakDate === todayStr;
-    });
-
-    if (openBreak) {
-      setIsOnBreak(true);
-      setBreakStartTime(openBreak.start_time);
-      localStorage.setItem("attendance-on-break", "true");
+  if (openBreak) {
+    setIsOnBreak(true);
+    // Keep the local start time if we already have one (this device started it).
+    // Only use the server time when there's none (other device / page reload).
+    setBreakStartTime((prev) => {
+      if (prev) return prev;
       localStorage.setItem("attendance-break-start-time", openBreak.start_time);
-    } else {
-      setIsOnBreak(false);
-      localStorage.setItem("attendance-on-break", "false");
-      localStorage.removeItem("attendance-break-start-time");
-    }
-  }, [employeeBreaks, workTimezone]);
+      return openBreak.start_time;
+    });
+    localStorage.setItem("attendance-on-break", "true");
+  } else {
+    setIsOnBreak(false);
+    setBreakStartTime(null); // <- reset so the next break starts clean
+    localStorage.setItem("attendance-on-break", "false");
+    localStorage.removeItem("attendance-break-start-time");
+  }
+}, [employeeBreaks, workTimezone]);
 
   // Poll + refresh breaks whenever the tab regains focus (cross-device sync)
   useEffect(() => {
@@ -358,6 +357,7 @@ const Dashboard = () => {
         setPunchOutData(null);
 
         setIsOnBreak(false);
+        
         setTotalBreakMs(0);
         setNumberOfBreaks(0);
         setBreakHistory([]);
@@ -469,23 +469,23 @@ const Dashboard = () => {
     return labelMap[status] || status;
   };
 
-  const handleBreakToggle = async () => {
+    const handleBreakToggle = async () => {
     if (breakToggling) return;
     setBreakToggling(true);
 
     try {
       if (!isOnBreak) {
         // ---- START BREAK ----
+        // 🎯 Capture local time BEFORE the API call so the timer pauses instantly
+        const clientStartTime = new Date().toISOString();
+        
         const resultAction = await dispatch(startBreak());
 
         if (startBreak.fulfilled.match(resultAction)) {
-          // Prefer the server-provided start_time; fall back to now
-          const payload = resultAction.payload || {};
-          const serverBreak = payload.break || payload;
-          const startTime = serverBreak?.start_time || new Date().toISOString();
-
+          // Use the local time for the UI timer, NOT the server time, 
+          // to prevent network latency from subtracting seconds from the duration.
           setIsOnBreak(true);
-          setBreakStartTime(startTime);
+          setBreakStartTime(clientStartTime);
           setNumberOfBreaks((prev) => {
             const newCount = prev + 1;
             localStorage.setItem(
@@ -495,7 +495,7 @@ const Dashboard = () => {
             return newCount;
           });
           localStorage.setItem("attendance-on-break", "true");
-          localStorage.setItem("attendance-break-start-time", startTime);
+          localStorage.setItem("attendance-break-start-time", clientStartTime);
           showToastMessage("Break Started", "success");
           dispatch(fetchEmployeeBreaks());
         } else {
@@ -507,7 +507,6 @@ const Dashboard = () => {
               msg.toLowerCase().includes("in progress"));
 
           if (alreadyOnBreak) {
-            // Another device started the break — sync from server instead of erroring
             await dispatch(fetchEmployeeBreaks());
             showToastMessage(
               "You are already on break — synced from server",
@@ -519,21 +518,25 @@ const Dashboard = () => {
         }
       } else {
         // ---- END BREAK ----
+        // 🎯 Capture local time BEFORE the API call
+        const clientEndTime = new Date();
+        
         const resultAction = await dispatch(endBreak());
 
         if (endBreak.fulfilled.match(resultAction)) {
           const breakStart = breakStartTime
             ? new Date(breakStartTime)
-            : new Date();
-          const breakEnd = new Date();
-          const diff = Math.max(0, breakEnd - breakStart);
+            : clientEndTime;
+          
+          // Calculate difference using the local start and local end times
+          const diff = Math.max(0, clientEndTime - breakStart);
           const newTotal = totalBreakMs + diff;
 
           const newHistory = [
             ...breakHistory,
             {
               start: breakStartTime,
-              end: breakEnd.toISOString(),
+              end: clientEndTime.toISOString(),
               durationMs: diff,
             },
           ];
@@ -545,6 +548,7 @@ const Dashboard = () => {
           );
 
           setIsOnBreak(false);
+          setBreakStartTime(null);
           setTotalBreakMs(newTotal);
           localStorage.setItem("attendance-on-break", "false");
           localStorage.setItem(
@@ -554,10 +558,8 @@ const Dashboard = () => {
           localStorage.removeItem("attendance-break-start-time");
           showToastMessage("Work Resumed", "success");
 
-          // Refresh break table from backend (this also triggers the sync effect)
           dispatch(fetchEmployeeBreaks());
         } else {
-          // Reconcile: if server says "no active break", sync from server
           const msg = resultAction.payload || "";
           const noActiveBreak =
             typeof msg === "string" &&
@@ -1052,22 +1054,18 @@ const Dashboard = () => {
   const statusDisplay = getStatusDisplay();
   const displayPunchTime = punchInTimeFromApi || todayAttendance.punch_in_time;
 
-  // Update duration every second when punched in
-  // Initialize duration when component loads or punch-in state changes
+    // Update duration every second when punched in
   useEffect(() => {
     if (isActuallyPunchedIn && displayPunchTime) {
-      // Force an immediate duration calculation
       const updateDuration = () => {
         const newDuration = getDuration();
         setCurrentDuration(newDuration);
       };
       updateDuration();
 
-      // Set up interval for real-time updates
       const interval = setInterval(updateDuration, 1000);
       return () => clearInterval(interval);
     } else {
-      // If not punched in, show zero duration
       setCurrentDuration("00h 00m 00s");
     }
   }, [
@@ -1076,6 +1074,7 @@ const Dashboard = () => {
     totalBreakMs,
     isOnBreak,
     breakStartTime,
+    workTimezone, // Added to ensure timezone changes recalculate correctly
   ]);
 
   const getAvatarUrl = (avatarPath) => {
@@ -1102,7 +1101,7 @@ const Dashboard = () => {
     return `${baseUrl}/storage/${avatarPath}`;
   };
 
-  const getDuration = () => {
+    const getDuration = () => {
     if (!displayPunchTime) return "00h 00m 00s";
 
     const startTime = parsePunchTime(displayPunchTime);
@@ -1110,7 +1109,6 @@ const Dashboard = () => {
 
     let endTime;
     if (isActuallyPunchedIn) {
-      // Always use current time as end time, regardless of break status
       endTime = new Date();
     } else if (
       todayAttendance.punched_out === true &&
@@ -1129,17 +1127,22 @@ const Dashboard = () => {
 
     if (!endTime || isNaN(endTime.getTime())) return "00h 00m 00s";
 
-    // Calculate total time from punch-in to now (including breaks)
-    let diff = Math.max(0, endTime - startTime);
+    // 1. Calculate total elapsed time (includes breaks)
+    let totalElapsedMs = Math.max(0, endTime - startTime);
 
-    // DO NOT subtract break time - we want total time including breaks
-    // diff -= totalBreakMs; // <-- REMOVED THIS LINE
+    // 2. Calculate the current active break duration (if currently on break)
+    let currentBreakMs = 0;
+    if (isOnBreak && breakStartTime) {
+      const breakStart = new Date(breakStartTime);
+      currentBreakMs = Math.max(0, new Date() - breakStart);
+    }
 
-    // Also don't pause during break - always count time
+    // 3. Work Duration = Total Elapsed - Total past breaks - Current active break
+    let workDurationMs = Math.max(0, totalElapsedMs - totalBreakMs - currentBreakMs);
 
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
+    const h = Math.floor(workDurationMs / 3600000);
+    const m = Math.floor((workDurationMs % 3600000) / 60000);
+    const s = Math.floor((workDurationMs % 60000) / 1000);
 
     return `${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
   };
@@ -1237,7 +1240,7 @@ const Dashboard = () => {
               {formatPunchTime(displayPunchTime)}
             </div>
           </div>
-          <div className="punch-item text-center">
+                    <div className="punch-item text-center">
             <div className="punch-label text-xs text-[var(--muted)] mb-2">
               Duration
             </div>

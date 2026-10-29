@@ -1,6 +1,6 @@
-// src/redux/slices/accountsSlice.js  (move wherever your other slices live)
+// src/redux/slices/accounts/accountsSlice.js  (move wherever your other slices live)
 import { createSlice } from "@reduxjs/toolkit";
-import { initialAccountsState, isDebitNormal } from "../../pages/accounts/accountsData"; // adjust path
+import { initialAccountsState, isDebitNormal } from "../../../pages/accounts/accountsData"; // adjust path
 
 // Posting a journal moves account balances and writes ledger rows
 const postLines = (state, je) => {

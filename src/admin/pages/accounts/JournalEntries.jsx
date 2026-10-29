@@ -2,7 +2,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Plus, Pencil, Trash2, Send, ChevronDown, ChevronRight, Eye, Copy, NotebookPen } from "lucide-react";
-import { postJournal, deleteJournal, saveJournal } from "../../store/slices/accountsSlice";
+import { postJournal, deleteJournal, saveJournal } from "../../store/slices/accounts/accountsSlice";
 import { JournalModal } from "../../components/accounts/modals";
 import { Card, Button, IconBtn, StatusBadge, SearchBox, StatTile, Th, EmptyState, ConfirmDialog, money, fmtDate, uid } from "../../components/accounts/ui";
 

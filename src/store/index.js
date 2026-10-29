@@ -1,6 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/authSlice";
-import adminProfileAuthReducer from "../admin/store/slices/authSlice"
+import adminProfileAuthReducer from "../admin/store/slices/authSlice";
 import employeeReducer from "../admin/store/slices/employeeSlice";
 import notificationReducer from "../admin/store/slices/notificationSlice";
 import organizationReducer from "../admin/store/slices/organizationSlice";
@@ -27,10 +27,10 @@ import reportReducer from "../admin/store/slices/reportSlice";
 import payrollReducer from "../admin/store/slices/payrollSlice";
 import publicHolidayReducer from "../admin/store/slices/publicHolidaySlice";
 import warningReducer from "../admin/store/slices/warningSlice";
-import leavePolicyReducer  from "../admin/store/slices/leavePolicySlice";
+import leavePolicyReducer from "../admin/store/slices/leavePolicySlice";
 import proposalReducer from "../admin/store/slices/proposalSlice";
-import leadReducer  from "../admin/store/slices/leadSlice";
-import customerReducer  from "../admin/store/slices/customerSlice";
+import leadReducer from "../admin/store/slices/leadSlice";
+import customerReducer from "../admin/store/slices/customerSlice";
 import activityReducer from "../admin/store/slices/activitySlice";
 import quotationReducer from "../admin/store/slices/quotationSlice";
 import opportunityReducer from "../admin/store/slices/opportunitySlice";
@@ -39,8 +39,16 @@ import crmReportReducer from "../admin/store/slices/crmReportSlice";
 import crmSettingsReducer from "../admin/store/slices/crmSettingsSlice";
 import crmDashboardReducer from "../admin/store/slices/crmDashboardSlice";
 import meetingReducer from "../admin/store/slices/meetingSlice";
-import accountsReducer from "../admin/store/slices/accountsSlice";
-
+import accountsReducer from "../admin/store/slices/accounts/accountsSlice";
+import itemsReducer from "../admin/store/slices/accounts/itemsSlice";
+import customersReducer from "../admin/store/slices/accounts/customersSlice";
+import quotesReducer from "../admin/store/slices/accounts/quotesSlice";
+import salesOrdersReducer from "../admin/store/slices/accounts/salesOrdersSlice";
+import invoicesReducer from "../admin/store/slices/accounts/invoicesSlice";
+import recurringInvoicesReducer  from "../admin/store/slices/accounts/recurringInvoicesSlice";
+import deliveryChallansReducer  from "../admin/store/slices/accounts/deliveryChallansSlice";
+import paymentsReceivedReducer  from "../admin/store/slices/accounts/paymentsReceivedSlice";
+import creditNotesReducer  from "../admin/store/slices/accounts/creditNotesSlice";
 
 // Employee reducers
 import leavesReducer from "../employee/store/slices/leavesSlice";
@@ -55,7 +63,6 @@ import employeeTasksReducer from "../employee/store/slices/taskSlice";
 import myPayrollReducer from "../employee/store/slices/myPayrollSlice";
 import employeeWarningReducer from "../employee/store/slices/employeeWarningSlice";
 import employeeMeetingReducer from "../employee/store/slices/employeeMeetingSlice";
-
 
 export const store = configureStore({
   reducer: {
@@ -100,6 +107,15 @@ export const store = configureStore({
     crmDashboard: crmDashboardReducer,
     meetings: meetingReducer,
     accounts: accountsReducer,
+    items: itemsReducer,
+    accountCustomers: customersReducer,
+    quotes: quotesReducer,
+    salesOrders: salesOrdersReducer,
+    invoices: invoicesReducer,
+    recurringInvoices: recurringInvoicesReducer,
+    deliveryChallans: deliveryChallansReducer,
+    paymentsReceived: paymentsReceivedReducer,
+    creditNotes: creditNotesReducer,
 
     // Employee
     EmpLeaves: leavesReducer,
