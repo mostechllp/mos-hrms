@@ -1,11 +1,16 @@
-// LocationModal.jsx - COMPLETE FIXED VERSION
+// LocationModal.jsx
+// Timezone is ALWAYS resolved from the GPS/selected coordinates
+// (see utils/timezone.js) - never from the device or a country table.
 import { useState, useEffect, useRef } from "react";
 import {
   getLocationWithTimezone,
   getAddressFromCoordinates,
 } from "../../services/locationServise";
 import { getCountryFromTimezone } from "../../utils/timezoneCountryMap";
-import { getTimezoneFromCountry } from "../../utils/countryTimezoneMap";
+import {
+  getTimezoneFromCoordinates,
+  buildTimezonePayload,
+} from "../../utils/timezone";
 
 // Simple Map Component using Leaflet (or you can use Google Maps)
 import MapPicker from "./MapPicker";
@@ -27,17 +32,6 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
   const [manualLongitude, setManualLongitude] = useState("");
   const [manualCountry, setManualCountry] = useState("");
   const [manualTimezone, setManualTimezone] = useState("");
-
-  // Get current timezone from browser (only as fallback)
-  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-  // Helper function to get timezone from country
-  const getTimezoneForCountry = (countryName) => {
-    if (!countryName) return null;
-    const timezone = getTimezoneFromCountry(countryName);
-    console.log(`🌐 Country "${countryName}" -> Timezone: "${timezone}"`);
-    return timezone;
-  };
 
   // Helper to extract country from address data with multiple fallbacks
   const extractCountryFromAddress = (addressData) => {
@@ -69,7 +63,7 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
     setRawAddressData(null);
 
     try {
-      // Get location with timezone (GPS only - ignore browser timezone for now)
+      // GPS fix + timezone of that exact place (resolved from coordinates)
       const locationData = await getLocationWithTimezone();
       setLocation(locationData);
 
@@ -104,17 +98,16 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
         }
       }
 
-      // 🎯 FIX: Priority order for determining country:
-      // 1. Country from address (most accurate - based on GPS coordinates)
-      // 2. Country from the timezone returned by the location service
-      // 3. Fallback to browser timezone (LAST resort only)
+      // Country is for display/work_location only. It plays no part in the timezone.
+      // 1. Country from the reverse-geocoded address
+      // 2. Otherwise, a label derived from the coordinate-based timezone
       let finalCountry = countryFromAddress;
       let source = "address";
 
       if (!finalCountry || finalCountry === "Unknown" || finalCountry === "") {
         // Only use timezone-based fallback if address didn't give us a country
         const countryFromTimezone = getCountryFromTimezone(
-          locationData.timezone || browserTimezone,
+          locationData.timezone,
         );
         if (countryFromTimezone && countryFromTimezone !== "Unknown") {
           finalCountry = countryFromTimezone;
@@ -133,30 +126,8 @@ const LocationModal = ({ isOpen, onClose, onConfirm, type = "punch-in" }) => {
       setCountrySource(source);
       setManualCountry(finalCountry);
 
-      // 🎯 CRITICAL FIX: Derive timezone from the DETECTED COUNTRY, not browser
-      let timezoneFromCountry = null;
-      if (finalCountry && finalCountry !== "Unknown") {
-        timezoneFromCountry = getTimezoneForCountry(finalCountry);
-        console.log(
-          `⏰ Timezone derived from country "${finalCountry}": "${timezoneFromCountry}"`,
-        );
-      }
-
-      // Use country-derived timezone; only fall back to browser if we truly can't determine it
-      const finalTimezone = timezoneFromCountry || browserTimezone;
-      console.log(
-        `⏰ Final timezone: "${finalTimezone}" (source: ${timezoneFromCountry ? "country" : "browser-fallback"})`,
-      );
-
-      // Update location with the correct timezone
-      setLocation((prev) => ({
-        ...prev,
-        timezone: finalTimezone,
-        timezone_offset: getTimezoneOffsetFormatted(finalTimezone),
-        timezone_offset_minutes: getTimezoneOffsetMinutes(finalTimezone),
-      }));
-
-      setManualTimezone(finalTimezone);
+      // Timezone already comes from the GPS coordinates (locationData.timezone).
+      setManualTimezone(locationData.timezone);
     } catch (err) {
       console.error("❌ Location fetch error:", err);
       setError(err.message || "Failed to get location");
@@ -196,14 +167,17 @@ const handleMapLocationSelect = async (selectedLocation) => {
     }
   }
 
-  // 🎯 Derive timezone from the selected country
-  let timezoneFromCountry = null;
-  if (selectedCountry) {
-    timezoneFromCountry = getTimezoneForCountry(selectedCountry);
+  // Timezone of the picked point, resolved from its coordinates
+  const finalTimezone = getTimezoneFromCoordinates(
+    selectedLocation.lat,
+    selectedLocation.lng,
+  );
+  if (!finalTimezone) {
+    setError("Could not determine the timezone for the selected location.");
+    setShowMapPicker(false);
+    return;
   }
-
-  const finalTimezone = timezoneFromCountry || browserTimezone;
-  console.log(`⏰ Map selection timezone: "${finalTimezone}"`);
+  setError(null);
 
   setManualCountry(selectedCountry || manualCountry);
   setManualTimezone(finalTimezone);
@@ -212,9 +186,7 @@ const handleMapLocationSelect = async (selectedLocation) => {
     ...location,
     latitude: parseFloat(selectedLocation.lat),
     longitude: parseFloat(selectedLocation.lng),
-    timezone: finalTimezone,
-    timezone_offset: getTimezoneOffsetFormatted(finalTimezone),
-    timezone_offset_minutes: getTimezoneOffsetMinutes(finalTimezone),
+    ...buildTimezonePayload(finalTimezone),
   });
 
   if (selectedCountry) {
@@ -236,9 +208,7 @@ const handleMapLocationSelect = async (selectedLocation) => {
         location?.longitude?.toString() || manualLongitude || "",
       );
       setManualCountry(country || manualCountry || "");
-      setManualTimezone(
-        location?.timezone || manualTimezone || browserTimezone,
-      );
+      setManualTimezone(location?.timezone || manualTimezone || "");
     }
     setIsEditing(!isEditing);
   };
@@ -251,25 +221,19 @@ const handleMapLocationSelect = async (selectedLocation) => {
         break;
       case "latitude":
         setManualLatitude(value);
+        setManualTimezone(
+          getTimezoneFromCoordinates(value, manualLongitude) || "",
+        );
         break;
       case "longitude":
         setManualLongitude(value);
+        setManualTimezone(
+          getTimezoneFromCoordinates(manualLatitude, value) || "",
+        );
         break;
       case "country":
+        // Country is a label only - it does not change the timezone.
         setManualCountry(value);
-        // 🎯 When country is manually changed, update timezone accordingly
-        if (value && value !== "Unknown") {
-          const timezoneFromCountry = getTimezoneForCountry(value);
-          if (timezoneFromCountry) {
-            setManualTimezone(timezoneFromCountry);
-            console.log(
-              `🔄 Manual country change: "${value}" -> timezone: "${timezoneFromCountry}"`,
-            );
-          }
-        }
-        break;
-      case "timezone":
-        setManualTimezone(value);
         break;
       default:
         break;
@@ -299,24 +263,11 @@ const handleMapLocationSelect = async (selectedLocation) => {
         return;
       }
 
-      // 🎯 CRITICAL FIX: Ensure timezone is derived from country if not manually set
-      let finalTimezone = manualTimezone;
-      if (!finalTimezone || finalTimezone === "") {
-        const timezoneFromCountry = getTimezoneForCountry(manualCountry);
-        finalTimezone = timezoneFromCountry || browserTimezone;
-        setManualTimezone(finalTimezone);
-      }
-
-      // If country is set but timezone doesn't match, update timezone to match country
-      if (manualCountry && manualCountry !== "Unknown") {
-        const correctTimezone = getTimezoneForCountry(manualCountry);
-        if (correctTimezone && correctTimezone !== finalTimezone) {
-          console.log(
-            `🔄 Updating timezone from "${finalTimezone}" to "${correctTimezone}" to match country "${manualCountry}"`,
-          );
-          finalTimezone = correctTimezone;
-          setManualTimezone(finalTimezone);
-        }
+      // Timezone comes from the coordinates being submitted
+      const finalTimezone = getTimezoneFromCoordinates(finalLat, finalLng);
+      if (!finalTimezone) {
+        setError("Could not determine the timezone for these coordinates");
+        return;
       }
 
       const locationPayload = {
@@ -325,9 +276,7 @@ const handleMapLocationSelect = async (selectedLocation) => {
         address: manualAddress || `${finalLat}, ${finalLng}`,
         accuracy: location?.accuracy || null,
         timestamp: new Date().toISOString(),
-        timezone: finalTimezone,
-        timezone_offset: getTimezoneOffsetFormatted(finalTimezone),
-        timezone_offset_minutes: getTimezoneOffsetMinutes(finalTimezone),
+        ...buildTimezonePayload(finalTimezone),
         work_location: manualCountry || "Unknown",
         country_source: "manual-edit",
       };
@@ -341,19 +290,15 @@ const handleMapLocationSelect = async (selectedLocation) => {
         return;
       }
 
-      // 🎯 CRITICAL FIX: Ensure timezone is derived from country
-      let finalTimezone = location.timezone;
-      let finalCountry = country || "Unknown";
-
-      // If country is set, try to get correct timezone
-      if (finalCountry && finalCountry !== "Unknown") {
-        const timezoneFromCountry = getTimezoneForCountry(finalCountry);
-        if (timezoneFromCountry) {
-          finalTimezone = timezoneFromCountry;
-          console.log(
-            `🔄 Using timezone "${finalTimezone}" from country "${finalCountry}"`,
-          );
-        }
+      // Timezone of the detected coordinates (never device / country based)
+      const finalTimezone = getTimezoneFromCoordinates(
+        location.latitude,
+        location.longitude,
+      );
+      const finalCountry = country || "Unknown";
+      if (!finalTimezone) {
+        setError("Could not determine the timezone for your location");
+        return;
       }
 
       const locationPayload = {
@@ -367,49 +312,13 @@ const handleMapLocationSelect = async (selectedLocation) => {
           `${location.latitude}, ${location.longitude}`,
         accuracy: location.accuracy,
         timestamp: location.timestamp,
-        timezone: finalTimezone,
-        timezone_offset: getTimezoneOffsetFormatted(finalTimezone),
-        timezone_offset_minutes: getTimezoneOffsetMinutes(finalTimezone),
+        ...buildTimezonePayload(finalTimezone),
         work_location: finalCountry,
         country_source: countrySource || "detected",
       };
 
       console.log("📍 Confirming detected location:", locationPayload);
       onConfirm(locationPayload);
-    }
-  };
-
-  // Helper to get timezone offset formatted
-  const getTimezoneOffsetFormatted = (timezone) => {
-    try {
-      if (!timezone) return "Unknown";
-      const date = new Date();
-      const formatter = new Intl.DateTimeFormat("en", {
-        timeZone: timezone,
-        timeZoneName: "longOffset",
-      });
-      const parts = formatter.formatToParts(date);
-      const offsetPart = parts.find((p) => p.type === "timeZoneName");
-      return offsetPart?.value || "Unknown";
-    } catch {
-      return "Unknown";
-    }
-  };
-
-  // Helper to get timezone offset in minutes
-  const getTimezoneOffsetMinutes = (timezone) => {
-    try {
-      if (!timezone) return -new Date().getTimezoneOffset();
-      const date = new Date();
-      const utcDate = new Date(
-        date.toLocaleString("en-US", { timeZone: "UTC" }),
-      );
-      const tzDate = new Date(
-        date.toLocaleString("en-US", { timeZone: timezone }),
-      );
-      return Math.round((tzDate - utcDate) / 60000);
-    } catch {
-      return -new Date().getTimezoneOffset();
     }
   };
 
@@ -574,14 +483,10 @@ const handleMapLocationSelect = async (selectedLocation) => {
                           <input
                             type="text"
                             value={manualTimezone}
-                            onChange={(e) =>
-                              handleManualFieldChange(
-                                "timezone",
-                                e.target.value,
-                              )
-                            }
-                            className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm"
-                            placeholder="Asia/Riyadh"
+                            readOnly
+                            title="Detected automatically from the coordinates"
+                            className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm opacity-70 cursor-not-allowed"
+                            placeholder="Detected from coordinates"
                           />
                         </div>
                       </div>
@@ -615,21 +520,18 @@ const handleMapLocationSelect = async (selectedLocation) => {
                             Accuracy: {Math.round(location.accuracy)}m
                           </p>
                         )}
-                        {/* 🎯 Display timezone derived from country/address */}
+                        {/* Timezone resolved from the GPS coordinates */}
                         <p className="text-blue-500 flex items-center gap-1">
                           <i className="fas fa-clock text-xs"></i>
                           Timezone:{" "}
                           {location?.timezone ||
                             manualTimezone ||
                             "Detecting..."}
-                          {location?.timezone &&
-                            country &&
-                            country !== "Unknown" &&
-                            country !== "" && (
-                              <span className="text-xs text-green-500 ml-1">
-                                (from {country})
-                              </span>
-                            )}
+                          {location?.timezone && (
+                            <span className="text-xs text-green-500 ml-1">
+                              (from GPS location)
+                            </span>
+                          )}
                         </p>
                         <p className="text-purple-500 flex items-center gap-1">
                           <i className="fas fa-globe text-xs"></i>

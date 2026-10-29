@@ -1,8 +1,9 @@
-// MapPicker.jsx - Updated with PHP-compatible timezone mapping
+// MapPicker.jsx
 import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { getTimezoneFromCoordinates } from '../../utils/timezone';
 
 // Fix for default marker icons in production
 delete L.Icon.Default.prototype._getIconUrl;
@@ -21,54 +22,6 @@ const selectedIcon = new L.Icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41]
 });
-
-// ✅ IMPORT TIMEZONE MAPPING FROM locationService
-// Map browser timezone names to PHP-compatible timezone identifiers
-const getPHPCompatibleTimezone = (browserTimezone) => {
-  // Mapping of common browser timezone names to PHP-compatible ones
-  const timezoneMap = {
-    // India
-    'Asia/Calcutta': 'Asia/Kolkata',
-    'Asia/Kolkata': 'Asia/Kolkata',
-    
-    // United States
-    'America/New_York': 'America/New_York',
-    'America/Los_Angeles': 'America/Los_Angeles',
-    'America/Chicago': 'America/Chicago',
-    'America/Denver': 'America/Denver',
-    'America/Phoenix': 'America/Phoenix',
-    
-    // Europe
-    'Europe/London': 'Europe/London',
-    'Europe/Paris': 'Europe/Paris',
-    'Europe/Berlin': 'Europe/Berlin',
-    'Europe/Moscow': 'Europe/Moscow',
-    
-    // Asia
-    'Asia/Tokyo': 'Asia/Tokyo',
-    'Asia/Shanghai': 'Asia/Shanghai',
-    'Asia/Hong_Kong': 'Asia/Hong_Kong',
-    'Asia/Singapore': 'Asia/Singapore',
-    'Asia/Dubai': 'Asia/Dubai',
-    
-    // Australia
-    'Australia/Sydney': 'Australia/Sydney',
-    'Australia/Melbourne': 'Australia/Melbourne',
-    'Australia/Perth': 'Australia/Perth',
-    
-    // Add more mappings as needed
-  };
-  
-  return timezoneMap[browserTimezone] || browserTimezone;
-};
-
-// ✅ Get current timezone with PHP compatibility
-const getCurrentTimezone = () => {
-  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const phpTimezone = getPHPCompatibleTimezone(browserTimezone);
-  console.log(`🌍 MapPicker - Browser timezone: ${browserTimezone} -> PHP timezone: ${phpTimezone}`);
-  return phpTimezone;
-};
 
 // Map Events Component
 const MapEvents = ({ onMapClick }) => {
@@ -261,7 +214,7 @@ const MapPicker = ({ isOpen, onClose, onSelect, initialLat = 0, initialLng = 0 }
     }
   };
 
-  // ✅ Confirm selection - NOW USES PHP-COMPATIBLE TIMEZONE
+  // Confirm selection - timezone is resolved from the picked coordinates
   const handleConfirm = () => {
     if (selectedLocation.lat && selectedLocation.lng) {
       onSelect({
@@ -272,7 +225,7 @@ const MapPicker = ({ isOpen, onClose, onSelect, initialLat = 0, initialLng = 0 }
         city: selectedLocation.city,
         state: selectedLocation.state,
         postalCode: selectedLocation.postalCode,
-        timezone: getCurrentTimezone() // ✅ Uses PHP-compatible timezone
+        timezone: getTimezoneFromCoordinates(selectedLocation.lat, selectedLocation.lng)
       });
     }
     onClose();

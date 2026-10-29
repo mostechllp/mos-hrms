@@ -22,6 +22,14 @@ import {
   endBreak,
   fetchEmployeeBreaks,
 } from "../store/slices/attendanceSlice";
+import {
+  parseAttendanceTime,
+  formatTimeInTimezone,
+  formatDateInTimezone,
+  getTodayInTimezone,
+  getDatePartInTimezone,
+  getStoredWorkTimezone,
+} from "../utils/timezone";
 import { PunchOutModal } from "../components/modals/PunchOutModal";
 import PendingPunchOutModal from "../components/attendance/PendingPunchoutModal";
 import { useAppTheme } from "../../context/ThemeContext";
@@ -105,6 +113,13 @@ const Dashboard = () => {
 
   // Use dashboard data as source of truth (not Redux isPunchedIn)
   const todayAttendance = dashboardData?.today_attendance || {};
+  // Timezone the shift is running in: what the server says, otherwise the
+  // timezone of the last punch location. Never the device's own timezone.
+  const workTimezone =
+    todayAttendance.timezone ||
+    dashboardData?.timezone ||
+    getStoredWorkTimezone() ||
+    null;
   // Fix: Only consider punched out if there's actually a punch_out_time value
   const isActuallyPunchedIn =
     todayAttendance.punched_in === true &&
@@ -161,8 +176,7 @@ const Dashboard = () => {
     try {
       // Parse ISO string to local time first
       if (timeString.includes("T") && timeString.includes("Z")) {
-        const date = new Date(timeString);
-        return date.toLocaleTimeString("en-US", {
+        return formatTimeInTimezone(timeString, workTimezone, {
           hour: "numeric",
           minute: "2-digit",
           hour12: true,
@@ -208,14 +222,14 @@ const Dashboard = () => {
     // Only consider breaks that started *today* as "currently open".
     // A break with no end_time from a previous day is stale / abandoned,
     // not an active break.
-    const todayStr = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+    const todayStr = getTodayInTimezone(workTimezone); // "YYYY-MM-DD" in the work timezone
 
     const openBreak = breaks.find((b) => {
       if (!b || !b.start_time) return false;
       // Must have no end_time (still open)
       if (b.end_time && b.end_time !== null) return false;
       // Must have started today (compare the date part)
-      const breakDate = String(b.start_time).split("T")[0];
+      const breakDate = getDatePartInTimezone(b.start_time, workTimezone);
       return breakDate === todayStr;
     });
 
@@ -229,7 +243,7 @@ const Dashboard = () => {
       localStorage.setItem("attendance-on-break", "false");
       localStorage.removeItem("attendance-break-start-time");
     }
-  }, [employeeBreaks]);
+  }, [employeeBreaks, workTimezone]);
 
   // Poll + refresh breaks whenever the tab regains focus (cross-device sync)
   useEffect(() => {
@@ -282,22 +296,18 @@ const Dashboard = () => {
     const updateDateTime = () => {
       const now = new Date();
       setCurrentTime(
-        now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      );
-      setCurrentDate(
-        now.toLocaleDateString("en-US", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
+        formatTimeInTimezone(now, workTimezone, {
+          hour: "2-digit",
+          minute: "2-digit",
         }),
       );
+      setCurrentDate(formatDateInTimezone(now, workTimezone));
       setTick((prev) => prev + 1);
     };
     updateDateTime();
     const interval = setInterval(updateDateTime, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [workTimezone]);
 
   // Handle location confirmation
   const handleLocationConfirm = async (locationData) => {
@@ -575,86 +585,19 @@ const Dashboard = () => {
     setShowLocationModal(true);
   };
 
-  // Format punch time with proper timezone handling
-  const parsePunchTime = (time) => {
-    if (!time) return null;
-    try {
-      // Handle "HH:MM AM/PM" format (e.g., "08:59 AM")
-      if (
-        typeof time === "string" &&
-        time.match(/(\d{1,2}:\d{2})\s*(AM|PM)/i)
-      ) {
-        const match = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-        if (match) {
-          let hours = parseInt(match[1], 10);
-          const minutes = parseInt(match[2], 10);
-          const ampm = match[3].toUpperCase();
-
-          if (ampm === "PM" && hours !== 12) hours += 12;
-          if (ampm === "AM" && hours === 12) hours = 0;
-
-          const now = new Date();
-          return new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate(),
-            hours,
-            minutes,
-            0,
-          );
-        }
-      }
-
-      // Handle "HH:MM:SS" format (24-hour)
-      if (typeof time === "string" && time.match(/^\d{2}:\d{2}:\d{2}$/)) {
-        const now = new Date();
-        const [hours, minutes, seconds] = time.split(":");
-        return new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-          parseInt(hours, 10),
-          parseInt(minutes, 10),
-          parseInt(seconds, 10),
-        );
-      }
-
-      // Handle ISO string with T
-      if (typeof time === "string" && time.includes("T")) {
-        if (!time.match(/(Z|[+-]\d{2}:\d{2})$/)) {
-          return new Date(`${time}Z`);
-        }
-        return new Date(time);
-      }
-
-      // Handle date with space
-      if (typeof time === "string" && time.includes(" ")) {
-        const isoTime = time.replace(" ", "T");
-        if (!isoTime.match(/(Z|[+-]\d{2}:\d{2})$/)) {
-          return new Date(`${isoTime}Z`);
-        }
-        return new Date(isoTime);
-      }
-
-      if (time instanceof Date) {
-        return time;
-      }
-      return new Date(time);
-    } catch (e) {
-      console.error("Error parsing time:", time, e);
-      return null;
-    }
-  };
+  // Parse / format punch times in the timezone the shift ran in
+  // (see utils/timezone.js) - never in the device's timezone.
+  const parsePunchTime = (time) => parseAttendanceTime(time, workTimezone);
 
   const formatPunchTime = (time) => {
-    // If time is already in "HH:MM AM" format, return as is
+    // If the API already sent a formatted "HH:MM AM" string, show it as is
     if (typeof time === "string" && time.match(/\d{1,2}:\d{2}\s*(AM|PM)/i)) {
       return time;
     }
 
     const date = parsePunchTime(time);
     if (!date || isNaN(date.getTime())) return time || "—";
-    return date.toLocaleTimeString("en-US", {
+    return formatTimeInTimezone(date, workTimezone, {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
@@ -860,19 +803,25 @@ const Dashboard = () => {
     const hoursWorked = [];
 
     // Get last 7 days in DD/MM/YYYY format to match API
-    const today = new Date();
+    // "Today" is today in the work timezone; day arithmetic is done in UTC so
+    // it is not affected by the device's timezone / DST.
+    const [todayY, todayM, todayD] = getTodayInTimezone(workTimezone)
+      .split("-")
+      .map(Number);
 
     for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(today.getDate() - i);
+      const date = new Date(Date.UTC(todayY, todayM - 1, todayD - i));
 
       // Format date as DD/MM/YYYY to match API format
-      const day = String(date.getDate()).padStart(2, "0");
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const year = date.getFullYear();
+      const day = String(date.getUTCDate()).padStart(2, "0");
+      const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+      const year = date.getUTCFullYear();
       const dateStr = `${day}/${month}/${year}`;
 
-      const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
+      const dayName = date.toLocaleDateString("en-US", {
+        weekday: "short",
+        timeZone: "UTC",
+      });
       last7Days.push(dayName);
 
       const attendance = dashboardData.attendance_history.find(
@@ -1860,13 +1809,15 @@ const Dashboard = () => {
                   });
 
                   const rawBreaks = Array.from(allBreaksMap.values());
-                  const todayDateStr = new Date().toISOString().split("T")[0]; // Format matches backend "YYYY-MM-DD"
+                  const todayDateStr = getTodayInTimezone(workTimezone); // "YYYY-MM-DD" in the work timezone
 
                   // Filter for today using backend format or split
                   const displayBreaks =
                     activeBreakTab === "today"
-                      ? rawBreaks.filter((b) =>
-                          b.start_time?.startsWith(todayDateStr),
+                      ? rawBreaks.filter(
+                          (b) =>
+                            getDatePartInTimezone(b.start_time, workTimezone) ===
+                            todayDateStr,
                         )
                       : rawBreaks;
 
@@ -2151,6 +2102,7 @@ const Dashboard = () => {
         workingHours={workingHoursData}
         workingHoursFromAPI={todayAttendance.working_hours}
         employeeBreaks={employeeBreaks || []}
+        timezone={workTimezone}
       />
 
       {/* Location Modal */}
