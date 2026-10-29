@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, Download, Power, BookOpen } from "lucide-react";
 import { ACCOUNT_TYPES } from "./accountsData";
-import { saveAccount, deleteAccount } from "../../store/slices/accountsSlice";
+import { saveAccount, deleteAccount } from "../../store/slices/accounts/accountsSlice";
 import { AccountModal } from "../../components/accounts/modals";
 import { Card, Button, IconBtn, Badge, SearchBox, EmptyState, ConfirmDialog, money, downloadCSV } from "../../components/accounts/ui";
 

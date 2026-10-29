@@ -159,6 +159,69 @@ const Meetings = lazy(() => import("./admin/pages/Meetings"));
 const AccountsDashboard = lazy(
   () => import("./admin/pages/accounts/AccountsDashboard"),
 );
+const Items = lazy(() => import("./admin/pages/accounts/ItemsPage"));
+const AddItems = lazy(
+  () => import("./admin/components/accounts/items/ItemForm"),
+);
+const ItemViewPage = lazy(
+  () => import("./admin/components/accounts/items/ItemViewPage"),
+);
+
+const CustomersPage = lazy(
+  () => import("./admin/pages/accounts/CustomersPage"),
+);
+const CustomerForm = lazy(
+  () => import("./admin/components/accounts/customers/CustomerForm"),
+);
+
+const QuotesPage = lazy(() => import("./admin/pages/accounts/QuotesPage"));
+const QuoteForm = lazy(
+  () => import("./admin/components/accounts/quotes/QuoteForm"),
+);
+
+const SalesOrdersPage = lazy(
+  () => import("./admin/pages/accounts/SalesOrdersPage"),
+);
+const SalesOrderForm = lazy(
+  () => import("./admin/components/accounts/salesOrder/SalesOrderForm"),
+);
+
+const InvoicesPage = lazy(() => import("./admin/pages/accounts/InvoicesPage"));
+const InvoiceForm = lazy(
+  () => import("./admin/components/accounts/invoice/InvoiceForm"),
+);
+
+const RecurringInvoicesPage = lazy(
+  () => import("./admin/pages/accounts/RecurringInvoicesPage"),
+);
+const RecurringInvoiceForm = lazy(
+  () =>
+    import("./admin/components/accounts/recurringInvoice/RecurringInvoiceForm"),
+);
+
+const DeliveryChallansPage = lazy(
+  () => import("./admin/pages/accounts/DeliveryChallansPage"),
+);
+const DeliveryChallanForm = lazy(
+  () =>
+    import("./admin/components/accounts/deliveryChallan/DeliveryChallanForm"),
+);
+
+const PaymentsReceivedPage = lazy(
+  () => import("./admin/pages/accounts/PaymentsReceivedPage"),
+);
+const PaymentReceivedForm = lazy(
+  () =>
+    import("./admin/components/accounts/paymentReceived/PaymentReceivedForm"),
+);
+
+const CreditNotesPage = lazy(
+  () => import("./admin/pages/accounts/CreditNotesPage"),
+);
+const CreditNoteForm = lazy(
+  () => import("./admin/components/accounts/creditNotes/CreditNoteForm"),
+);
+
 const ChartOfAccounts = lazy(
   () => import("./admin/pages/accounts/ChartOfAccounts"),
 );
@@ -445,6 +508,97 @@ function App() {
             element={<Navigate to="/admin/accounts/dashboard" replace />}
           />
           <Route path="accounts/dashboard" element={<AccountsDashboard />} />
+          <Route path="accounts/items" element={<Items />} />
+          <Route path="accounts/items/new" element={<AddItems />} />
+          <Route path="accounts/items/edit/:id" element={<AddItems />} />
+          <Route path="accounts/items/view/:id" element={<ItemViewPage />} />
+
+          <Route path="accounts/sales/customers" element={<CustomersPage />} />
+          <Route
+            path="accounts/sales/customers/new"
+            element={<CustomerForm />}
+          />
+          <Route
+            path="accounts/sales/customers/edit/:id"
+            element={<CustomerForm />}
+          />
+
+          <Route path="accounts/sales/quotes" element={<QuotesPage />} />
+          <Route path="accounts/sales/quotes/new" element={<QuoteForm />} />
+          <Route
+            path="accounts/sales/quotes/edit/:id"
+            element={<QuoteForm />}
+          />
+
+          <Route path="accounts/sales/orders" element={<SalesOrdersPage />} />
+          <Route
+            path="accounts/sales/orders/new"
+            element={<SalesOrderForm />}
+          />
+          <Route
+            path="accounts/sales/orders/edit/:id"
+            element={<SalesOrderForm />}
+          />
+
+          <Route path="accounts/sales/invoices" element={<InvoicesPage />} />
+          <Route path="accounts/sales/invoices/new" element={<InvoiceForm />} />
+          <Route
+            path="accounts/sales/invoices/edit/:id"
+            element={<InvoiceForm />}
+          />
+
+          <Route
+            path="accounts/sales/recurring"
+            element={<RecurringInvoicesPage />}
+          />
+          <Route
+            path="accounts/sales/recurring/new"
+            element={<RecurringInvoiceForm />}
+          />
+          <Route
+            path="accounts/sales/recurring/edit/:id"
+            element={<RecurringInvoiceForm />}
+          />
+
+          <Route
+            path="accounts/sales/challans"
+            element={<DeliveryChallansPage />}
+          />
+          <Route
+            path="accounts/sales/challans/new"
+            element={<DeliveryChallanForm />}
+          />
+          <Route
+            path="accounts/sales/challans/edit/:id"
+            element={<DeliveryChallanForm />}
+          />
+
+          <Route
+            path="accounts/sales/payments"
+            element={<PaymentsReceivedPage />}
+          />
+          <Route
+            path="accounts/sales/payments/new"
+            element={<PaymentReceivedForm />}
+          />
+          <Route
+            path="accounts/sales/payments/edit/:id"
+            element={<PaymentReceivedForm />}
+          />
+
+          <Route
+            path="accounts/sales/credit-notes"
+            element={<CreditNotesPage />}
+          />
+          <Route
+            path="accounts/sales/credit-notes/new"
+            element={<CreditNoteForm />}
+          />
+          <Route
+            path="accounts/sales/credit-notes/edit/:id"
+            element={<CreditNoteForm />}
+          />
+
           <Route
             path="accounts/chart-of-accounts"
             element={<ChartOfAccounts />}
@@ -673,6 +827,7 @@ function App() {
             element={<Navigate to="/admin/accounts/dashboard" replace />}
           />
           <Route path="accounts/dashboard" element={<AccountsDashboard />} />
+          <Route path="accounts/items" element={<Items />} />
           <Route
             path="accounts/chart-of-accounts"
             element={<ChartOfAccounts />}

@@ -14,7 +14,7 @@ import {
   saveExpense,
   saveIncome,
   saveJournal,
-} from "../../store/slices/accountsSlice";
+} from "../../store/slices/accounts/accountsSlice";
 import {
   Modal,
   Field,

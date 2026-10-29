@@ -50,6 +50,7 @@ const ADMIN_ROUTE_MAP = {
 };
 
 const EMPLOYEE_ROUTE_MAP = {
+  ...ADMIN_ROUTE_MAP, // Fallback/Base
   dashboard: "/employee/dashboard",
   onboarding: "/employee/onboarding",
   employees: "/employee/employees",
@@ -70,8 +71,8 @@ const EMPLOYEE_ROUTE_MAP = {
   "my-tasks": "/employee/my-tasks",
   organizations: "/employee/organizations",
   "my-payroll": "/employee/my-payroll",
-  warnings: "/employee/warnings", // kept for backward compat
-  "my-warnings": "/employee/my-warnings", // NEW — employee-facing slug
+  warnings: "/employee/warnings",
+  "my-warnings": "/employee/my-warnings",
   // CRM
   "crm-dashboard": "/employee/crm/dashboard",
   "crm-leads": "/employee/crm/leads",
@@ -85,7 +86,7 @@ const EMPLOYEE_ROUTE_MAP = {
   "crm-proposals": "/employee/crm/proposals",
   meetings: "/employee/meetings",
   "my-meetings": "/employee/my-meetings",
-
+  // Accounts
   accounts: "/employee/accounts",
   "accounts-dashboard": "/employee/accounts/dashboard",
   "chart-of-accounts": "/employee/accounts/chart-of-accounts",
@@ -119,7 +120,7 @@ const ICON_MAP = {
   organizations: "fas fa-building",
   "my-payroll": "fas fa-file-invoice-dollar",
   warnings: "fas fa-triangle-exclamation",
-  "my-warnings": "fas fa-triangle-exclamation", // NEW
+  "my-warnings": "fas fa-triangle-exclamation",
   // CRM
   "crm-dashboard": "fas fa-gauge-high",
   "crm-leads": "fas fa-user-tag",
@@ -133,7 +134,7 @@ const ICON_MAP = {
   "crm-proposals": "fas fa-file-lines",
   meetings: "fas fa-calendar-days",
   "my-meetings": "fas fa-calendar-alt",
-
+  // Accounts
   accounts: "fas fa-calculator",
   "accounts-dashboard": "fas fa-chart-pie",
   "chart-of-accounts": "fas fa-sitemap",
@@ -143,10 +144,18 @@ const ICON_MAP = {
   "general-ledger": "fas fa-list-ul",
   "trial-balance": "fas fa-scale-balanced",
   "accounts-reports": "fas fa-file-invoice",
+  
+  // Accounts Level 2 Icons
+  items: "fas fa-box",
+  sales: "fas fa-shopping-cart",
+  purchases: "fas fa-shopping-bag",
+  "time-tracking": "fas fa-clock",
+  banking: "fas fa-university",
+  accountant: "fas fa-user-tie",
 };
 
 // ============================================================
-// PARENT MENU CONFIG
+// PARENT MENU CONFIG (Now supports 3 levels)
 // ============================================================
 const PARENT_MENU_CONFIG = {
   crm: {
@@ -155,66 +164,16 @@ const PARENT_MENU_CONFIG = {
     permissionKeys: ["crm", "crm-dashboard"],
     expandOnHover: false,
     children: [
-      {
-        slug: "crm-dashboard",
-        label: "Dashboard",
-        path: ADMIN_ROUTE_MAP["crm-dashboard"],
-        employeePath: EMPLOYEE_ROUTE_MAP["crm-dashboard"],
-      },
-      {
-        slug: "crm-leads",
-        label: "Leads",
-        path: ADMIN_ROUTE_MAP["crm-leads"],
-        employeePath: EMPLOYEE_ROUTE_MAP["crm-leads"],
-      },
-      {
-        slug: "crm-customers",
-        label: "Customers",
-        path: ADMIN_ROUTE_MAP["crm-customers"],
-        employeePath: EMPLOYEE_ROUTE_MAP["crm-customers"],
-      },
-      {
-        slug: "crm-opportunities",
-        label: "Opportunities",
-        path: ADMIN_ROUTE_MAP["crm-opportunities"],
-        employeePath: EMPLOYEE_ROUTE_MAP["crm-opportunities"],
-      },
-      {
-        slug: "crm-activities",
-        label: "Activities",
-        path: ADMIN_ROUTE_MAP["crm-activities"],
-        employeePath: EMPLOYEE_ROUTE_MAP["crm-activities"],
-      },
-      {
-        slug: "crm-quotations",
-        label: "Quotations",
-        path: ADMIN_ROUTE_MAP["crm-quotations"],
-        employeePath: EMPLOYEE_ROUTE_MAP["crm-quotations"],
-      },
-      {
-        slug: "crm-proposals",
-        label: "Proposals",
-        path: ADMIN_ROUTE_MAP["crm-proposals"],
-        employeePath: EMPLOYEE_ROUTE_MAP["crm-proposals"],
-      },
-      {
-        slug: "crm-products",
-        label: "Products & Services",
-        path: ADMIN_ROUTE_MAP["crm-products"],
-        employeePath: EMPLOYEE_ROUTE_MAP["crm-products"],
-      },
-      {
-        slug: "crm-reports",
-        label: "Reports",
-        path: ADMIN_ROUTE_MAP["crm-reports"],
-        employeePath: EMPLOYEE_ROUTE_MAP["crm-reports"],
-      },
-      {
-        slug: "crm-settings",
-        label: "CRM Settings",
-        path: ADMIN_ROUTE_MAP["crm-settings"],
-        employeePath: EMPLOYEE_ROUTE_MAP["crm-settings"],
-      },
+      { slug: "crm-dashboard", label: "Dashboard", path: ADMIN_ROUTE_MAP["crm-dashboard"], employeePath: EMPLOYEE_ROUTE_MAP["crm-dashboard"] },
+      { slug: "crm-leads", label: "Leads", path: ADMIN_ROUTE_MAP["crm-leads"], employeePath: EMPLOYEE_ROUTE_MAP["crm-leads"] },
+      { slug: "crm-customers", label: "Customers", path: ADMIN_ROUTE_MAP["crm-customers"], employeePath: EMPLOYEE_ROUTE_MAP["crm-customers"] },
+      { slug: "crm-opportunities", label: "Opportunities", path: ADMIN_ROUTE_MAP["crm-opportunities"], employeePath: EMPLOYEE_ROUTE_MAP["crm-opportunities"] },
+      { slug: "crm-activities", label: "Activities", path: ADMIN_ROUTE_MAP["crm-activities"], employeePath: EMPLOYEE_ROUTE_MAP["crm-activities"] },
+      { slug: "crm-quotations", label: "Quotations", path: ADMIN_ROUTE_MAP["crm-quotations"], employeePath: EMPLOYEE_ROUTE_MAP["crm-quotations"] },
+      { slug: "crm-proposals", label: "Proposals", path: ADMIN_ROUTE_MAP["crm-proposals"], employeePath: EMPLOYEE_ROUTE_MAP["crm-proposals"] },
+      { slug: "crm-products", label: "Products & Services", path: ADMIN_ROUTE_MAP["crm-products"], employeePath: EMPLOYEE_ROUTE_MAP["crm-products"] },
+      { slug: "crm-reports", label: "Reports", path: ADMIN_ROUTE_MAP["crm-reports"], employeePath: EMPLOYEE_ROUTE_MAP["crm-reports"] },
+      { slug: "crm-settings", label: "CRM Settings", path: ADMIN_ROUTE_MAP["crm-settings"], employeePath: EMPLOYEE_ROUTE_MAP["crm-settings"] },
     ],
     order: 20,
   },
@@ -226,101 +185,121 @@ const PARENT_MENU_CONFIG = {
     children: [
       {
         slug: "accounts-dashboard",
-        label: "Dashboard",
-        path: ADMIN_ROUTE_MAP["accounts-dashboard"],
-        employeePath: EMPLOYEE_ROUTE_MAP["accounts-dashboard"],
+        label: "Home",
+        path: "/admin/accounts/dashboard",
+        employeePath: "/employee/accounts/dashboard",
       },
       {
-        slug: "chart-of-accounts",
-        label: "Chart of Accounts",
-        path: ADMIN_ROUTE_MAP["chart-of-accounts"],
-        employeePath: EMPLOYEE_ROUTE_MAP["chart-of-accounts"],
+        slug: "items",
+        label: "Items",
+        path: "/admin/accounts/items",
+        employeePath: "/employee/accounts/items",
       },
       {
-        slug: "journal-entries",
-        label: "Journal Entries",
-        path: ADMIN_ROUTE_MAP["journal-entries"],
-        employeePath: EMPLOYEE_ROUTE_MAP["journal-entries"],
+        slug: "sales",
+        label: "Sales",
+        path: "#",
+        employeePath: "#",
+        children: [
+          { slug: "sales-customers", label: "Customers", path: "/admin/accounts/sales/customers", employeePath: "/employee/accounts/sales/customers" },
+          { slug: "sales-quotes", label: "Quotes", path: "/admin/accounts/sales/quotes", employeePath: "/employee/accounts/sales/quotes" },
+          { slug: "sales-orders", label: "Sales Orders", path: "/admin/accounts/sales/orders", employeePath: "/employee/accounts/sales/orders" },
+          { slug: "sales-invoices", label: "Invoices", path: "/admin/accounts/sales/invoices", employeePath: "/employee/accounts/sales/invoices" },
+          { slug: "sales-recurring", label: "Recurring Invoices", path: "/admin/accounts/sales/recurring", employeePath: "/employee/accounts/sales/recurring" },
+          { slug: "sales-challans", label: "Delivery Challans", path: "/admin/accounts/sales/challans", employeePath: "/employee/accounts/sales/challans" },
+          { slug: "sales-payments", label: "Payments Received", path: "/admin/accounts/sales/payments", employeePath: "/employee/accounts/sales/payments" },
+          { slug: "sales-credits", label: "Credit Notes", path: "/admin/accounts/sales/credit-notes", employeePath: "/employee/accounts/sales/credit-notes" },
+        ]
       },
       {
-        slug: "incomes",
-        label: "Income",
-        path: ADMIN_ROUTE_MAP["incomes"],
-        employeePath: EMPLOYEE_ROUTE_MAP["incomes"],
+        slug: "purchases",
+        label: "Purchases",
+        path: "#",
+        employeePath: "#",
+        children: [
+          { slug: "purchases-vendors", label: "Vendors", path: "/admin/accounts/purchases/vendors", employeePath: "/employee/accounts/purchases/vendors" },
+          { slug: "purchases-expenses", label: "Expenses", path: "/admin/accounts/purchases/expenses", employeePath: "/employee/accounts/purchases/expenses" },
+          { slug: "purchases-recurring", label: "Recurring Expenses", path: "/admin/accounts/purchases/recurring", employeePath: "/employee/accounts/purchases/recurring" },
+          { slug: "purchases-orders", label: "Purchase Orders", path: "/admin/accounts/purchases/orders", employeePath: "/employee/accounts/purchases/orders" },
+          { slug: "purchases-bills", label: "Bills", path: "/admin/accounts/purchases/bills", employeePath: "/employee/accounts/purchases/bills" },
+          { slug: "purchases-recurring-bills", label: "Recurring Bills", path: "/admin/accounts/purchases/recurring-bills", employeePath: "/employee/accounts/purchases/recurring-bills" },
+          { slug: "purchases-payments", label: "Payments Made", path: "/admin/accounts/purchases/payments", employeePath: "/employee/accounts/purchases/payments" },
+          { slug: "purchases-credits", label: "Vendor Credits", path: "/admin/accounts/purchases/credits", employeePath: "/employee/accounts/purchases/credits" },
+        ]
       },
       {
-        slug: "expenses",
-        label: "Expenses",
-        path: ADMIN_ROUTE_MAP["expenses"],
-        employeePath: EMPLOYEE_ROUTE_MAP["expenses"],
+        slug: "time-tracking",
+        label: "Time Tracking",
+        path: "#",
+        employeePath: "#",
+        children: [
+          { slug: "time-projects", label: "Projects", path: "/admin/accounts/time/projects", employeePath: "/employee/accounts/time/projects" },
+          { slug: "time-timesheet", label: "Timesheet", path: "/admin/accounts/time/timesheet", employeePath: "/employee/accounts/time/timesheet" },
+        ]
       },
       {
-        slug: "general-ledger",
-        label: "General Ledger",
-        path: ADMIN_ROUTE_MAP["general-ledger"],
-        employeePath: EMPLOYEE_ROUTE_MAP["general-ledger"],
+        slug: "banking",
+        label: "Banking",
+        path: "/admin/accounts/banking",
+        employeePath: "/employee/accounts/banking",
       },
       {
-        slug: "trial-balance",
-        label: "Trial Balance",
-        path: ADMIN_ROUTE_MAP["trial-balance"],
-        employeePath: EMPLOYEE_ROUTE_MAP["trial-balance"],
+        slug: "accountant",
+        label: "Accountant",
+        path: "#",
+        employeePath: "#",
+        children: [
+          { slug: "acc-journals", label: "Manual Journals", path: "/admin/accounts/accountant/journals", employeePath: "/employee/accounts/accountant/journals" },
+          { slug: "acc-bulk", label: "Bulk Update", path: "/admin/accounts/accountant/bulk", employeePath: "/employee/accounts/accountant/bulk" },
+          { slug: "acc-currency", label: "Currency Adjustments", path: "/admin/accounts/accountant/currency", employeePath: "/employee/accounts/accountant/currency" },
+          { slug: "acc-coa", label: "Chart of Accounts", path: "/admin/accounts/accountant/coa", employeePath: "/employee/accounts/accountant/coa" },
+          { slug: "acc-budgets", label: "Budgets", path: "/admin/accounts/accountant/budgets", employeePath: "/employee/accounts/accountant/budgets" },
+          { slug: "acc-locking", label: "Transaction Locking", path: "/admin/accounts/accountant/locking", employeePath: "/employee/accounts/accountant/locking" },
+        ]
       },
       {
         slug: "accounts-reports",
         label: "Reports",
-        path: ADMIN_ROUTE_MAP["accounts-reports"],
-        employeePath: EMPLOYEE_ROUTE_MAP["accounts-reports"],
+        path: "/admin/accounts/reports",
+        employeePath: "/employee/accounts/reports",
+      },
+      {
+        slug: "documents",
+        label: "Documents",
+        path: "/admin/accounts/documents",
+        employeePath: "/employee/accounts/documents",
       },
     ],
     order: 25,
   },
 };
 
+// Helper to extract all child slugs for processing logic
+const getAllSlugs = (children) => {
+  let slugs = [];
+  children.forEach(c => {
+    slugs.push(c.slug);
+    if (c.children) {
+      slugs = [...slugs, ...getAllSlugs(c.children)];
+    }
+  });
+  return slugs;
+};
+
 const ALL_PARENT_CHILD_SLUGS = Object.values(PARENT_MENU_CONFIG).flatMap((c) =>
-  c.children.map((child) => child.slug),
+  getAllSlugs(c.children)
 );
 
 const MODULE_ORDER = {
-  dashboard: 1,
-  onboarding: 2,
-  employees: 3,
-  warnings: 4,
-  "my-warnings": 4, // NEW — same slot, only one renders per user type
-  offboarding: 5,
-  projects: 6,
-  "project-tasks": 7,
-  attendance: 8,
-  documents: 9,
-  reports: 10,
-  settings: 11,
-  roles: 12,
-  payroll: 13,
-  leaves: 14,
-  organization: 15,
-  "my-payroll": 16,
-  meetings: 18,
-  "my-meetings": 19,
-
-  accounts: 25,
-  "accounts-dashboard": 26,
-  "chart-of-accounts": 27,
-  "journal-entries": 28,
-  incomes: 29,
-  expenses: 30,
-  "general-ledger": 31,
-  "trial-balance": 32,
-  "accounts-reports": 33,
+  dashboard: 1, onboarding: 2, employees: 3, warnings: 4, "my-warnings": 4,
+  offboarding: 5, projects: 6, "project-tasks": 7, attendance: 8, documents: 9,
+  reports: 10, settings: 11, roles: 12, payroll: 13, leaves: 14, organization: 15,
+  "my-payroll": 16, meetings: 18, "my-meetings": 19, accounts: 25, "accounts-dashboard": 26,
+  "chart-of-accounts": 27, "journal-entries": 28, incomes: 29, expenses: 30,
+  "general-ledger": 31, "trial-balance": 32, "accounts-reports": 33,
 };
 
-// Admins should never see employee-only entries
-const HIDDEN_FOR_ADMIN = [
-  "my-leaves",
-  "my-tasks",
-  "my-warnings", // NEW
-];
-
-// Modules always shown to admins regardless of permission config
+const HIDDEN_FOR_ADMIN = ["my-leaves", "my-tasks", "my-warnings"];
 const ALWAYS_SHOWN_MODULES = ["projects", "project-tasks"];
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -349,7 +328,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const permissions = user?.permissions || {};
   const hasAllPermissions = user?.permissions?.all === true;
 
-  // ---- Permission helpers ----
   const hasReadPermission = (slug) => {
     if (hasAllPermissions) return true;
     if (isAdmin && ALWAYS_SHOWN_MODULES.includes(slug)) return true;
@@ -371,7 +349,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     return true;
   };
 
-  // ---- Flat module list (permission-filtered) ----
   const allModules = (user?.sidebar_modules || [])
     .filter((mod) => {
       if (mod.status !== "active" || !activeRouteMap[mod.slug]) return false;
@@ -381,25 +358,31 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     })
     .map((mod) => mod.slug);
 
-  // ---- Build nav items ----
   const buildNavItems = () => {
     const processedSlugs = new Set();
     const parentItems = [];
     const standaloneItems = [];
 
-    // Inside buildNavItems function:
     Object.entries(PARENT_MENU_CONFIG).forEach(([parentKey, config]) => {
       if (!canAccessParent(config)) return;
 
-      const children = config.children.map((child) => ({
-        slug: child.slug,
-        label: child.label,
-        path: isAdmin ? child.path : child.employeePath,
-        icon: ICON_MAP[child.slug] || "fas fa-circle",
-      }));
+      // Recursive mapper for children
+      const mapChildren = (children) => {
+        return children.map((child) => {
+          const isAccordion = child.children && child.children.length > 0;
+          return {
+            slug: child.slug,
+            label: child.label,
+            path: isAccordion ? "#" : (isAdmin ? child.path : child.employeePath),
+            icon: ICON_MAP[child.slug] || "fas fa-circle", // Ensure icons are mapped here
+            children: isAccordion ? mapChildren(child.children) : null,
+          };
+        });
+      };
 
+      const children = mapChildren(config.children);
       const isActive = children.some(
-        (child) => location.pathname === child.path,
+        (child) => location.pathname === child.path || (child.children && child.children.some(c => c.path === location.pathname))
       );
 
       parentItems.push({
@@ -413,9 +396,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         expandOnHover: config.expandOnHover !== false,
       });
 
-      // 👈 FIX: Add parentKey to processedSlugs so the standalone "accounts" doesn't render
       processedSlugs.add(parentKey);
-      children.forEach((c) => processedSlugs.add(c.slug));
+      getAllSlugs(config.children).forEach(s => processedSlugs.add(s));
     });
 
     allModules.forEach((slug) => {
@@ -425,19 +407,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       const module = user?.sidebar_modules?.find((m) => m.slug === slug);
       let moduleName = module?.name || slug;
 
-      if (moduleName === "My Tasks" || slug === "my-tasks") {
-        moduleName = "My Task Reports";
-      }
-      if (slug === "project-tasks") {
-        moduleName = "Project Tasks";
-      }
-      // NEW — distinct labels for admin vs employee warnings
-      if (slug === "warnings") {
-        moduleName = "Warnings";
-      }
-      if (slug === "my-warnings") {
-        moduleName = "My Warnings";
-      }
+      if (moduleName === "My Tasks" || slug === "my-tasks") moduleName = "My Task Reports";
+      if (slug === "project-tasks") moduleName = "Project Tasks";
+      if (slug === "warnings") moduleName = "Warnings";
+      if (slug === "my-warnings") moduleName = "My Warnings";
 
       standaloneItems.push({
         type: "single",
@@ -460,34 +433,78 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     setExpandedMenus((prev) => ({ ...prev, [slug]: !prev[slug] }));
   };
 
-  const isMenuExpanded = (parentItem) => {
-    if (isMobile) return expandedMenus[parentItem.slug] || false;
-    if (parentItem.expandOnHover === false) {
-      return expandedMenus[parentItem.slug] || false;
-    }
+  const isMenuExpanded = (item) => {
+    if (isMobile) return expandedMenus[item.slug] || false;
+    if (item.expandOnHover === false) return expandedMenus[item.slug] || false;
     return isOpen;
   };
 
   const showChevron = !isMobile && isOpen;
 
+  // --- RECURSIVE RENDERER FOR SUB-MENUS ---
+  const renderSubMenu = (children, level = 1) => {
+    return (
+      <div className={`mt-1 space-y-1 ${level === 1 ? "ml-6 border-l-2 border-gray-700/50 pl-2" : "ml-4 border-l border-gray-700/30 pl-2"}`}>
+        {children.map((child) => {
+          const hasChildren = child.children && child.children.length > 0;
+          const isChildExpanded = expandedMenus[child.slug] || false;
+          
+          // Check if this child or any of its children are active
+          const isChildActive = location.pathname === child.path || (hasChildren && child.children.some(c => c.path === location.pathname));
+
+          if (hasChildren) {
+            // Render Accordion Parent (Level 2)
+            return (
+              <div key={child.slug}>
+                <div
+                  onClick={() => toggleMenu(child.slug)}
+                  className={`flex items-center justify-between gap-3 px-3 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer select-none ${
+                    isChildActive ? "text-white font-medium" : "text-gray-400 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {/* ICON ADDED HERE FOR LEVEL 2 ACCORDION PARENTS */}
+                    <i className={`${child.icon} w-5 text-xs flex-shrink-0`}></i>
+                    <span className="text-sm">{child.label}</span>
+                  </div>
+                  <i className={`fas fa-chevron-${isChildExpanded ? "up" : "down"} text-[10px] transition-transform duration-200`}></i>
+                </div>
+                {isChildExpanded && renderSubMenu(child.children, level + 1)}
+              </div>
+            );
+          }
+
+          // Render Leaf Link (Level 2 or Level 3)
+          return (
+            <NavLink
+              key={child.slug}
+              to={child.path}
+              onClick={() => isMobile && setIsOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer ${
+                  isActive ? "bg-green-500/20 text-white" : "text-gray-400 hover:text-white hover:bg-white/10"
+                }`
+              }
+            >
+              {level === 1 && <i className={`${child.icon} w-5 text-xs flex-shrink-0`}></i>}
+              <span className="text-sm">{child.label}</span>
+            </NavLink>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <>
       {isMobile && isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
-          onClick={() => setIsOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300" onClick={() => setIsOpen(false)} />
       )}
 
       <aside
         className={`
-          fixed top-0 left-0 h-full bg-gray-900 z-50 transition-all duration-300
-          flex flex-col
-          ${
-            isMobile
-              ? `${isOpen ? "translate-x-0" : "-translate-x-full"} w-64`
-              : "w-[72px] hover:w-64 group"
-          }
+          fixed top-0 left-0 h-full bg-gray-900 z-50 transition-all duration-300 flex flex-col
+          ${isMobile ? `${isOpen ? "translate-x-0" : "-translate-x-full"} w-64` : "w-[72px] hover:w-64 group"}
         `}
         onMouseEnter={() => !isMobile && setIsOpen(true)}
         onMouseLeave={() => !isMobile && setIsOpen(false)}
@@ -496,9 +513,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           <img
             src="https://violet-leopard-500489.hostingersite.com/hr/public/assets/images/hr-logo2.jpg"
             alt="HMR Logo"
-            className={`object-contain rounded-lg bg-white p-1 transition-all duration-300 ${
-              !isMobile && !isOpen ? "w-10 h-10" : "w-12 h-12"
-            }`}
+            className={`object-contain rounded-lg bg-white p-1 transition-all duration-300 ${!isMobile && !isOpen ? "w-10 h-10" : "w-12 h-12"}`}
           />
         </div>
 
@@ -510,58 +525,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 <div key={item.slug} className="mb-1">
                   <div
                     onClick={() => toggleMenu(item.slug)}
-                    className={`
-                      flex items-center gap-3 px-5 py-3 mx-2 rounded-xl 
-                      transition-all duration-200 cursor-pointer select-none
-                      ${
-                        item.isActive
-                          ? "bg-green-500/20 text-white"
-                          : "text-gray-400 hover:text-white hover:bg-white/10"
-                      }
-                    `}
+                    className={`flex items-center gap-3 px-5 py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer select-none ${
+                      item.isActive ? "bg-green-500/20 text-white" : "text-gray-400 hover:text-white hover:bg-white/10"
+                    }`}
                   >
                     <i className={item.icon + " w-6 text-lg flex-shrink-0"}></i>
-                    <span
-                      className={`flex-1 transition-opacity duration-200 ${
-                        !isMobile && !isOpen
-                          ? "opacity-0 group-hover:opacity-100"
-                          : "opacity-100"
-                      }`}
-                    >
+                    <span className={`flex-1 transition-opacity duration-200 ${!isMobile && !isOpen ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
                       {item.label}
                     </span>
                     {(isMobile || showChevron) && (
-                      <i
-                        className={`fas fa-chevron-${
-                          expanded ? "up" : "down"
-                        } text-xs transition-transform duration-200 flex-shrink-0`}
-                      ></i>
+                      <i className={`fas fa-chevron-${expanded ? "up" : "down"} text-xs transition-transform duration-200 flex-shrink-0`}></i>
                     )}
                   </div>
-
-                  {expanded && (
-                    <div className="ml-6 mt-1 space-y-1 border-l-2 border-gray-700/50 pl-2">
-                      {item.children.map((child) => (
-                        <NavLink
-                          key={child.slug}
-                          to={child.path}
-                          onClick={() => isMobile && setIsOpen(false)}
-                          className={({ isActive }) =>
-                            `flex items-center gap-3 px-5 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer ${
-                              isActive
-                                ? "bg-green-500/20 text-white"
-                                : "text-gray-400 hover:text-white hover:bg-white/10"
-                            }`
-                          }
-                        >
-                          <i
-                            className={`${child.icon} w-6 text-sm flex-shrink-0`}
-                          ></i>
-                          <span className="text-sm">{child.label}</span>
-                        </NavLink>
-                      ))}
-                    </div>
-                  )}
+                  {expanded && renderSubMenu(item.children, 1)}
                 </div>
               );
             }
@@ -570,28 +546,16 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               <NavLink
                 key={item.slug}
                 to={item.path}
-                end={
-                  item.path === "/admin/employees" ||
-                  item.path === "/admin/dashboard" ||
-                  item.path === "/employee/dashboard"
-                }
+                end={item.path === "/admin/employees" || item.path === "/admin/dashboard" || item.path === "/employee/dashboard"}
                 onClick={() => isMobile && setIsOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-5 py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden ${
-                    isActive
-                      ? "bg-green-500/20 text-white"
-                      : "text-gray-400 hover:text-white hover:bg-white/10"
+                    isActive ? "bg-green-500/20 text-white" : "text-gray-400 hover:text-white hover:bg-white/10"
                   }`
                 }
               >
                 <i className={item.icon + " w-6 text-lg flex-shrink-0"}></i>
-                <span
-                  className={`transition-opacity duration-200 ${
-                    !isMobile && !isOpen
-                      ? "opacity-0 group-hover:opacity-100"
-                      : "opacity-100"
-                  }`}
-                >
+                <span className={`transition-opacity duration-200 ${!isMobile && !isOpen ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
                   {item.label}
                 </span>
               </NavLink>

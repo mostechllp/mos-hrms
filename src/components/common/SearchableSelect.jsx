@@ -1,27 +1,6 @@
-// src/admin/components/common/SearchableSelect.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiChevronDown, FiPlus, FiSearch, FiX } from "react-icons/fi";
 
-/**
- * SearchableSelect — Zoho-style searchable dropdown
- *
- * Props:
- *  - value           : current value (string | number | "")
- *  - onChange        : (newValue) => void
- *  - options         : [{ value, label }]
- *  - label           : field label (optional; pass "" to hide)
- *  - placeholder     : input placeholder
- *  - searchPlaceholder : placeholder inside the search box
- *  - loading         : bool — shows "Loading..."
- *  - error           : bool — red border
- *  - disabled        : bool
- *  - required        : bool — shows red asterisk
- *  - emptyMessage    : text when no results
- *  - onAddNew        : () => void — if provided, shows "+ Add" button on empty results
- *  - addNewLabel     : label for the add button ("Add new")
- *  - clearable       : bool — show × to clear
- *  - name            : field name (for forms)
- */
 const SearchableSelect = ({
   value = "",
   onChange,
@@ -47,7 +26,7 @@ const SearchableSelect = ({
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
-  // Normalize options
+  // Normalize options - KEEPING isHeading property
   const normalizedOptions = useMemo(
     () =>
       (Array.isArray(options) ? options : [])
@@ -55,6 +34,7 @@ const SearchableSelect = ({
         .map((o) => ({
           value: String(o.value),
           label: String(o.label ?? o.value),
+          isHeading: o.isHeading || false, // <-- Preserve this!
         })),
     [options],
   );
@@ -64,13 +44,27 @@ const SearchableSelect = ({
     [normalizedOptions, value],
   );
 
-  // Filter by query
+  // Filter by query - KEEPING headings visible if they have matching children
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return normalizedOptions;
-    return normalizedOptions.filter((o) =>
-      o.label.toLowerCase().includes(q),
-    );
+
+    // If searching, only show matching items and their preceding heading
+    const result = [];
+    let currentHeading = null;
+
+    for (let i = 0; i < normalizedOptions.length; i++) {
+        const opt = normalizedOptions[i];
+        if (opt.isHeading) {
+            currentHeading = opt;
+        } else if (opt.label.toLowerCase().includes(q)) {
+            if (currentHeading && !result.includes(currentHeading)) {
+                result.push(currentHeading);
+            }
+            result.push(opt);
+        }
+    }
+    return result;
   }, [normalizedOptions, query]);
 
   // Close on outside click
@@ -89,9 +83,10 @@ const SearchableSelect = ({
   // Focus search box when opened
   useEffect(() => {
     if (open) {
-      // Focus after the dropdown renders
       requestAnimationFrame(() => inputRef.current?.focus());
-      setHighlighted(0);
+      // Set highlighted to the first non-heading item
+      const firstSelectableIndex = filtered.findIndex(o => !o.isHeading);
+      setHighlighted(firstSelectableIndex >= 0 ? firstSelectableIndex : 0);
     }
   }, [open]);
 
@@ -105,7 +100,7 @@ const SearchableSelect = ({
   }, [highlighted, open]);
 
   const commit = (opt) => {
-    if (!opt) return;
+    if (!opt || opt.isHeading) return;
     onChange?.(opt.value);
     setOpen(false);
     setQuery("");
@@ -121,13 +116,18 @@ const SearchableSelect = ({
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlighted((h) => Math.min(h + 1, filtered.length - 1));
+      let next = highlighted + 1;
+      while (next < filtered.length && filtered[next].isHeading) next++;
+      if (next < filtered.length) setHighlighted(next);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlighted((h) => Math.max(h - 1, 0));
+      let prev = highlighted - 1;
+      while (prev >= 0 && filtered[prev].isHeading) prev--;
+      if (prev >= 0) setHighlighted(prev);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (filtered[highlighted]) commit(filtered[highlighted]);
+      const opt = filtered[highlighted];
+      if (opt && !opt.isHeading) commit(opt);
       else if (onAddNew && filtered.length === 0) {
         setOpen(false);
         onAddNew();
@@ -225,7 +225,7 @@ const SearchableSelect = ({
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
-                  setHighlighted(0);
+                  setHighlighted(0); // Reset highlight on search
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder={searchPlaceholder}
@@ -278,6 +278,19 @@ const SearchableSelect = ({
                 </div>
               ) : (
                 filtered.map((opt, idx) => {
+                  // Render Heading
+                  if (opt.isHeading) {
+                    return (
+                      <div
+                        key={opt.value}
+                        className="px-4 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/80 sticky top-0"
+                      >
+                        {opt.label}
+                      </div>
+                    );
+                  }
+
+                  // Render Selectable Option
                   const isSelected = opt.value === String(value ?? "");
                   const isHighlighted = idx === highlighted;
                   return (
