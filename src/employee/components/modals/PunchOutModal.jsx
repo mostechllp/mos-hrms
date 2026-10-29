@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { FiX, FiCheckCircle, FiClock } from "react-icons/fi";
 import { showToast } from "../common/Toast";
+import {
+  parseAttendanceTime,
+  getTodayInTimezone,
+  getDatePartInTimezone,
+  getStoredWorkTimezone,
+} from "../../utils/timezone";
 
 // Punch Out Modal Component
 export const PunchOutModal = ({
@@ -15,7 +21,11 @@ export const PunchOutModal = ({
   workingHours, // Object from Redux: { monday: { enabled, start, end }, ... }
   workingHoursFromAPI, // "10 hrs" or "6 hrs 48 mins" from API
   employeeBreaks = null, // Break data from API: { breaks: [...] } (or a plain array)
+  timezone = null, // IANA timezone of the shift (e.g. "Asia/Dubai")
 }) => {
+  // Timezone the shift runs in - never the device's own timezone
+  const workTimezone = timezone || getStoredWorkTimezone() || null;
+
   const [tasksCompleted, setTasksCompleted] = useState("");
   const [planTomorrow, setPlanTomorrow] = useState("");
   const [pendingWorks, setPendingWorks] = useState("");
@@ -30,76 +40,8 @@ export const PunchOutModal = ({
     return `${h}h ${m}m`;
   };
 
-  // Helper function to parse punch time with proper timezone handling
-  const parsePunchTime = (time) => {
-    if (!time) return null;
-    try {
-      // Handle "HH:MM AM/PM" format (e.g., "08:59 AM")
-      if (
-        typeof time === "string" &&
-        time.match(/(\d{1,2}:\d{2})\s*(AM|PM)/i)
-      ) {
-        const match = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-        if (match) {
-          let hours = parseInt(match[1], 10);
-          const minutes = parseInt(match[2], 10);
-          const ampm = match[3].toUpperCase();
-
-          if (ampm === "PM" && hours !== 12) hours += 12;
-          if (ampm === "AM" && hours === 12) hours = 0;
-
-          const now = new Date();
-          return new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate(),
-            hours,
-            minutes,
-            0,
-          );
-        }
-      }
-
-      // Handle "HH:MM:SS" format (24-hour)
-      if (typeof time === "string" && time.match(/^\d{2}:\d{2}:\d{2}$/)) {
-        const now = new Date();
-        const [hours, minutes, seconds] = time.split(":");
-        return new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-          parseInt(hours, 10),
-          parseInt(minutes, 10),
-          parseInt(seconds, 10),
-        );
-      }
-
-      // Handle ISO string with T
-      if (typeof time === "string" && time.includes("T")) {
-        if (!time.match(/(Z|[+-]\d{2}:\d{2})$/)) {
-          return new Date(`${time}Z`);
-        }
-        return new Date(time);
-      }
-
-      // Handle date with space
-      if (typeof time === "string" && time.includes(" ")) {
-        const isoTime = time.replace(" ", "T");
-        if (!isoTime.match(/(Z|[+-]\d{2}:\d{2})$/)) {
-          return new Date(`${isoTime}Z`);
-        }
-        return new Date(isoTime);
-      }
-
-      if (time instanceof Date) {
-        return time;
-      }
-      return new Date(time);
-    } catch (e) {
-      console.error("Error parsing time:", time, e);
-      return null;
-    }
-  };
+  // Parse punch times in the timezone the shift ran in (utils/timezone.js)
+  const parsePunchTime = (time) => parseAttendanceTime(time, workTimezone);
 
   const DEFAULT_LIMIT_HOURS = [0, 9, 9, 9, 9, 9, 4];
 
@@ -118,7 +60,11 @@ export const PunchOutModal = ({
     const date = parsePunchTime(punchInTime);
     if (!date || isNaN(date.getTime())) return 9 * 3600000;
 
-    const dayIndex = date.getDay();
+    // Day of week of the punch-in date, as seen in the work timezone
+    const [py, pm, pd] = getDatePartInTimezone(date, workTimezone || undefined)
+      .split("-")
+      .map(Number);
+    const dayIndex = new Date(Date.UTC(py, pm - 1, pd)).getUTCDay();
     const dayKey = DAY_KEYS[dayIndex];
 
     const parseHM = (t) => {
@@ -277,9 +223,7 @@ export const PunchOutModal = ({
     // The API returns breaks from ALL days (and a lifetime total_break_minutes),
     // so keep only today's. Use the break's own `date` field (the attendance day),
     // NOT start_time, because HR edits can move start_time to another day.
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, "0");
-    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const todayStr = getTodayInTimezone(workTimezone);
     return list.filter(
       (b) => b && String(b.date || b.start_time || "").slice(0, 10) === todayStr,
     );
