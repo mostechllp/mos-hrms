@@ -222,6 +222,16 @@ const CreditNoteForm = lazy(
   () => import("./admin/components/accounts/creditNotes/CreditNoteForm"),
 );
 
+const VendorsPage = lazy(() => import("./admin/pages/accounts/VendorsPage"));
+const VendorForm = lazy(
+  () => import("./admin/components/accounts/vendors/VendorForm"),
+);
+
+const ExpensesPage = lazy(() => import("./admin/pages/accounts/ExpensesPage"));
+const ExpenseForm = lazy(
+  () => import("./admin/components/accounts/expenses/ExpenseForm"),
+);
+
 const ChartOfAccounts = lazy(
   () => import("./admin/pages/accounts/ChartOfAccounts"),
 );
@@ -597,6 +607,29 @@ function App() {
           <Route
             path="accounts/sales/credit-notes/edit/:id"
             element={<CreditNoteForm />}
+          />
+
+          <Route path="accounts/purchases/vendors" element={<VendorsPage />} />
+          <Route
+            path="accounts/purchases/vendors/new"
+            element={<VendorForm />}
+          />
+          <Route
+            path="accounts/purchases/vendors/edit/:id"
+            element={<VendorForm />}
+          />
+
+          <Route
+            path="accounts/purchases/expenses"
+            element={<ExpensesPage />}
+          />
+          <Route
+            path="accounts/purchases/expenses/new"
+            element={<ExpenseForm />}
+          />
+          <Route
+            path="accounts/purchases/expenses/edit/:id"
+            element={<ExpenseForm />}
           />
 
           <Route
