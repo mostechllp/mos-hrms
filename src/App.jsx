@@ -159,11 +159,172 @@ const Meetings = lazy(() => import("./admin/pages/Meetings"));
 const AccountsDashboard = lazy(
   () => import("./admin/pages/accounts/AccountsDashboard"),
 );
+const Items = lazy(() => import("./admin/pages/accounts/ItemsPage"));
+const AddItems = lazy(
+  () => import("./admin/components/accounts/items/ItemForm"),
+);
+const ItemViewPage = lazy(
+  () => import("./admin/components/accounts/items/ItemViewPage"),
+);
+
+const CustomersPage = lazy(
+  () => import("./admin/pages/accounts/CustomersPage"),
+);
+const CustomerForm = lazy(
+  () => import("./admin/components/accounts/customers/CustomerForm"),
+);
+
+const QuotesPage = lazy(() => import("./admin/pages/accounts/QuotesPage"));
+const QuoteForm = lazy(
+  () => import("./admin/components/accounts/quotes/QuoteForm"),
+);
+
+const SalesOrdersPage = lazy(
+  () => import("./admin/pages/accounts/SalesOrdersPage"),
+);
+const SalesOrderForm = lazy(
+  () => import("./admin/components/accounts/salesOrder/SalesOrderForm"),
+);
+
+const InvoicesPage = lazy(() => import("./admin/pages/accounts/InvoicesPage"));
+const InvoiceForm = lazy(
+  () => import("./admin/components/accounts/invoice/InvoiceForm"),
+);
+
+const RecurringInvoicesPage = lazy(
+  () => import("./admin/pages/accounts/RecurringInvoicesPage"),
+);
+const RecurringInvoiceForm = lazy(
+  () =>
+    import("./admin/components/accounts/recurringInvoice/RecurringInvoiceForm"),
+);
+
+const DeliveryChallansPage = lazy(
+  () => import("./admin/pages/accounts/DeliveryChallansPage"),
+);
+const DeliveryChallanForm = lazy(
+  () =>
+    import("./admin/components/accounts/deliveryChallan/DeliveryChallanForm"),
+);
+
+const PaymentsReceivedPage = lazy(
+  () => import("./admin/pages/accounts/PaymentsReceivedPage"),
+);
+const PaymentReceivedForm = lazy(
+  () =>
+    import("./admin/components/accounts/paymentReceived/PaymentReceivedForm"),
+);
+
+const CreditNotesPage = lazy(
+  () => import("./admin/pages/accounts/CreditNotesPage"),
+);
+const CreditNoteForm = lazy(
+  () => import("./admin/components/accounts/creditNotes/CreditNoteForm"),
+);
+
+const VendorsPage = lazy(() => import("./admin/pages/accounts/VendorsPage"));
+const VendorForm = lazy(
+  () => import("./admin/components/accounts/vendors/VendorForm"),
+);
+
+const ExpensesPage = lazy(() => import("./admin/pages/accounts/ExpensesPage"));
+const ExpenseForm = lazy(
+  () => import("./admin/components/accounts/expenses/ExpenseForm"),
+);
+
+const RecurringExpensesPage = lazy(
+  () => import("./admin/pages/accounts/RecurringExpensesPage"),
+);
+const RecurringExpenseForm = lazy(
+  () =>
+    import("./admin/components/accounts/recurringExpense/RecurringExpenseForm"),
+);
+
+const BillsPage = lazy(() => import("./admin/pages/accounts/BillsPage"));
+const BillsForm = lazy(
+  () => import("./admin/components/accounts/bills/BillForm"),
+);
+
+const RecurringBillsPage = lazy(
+  () => import("./admin/pages/accounts/RecurringBillPage"),
+);
+const RecurringBillsForm = lazy(
+  () => import("./admin/components/accounts/recurringBills/RecurringBillForm"),
+);
+
+const PaymentsMadePage = lazy(
+  () => import("./admin/pages/accounts/PaymentsMadePage"),
+);
+const PaymentsMadeForm = lazy(
+  () => import("./admin/components/accounts/paymentsMade/PaymentForm"),
+);
+
+const VendorCreditsPage = lazy(
+  () => import("./admin/pages/accounts/VendorCreditsPage"),
+);
+const VendorCreditsForm = lazy(
+  () => import("./admin/components/accounts/vendorCredits/VendorCreditForm"),
+);
+
+const ProjectsPage = lazy(() => import("./admin/pages/accounts/ProjectsPage"));
+const ProjectsForm = lazy(
+  () => import("./admin/components/accounts/time-tracking/ProjectForm"),
+);
+
+const TimeSheetPage = lazy(
+  () => import("./admin/pages/accounts/TimesheetPage"),
+);
+
+const BankingPage = lazy(() => import("./admin/pages/accounts/BankingPage"));
+const BankingForm = lazy(
+  () => import("./admin/components/accounts/banking/AddBankForm"),
+);
+
+const ManualJournalPage = lazy(
+  () => import("./admin/pages/accounts/ManualJournalsPage"),
+);
+const ManualJournalForm = lazy(
+  () => import("./admin/components/accounts/accountant/JournalForm"),
+);
+
+const BulkUpdatePage = lazy(
+  () => import("./admin/pages/accounts/BulkUpdatePage"),
+);
+
+const CurrencyAdjustmentsPage = lazy(
+  () => import("./admin/pages/accounts/CurrencyAdjustmentsPage"),
+);
+const ChartOfAccountsPage = lazy(
+  () => import("./admin/pages/accounts/ChartOfAccounts"),
+);
+
+const BudgetsPage = lazy(() => import("./admin/pages/accounts/BudgetsPage"));
+const BudgetForm = lazy(
+  () => import("./admin/components/accounts/budget/BudgetForm"),
+);
+const BudgetView = lazy(
+  () => import("./admin/components/accounts/budget/BudgetView"),
+);
+
+const TransactionLockingPage = lazy(
+  () => import("./admin/pages/accounts/TransactionLockingPage"),
+);
+
+const PurchaseOrdersPage = lazy(
+  () => import("./admin/pages/accounts/PurchaseOrdersPage"),
+);
+const PurchaseOrdersForm = lazy(
+  () => import("./admin/components/accounts/purchaseOrders/PurchaseOrderForm"),
+);
+
 const ChartOfAccounts = lazy(
   () => import("./admin/pages/accounts/ChartOfAccounts"),
 );
 const JournalEntries = lazy(
   () => import("./admin/pages/accounts/JournalEntries"),
+);
+const AccountDocumentsPage = lazy(
+  () => import("./admin/pages/accounts/DocumentsPage"),
 );
 const Incomes = lazy(() => import("./admin/pages/accounts/Incomes"));
 const Expenses = lazy(() => import("./admin/pages/accounts/Expenses"));
@@ -171,7 +332,9 @@ const GeneralLedger = lazy(
   () => import("./admin/pages/accounts/GeneralLedger"),
 );
 const TrialBalance = lazy(() => import("./admin/pages/accounts/TrialBalance"));
-const AccountsReports = lazy(() => import("./admin/pages/accounts/Reports"));
+const AccountsReports = lazy(
+  () => import("./admin/pages/accounts/ReportsCenterPage"),
+);
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -445,9 +608,267 @@ function App() {
             element={<Navigate to="/admin/accounts/dashboard" replace />}
           />
           <Route path="accounts/dashboard" element={<AccountsDashboard />} />
+          <Route path="accounts/items" element={<Items />} />
+          <Route path="accounts/items/new" element={<AddItems />} />
+          <Route path="accounts/items/edit/:id" element={<AddItems />} />
+          <Route path="accounts/items/view/:id" element={<ItemViewPage />} />
+
+          <Route path="accounts/sales/customers" element={<CustomersPage />} />
+          <Route
+            path="accounts/sales/customers/new"
+            element={<CustomerForm />}
+          />
+          <Route
+            path="accounts/sales/customers/edit/:id"
+            element={<CustomerForm />}
+          />
+
+          <Route path="accounts/sales/quotes" element={<QuotesPage />} />
+          <Route path="accounts/sales/quotes/new" element={<QuoteForm />} />
+          <Route
+            path="accounts/sales/quotes/edit/:id"
+            element={<QuoteForm />}
+          />
+
+          <Route path="accounts/sales/orders" element={<SalesOrdersPage />} />
+          <Route
+            path="accounts/sales/orders/new"
+            element={<SalesOrderForm />}
+          />
+          <Route
+            path="accounts/sales/orders/edit/:id"
+            element={<SalesOrderForm />}
+          />
+
+          <Route path="accounts/sales/invoices" element={<InvoicesPage />} />
+          <Route path="accounts/sales/invoices/new" element={<InvoiceForm />} />
+          <Route
+            path="accounts/sales/invoices/edit/:id"
+            element={<InvoiceForm />}
+          />
+
+          <Route
+            path="accounts/sales/recurring"
+            element={<RecurringInvoicesPage />}
+          />
+          <Route
+            path="accounts/sales/recurring/new"
+            element={<RecurringInvoiceForm />}
+          />
+          <Route
+            path="accounts/sales/recurring/edit/:id"
+            element={<RecurringInvoiceForm />}
+          />
+
+          <Route
+            path="accounts/sales/challans"
+            element={<DeliveryChallansPage />}
+          />
+          <Route
+            path="accounts/sales/challans/new"
+            element={<DeliveryChallanForm />}
+          />
+          <Route
+            path="accounts/sales/challans/edit/:id"
+            element={<DeliveryChallanForm />}
+          />
+
+          <Route
+            path="accounts/sales/payments"
+            element={<PaymentsReceivedPage />}
+          />
+          <Route
+            path="accounts/sales/payments/new"
+            element={<PaymentReceivedForm />}
+          />
+          <Route
+            path="accounts/sales/payments/edit/:id"
+            element={<PaymentReceivedForm />}
+          />
+
+          <Route
+            path="accounts/sales/credit-notes"
+            element={<CreditNotesPage />}
+          />
+          <Route
+            path="accounts/sales/credit-notes/new"
+            element={<CreditNoteForm />}
+          />
+          <Route
+            path="accounts/sales/credit-notes/edit/:id"
+            element={<CreditNoteForm />}
+          />
+
+          <Route path="accounts/purchases/vendors" element={<VendorsPage />} />
+          <Route
+            path="accounts/purchases/vendors/new"
+            element={<VendorForm />}
+          />
+          <Route
+            path="accounts/purchases/vendors/edit/:id"
+            element={<VendorForm />}
+          />
+
+          <Route
+            path="accounts/purchases/expenses"
+            element={<ExpensesPage />}
+          />
+          <Route
+            path="accounts/purchases/expenses/new"
+            element={<ExpenseForm />}
+          />
+          <Route
+            path="accounts/purchases/expenses/edit/:id"
+            element={<ExpenseForm />}
+          />
+
+          <Route
+            path="accounts/purchases/recurring-expenses"
+            element={<RecurringExpensesPage />}
+          />
+          <Route
+            path="accounts/purchases/recurring-expenses/new"
+            element={<RecurringExpenseForm />}
+          />
+          <Route
+            path="accounts/purchases/recurring-expenses/edit/:id"
+            element={<RecurringExpenseForm />}
+          />
+
+          <Route path="accounts/purchases/bills" element={<BillsPage />} />
+          <Route path="accounts/purchases/bills/new" element={<BillsForm />} />
+          <Route
+            path="accounts/purchases/bills/edit/:id"
+            element={<BillsForm />}
+          />
+
+          <Route
+            path="accounts/purchases/recurring-bills"
+            element={<RecurringBillsPage />}
+          />
+          <Route
+            path="accounts/purchases/recurring-bills/new"
+            element={<RecurringBillsForm />}
+          />
+          <Route
+            path="accounts/purchases/recurring-bills/edit/:id"
+            element={<RecurringBillsForm />}
+          />
+
+          <Route
+            path="accounts/purchases/payments-made"
+            element={<PaymentsMadePage />}
+          />
+          <Route
+            path="accounts/purchases/payments-made/new"
+            element={<PaymentsMadeForm />}
+          />
+          <Route
+            path="accounts/purchases/payments-made/edit/:id"
+            element={<PaymentsMadeForm />}
+          />
+
+          <Route
+            path="accounts/purchases/vendor-credits"
+            element={<VendorCreditsPage />}
+          />
+          <Route
+            path="accounts/purchases/vendor-credits/new"
+            element={<VendorCreditsForm />}
+          />
+          <Route
+            path="accounts/purchases/vendor-credits/edit/:id"
+            element={<VendorCreditsForm />}
+          />
+
+          <Route
+            path="accounts/time-tracking/projects"
+            element={<ProjectsPage />}
+          />
+          <Route
+            path="accounts/time-tracking/projects/new"
+            element={<ProjectsForm />}
+          />
+          <Route
+            path="accounts/time-tracking/projects/edit/:id"
+            element={<ProjectsForm />}
+          />
+
+          <Route
+            path="accounts/time-tracking/timesheet"
+            element={<TimeSheetPage />}
+          />
+
+          <Route path="accounts/banking" element={<BankingPage />} />
+          <Route path="accounts/banking/new" element={<BankingForm />} />
+
+          <Route
+            path="/admin/accounts/accountant/manual-journals"
+            element={<ManualJournalPage />}
+          />
+          <Route
+            path="/admin/accounts/accountant/manual-journals/new"
+            element={<ManualJournalForm />}
+          />
+          <Route
+            path="/admin/accounts/accountant/manual-journals/edit/:id"
+            element={<ManualJournalForm />}
+          />
+
+          <Route
+            path="/admin/accounts/accountant/bulk-update"
+            element={<BulkUpdatePage />}
+          />
+
+          <Route
+            path="/admin/accounts/accountant/currency-adjustments"
+            element={<CurrencyAdjustmentsPage />}
+          />
+
+          <Route
+            path="/admin/accounts/accountant/chart-of-accounts"
+            element={<ChartOfAccountsPage />}
+          />
+
+          <Route
+            path="/admin/accounts/accountant/budgets"
+            element={<BudgetsPage />}
+          />
+          <Route
+            path="/admin/accounts/accountant/budgets/new"
+            element={<BudgetForm />}
+          />
+          <Route
+            path="/admin/accounts/accountant/budgets/:id"
+            element={<BudgetView />}
+          />
+
+          <Route
+            path="/admin/accounts/accountant/transaction-locking"
+            element={<TransactionLockingPage />}
+          />
+
+          <Route
+            path="accounts/purchases/purchase-orders"
+            element={<PurchaseOrdersPage />}
+          />
+          <Route
+            path="accounts/purchases/purchase-orders/new"
+            element={<PurchaseOrdersForm />}
+          />
+          <Route
+            path="accounts/purchases/purchase-orders/edit/:id"
+            element={<PurchaseOrdersForm />}
+          />
+
           <Route
             path="accounts/chart-of-accounts"
             element={<ChartOfAccounts />}
+          />
+
+          <Route
+            path="/admin/accounts/documents"
+            element={<AccountDocumentsPage />}
           />
           <Route path="accounts/journal-entries" element={<JournalEntries />} />
           <Route path="accounts/incomes" element={<Incomes />} />
@@ -673,6 +1094,7 @@ function App() {
             element={<Navigate to="/admin/accounts/dashboard" replace />}
           />
           <Route path="accounts/dashboard" element={<AccountsDashboard />} />
+          <Route path="accounts/items" element={<Items />} />
           <Route
             path="accounts/chart-of-accounts"
             element={<ChartOfAccounts />}
