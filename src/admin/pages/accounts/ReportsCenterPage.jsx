@@ -19,10 +19,10 @@ const ReportsCenterPage = () => {
   // Modals & Views
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewingReport, setIsViewingReport] = useState(false);
-  const [reportViewMode, setReportViewMode] = useState("Table"); // "Table" | "Chart"
+  const [reportViewMode, setReportViewMode] = useState("Table");
   
   // Create Report Modal State
-  const [creationMode, setCreationMode] = useState("existing"); // "existing" | "scratch"
+  const [creationMode, setCreationMode] = useState("existing");
   const [selectedBaseReport, setSelectedBaseReport] = useState("");
 
   // Filter/Search
@@ -36,7 +36,7 @@ const ReportsCenterPage = () => {
     return matchesSearch && report.category === selectedCategory;
   });
 
-  // --- RENDER: REPORT VIEW (Image 2 & 3) ---
+  // --- RENDER: REPORT VIEW ---
   if (isViewingReport) {
     return (
       <div className="bg-white min-h-screen relative flex flex-col font-sans">
@@ -172,25 +172,24 @@ const ReportsCenterPage = () => {
     );
   }
 
-  // --- RENDER: MAIN REPORTS PAGE (Image 1, 4, 5) ---
+  // --- RENDER: MAIN REPORTS PAGE ---
   return (
-    <div className="bg-[#F8F9FA] min-h-screen relative flex flex-col font-sans">
+    <div className="bg-[#F8F9FA] min-h-screen flex flex-col font-sans">
       
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-center justify-between md:justify-start gap-3 w-full md:w-auto">
-          <button onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)} className="md:hidden p-1.5 border border-gray-300 rounded text-gray-600">
+      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center justify-between gap-3 md:gap-4 shrink-0">
+        <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+          <button 
+            onClick={() => setIsMobileSidebarOpen(true)} 
+            className="md:hidden p-2 border border-gray-300 rounded text-gray-600 hover:bg-gray-50 shrink-0"
+            aria-label="Open menu"
+          >
             <Menu size={20} />
           </button>
-          <h1 className="text-lg md:text-xl font-medium text-gray-800 flex-1">Reports Center</h1>
-          <div className="flex items-center gap-2 md:hidden">
-             <button onClick={() => setIsCreateModalOpen(true)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-xs font-medium rounded whitespace-nowrap">
-               + New
-             </button>
-          </div>
+          <h1 className="text-base md:text-xl font-medium text-gray-800 truncate">Reports Center</h1>
         </div>
         
-        <div className="flex items-center gap-4 w-full md:max-w-2xl">
+        <div className="hidden md:block flex-1 max-w-2xl">
           <div className="relative w-full">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input 
@@ -203,76 +202,105 @@ const ReportsCenterPage = () => {
           </div>
         </div>
 
-        <div className="hidden md:flex items-center gap-2">
-          <button onClick={() => setIsCreateModalOpen(true)} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 text-sm font-medium rounded">
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => setIsCreateModalOpen(true)} className="hidden md:block bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 text-sm font-medium rounded whitespace-nowrap">
             Create New Report
           </button>
-          <button className="p-1.5 border border-gray-300 rounded hover:bg-gray-50 text-gray-600"><MoreHorizontal size={18} /></button>
+          <button onClick={() => setIsCreateModalOpen(true)} className="md:hidden bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-xs font-medium rounded whitespace-nowrap">
+            + New
+          </button>
+          <button className="p-1.5 border border-gray-300 rounded hover:bg-gray-50 text-gray-600 shrink-0"><MoreHorizontal size={18} /></button>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden relative">
+      {/* Mobile Search */}
+      <div className="md:hidden bg-white border-b border-gray-200 px-4 py-2 shrink-0">
+        <div className="relative w-full">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input 
+            type="text" 
+            placeholder="Search reports" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:border-blue-500 text-sm"
+          />
+        </div>
+      </div>
+
+      {/* Flex Container for Sidebar + Main Content */}
+      <div className="flex flex-1 overflow-hidden">
         
         {/* Mobile Sidebar Overlay */}
         {isMobileSidebarOpen && (
-          <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={() => setIsMobileSidebarOpen(false)} />
+          <div 
+            className="fixed inset-0 bg-black/50 z-[40] md:hidden" 
+            onClick={() => setIsMobileSidebarOpen(false)} 
+          />
         )}
 
         {/* Sidebar */}
-        <div className={`
-          fixed md:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 p-4 flex flex-col shrink-0 overflow-y-auto
+        <aside className={`
+          fixed md:static inset-y-0 left-0 z-[50] md:z-auto
+          w-64 bg-white border-r border-gray-200 flex flex-col shrink-0 overflow-y-auto
           transform transition-transform duration-300 ease-in-out
-          ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          ${isMobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}
         `}>
-          <div className="flex justify-between items-center md:hidden mb-4">
-            <h2 className="text-lg font-medium text-gray-800">Menu</h2>
-            <button onClick={() => setIsMobileSidebarOpen(false)} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded">
+          <div className="flex justify-between items-center md:hidden p-4 border-b border-gray-100">
+            <h2 className="text-base font-medium text-gray-800">Menu</h2>
+            <button 
+              onClick={() => setIsMobileSidebarOpen(false)} 
+              className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-full"
+              aria-label="Close menu"
+            >
               <X size={20} />
             </button>
           </div>
 
-          <nav className="space-y-1 mb-8">
-            {[
-              { name: "Home", icon: Home },
-              { name: "Favorites", icon: Star },
-              { name: "Shared Reports", icon: Share2 },
-              { name: "My Reports", icon: User },
-              { name: "Scheduled Reports", icon: Clock },
-            ].map(item => (
-              <button 
-                key={item.name} 
-                onClick={() => { setActiveTab(item.name); setIsMobileSidebarOpen(false); }}
-                className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === item.name ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <item.icon size={16} className={activeTab === item.name ? 'text-blue-600' : 'text-gray-400'} />
-                {item.name}
-              </button>
-            ))}
-          </nav>
+          <div className="p-4 flex-1">
+            <nav className="space-y-1 mb-8">
+              {[
+                { name: "Home", icon: Home },
+                { name: "Favorites", icon: Star },
+                { name: "Shared Reports", icon: Share2 },
+                { name: "My Reports", icon: User },
+                { name: "Scheduled Reports", icon: Clock },
+              ].map(item => (
+                <button 
+                  key={item.name} 
+                  onClick={() => { setActiveTab(item.name); setIsMobileSidebarOpen(false); }}
+                  className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === item.name ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <item.icon size={16} className={activeTab === item.name ? 'text-blue-600' : 'text-gray-400'} />
+                  {item.name}
+                </button>
+              ))}
+            </nav>
 
-          <div className="mb-2 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Report Category</div>
-          <div className="space-y-0.5">
-            <button onClick={() => { setActiveTab("Home"); setSelectedCategory("All Reports"); setIsMobileSidebarOpen(false); }} className={`w-full text-left flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${selectedCategory === "All Reports" ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
-              All Reports
-              <span className="bg-gray-200 text-gray-600 text-xs px-2 rounded-full font-medium">{allReports.length}</span>
-            </button>
-            {reportsCategories.map(cat => (
+            <div className="mb-2 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Report Category</div>
+            <div className="space-y-0.5">
               <button 
-                key={cat.id} 
-                onClick={() => { setActiveTab("Home"); setSelectedCategory(cat.name); setIsMobileSidebarOpen(false); }}
-                className={`w-full text-left flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${selectedCategory === cat.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
+                onClick={() => { setActiveTab("Home"); setSelectedCategory("All Reports"); setIsMobileSidebarOpen(false); }} 
+                className={`w-full text-left flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${selectedCategory === "All Reports" ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
               >
-                <Folder size={14} className="text-gray-400 shrink-0" />
-                <span className="truncate">{cat.name}</span>
+                All Reports
+                <span className="bg-gray-200 text-gray-600 text-xs px-2 rounded-full font-medium">{allReports.length}</span>
               </button>
-            ))}
+              {reportsCategories.map(cat => (
+                <button 
+                  key={cat.id} 
+                  onClick={() => { setActiveTab("Home"); setSelectedCategory(cat.name); setIsMobileSidebarOpen(false); }}
+                  className={`w-full text-left flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${selectedCategory === cat.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <Folder size={14} className="text-gray-400 shrink-0" />
+                  <span className="truncate">{cat.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        </aside>
 
-        {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 w-full">
-          
-          {/* Home / All Reports List */}
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {activeTab === "Home" && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
               <div className="px-4 md:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
@@ -312,11 +340,8 @@ const ReportsCenterPage = () => {
             </div>
           )}
 
-          {/* Empty State for Favorites, Shared, My Reports, Scheduled (Images 4, 5) */}
           {["Favorites", "Shared Reports", "My Reports", "Scheduled Reports"].includes(activeTab) && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm h-[60vh] md:h-[70vh] flex flex-col items-center justify-center p-6">
-               
-               {/* Dynamic Empty Graphic */}
                <div className="w-24 h-24 md:w-32 md:h-32 mb-6 relative flex items-center justify-center">
                   <div className="absolute inset-0 bg-blue-50 rounded-full opacity-50"></div>
                   {activeTab === "Favorites" && <Star size={40} className="text-blue-300 relative z-10 md:w-12 md:h-12" />}
@@ -324,7 +349,6 @@ const ReportsCenterPage = () => {
                   {activeTab === "My Reports" && <FileText size={40} className="text-blue-300 relative z-10 md:w-12 md:h-12" />}
                   {activeTab === "Scheduled Reports" && <Clock size={40} className="text-blue-300 relative z-10 md:w-12 md:h-12" />}
                </div>
-
                <h3 className="text-base md:text-lg font-medium text-gray-800 mb-2 text-center px-4">
                   {activeTab === "Favorites" && "You haven't marked any reports as a favorite."}
                   {activeTab === "Shared Reports" && "Currently, you don't have any shared reports."}
@@ -337,7 +361,6 @@ const ReportsCenterPage = () => {
                   {activeTab === "My Reports" && "Create a custom report by customizing an existing report."}
                   {activeTab === "Scheduled Reports" && "Schedule reports to be sent to your email automatically."}
                </p>
-
                {activeTab === "My Reports" && (
                   <button onClick={() => setIsCreateModalOpen(true)} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded text-sm font-medium">
                      Create New Report
@@ -345,32 +368,23 @@ const ReportsCenterPage = () => {
                )}
             </div>
           )}
-        </div>
+        </main>
       </div>
 
-      {/* CREATE CUSTOM REPORT MODAL (Image 6) */}
+      {/* CREATE CUSTOM REPORT MODAL */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-[60] flex justify-center items-start pt-10 md:pt-16 px-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 z-[100] flex justify-center items-start pt-10 md:pt-16 px-4 overflow-y-auto">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-fade-in border border-gray-200 my-8">
-            
-            {/* Modal Header */}
             <div className="flex justify-between items-center px-4 md:px-6 py-4 border-b border-gray-100">
               <h2 className="text-base md:text-lg font-normal text-gray-800">Create Custom Report</h2>
               <button onClick={() => setIsCreateModalOpen(false)} className="text-gray-400 hover:text-red-500 p-1 rounded-full">
                 <X size={20} />
               </button>
             </div>
-            
-            {/* Modal Body */}
             <div className="p-4 md:p-6 space-y-6">
               <p className="text-sm text-gray-700 font-medium">Choose how you would like to create the report</p>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {/* Option 1: Existing */}
-                 <div 
-                    onClick={() => setCreationMode("existing")}
-                    className={`border rounded-lg p-4 cursor-pointer transition-all ${creationMode === "existing" ? "border-blue-500 bg-blue-50/30 ring-1 ring-blue-500" : "border-gray-200 hover:border-gray-300"}`}
-                 >
+                 <div onClick={() => setCreationMode("existing")} className={`border rounded-lg p-4 cursor-pointer transition-all ${creationMode === "existing" ? "border-blue-500 bg-blue-50/30 ring-1 ring-blue-500" : "border-gray-200 hover:border-gray-300"}`}>
                     <div className="flex items-start gap-3">
                        <input type="radio" checked={creationMode === "existing"} onChange={() => setCreationMode("existing")} className="mt-1 text-blue-600 focus:ring-blue-500" />
                        <div>
@@ -379,12 +393,7 @@ const ReportsCenterPage = () => {
                        </div>
                     </div>
                  </div>
-
-                 {/* Option 2: Scratch */}
-                 <div 
-                    onClick={() => setCreationMode("scratch")}
-                    className={`border rounded-lg p-4 cursor-pointer transition-all ${creationMode === "scratch" ? "border-blue-500 bg-blue-50/30 ring-1 ring-blue-500" : "border-gray-200 hover:border-gray-300"}`}
-                 >
+                 <div onClick={() => setCreationMode("scratch")} className={`border rounded-lg p-4 cursor-pointer transition-all ${creationMode === "scratch" ? "border-blue-500 bg-blue-50/30 ring-1 ring-blue-500" : "border-gray-200 hover:border-gray-300"}`}>
                     <div className="flex items-start gap-3">
                        <input type="radio" checked={creationMode === "scratch"} onChange={() => setCreationMode("scratch")} className="mt-1 text-blue-600 focus:ring-blue-500" />
                        <div>
@@ -394,40 +403,19 @@ const ReportsCenterPage = () => {
                     </div>
                  </div>
               </div>
-
-              {/* Select Base Report Dropdown */}
               {creationMode === "existing" && (
                  <div className="pt-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Select a Report</label>
-                    <select 
-                       className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white"
-                       value={selectedBaseReport}
-                       onChange={(e) => setSelectedBaseReport(e.target.value)}
-                    >
+                    <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white" value={selectedBaseReport} onChange={(e) => setSelectedBaseReport(e.target.value)}>
                        <option value="">Select a Report</option>
-                       {allReports.map(r => (
-                          <option key={r.id} value={r.id}>{r.name} ({r.category})</option>
-                       ))}
+                       {allReports.map(r => <option key={r.id} value={r.id}>{r.name} ({r.category})</option>)}
                     </select>
                  </div>
               )}
             </div>
-
-            {/* Modal Footer */}
             <div className="px-4 md:px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center gap-3">
-              <button 
-                 onClick={() => { setIsCreateModalOpen(false); }}
-                 disabled={creationMode === "existing" && !selectedBaseReport}
-                 className="px-6 py-2 text-sm font-medium text-white bg-blue-500 rounded hover:bg-blue-600 disabled:opacity-50"
-              >
-                Proceed
-              </button>
-              <button 
-                 onClick={() => setIsCreateModalOpen(false)} 
-                 className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
-              >
-                Cancel
-              </button>
+              <button onClick={() => { setIsCreateModalOpen(false); }} disabled={creationMode === "existing" && !selectedBaseReport} className="px-6 py-2 text-sm font-medium text-white bg-blue-500 rounded hover:bg-blue-600 disabled:opacity-50">Proceed</button>
+              <button onClick={() => setIsCreateModalOpen(false)} className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50">Cancel</button>
             </div>
           </div>
         </div>
