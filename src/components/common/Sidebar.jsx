@@ -219,12 +219,12 @@ const PARENT_MENU_CONFIG = {
         children: [
           { slug: "purchases-vendors", label: "Vendors", path: "/admin/accounts/purchases/vendors", employeePath: "/employee/accounts/purchases/vendors" },
           { slug: "purchases-expenses", label: "Expenses", path: "/admin/accounts/purchases/expenses", employeePath: "/employee/accounts/purchases/expenses" },
-          { slug: "purchases-recurring", label: "Recurring Expenses", path: "/admin/accounts/purchases/recurring", employeePath: "/employee/accounts/purchases/recurring" },
-          { slug: "purchases-orders", label: "Purchase Orders", path: "/admin/accounts/purchases/orders", employeePath: "/employee/accounts/purchases/orders" },
+          { slug: "purchases-recurring", label: "Recurring Expenses", path: "/admin/accounts/purchases/recurring-expenses", employeePath: "/employee/accounts/purchases/recurring" },
+          { slug: "purchases-orders", label: "Purchase Orders", path: "/admin/accounts/purchases/purchase-orders", employeePath: "/employee/accounts/purchases/purchase-orders" },
           { slug: "purchases-bills", label: "Bills", path: "/admin/accounts/purchases/bills", employeePath: "/employee/accounts/purchases/bills" },
           { slug: "purchases-recurring-bills", label: "Recurring Bills", path: "/admin/accounts/purchases/recurring-bills", employeePath: "/employee/accounts/purchases/recurring-bills" },
-          { slug: "purchases-payments", label: "Payments Made", path: "/admin/accounts/purchases/payments", employeePath: "/employee/accounts/purchases/payments" },
-          { slug: "purchases-credits", label: "Vendor Credits", path: "/admin/accounts/purchases/credits", employeePath: "/employee/accounts/purchases/credits" },
+          { slug: "purchases-payments", label: "Payments Made", path: "/admin/accounts/purchases/payments-made", employeePath: "/employee/accounts/purchases/payments-made" },
+          { slug: "purchases-credits", label: "Vendor Credits", path: "/admin/accounts/purchases/vendor-credits", employeePath: "/employee/accounts/purchases/vendor-credits" },
         ]
       },
       {
@@ -233,8 +233,8 @@ const PARENT_MENU_CONFIG = {
         path: "#",
         employeePath: "#",
         children: [
-          { slug: "time-projects", label: "Projects", path: "/admin/accounts/time/projects", employeePath: "/employee/accounts/time/projects" },
-          { slug: "time-timesheet", label: "Timesheet", path: "/admin/accounts/time/timesheet", employeePath: "/employee/accounts/time/timesheet" },
+          { slug: "time-projects", label: "Projects", path: "/admin/accounts/time-tracking/projects", employeePath: "/employee/accounts/time-tracking/projects" },
+          { slug: "time-timesheet", label: "Timesheet", path: "/admin/accounts/time-tracking/timesheet", employeePath: "/employee/accounts/time-tracking/timesheet" },
         ]
       },
       {
@@ -249,12 +249,12 @@ const PARENT_MENU_CONFIG = {
         path: "#",
         employeePath: "#",
         children: [
-          { slug: "acc-journals", label: "Manual Journals", path: "/admin/accounts/accountant/journals", employeePath: "/employee/accounts/accountant/journals" },
-          { slug: "acc-bulk", label: "Bulk Update", path: "/admin/accounts/accountant/bulk", employeePath: "/employee/accounts/accountant/bulk" },
-          { slug: "acc-currency", label: "Currency Adjustments", path: "/admin/accounts/accountant/currency", employeePath: "/employee/accounts/accountant/currency" },
-          { slug: "acc-coa", label: "Chart of Accounts", path: "/admin/accounts/accountant/coa", employeePath: "/employee/accounts/accountant/coa" },
+          { slug: "acc-journals", label: "Manual Journals", path: "/admin/accounts/accountant/manual-journals", employeePath: "/employee/accounts/accountant/manual-journals" },
+          { slug: "acc-bulk", label: "Bulk Update", path: "/admin/accounts/accountant/bulk-update", employeePath: "/employee/accounts/accountant/bulk-update" },
+          { slug: "acc-currency", label: "Currency Adjustments", path: "/admin/accounts/accountant/currency-adjustments", employeePath: "/employee/accounts/accountant/currency-adjustments" },
+          { slug: "acc-coa", label: "Chart of Accounts", path: "/admin/accounts/accountant/chart-of-accounts", employeePath: "/employee/accounts/accountant/chart-of-accounts" },
           { slug: "acc-budgets", label: "Budgets", path: "/admin/accounts/accountant/budgets", employeePath: "/employee/accounts/accountant/budgets" },
-          { slug: "acc-locking", label: "Transaction Locking", path: "/admin/accounts/accountant/locking", employeePath: "/employee/accounts/accountant/locking" },
+          { slug: "acc-locking", label: "Transaction Locking", path: "/admin/accounts/accountant/transaction-locking", employeePath: "/employee/accounts/accountant/transaction-locking" },
         ]
       },
       {
@@ -264,7 +264,7 @@ const PARENT_MENU_CONFIG = {
         employeePath: "/employee/accounts/reports",
       },
       {
-        slug: "documents",
+        slug: "account-documents",
         label: "Documents",
         path: "/admin/accounts/documents",
         employeePath: "/employee/accounts/documents",
