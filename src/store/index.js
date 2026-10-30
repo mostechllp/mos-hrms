@@ -51,6 +51,20 @@ import paymentsReceivedReducer  from "../admin/store/slices/accounts/paymentsRec
 import creditNotesReducer  from "../admin/store/slices/accounts/creditNotesSlice";
 import vendorsReducer  from "../admin/store/slices/accounts/vendorsSlice";
 import expensesReducer  from "../admin/store/slices/accounts/expensesSlice";
+import recurringExpensesReducer  from "../admin/store/slices/accounts/recurringExpensesSlice";
+import purchaseOrdersReducer  from "../admin/store/slices/accounts/purchaseOrdersSlice";
+import billReducer  from "../admin/store/slices/accounts/billsSlice";
+import recurringBillsReducer  from "../admin/store/slices/accounts/recurringBillsSlice";
+import paymentsMadeReducer  from "../admin/store/slices/accounts/paymentsMadeSlice";
+import vendorCreditsReducer  from "../admin/store/slices/accounts/vendorCreditsSlice";
+import projectsReducer  from "../admin/store/slices/accounts/projectsSlice";
+import timesheetsReducer  from "../admin/store/slices/accounts/timesheetsSlice";
+import bankingReducer  from "../admin/store/slices/accounts/bankingSlice";
+import manualJournalsReducer  from "../admin/store/slices/accounts/manualJournalsSlice";
+import currencyAdjustmentsReducer  from "../admin/store/slices/accounts/currencyAdjustmentsSlice";
+import chartOfAccountsReducer  from "../admin/store/slices/accounts/chartOfAccountsSlice";
+import budgetsReducer  from "../admin/store/slices/accounts/budgetsSlice";
+import accountDocumentsReducer  from "../admin/store/slices/accounts/documentsSlice";
 
 // Employee reducers
 import leavesReducer from "../employee/store/slices/leavesSlice";
@@ -120,6 +134,20 @@ export const store = configureStore({
     creditNotes: creditNotesReducer,
     vendors: vendorsReducer,
     expenses: expensesReducer,
+    recurringExpenses: recurringExpensesReducer,
+    purchaseOrders: purchaseOrdersReducer,
+    bills: billReducer,
+    recurringBills: recurringBillsReducer,
+    paymentsMade: paymentsMadeReducer,
+    vendorCredits: vendorCreditsReducer,
+    accountProjects: projectsReducer,
+    timesheets: timesheetsReducer,
+    banking: bankingReducer,
+    manualJournals: manualJournalsReducer,
+    currencyAdjustments: currencyAdjustmentsReducer,
+    chartOfAccounts: chartOfAccountsReducer,
+    budgets: budgetsReducer,
+    accountDocuments: accountDocumentsReducer,
 
     // Employee
     EmpLeaves: leavesReducer,
