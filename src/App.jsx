@@ -803,48 +803,48 @@ function App() {
           <Route path="accounts/banking/new" element={<BankingForm />} />
 
           <Route
-            path="/admin/accounts/accountant/manual-journals"
+            path="accounts/accountant/manual-journals"
             element={<ManualJournalPage />}
           />
           <Route
-            path="/admin/accounts/accountant/manual-journals/new"
+            path="accounts/accountant/manual-journals/new"
             element={<ManualJournalForm />}
           />
           <Route
-            path="/admin/accounts/accountant/manual-journals/edit/:id"
+            path="accounts/accountant/manual-journals/edit/:id"
             element={<ManualJournalForm />}
           />
 
           <Route
-            path="/admin/accounts/accountant/bulk-update"
+            path="accounts/accountant/bulk-update"
             element={<BulkUpdatePage />}
           />
 
           <Route
-            path="/admin/accounts/accountant/currency-adjustments"
+            path="accounts/accountant/currency-adjustments"
             element={<CurrencyAdjustmentsPage />}
           />
 
           <Route
-            path="/admin/accounts/accountant/chart-of-accounts"
+            path="accounts/accountant/chart-of-accounts"
             element={<ChartOfAccountsPage />}
           />
 
           <Route
-            path="/admin/accounts/accountant/budgets"
+            path="accounts/accountant/budgets"
             element={<BudgetsPage />}
           />
           <Route
-            path="/admin/accounts/accountant/budgets/new"
+            path="accounts/accountant/budgets/new"
             element={<BudgetForm />}
           />
           <Route
-            path="/admin/accounts/accountant/budgets/:id"
+            path="accounts/accountant/budgets/:id"
             element={<BudgetView />}
           />
 
           <Route
-            path="/admin/accounts/accountant/transaction-locking"
+            path="accounts/accountant/transaction-locking"
             element={<TransactionLockingPage />}
           />
 
@@ -867,7 +867,7 @@ function App() {
           />
 
           <Route
-            path="/admin/accounts/documents"
+            path="accounts/documents"
             element={<AccountDocumentsPage />}
           />
           <Route path="accounts/journal-entries" element={<JournalEntries />} />
@@ -1091,13 +1091,270 @@ function App() {
           {/* ───────────── ACCOUNTS ───────────── */}
           <Route
             path="accounts"
-            element={<Navigate to="/admin/accounts/dashboard" replace />}
+            element={<Navigate to="accounts/dashboard" replace />}
           />
           <Route path="accounts/dashboard" element={<AccountsDashboard />} />
           <Route path="accounts/items" element={<Items />} />
+          <Route path="accounts/items/new" element={<AddItems />} />
+          <Route path="accounts/items/edit/:id" element={<AddItems />} />
+          <Route path="accounts/items/view/:id" element={<ItemViewPage />} />
+
+          <Route path="accounts/sales/customers" element={<CustomersPage />} />
+          <Route
+            path="accounts/sales/customers/new"
+            element={<CustomerForm />}
+          />
+          <Route
+            path="accounts/sales/customers/edit/:id"
+            element={<CustomerForm />}
+          />
+
+          <Route path="accounts/sales/quotes" element={<QuotesPage />} />
+          <Route path="accounts/sales/quotes/new" element={<QuoteForm />} />
+          <Route
+            path="accounts/sales/quotes/edit/:id"
+            element={<QuoteForm />}
+          />
+
+          <Route path="accounts/sales/orders" element={<SalesOrdersPage />} />
+          <Route
+            path="accounts/sales/orders/new"
+            element={<SalesOrderForm />}
+          />
+          <Route
+            path="accounts/sales/orders/edit/:id"
+            element={<SalesOrderForm />}
+          />
+
+          <Route path="accounts/sales/invoices" element={<InvoicesPage />} />
+          <Route path="accounts/sales/invoices/new" element={<InvoiceForm />} />
+          <Route
+            path="accounts/sales/invoices/edit/:id"
+            element={<InvoiceForm />}
+          />
+
+          <Route
+            path="accounts/sales/recurring"
+            element={<RecurringInvoicesPage />}
+          />
+          <Route
+            path="accounts/sales/recurring/new"
+            element={<RecurringInvoiceForm />}
+          />
+          <Route
+            path="accounts/sales/recurring/edit/:id"
+            element={<RecurringInvoiceForm />}
+          />
+
+          <Route
+            path="accounts/sales/challans"
+            element={<DeliveryChallansPage />}
+          />
+          <Route
+            path="accounts/sales/challans/new"
+            element={<DeliveryChallanForm />}
+          />
+          <Route
+            path="accounts/sales/challans/edit/:id"
+            element={<DeliveryChallanForm />}
+          />
+
+          <Route
+            path="accounts/sales/payments"
+            element={<PaymentsReceivedPage />}
+          />
+          <Route
+            path="accounts/sales/payments/new"
+            element={<PaymentReceivedForm />}
+          />
+          <Route
+            path="accounts/sales/payments/edit/:id"
+            element={<PaymentReceivedForm />}
+          />
+
+          <Route
+            path="accounts/sales/credit-notes"
+            element={<CreditNotesPage />}
+          />
+          <Route
+            path="accounts/sales/credit-notes/new"
+            element={<CreditNoteForm />}
+          />
+          <Route
+            path="accounts/sales/credit-notes/edit/:id"
+            element={<CreditNoteForm />}
+          />
+
+          <Route path="accounts/purchases/vendors" element={<VendorsPage />} />
+          <Route
+            path="accounts/purchases/vendors/new"
+            element={<VendorForm />}
+          />
+          <Route
+            path="accounts/purchases/vendors/edit/:id"
+            element={<VendorForm />}
+          />
+
+          <Route
+            path="accounts/purchases/expenses"
+            element={<ExpensesPage />}
+          />
+          <Route
+            path="accounts/purchases/expenses/new"
+            element={<ExpenseForm />}
+          />
+          <Route
+            path="accounts/purchases/expenses/edit/:id"
+            element={<ExpenseForm />}
+          />
+
+          <Route
+            path="accounts/purchases/recurring-expenses"
+            element={<RecurringExpensesPage />}
+          />
+          <Route
+            path="accounts/purchases/recurring-expenses/new"
+            element={<RecurringExpenseForm />}
+          />
+          <Route
+            path="accounts/purchases/recurring-expenses/edit/:id"
+            element={<RecurringExpenseForm />}
+          />
+
+          <Route path="accounts/purchases/bills" element={<BillsPage />} />
+          <Route path="accounts/purchases/bills/new" element={<BillsForm />} />
+          <Route
+            path="accounts/purchases/bills/edit/:id"
+            element={<BillsForm />}
+          />
+
+          <Route
+            path="accounts/purchases/recurring-bills"
+            element={<RecurringBillsPage />}
+          />
+          <Route
+            path="accounts/purchases/recurring-bills/new"
+            element={<RecurringBillsForm />}
+          />
+          <Route
+            path="accounts/purchases/recurring-bills/edit/:id"
+            element={<RecurringBillsForm />}
+          />
+
+          <Route
+            path="accounts/purchases/payments-made"
+            element={<PaymentsMadePage />}
+          />
+          <Route
+            path="accounts/purchases/payments-made/new"
+            element={<PaymentsMadeForm />}
+          />
+          <Route
+            path="accounts/purchases/payments-made/edit/:id"
+            element={<PaymentsMadeForm />}
+          />
+
+          <Route
+            path="accounts/purchases/vendor-credits"
+            element={<VendorCreditsPage />}
+          />
+          <Route
+            path="accounts/purchases/vendor-credits/new"
+            element={<VendorCreditsForm />}
+          />
+          <Route
+            path="accounts/purchases/vendor-credits/edit/:id"
+            element={<VendorCreditsForm />}
+          />
+
+          <Route
+            path="accounts/time-tracking/projects"
+            element={<ProjectsPage />}
+          />
+          <Route
+            path="accounts/time-tracking/projects/new"
+            element={<ProjectsForm />}
+          />
+          <Route
+            path="accounts/time-tracking/projects/edit/:id"
+            element={<ProjectsForm />}
+          />
+
+          <Route
+            path="accounts/time-tracking/timesheet"
+            element={<TimeSheetPage />}
+          />
+
+          <Route path="accounts/banking" element={<BankingPage />} />
+          <Route path="accounts/banking/new" element={<BankingForm />} />
+
+          <Route
+            path="accounts/accountant/manual-journals"
+            element={<ManualJournalPage />}
+          />
+          <Route
+            path="accounts/accountant/manual-journals/new"
+            element={<ManualJournalForm />}
+          />
+          <Route
+            path="accounts/accountant/manual-journals/edit/:id"
+            element={<ManualJournalForm />}
+          />
+
+          <Route
+            path="accounts/accountant/bulk-update"
+            element={<BulkUpdatePage />}
+          />
+
+          <Route
+            path="accounts/accountant/currency-adjustments"
+            element={<CurrencyAdjustmentsPage />}
+          />
+
+          <Route
+            path="accounts/accountant/chart-of-accounts"
+            element={<ChartOfAccountsPage />}
+          />
+
+          <Route
+            path="accounts/accountant/budgets"
+            element={<BudgetsPage />}
+          />
+          <Route
+            path="accounts/accountant/budgets/new"
+            element={<BudgetForm />}
+          />
+          <Route
+            path="accounts/accountant/budgets/:id"
+            element={<BudgetView />}
+          />
+
+          <Route
+            path="accounts/accountant/transaction-locking"
+            element={<TransactionLockingPage />}
+          />
+
+          <Route
+            path="accounts/purchases/purchase-orders"
+            element={<PurchaseOrdersPage />}
+          />
+          <Route
+            path="accounts/purchases/purchase-orders/new"
+            element={<PurchaseOrdersForm />}
+          />
+          <Route
+            path="accounts/purchases/purchase-orders/edit/:id"
+            element={<PurchaseOrdersForm />}
+          />
+
           <Route
             path="accounts/chart-of-accounts"
             element={<ChartOfAccounts />}
+          />
+
+          <Route
+            path="accounts/documents"
+            element={<AccountDocumentsPage />}
           />
           <Route path="accounts/journal-entries" element={<JournalEntries />} />
           <Route path="accounts/incomes" element={<Incomes />} />
