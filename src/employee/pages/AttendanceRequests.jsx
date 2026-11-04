@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { FiEye, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiLogIn, FiClock, FiCheck, FiX, FiEdit2, FiTrash2 } from "react-icons/fi";
+import {
+  FiEye,
+  FiChevronLeft,
+  FiChevronRight,
+  FiSearch,
+  FiSun,
+  FiMoon,
+  FiLogIn,
+  FiClock,
+  FiCheck,
+  FiX,
+  FiEdit2,
+  FiTrash2,
+  FiLogOut,
+} from "react-icons/fi";
 import { MdFingerprint } from "react-icons/md";
 import { showToast } from "../components/common/Toast";
 import StatusBadge from "../components/common/StatusBadge";
@@ -14,8 +28,9 @@ import {
   fetchAttendanceRequests,
   updateAttendanceRequestStatus,
   deleteAttendanceRequest,
-  deleteAttendanceRequestAdmin
+  deleteAttendanceRequestAdmin,
 } from "../store/slices/attendanceTypeSlice";
+import EarlyCheckoutModal from "../components/modals/EarlyCheckoutModal";
 
 const AttendanceRequests = ({ isAdmin = false }) => {
   const dispatch = useDispatch();
@@ -35,11 +50,19 @@ const AttendanceRequests = ({ isAdmin = false }) => {
   const [showLateCheckin, setShowLateCheckin] = useState(false);
   const [showMissedPunchIn, setShowMissedPunchIn] = useState(false);
   const [showMissedPunchOut, setShowMissedPunchOut] = useState(false);
+  const [showEarlyCheckout, setShowEarlyCheckout] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [requestToEdit, setRequestToEdit] = useState(null);
   const [localFilter, setLocalFilter] = useState({ status: "all", search: "" });
-  const [localPagination, setLocalPagination] = useState({ currentPage: 1, perPage: 10 });
-  const [confirmModal, setConfirmModal] = useState({ isOpen: false, request: null, action: null });
+  const [localPagination, setLocalPagination] = useState({
+    currentPage: 1,
+    perPage: 10,
+  });
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    request: null,
+    action: null,
+  });
 
   useEffect(() => {
     loadAttendanceRequests();
@@ -118,6 +141,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
       missed_punch_out: "Missed Punch Out",
       early_checkin: "Early Check-in",
       late_checkin: "Late Check-in",
+      early_check_out: "Early Check-out", // ✅ NEW
     };
     return types[type] || type?.replace(/_/g, " ") || type;
   };
@@ -126,10 +150,13 @@ const AttendanceRequests = ({ isAdmin = false }) => {
     const icons = {
       early_check_in: <FiSun className="text-[var(--muted)] text-xs" />,
       late_check_in: <FiMoon className="text-[var(--muted)] text-xs" />,
-      missed_punch_in: <MdFingerprint className="text-[var(--muted)] text-xs" />,
+      missed_punch_in: (
+        <MdFingerprint className="text-[var(--muted)] text-xs" />
+      ),
       missed_punch_out: <FiLogIn className="text-[var(--muted)] text-xs" />,
       early_checkin: <FiSun className="text-[var(--muted)] text-xs" />,
       late_checkin: <FiMoon className="text-[var(--muted)] text-xs" />,
+      early_check_out: <FiLogOut className="text-[var(--muted)] text-xs" />, // ✅ NEW
     };
     return icons[type] || <FiClock className="text-[var(--muted)] text-xs" />;
   };
@@ -142,7 +169,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
 
     if (localFilter.status !== "all") {
       filtered = filtered.filter(
-        (r) => r.status?.toLowerCase() === localFilter.status.toLowerCase()
+        (r) => r.status?.toLowerCase() === localFilter.status.toLowerCase(),
       );
     }
 
@@ -153,7 +180,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
           getRequestTypeLabel(r.type).toLowerCase().includes(searchLower) ||
           (r.reason || "").toLowerCase().includes(searchLower) ||
           (r.status || "").toLowerCase().includes(searchLower) ||
-          getEmployeeName(r).toLowerCase().includes(searchLower)
+          getEmployeeName(r).toLowerCase().includes(searchLower),
       );
     }
 
@@ -161,16 +188,23 @@ const AttendanceRequests = ({ isAdmin = false }) => {
   };
 
   const filteredRequests = getFilteredRequests();
-  const totalPages = Math.ceil(filteredRequests.length / localPagination.perPage);
+  const totalPages = Math.ceil(
+    filteredRequests.length / localPagination.perPage,
+  );
   const start = (localPagination.currentPage - 1) * localPagination.perPage;
-  const currentRequests = filteredRequests.slice(start, start + localPagination.perPage);
+  const currentRequests = filteredRequests.slice(
+    start,
+    start + localPagination.perPage,
+  );
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString("en-GB", {
-        day: "2-digit", month: "short", year: "numeric",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
       });
     } catch (error) {
       return "-";
@@ -191,8 +225,11 @@ const AttendanceRequests = ({ isAdmin = false }) => {
     try {
       const date = new Date(dateTimeString);
       return date.toLocaleDateString("en-GB", {
-        day: "2-digit", month: "short", year: "numeric",
-        hour: "2-digit", minute: "2-digit",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
     } catch (error) {
       return "-";
@@ -208,25 +245,41 @@ const AttendanceRequests = ({ isAdmin = false }) => {
 
   const stats = {
     total: requests?.length || 0,
-    pending: (requests || []).filter((r) => r.status?.toLowerCase() === "pending").length,
-    approved: (requests || []).filter((r) => r.status?.toLowerCase() === "approved").length,
-    rejected: (requests || []).filter((r) => r.status?.toLowerCase() === "rejected").length,
+    pending: (requests || []).filter(
+      (r) => r.status?.toLowerCase() === "pending",
+    ).length,
+    approved: (requests || []).filter(
+      (r) => r.status?.toLowerCase() === "approved",
+    ).length,
+    rejected: (requests || []).filter(
+      (r) => r.status?.toLowerCase() === "rejected",
+    ).length,
   };
 
   const openRequestModal = (type) => {
     switch (type) {
       case "early_check_in":
       case "early_checkin":
-        setShowEarlyCheckin(true); break;
+        setShowEarlyCheckin(true);
+        break;
       case "late_check_in":
       case "late_checkin":
-        setShowLateCheckin(true); break;
+        setShowLateCheckin(true);
+        break;
       case "missed_punch_in":
-        setShowMissedPunchIn(true); break;
+        setShowMissedPunchIn(true);
+        break;
       case "missed_punch_out":
-        setShowMissedPunchOut(true); break;
+        setShowMissedPunchOut(true);
+        break;
+      case "early_check_out": // ✅ NEW
+        setShowEarlyCheckout(true);
+        break;
       default:
-        showToast("Modal for " + type.replace(/_/g, " ") + " is coming soon!", "info");
+        showToast(
+          "Modal for " + type.replace(/_/g, " ") + " is coming soon!",
+          "info",
+        );
         break;
     }
   };
@@ -255,6 +308,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
     setShowLateCheckin(false);
     setShowMissedPunchIn(false);
     setShowMissedPunchOut(false);
+    setShowEarlyCheckout(false); // ✅ NEW
     loadAttendanceRequests();
   };
 
@@ -263,7 +317,9 @@ const AttendanceRequests = ({ isAdmin = false }) => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500 dark:text-gray-400">Loading attendance requests...</p>
+          <p className="text-gray-500 dark:text-gray-400">
+            Loading attendance requests...
+          </p>
         </div>
       </div>
     );
@@ -274,26 +330,44 @@ const AttendanceRequests = ({ isAdmin = false }) => {
       {/* Stats Grid */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-5 mb-7">
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
-          <div className="stat-icon w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-2xl mx-auto mb-3"><FiClock /></div>
-          <div className="stat-number text-3xl font-extrabold text-blue-600 dark:text-blue-400">{stats.total}</div>
-          <div className="stat-label text-xs text-[var(--muted)]">Total Requests</div>
+          <div className="stat-icon w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-2xl mx-auto mb-3">
+            <FiClock />
+          </div>
+          <div className="stat-number text-3xl font-extrabold text-blue-600 dark:text-blue-400">
+            {stats.total}
+          </div>
+          <div className="stat-label text-xs text-[var(--muted)]">
+            Total Requests
+          </div>
         </div>
 
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
-          <div className="stat-icon w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-2xl mx-auto mb-3"><FiClock /></div>
-          <div className="stat-number text-3xl font-extrabold text-amber-500">{stats.pending}</div>
+          <div className="stat-icon w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-2xl mx-auto mb-3">
+            <FiClock />
+          </div>
+          <div className="stat-number text-3xl font-extrabold text-amber-500">
+            {stats.pending}
+          </div>
           <div className="stat-label text-xs text-[var(--muted)]">Pending</div>
         </div>
 
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
-          <div className="stat-icon w-12 h-12 rounded-xl bg-green-500/10 text-green-500 flex items-center justify-center text-2xl mx-auto mb-3"><FiClock /></div>
-          <div className="stat-number text-3xl font-extrabold text-green-500">{stats.approved}</div>
+          <div className="stat-icon w-12 h-12 rounded-xl bg-green-500/10 text-green-500 flex items-center justify-center text-2xl mx-auto mb-3">
+            <FiClock />
+          </div>
+          <div className="stat-number text-3xl font-extrabold text-green-500">
+            {stats.approved}
+          </div>
           <div className="stat-label text-xs text-[var(--muted)]">Approved</div>
         </div>
 
         <div className="stat-card bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all">
-          <div className="stat-icon w-12 h-12 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center text-2xl mx-auto mb-3"><FiClock /></div>
-          <div className="stat-number text-3xl font-extrabold text-red-500">{stats.rejected}</div>
+          <div className="stat-icon w-12 h-12 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center text-2xl mx-auto mb-3">
+            <FiClock />
+          </div>
+          <div className="stat-number text-3xl font-extrabold text-red-500">
+            {stats.rejected}
+          </div>
           <div className="stat-label text-xs text-[var(--muted)]">Rejected</div>
         </div>
       </div>
@@ -308,29 +382,71 @@ const AttendanceRequests = ({ isAdmin = false }) => {
       {/* New Request Cards */}
       {!isAdmin && (
         <div className="mb-8">
-          <h3 className="text-lg font-semibold text-[var(--text)] mb-4">Create New Request</h3>
+          <h3 className="text-lg font-semibold text-[var(--text)] mb-4">
+            Create New Request
+          </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            <button onClick={() => openRequestModal("early_check_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-orange-500 hover:shadow-md transition-all text-center gap-2 group">
-              <div className="w-10 h-10 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform"><FiSun className="text-lg" /></div>
-              <span className="text-sm font-medium text-[var(--text)]">Early Check-in</span>
+            <button
+              onClick={() => openRequestModal("early_check_in")}
+              className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-orange-500 hover:shadow-md transition-all text-center gap-2 group"
+            >
+              <div className="w-10 h-10 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <FiSun className="text-lg" />
+              </div>
+              <span className="text-sm font-medium text-[var(--text)]">
+                Early Check-in
+              </span>
             </button>
 
-            <button onClick={() => openRequestModal("late_check_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-purple-500 hover:shadow-md transition-all text-center gap-2 group">
-              <div className="w-10 h-10 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform"><FiMoon className="text-lg" /></div>
-              <span className="text-sm font-medium text-[var(--text)]">Late Check-in</span>
+            <button
+              onClick={() => openRequestModal("early_check_out")}
+              className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-red-500 hover:shadow-md transition-all text-center gap-2 group"
+            >
+              <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <FiLogOut className="text-lg" />
+              </div>
+              <span className="text-sm font-medium text-[var(--text)]">
+                Early Check-out
+              </span>
             </button>
 
-            <button onClick={() => openRequestModal("missed_punch_in")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-center gap-2 group">
-              <div className="w-10 h-10 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform"><MdFingerprint className="text-lg" /></div>
-              <span className="text-sm font-medium text-[var(--text)]">Missed Punch In</span>
+            <button
+              onClick={() => openRequestModal("late_check_in")}
+              className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-purple-500 hover:shadow-md transition-all text-center gap-2 group"
+            >
+              <div className="w-10 h-10 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <FiMoon className="text-lg" />
+              </div>
+              <span className="text-sm font-medium text-[var(--text)]">
+                Late Check-in
+              </span>
             </button>
 
-            <button onClick={() => openRequestModal("missed_punch_out")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-green-500 hover:shadow-md transition-all text-center gap-2 group">
-              <div className="w-10 h-10 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center group-hover:scale-110 transition-transform"><FiLogIn className="text-lg" /></div>
-              <span className="text-sm font-medium text-[var(--text)]">Missed Punch Out</span>
+            <button
+              onClick={() => openRequestModal("missed_punch_in")}
+              className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-center gap-2 group"
+            >
+              <div className="w-10 h-10 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <MdFingerprint className="text-lg" />
+              </div>
+              <span className="text-sm font-medium text-[var(--text)]">
+                Missed Punch In
+              </span>
             </button>
 
-            <button onClick={() => openRequestModal("missed_punch_full_day")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-red-500 hover:shadow-md transition-all text-center gap-2 group">
+            <button
+              onClick={() => openRequestModal("missed_punch_out")}
+              className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-green-500 hover:shadow-md transition-all text-center gap-2 group"
+            >
+              <div className="w-10 h-10 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <FiLogIn className="text-lg" />
+              </div>
+              <span className="text-sm font-medium text-[var(--text)]">
+                Missed Punch Out
+              </span>
+            </button>
+
+            {/* <button onClick={() => openRequestModal("missed_punch_full_day")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-red-500 hover:shadow-md transition-all text-center gap-2 group">
               <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center group-hover:scale-110 transition-transform"><i className="fas fa-calendar-times text-lg"></i></div>
               <span className="text-sm font-medium text-[var(--text)]">Missed Punch (Full Day)</span>
             </button>
@@ -353,7 +469,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
             <button onClick={() => openRequestModal("shift_change")} className="flex flex-col items-center justify-center p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-amber-600 hover:shadow-md transition-all text-center gap-2 group">
               <div className="w-10 h-10 rounded-full bg-amber-600/10 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform"><i className="fas fa-exchange-alt text-lg"></i></div>
               <span className="text-sm font-medium text-[var(--text)]">Shift Change Request</span>
-            </button>
+            </button> */}
           </div>
         </div>
       )}
@@ -411,22 +527,41 @@ const AttendanceRequests = ({ isAdmin = false }) => {
         <table className="attendance-requests-table w-full border-collapse text-xs min-w-[900px]">
           <thead>
             <tr>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">#</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                #
+              </th>
               {isAdmin && (
-                <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Employee</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                  Employee
+                </th>
               )}
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Type</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Date</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Time</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Reason</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Status</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">Action</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                Type
+              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                Date
+              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                Time
+              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                Reason
+              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                Status
+              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-[var(--muted)] bg-[var(--surface2)] border-b border-[var(--border)]">
+                Action
+              </th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="7" className="text-center py-8 text-[var(--muted)]">
+                <td
+                  colSpan="7"
+                  className="text-center py-8 text-[var(--muted)]"
+                >
                   <div className="flex items-center justify-center gap-2">
                     <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
                     Loading...
@@ -435,7 +570,10 @@ const AttendanceRequests = ({ isAdmin = false }) => {
               </tr>
             ) : currentRequests.length === 0 ? (
               <tr>
-                <td colSpan="7" className="text-center py-8 text-[var(--muted)]">
+                <td
+                  colSpan="7"
+                  className="text-center py-8 text-[var(--muted)]"
+                >
                   <div className="flex flex-col items-center gap-2">
                     <FiClock className="text-4xl text-[var(--muted)]" />
                     <p>No attendance requests found.</p>
@@ -483,7 +621,10 @@ const AttendanceRequests = ({ isAdmin = false }) => {
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
                     {formatTime(request.request_time || request.time)}
                   </td>
-                  <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] max-w-[200px] truncate" title={request.reason}>
+                  <td
+                    className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] max-w-[200px] truncate"
+                    title={request.reason}
+                  >
                     {request.reason || "-"}
                   </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)]">
@@ -506,14 +647,18 @@ const AttendanceRequests = ({ isAdmin = false }) => {
                       {isAdmin && request.status === "pending" && (
                         <>
                           <button
-                            onClick={() => openConfirmModal(request, "approved")}
+                            onClick={() =>
+                              openConfirmModal(request, "approved")
+                            }
                             className="p-1.5 rounded-lg hover:bg-green-500/10 text-green-500 transition-colors"
                             title="Approve"
                           >
                             <FiCheck className="text-sm" />
                           </button>
                           <button
-                            onClick={() => openConfirmModal(request, "rejected")}
+                            onClick={() =>
+                              openConfirmModal(request, "rejected")
+                            }
                             className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors"
                             title="Reject"
                           >
@@ -522,7 +667,8 @@ const AttendanceRequests = ({ isAdmin = false }) => {
                         </>
                       )}
 
-                      {((!isAdmin && request.status !== "approved") || isAdmin) && (
+                      {((!isAdmin && request.status !== "approved") ||
+                        isAdmin) && (
                         <>
                           <button
                             onClick={() => handleEdit(request)}
@@ -554,8 +700,8 @@ const AttendanceRequests = ({ isAdmin = false }) => {
         <div className="pagination-container flex flex-col sm:flex-row justify-between items-center gap-3 mt-5">
           <div className="text-xs text-[var(--muted)]">
             Showing {start + 1} to{" "}
-            {Math.min(start + localPagination.perPage, filteredRequests.length)} of{" "}
-            {filteredRequests.length} entries
+            {Math.min(start + localPagination.perPage, filteredRequests.length)}{" "}
+            of {filteredRequests.length} entries
           </div>
           <div className="page-buttons flex gap-1.5 flex-wrap">
             <button
@@ -594,42 +740,85 @@ const AttendanceRequests = ({ isAdmin = false }) => {
 
       {/* Details Modal */}
       {showDetailsModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1100] flex items-center justify-center p-4" onClick={() => setShowDetailsModal(false)}>
-          <div className="bg-[var(--surface)] max-w-md w-full rounded-2xl p-6 shadow-xl border border-[var(--border)]" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1100] flex items-center justify-center p-4"
+          onClick={() => setShowDetailsModal(false)}
+        >
+          <div
+            className="bg-[var(--surface)] max-w-md w-full rounded-2xl p-6 shadow-xl border border-[var(--border)]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-[var(--text)]">Request Details</h3>
-              <button onClick={() => setShowDetailsModal(false)} className="text-[var(--muted)] hover:text-[var(--text)]">✕</button>
+              <h3 className="text-xl font-bold text-[var(--text)]">
+                Request Details
+              </h3>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="text-[var(--muted)] hover:text-[var(--text)]"
+              >
+                ✕
+              </button>
             </div>
             <div className="space-y-3">
               {isAdmin && (
                 <div className="flex py-2 border-b border-[var(--border)]">
-                  <span className="font-semibold text-[var(--text)] w-28">Employee:</span>
-                  <span className="text-[var(--text-secondary)]">{getEmployeeName(selectedRequest)}</span>
+                  <span className="font-semibold text-[var(--text)] w-28">
+                    Employee:
+                  </span>
+                  <span className="text-[var(--text-secondary)]">
+                    {getEmployeeName(selectedRequest)}
+                  </span>
                 </div>
               )}
               <div className="flex py-2 border-b border-[var(--border)]">
-                <span className="font-semibold text-[var(--text)] w-28">Type:</span>
-                <span className="text-[var(--text-secondary)]">{getRequestTypeLabel(selectedRequest.type)}</span>
+                <span className="font-semibold text-[var(--text)] w-28">
+                  Type:
+                </span>
+                <span className="text-[var(--text-secondary)]">
+                  {getRequestTypeLabel(selectedRequest.type)}
+                </span>
               </div>
               <div className="flex py-2 border-b border-[var(--border)]">
-                <span className="font-semibold text-[var(--text)] w-28">Date:</span>
-                <span className="text-[var(--text-secondary)]">{formatDate(selectedRequest.request_date || selectedRequest.date)}</span>
+                <span className="font-semibold text-[var(--text)] w-28">
+                  Date:
+                </span>
+                <span className="text-[var(--text-secondary)]">
+                  {formatDate(
+                    selectedRequest.request_date || selectedRequest.date,
+                  )}
+                </span>
               </div>
               <div className="flex py-2 border-b border-[var(--border)]">
-                <span className="font-semibold text-[var(--text)] w-28">Time:</span>
-                <span className="text-[var(--text-secondary)]">{formatTime(selectedRequest.request_time || selectedRequest.time)}</span>
+                <span className="font-semibold text-[var(--text)] w-28">
+                  Time:
+                </span>
+                <span className="text-[var(--text-secondary)]">
+                  {formatTime(
+                    selectedRequest.request_time || selectedRequest.time,
+                  )}
+                </span>
               </div>
               <div className="flex py-2 border-b border-[var(--border)]">
-                <span className="font-semibold text-[var(--text)] w-28">Reason:</span>
-                <span className="text-[var(--text-secondary)]">{selectedRequest.reason || "-"}</span>
+                <span className="font-semibold text-[var(--text)] w-28">
+                  Reason:
+                </span>
+                <span className="text-[var(--text-secondary)]">
+                  {selectedRequest.reason || "-"}
+                </span>
               </div>
               <div className="flex py-2 border-b border-[var(--border)]">
-                <span className="font-semibold text-[var(--text)] w-28">Status:</span>
+                <span className="font-semibold text-[var(--text)] w-28">
+                  Status:
+                </span>
                 <StatusBadge status={selectedRequest.status} />
               </div>
               <div className="flex py-2">
-                <span className="font-semibold text-[var(--text)] w-28">Submitted:</span>
-                <span className="text-[var(--text-secondary)]">{formatDateTime(selectedRequest.created_at)}</span>
+                <span className="font-semibold text-[var(--text)] w-28">
+                  Submitted:
+                </span>
+                <span className="text-[var(--text-secondary)]">
+                  {formatDateTime(selectedRequest.created_at)}
+                </span>
               </div>
             </div>
             <div className="flex justify-end mt-6 pt-4 border-t border-[var(--border)]">
@@ -646,9 +835,16 @@ const AttendanceRequests = ({ isAdmin = false }) => {
 
       {/* Modals */}
       <EarlyCheckinModal isOpen={showEarlyCheckin} onClose={handleModalClose} />
+      <EarlyCheckoutModal isOpen={showEarlyCheckout} onClose={handleModalClose} />  
       <LateCheckinModal isOpen={showLateCheckin} onClose={handleModalClose} />
-      <MissedPunchInModal isOpen={showMissedPunchIn} onClose={handleModalClose} />
-      <MissedPunchOutModal isOpen={showMissedPunchOut} onClose={handleModalClose} />
+      <MissedPunchInModal
+        isOpen={showMissedPunchIn}
+        onClose={handleModalClose}
+      />
+      <MissedPunchOutModal
+        isOpen={showMissedPunchOut}
+        onClose={handleModalClose}
+      />
       <EditAttendanceRequestModal
         isOpen={showEditModal}
         onClose={() => {
@@ -661,22 +857,52 @@ const AttendanceRequests = ({ isAdmin = false }) => {
 
       {/* Confirmation Modal */}
       {confirmModal.isOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1100] flex items-center justify-center p-4" onClick={() => setConfirmModal({ isOpen: false, request: null, action: null })}>
-          <div className="bg-[var(--surface)] max-w-sm w-full rounded-2xl p-6 shadow-xl border border-[var(--border)] text-center" onClick={(e) => e.stopPropagation()}>
-            <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4 ${
-              confirmModal.action === "approved" ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
-            }`}>
-              {confirmModal.action === "approved" ? <FiCheck className="text-3xl" /> :
-               confirmModal.action === "delete" ? <FiTrash2 className="text-3xl" /> :
-               <FiX className="text-3xl" />}
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1100] flex items-center justify-center p-4"
+          onClick={() =>
+            setConfirmModal({ isOpen: false, request: null, action: null })
+          }
+        >
+          <div
+            className="bg-[var(--surface)] max-w-sm w-full rounded-2xl p-6 shadow-xl border border-[var(--border)] text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4 ${
+                confirmModal.action === "approved"
+                  ? "bg-green-500/10 text-green-500"
+                  : "bg-red-500/10 text-red-500"
+              }`}
+            >
+              {confirmModal.action === "approved" ? (
+                <FiCheck className="text-3xl" />
+              ) : confirmModal.action === "delete" ? (
+                <FiTrash2 className="text-3xl" />
+              ) : (
+                <FiX className="text-3xl" />
+              )}
             </div>
-            <h3 className="text-xl font-bold text-[var(--text)] mb-2">Confirm Action</h3>
+            <h3 className="text-xl font-bold text-[var(--text)] mb-2">
+              Confirm Action
+            </h3>
             <p className="text-[var(--text-secondary)] mb-6">
-              Are you sure you want to {confirmModal.action === "delete" ? "delete" : confirmModal.action === "approved" ? "approve" : "deny"} this attendance request? This action cannot be undone.
+              Are you sure you want to{" "}
+              {confirmModal.action === "delete"
+                ? "delete"
+                : confirmModal.action === "approved"
+                  ? "approve"
+                  : "deny"}{" "}
+              this attendance request? This action cannot be undone.
             </p>
             <div className="flex justify-center gap-3">
               <button
-                onClick={() => setConfirmModal({ isOpen: false, request: null, action: null })}
+                onClick={() =>
+                  setConfirmModal({
+                    isOpen: false,
+                    request: null,
+                    action: null,
+                  })
+                }
                 className="px-5 py-2.5 rounded-xl bg-[var(--surface2)] text-[var(--text)] hover:bg-[var(--border)] transition-all font-medium"
               >
                 Cancel
@@ -686,11 +912,16 @@ const AttendanceRequests = ({ isAdmin = false }) => {
                   if (confirmModal.action === "delete") {
                     handleDelete(confirmModal.request);
                   } else {
-                    handleStatusUpdate(confirmModal.request, confirmModal.action);
+                    handleStatusUpdate(
+                      confirmModal.request,
+                      confirmModal.action,
+                    );
                   }
                 }}
                 className={`px-5 py-2.5 rounded-xl text-white transition-all font-medium ${
-                  confirmModal.action === "approved" ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"
+                  confirmModal.action === "approved"
+                    ? "bg-green-500 hover:bg-green-600"
+                    : "bg-red-500 hover:bg-red-600"
                 }`}
               >
                 Proceed

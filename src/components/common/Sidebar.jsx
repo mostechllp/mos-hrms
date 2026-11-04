@@ -73,6 +73,7 @@ const EMPLOYEE_ROUTE_MAP = {
   "my-payroll": "/employee/my-payroll",
   warnings: "/employee/warnings",
   "my-warnings": "/employee/my-warnings",
+  "my-attendance-requests": "/employee/my-attendance-requests",
   // CRM
   "crm-dashboard": "/employee/crm/dashboard",
   "crm-leads": "/employee/crm/leads",
@@ -504,7 +505,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       <aside
         className={`
           fixed top-0 left-0 h-full bg-gray-900 z-50 transition-all duration-300 flex flex-col
-          ${isMobile ? `${isOpen ? "translate-x-0" : "-translate-x-full"} w-64` : "w-[72px] hover:w-64 group"}
+          ${isMobile ? `${isOpen ? "translate-x-0" : "-translate-x-full"} w-72` : "w-[72px] hover:w-80 group"}
         `}
         onMouseEnter={() => !isMobile && setIsOpen(true)}
         onMouseLeave={() => !isMobile && setIsOpen(false)}

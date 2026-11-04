@@ -16,6 +16,7 @@ import {
 } from "../../store/slices/reportSlice";
 import ExportModal from "../../../components/common/ExportModal";
 import { formatDate } from "../../../utils/reportUtils";
+import DateInput from "../common/DateInput";
 
 const LeaveRequestReports = () => {
   const dispatch = useDispatch();
@@ -217,10 +218,10 @@ const LeaveRequestReports = () => {
 
     // Dispatch the export thunk
     const result = await dispatch(exportLeavesReport(params));
-    
+
     if (exportLeavesReport.fulfilled.match(result)) {
       const { url, filename } = result.payload;
-      
+
       // Create a download link
       const link = document.createElement("a");
       link.href = url;
@@ -228,12 +229,12 @@ const LeaveRequestReports = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Revoke the URL after download
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 100);
-      
+
       showToast(`Leave requests exported successfully!`, "success");
     } else {
       showToast(result.payload || "Failed to export report", "error");
@@ -446,22 +447,23 @@ const LeaveRequestReports = () => {
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
                   From Date
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+                  onChange={(val) => setStartDate(val)}
+                  placeholder="dd/mm/yyyy"
+                  maxDate={endDate ? new Date(endDate) : new Date()}
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
                   To Date
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-green-500"
+                  onChange={(val) => setEndDate(val)}
+                  placeholder="dd/mm/yyyy"
+                  minDate={startDate ? new Date(startDate) : undefined}
+                  maxDate={new Date()}
                 />
               </div>
             </div>
