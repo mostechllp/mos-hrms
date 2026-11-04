@@ -651,7 +651,7 @@ const Products = () => {
         categoriesLoading={optionsLoading}
         types={typeOptions}
         units={options.units}
-        currencies={options.currencies}
+         currencies={options.currency_codes || options.currencies?.map(c => c.code)} 
         statuses={statusOptions}
         onSubmit={handleModalSubmit}
         submitting={submitting}

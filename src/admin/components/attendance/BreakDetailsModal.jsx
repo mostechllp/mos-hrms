@@ -357,20 +357,28 @@ const BreakDetailsModal = ({
 
   if (!isOpen) return null;
 
-  // Helper function to format ISO time (HH:MM AM/PM)
-  const formatTime = (isoString) => {
-    if (!isoString) return "-";
-    try {
-      const d = new Date(isoString);
-      return d.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      });
-    } catch (e) {
-      return "-";
-    }
-  };
+ const formatTime = (isoString) => {
+  if (!isoString) return "-";
+
+  try {
+    const timePart = isoString.split("T")[1];
+
+    if (!timePart) return "-";
+
+    const [hours, minutes] = timePart.split(":");
+
+    const date = new Date();
+    date.setHours(Number(hours), Number(minutes), 0, 0);
+
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch (e) {
+    return "-";
+  }
+};
 
   const handleEditBreak = (breakItem) => {
     setEditingBreak(breakItem);

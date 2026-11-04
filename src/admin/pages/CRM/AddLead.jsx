@@ -522,17 +522,29 @@ const AddLead = () => {
               placeholder="name@company.com"
             />
           </Field>
-          <Field label="Primary Phone">
+                    <Field label="Primary Phone">
             <Input
+              type="tel"
+              maxLength={10}
               value={form.primaryPhone}
-              onChange={(e) => update("primaryPhone", e.target.value)}
-              placeholder="+91 98765 43210"
+              onChange={(e) => {
+                // Remove any non-digit characters and limit to 10 digits
+                const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
+                update("primaryPhone", digitsOnly);
+              }}
+              placeholder="9876543210"
             />
           </Field>
-          <Field label="Alternate Phone">
+                    <Field label="Alternate Phone">
             <Input
+              type="tel"
+              maxLength={10}
               value={form.alternatePhone}
-              onChange={(e) => update("alternatePhone", e.target.value)}
+              onChange={(e) => {
+                const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
+                update("alternatePhone", digitsOnly);
+              }}
+              placeholder="9876543210"
             />
           </Field>
 
