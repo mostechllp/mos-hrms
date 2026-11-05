@@ -3,15 +3,43 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+// Helper: turn "afternoon" / "morning" / "full_day" into readable label
+const formatSession = (session) => {
+  if (!session) return "";
+  const map = {
+    morning: "Morning",
+    afternoon: "Afternoon",
+    evening: "Evening",
+    full_day: "Full Day",
+    full_day_morning: "Morning",
+    full_day_afternoon: "Afternoon",
+  };
+  return map[session.toLowerCase()] || session;
+};
+
+// Build a readable session range e.g. "Morning → Afternoon"
+const getSessionRange = (leave) => {
+  const s1 = formatSession(leave.session1);
+  const s2 = formatSession(leave.session2);
+
+  if (!s1 && !s2) return null;
+
+  // Same session (e.g. half-day afternoon) → just show once
+  if (s1 && s2 && s1 === s2) return s1;
+
+  // Different sessions → show range
+  if (s1 && s2) return `${s1} → ${s2}`;
+
+  // Only one available
+  return s1 || s2;
+};
+
 const LeavesTodayChart = ({ leavesToday = [] }) => {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
 
-  // Calculate leave statistics
   const totalLeaves = leavesToday.length;
   const totalEmployeesOnLeave = leavesToday.length;
-
-  // Get the display list
   const displayLeaves = leavesToday;
 
   return (
@@ -37,7 +65,6 @@ const LeavesTodayChart = ({ leavesToday = [] }) => {
         </div>
       ) : (
         <div className="flex flex-col flex-1 min-h-0">
-          {/* Sub-header with count */}
           <div className="flex items-center justify-between mb-2 flex-shrink-0">
             <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               Employees on Leave Today
@@ -51,70 +78,73 @@ const LeavesTodayChart = ({ leavesToday = [] }) => {
               </button>
             )}
           </div>
-          
-          {/* Scrollable container - takes remaining height */}
-          <div 
-            className={`space-y-2 pr-2 overflow-y-auto flex-1 ${
-              expanded ? '' : ''
-            }`}
+
+          <div
+            className="space-y-2 pr-2 overflow-y-auto flex-1"
             style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: '#CBD5E1 transparent',
-              maxHeight: expanded ? 'none' : '280px',
+              scrollbarWidth: "thin",
+              scrollbarColor: "#CBD5E1 transparent",
+              maxHeight: expanded ? "none" : "280px",
             }}
           >
             <style>{`
-              .space-y-2::-webkit-scrollbar {
-                width: 4px;
-              }
-              .space-y-2::-webkit-scrollbar-track {
-                background: transparent;
-              }
-              .space-y-2::-webkit-scrollbar-thumb {
-                background: #CBD5E1;
-                border-radius: 8px;
-              }
-              .space-y-2::-webkit-scrollbar-thumb:hover {
-                background: #94A3B8;
-              }
+              .space-y-2::-webkit-scrollbar { width: 4px; }
+              .space-y-2::-webkit-scrollbar-track { background: transparent; }
+              .space-y-2::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 8px; }
+              .space-y-2::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
             `}</style>
-            
-            {displayLeaves.map((leave) => (
-              <div
-                key={leave.id}
-                onClick={() => {
-                  if (leave.employee_id) {
-                    navigate(`/admin/employees/${leave.employee_id}`);
-                  }
-                }}
-                className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 cursor-pointer transition-colors border border-gray-100 dark:border-gray-600"
-              >
-                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400 font-semibold text-sm flex-shrink-0">
-                  {leave.employee_name?.charAt(0)?.toUpperCase() || "E"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                    {leave.employee_name || "Unknown Employee"}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    <span className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full whitespace-nowrap">
-                      {leave.leave_type || "Leave"}
-                    </span>
-                    <span className="truncate">{leave.department_name || "N/A"}</span>
-                    <span className="truncate">{leave.designation || ""}</span>
+
+            {displayLeaves.map((leave) => {
+              const sessionRange = getSessionRange(leave);
+
+              return (
+                <div
+                  key={leave.id}
+                  onClick={() => {
+                    if (leave.employee_id) {
+                      navigate(`/admin/employees/${leave.employee_id}`);
+                    }
+                  }}
+                  className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 cursor-pointer transition-colors border border-gray-100 dark:border-gray-600"
+                >
+                  <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400 font-semibold text-sm flex-shrink-0">
+                    {leave.employee_name?.charAt(0)?.toUpperCase() || "E"}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                      {leave.employee_name || "Unknown Employee"}
+                    </p>
+
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full whitespace-nowrap">
+                        {leave.leave_type || "Leave"}
+                      </span>
+
+                      {/* ✅ NEW: Session range badge */}
+                      {sessionRange && (
+                        <span className="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full whitespace-nowrap inline-flex items-center gap-1">
+                          <i className="far fa-clock text-[10px]"></i>
+                          {sessionRange}
+                        </span>
+                      )}
+
+                      <span className="truncate">{leave.department_name || "N/A"}</span>
+                      <span className="truncate">{leave.designation || ""}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                    {leave.duration_days} day{leave.duration_days > 1 ? "s" : ""}
+                  </div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                    <i className="fas fa-chevron-right"></i>
                   </div>
                 </div>
-                <div className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
-                  {leave.duration_days} day{leave.duration_days > 1 ? "s" : ""}
-                </div>
-                <div className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
-                  <i className="fas fa-chevron-right"></i>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-          
-          {/* Show count at bottom - fixed */}
+
           <div className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center flex-shrink-0 pt-2 border-t border-gray-100 dark:border-gray-700">
             Showing {displayLeaves.length} of {totalLeaves} employee{totalLeaves > 1 ? "s" : ""}
           </div>

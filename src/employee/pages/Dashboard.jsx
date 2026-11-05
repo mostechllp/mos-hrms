@@ -1390,6 +1390,7 @@ const Dashboard = () => {
             </h3>
           </div>
 
+                    {/* Added shrink-0 to buttons so they don't squish, and fixed the scrollbar container */}
           <div className="flex overflow-x-auto gap-2 mb-3 pb-2 custom-scrollbar">
             {[
               "today_assigned_tasks",
@@ -1402,7 +1403,7 @@ const Dashboard = () => {
               <button
                 key={tab}
                 onClick={() => setActiveTaskTab(tab)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors ${
+                className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors ${
                   activeTaskTab === tab
                     ? "bg-green-500 text-white"
                     : "bg-[var(--surface2)] text-[var(--muted)] hover:bg-[var(--border)]"

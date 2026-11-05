@@ -911,7 +911,8 @@ function App() {
           <Route path="tasks" element={<EmployeeTasks />} />
           <Route path="notifications" element={<EmployeeNotifications />} />
           <Route path="profile" element={<EmployeeProfile />} />
-          <Route path="attendance-requests" element={<AttendanceRequests />} />
+          <Route path="my-attendance-requests" element={<AttendanceRequests />} />
+          <Route path="attendance-requests" element={<AttendanceRequests isAdmin={true} />} />
           <Route path="organizations" element={<Organizations />} />
           <Route path="my-warnings" element={<EmployeeWarnings />} />
 

@@ -7,11 +7,12 @@ import EntriesSelector from "../common/EntriesSelector";
 import { showToast } from "../../../components/common/Toast";
 import Pagination from "../common/Paginations";
 import ExportModal from "../../../components/common/ExportModal";
-import { 
+import {
   fetchTaskReports,
-  exportTaskReports 
+  exportTaskReports,
 } from "../../store/slices/reportSlice";
 import { fetchActiveEmployees } from "../../store/slices/employeeSlice";
+import DateInput from "../common/DateInput";
 
 const TaskReports = () => {
   const dispatch = useDispatch();
@@ -21,7 +22,7 @@ const TaskReports = () => {
     taskReportsTotalCount: totalCount = 0,
     taskReportsLastPage: lastPage = 1,
   } = useSelector((state) => state.reports || {});
-  
+
   const { employees = [] } = useSelector((state) => state.employees || {});
 
   // Local state
@@ -49,10 +50,12 @@ const TaskReports = () => {
   }, [dispatch]);
 
   // Get unique employees for filters from employees list (not from records)
-  const employeeOptions = employees.map((emp) => ({
-    id: emp.id || emp.employee_id,
-    name: emp.name || emp.employee_name,
-  })).filter(emp => emp.id && emp.name);
+  const employeeOptions = employees
+    .map((emp) => ({
+      id: emp.id || emp.employee_id,
+      name: emp.name || emp.employee_name,
+    }))
+    .filter((emp) => emp.id && emp.name);
 
   // Fetch task reports data with filters
   useEffect(() => {
@@ -161,8 +164,8 @@ const TaskReports = () => {
   const handleExport = async (format) => {
     try {
       // Map format for API
-      const apiFormat = format === 'xlsx' ? 'excel' : format;
-      
+      const apiFormat = format === "xlsx" ? "excel" : format;
+
       // Build export params
       const params = {
         format: apiFormat,
@@ -189,19 +192,25 @@ const TaskReports = () => {
       // Handle file download
       const link = document.createElement("a");
       link.href = result.url || result;
-      
+
       // Set appropriate file extension
-      const ext = format === 'xlsx' ? 'xlsx' : format;
+      const ext = format === "xlsx" ? "xlsx" : format;
       link.download = `task_report_${datePreset}_${format}.${ext}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      const formatLabel = format === 'xlsx' ? 'Excel' : format.toUpperCase();
-      showToast(`Task report exported successfully as ${formatLabel}`, "success");
+      const formatLabel = format === "xlsx" ? "Excel" : format.toUpperCase();
+      showToast(
+        `Task report exported successfully as ${formatLabel}`,
+        "success",
+      );
       setShowExportModal(false);
     } catch (error) {
-      showToast("Failed to export report: " + (error.message || "Unknown error"), "error");
+      showToast(
+        "Failed to export report: " + (error.message || "Unknown error"),
+        "error",
+      );
     }
   };
 
@@ -214,8 +223,12 @@ const TaskReports = () => {
   // Calculate statistics
   const totalEmployees = employeeOptions.length;
   const today = new Date().toISOString().split("T")[0];
-  const todayReports = allRecords.filter(r => r.report_date === today || r.date === today).length;
-  const withRemarks = allRecords.filter(r => r.remarks && r.remarks.trim()).length;
+  const todayReports = allRecords.filter(
+    (r) => r.report_date === today || r.date === today,
+  ).length;
+  const withRemarks = allRecords.filter(
+    (r) => r.remarks && r.remarks.trim(),
+  ).length;
 
   return (
     <div className="w-full overflow-x-hidden">
@@ -330,24 +343,33 @@ const TaskReports = () => {
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
                 <i className="fas fa-calendar-alt mr-1"></i> START DATE
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                disabled={datePreset !== "custom"}
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                onChange={(val) => setStartDate(val)}
+                placeholder="dd/mm/yyyy"
+                maxDate={endDate ? new Date(endDate) : new Date()}
+                className={
+                  datePreset !== "custom"
+                    ? "opacity-50 cursor-not-allowed pointer-events-none"
+                    : ""
+                }
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
                 <i className="fas fa-calendar-alt mr-1"></i> END DATE
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                disabled={datePreset !== "custom"}
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                onChange={(val) => setEndDate(val)}
+                placeholder="dd/mm/yyyy"
+                minDate={startDate ? new Date(startDate) : undefined}
+                maxDate={new Date()}
+                className={
+                  datePreset !== "custom"
+                    ? "opacity-50 cursor-not-allowed pointer-events-none"
+                    : ""
+                }
               />
             </div>
             <div className="flex gap-2">
@@ -439,9 +461,10 @@ const TaskReports = () => {
                   <tbody>
                     {records.length > 0 ? (
                       records.map((record, idx) => {
-                        const hasRemarks = record.remarks && record.remarks.trim();
+                        const hasRemarks =
+                          record.remarks && record.remarks.trim();
                         const isExpanded = expandedRow === record.id;
-                        
+
                         return (
                           <>
                             <tr
@@ -458,19 +481,24 @@ const TaskReports = () => {
                                 {record.employee || record.employee_name || "-"}
                               </td>
                               <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate">
-                                {record.tasksCompleted || record.tasks_completed || "-"}
+                                {record.tasksCompleted ||
+                                  record.tasks_completed ||
+                                  "-"}
                               </td>
                               <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
                                 {record.pendingTasks || record.pending_tasks ? (
                                   <span className="text-amber-600 dark:text-amber-400 font-medium">
-                                    {record.pendingTasks || record.pending_tasks}
+                                    {record.pendingTasks ||
+                                      record.pending_tasks}
                                   </span>
                                 ) : (
                                   <span className="text-gray-400">-</span>
                                 )}
                               </td>
                               <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate">
-                                {record.planForTomorrow || record.plan_for_tomorrow || "-"}
+                                {record.planForTomorrow ||
+                                  record.plan_for_tomorrow ||
+                                  "-"}
                               </td>
                               <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
                                 {hasRemarks ? (
@@ -481,7 +509,9 @@ const TaskReports = () => {
                                     </span>
                                   </div>
                                 ) : (
-                                  <span className="text-gray-400 italic">None</span>
+                                  <span className="text-gray-400 italic">
+                                    None
+                                  </span>
                                 )}
                               </td>
                               <td className="px-3 md:px-4 py-2 md:py-3 text-center">
@@ -490,7 +520,9 @@ const TaskReports = () => {
                                   className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-indigo-500 transition-colors"
                                   title={isExpanded ? "Collapse" : "Expand"}
                                 >
-                                  <i className={`fas ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-xs md:text-sm`}></i>
+                                  <i
+                                    className={`fas ${isExpanded ? "fa-chevron-up" : "fa-chevron-down"} text-xs md:text-sm`}
+                                  ></i>
                                 </button>
                               </td>
                             </tr>
@@ -501,37 +533,47 @@ const TaskReports = () => {
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                       <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                                        <i className="fas fa-tasks mr-2"></i>Tasks Completed
+                                        <i className="fas fa-tasks mr-2"></i>
+                                        Tasks Completed
                                       </h4>
                                       <div className="bg-white dark:bg-gray-700/30 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
                                         <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                          {record.tasksCompleted || record.tasks_completed || "No tasks completed"}
+                                          {record.tasksCompleted ||
+                                            record.tasks_completed ||
+                                            "No tasks completed"}
                                         </p>
                                       </div>
                                     </div>
                                     <div>
                                       <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                                        <i className="fas fa-clock mr-2"></i>Pending Tasks
+                                        <i className="fas fa-clock mr-2"></i>
+                                        Pending Tasks
                                       </h4>
                                       <div className="bg-white dark:bg-gray-700/30 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
                                         <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                          {record.pendingTasks || record.pending_tasks || "No pending tasks"}
+                                          {record.pendingTasks ||
+                                            record.pending_tasks ||
+                                            "No pending tasks"}
                                         </p>
                                       </div>
                                     </div>
                                     <div>
                                       <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                                        <i className="fas fa-calendar-day mr-2"></i>Plan for Tomorrow
+                                        <i className="fas fa-calendar-day mr-2"></i>
+                                        Plan for Tomorrow
                                       </h4>
                                       <div className="bg-white dark:bg-gray-700/30 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
                                         <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                          {record.planForTomorrow || record.plan_for_tomorrow || "No plan"}
+                                          {record.planForTomorrow ||
+                                            record.plan_for_tomorrow ||
+                                            "No plan"}
                                         </p>
                                       </div>
                                     </div>
                                     <div>
                                       <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                                        <i className="fas fa-comment mr-2"></i>Remarks
+                                        <i className="fas fa-comment mr-2"></i>
+                                        Remarks
                                       </h4>
                                       <div className="bg-white dark:bg-gray-700/30 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
                                         <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
