@@ -88,7 +88,11 @@ export const fromLeadApi = (api = {}) => ({
     : [],
   notes: api.notes || "",
   // follow-up
-  nextFollowUpAt: api.next_follow_up_at || "",
+  nextFollowUpAt:
+    api.next_follow_up_at ||
+    api.next_follow_up_date ||
+    api.follow_up_date ||
+    "",
   followUpType: api.follow_up_type || "Call",
   followUpNotes: api.follow_up_notes || "",
   // read-only extras
