@@ -85,7 +85,7 @@ const AccountsDashboard = () => {
           </div>
           <div>
             <h1 className="text-xl font-normal text-gray-800 dark:text-gray-100">
-              Hello, <span className="font-semibold">Fidha Fathima</span>
+              Hello, <span className="font-semibold">Joe Doe</span>
             </h1>
             <p className="text-xs text-gray-500">Fidha</p>
           </div>
