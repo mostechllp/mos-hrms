@@ -220,7 +220,7 @@ const PARENT_MENU_CONFIG = {
         children: [
           { slug: "purchases-vendors", label: "Vendors", path: "/admin/accounts/purchases/vendors", employeePath: "/employee/accounts/purchases/vendors" },
           { slug: "purchases-expenses", label: "Expenses", path: "/admin/accounts/purchases/expenses", employeePath: "/employee/accounts/purchases/expenses" },
-          { slug: "purchases-recurring", label: "Recurring Expenses", path: "/admin/accounts/purchases/recurring-expenses", employeePath: "/employee/accounts/purchases/recurring" },
+          { slug: "purchases-recurring", label: "Recurring Expenses", path: "/admin/accounts/purchases/recurring-expenses", employeePath: "/employee/accounts/purchases/recurring-expenses" },
           { slug: "purchases-orders", label: "Purchase Orders", path: "/admin/accounts/purchases/purchase-orders", employeePath: "/employee/accounts/purchases/purchase-orders" },
           { slug: "purchases-bills", label: "Bills", path: "/admin/accounts/purchases/bills", employeePath: "/employee/accounts/purchases/bills" },
           { slug: "purchases-recurring-bills", label: "Recurring Bills", path: "/admin/accounts/purchases/recurring-bills", employeePath: "/employee/accounts/purchases/recurring-bills" },
