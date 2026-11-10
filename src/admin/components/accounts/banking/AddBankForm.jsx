@@ -109,7 +109,7 @@ const AddBankForm = () => {
             <div className="w-full max-w-md">
               <select className={inputCls} value={formData.users} onChange={(e) => setField("users", e.target.value)}>
                 <option value="">Select Users</option>
-                <option value="Fidha">Fidha Fathima</option>
+                <option value="Fidha">Joe Doe</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">Note: Only users associated with this bank can access this bank account.</p>
             </div>

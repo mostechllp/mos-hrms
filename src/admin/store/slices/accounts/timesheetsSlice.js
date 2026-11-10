@@ -35,7 +35,7 @@ const initialState = {
       projectName: "ss",
       customerName: "Mrs. sss www",
       taskName: "ss",
-      userName: "Fidha Fathima",
+      userName: "Joe Doe",
       hours: "02:00",
       billable: false,
       status: "Unbilled",

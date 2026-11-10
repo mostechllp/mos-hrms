@@ -54,7 +54,7 @@ const initialState = {
         revenueBudget: 75000,
       },
       users: [
-        { id: "u1", name: "Fidha Fathima", email: "fidh3549@gmail.com", role: "Admin" }
+        { id: "u1", name: "Joe Doe", email: "fidh3549@gmail.com", role: "Admin" }
       ],
       tasks: [],
       watchlist: true,
@@ -88,7 +88,7 @@ const initialState = {
         revenueBudget: 250000,
       },
       users: [
-        { id: "u1", name: "Fidha Fathima", email: "fidh3549@gmail.com", role: "Admin" },
+        { id: "u1", name: "Joe Doe", email: "fidh3549@gmail.com", role: "Admin" },
         { id: "u2", name: "John Doe", email: "john@acme.com", role: "Staff" }
       ],
       tasks: [

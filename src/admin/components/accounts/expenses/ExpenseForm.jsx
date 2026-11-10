@@ -266,7 +266,7 @@ const ExpenseForm = () => {
                   <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium">Employee</label>
                   <select className={`${inputCls} max-w-sm`} value={mileageData.employee} onChange={(e) => setMileageField("employee", e.target.value)}>
                      <option value="">Select Employee</option>
-                     <option value="fidha">Fidha Fathima</option>
+                     <option value="fidha">Joe Doe</option>
                   </select>
                </div>
                <div className="flex items-start gap-4">
