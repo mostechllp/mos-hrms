@@ -418,7 +418,7 @@ const VendorsPage = () => {
                                   <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white dark:bg-gray-800">
                                       <p className="text-xs text-gray-500 mb-1">29/10/2026 05:08 PM</p>
                                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Contact person added</p>
-                                      <p className="text-xs text-gray-500 mt-1">Contact person Fidha has been created by Fidha Fathima</p>
+                                      <p className="text-xs text-gray-500 mt-1">Contact person Fidha has been created by Joe Doe</p>
                                   </div>
                               </div>
                               <div className="relative">
@@ -426,7 +426,7 @@ const VendorsPage = () => {
                                   <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white dark:bg-gray-800">
                                       <p className="text-xs text-gray-500 mb-1">29/10/2026 05:08 PM</p>
                                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Contact added</p>
-                                      <p className="text-xs text-gray-500 mt-1">Contact created by Fidha Fathima</p>
+                                      <p className="text-xs text-gray-500 mt-1">Contact created by Joe Doe</p>
                                   </div>
                               </div>
                           </div>

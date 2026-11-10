@@ -392,7 +392,7 @@ const RecurringExpensesPage = () => {
                                       <div>
                                           <p className="text-xs text-gray-500 mb-1">30/10/2026 11:03 AM</p>
                                           <p className="text-sm text-gray-800 dark:text-gray-200">Recurring expense created for <b>₹{selectedProfile.amount.toFixed(2)}</b></p>
-                                          <p className="text-xs text-gray-500 mt-0.5">by Fidha Fathima</p>
+                                          <p className="text-xs text-gray-500 mt-0.5">by Joe Doe</p>
                                       </div>
                                   </div>
                               </div>
@@ -405,7 +405,7 @@ const RecurringExpensesPage = () => {
                                       <div>
                                           <p className="text-xs text-gray-500 mb-1">30/10/2026 11:03 AM</p>
                                           <p className="text-sm text-gray-800 dark:text-gray-200">Expense Created for <b>₹{selectedProfile.amount.toFixed(2)}</b></p>
-                                          <p className="text-xs text-gray-500 mt-0.5">by Fidha Fathima</p>
+                                          <p className="text-xs text-gray-500 mt-0.5">by Joe Doe</p>
                                           <button className="text-xs text-blue-500 font-medium mt-2 flex items-center gap-1 hover:underline">
                                               <Eye size={12}/> View the expense
                                           </button>
