@@ -3,8 +3,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { addProfile, updateProfile } from "../../../store/slices/accounts/recurringExpensesSlice";
 import { X, Search, Settings, Info } from "lucide-react";
-import { Button, inputCls } from "../ui";
+import { inputCls } from "../ui";
 import SearchableSelect from "../../../../components/common/SearchableSelect";
+
+/* ---------- constants ---------- */
 
 const EXPENSE_ACCOUNTS = [
   { value: "Advertising And Marketing", label: "Advertising And Marketing" },
@@ -21,22 +23,63 @@ const PAID_THROUGH_ACCOUNTS = [
   { value: "Bank Account", label: "Bank Account" },
 ];
 
+/* ---------- primitives ---------- */
+
+const Field = ({ label, required, hint, children, className = "" }) => (
+  <div className={`flex flex-col gap-1.5 ${className}`}>
+    <label className="flex items-center gap-1 text-[12px] font-medium text-slate-600 dark:text-slate-300">
+      {label}
+      {required && <span className="text-rose-500">*</span>}
+    </label>
+    {children}
+    {hint}
+  </div>
+);
+
+const Surface = ({ title, description, children, className = "" }) => (
+  <section className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}>
+    {(title || description) && (
+      <div className="px-5 sm:px-6 pt-5 pb-1">
+        {title && <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">{title}</h2>}
+        {description && <p className="text-[12px] text-slate-500 mt-0.5">{description}</p>}
+      </div>
+    )}
+    <div className="px-5 sm:px-6 py-5">{children}</div>
+  </section>
+);
+
+const CurrencyInput = ({ value, onChange }) => (
+  <div className="flex">
+    <span className="inline-flex items-center px-3 text-[12px] font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 border border-r-0 border-slate-200 dark:border-slate-700 rounded-l-lg">
+      INR
+    </span>
+    <input
+      type="number"
+      value={value}
+      onChange={onChange}
+      placeholder="0.00"
+      className="flex-1 min-w-0 px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-r-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition tabular-nums"
+    />
+  </div>
+);
+
+/* ---------- page ---------- */
+
 const RecurringExpenseForm = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { id } = useParams();
-  
-  const existingProfile = useSelector((state) => 
+
+  const existingProfile = useSelector((state) =>
     state.recurringExpenses.profiles.find((p) => p.id === id)
   );
-  
   const vendors = useSelector((state) => state.vendors?.vendors || []);
   const customers = useSelector((state) => state.accountCustomers?.customers || state.customers?.customers || []);
 
   const [formData, setFormData] = useState({
     profileName: existingProfile?.profileName || "",
     repeatEvery: existingProfile?.repeatEvery || "Week",
-    startDate: existingProfile?.startDate || new Date().toISOString().split('T')[0],
+    startDate: existingProfile?.startDate || new Date().toISOString().split("T")[0],
     endDate: existingProfile?.endDate || "",
     neverExpires: existingProfile?.neverExpires ?? true,
     expenseAccount: existingProfile?.expenseAccount || "",
@@ -46,266 +89,219 @@ const RecurringExpenseForm = () => {
     notes: existingProfile?.notes || "",
     customerName: existingProfile?.customerName || "",
     status: existingProfile?.status || "Active",
-    currency: "INR"
+    currency: "INR",
   });
 
-  const setField = (key, value) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-  };
+  const setField = (key, value) => setFormData((prev) => ({ ...prev, [key]: value }));
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!formData.profileName.trim() || !formData.expenseAccount || !formData.amount) return;
 
     const finalData = {
       ...formData,
       amount: Number(formData.amount) || 0,
-      childExpenses: existingProfile?.childExpenses || []
+      childExpenses: existingProfile?.childExpenses || [],
     };
 
-    if (id) {
-      dispatch(updateProfile({ id, ...finalData }));
-    } else {
-      dispatch(addProfile(finalData));
-    }
+    if (id) dispatch(updateProfile({ id, ...finalData }));
+    else dispatch(addProfile(finalData));
     navigate("/admin/accounts/purchases/recurring-expenses");
   };
 
+  const title = id ? "Edit recurring expense" : "New recurring expense";
+
   return (
-    // Removed pb-24. Flex-col and min-h-screen will push the footer to the bottom.
-    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 relative">
-      {/* Header */}
-      <div className="flex items-center justify-between py-4 px-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10 shadow-sm">
-        <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-              {id ? "Edit Recurring Expense" : "New Recurring Expense"}
-            </h1>
-        </div>
-        <div className="flex items-center gap-2">
-            <button onClick={() => navigate("/admin/accounts/purchases/recurring-expenses")} className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-              <X size={20} />
-            </button>
-        </div>
-      </div>
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-24">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
 
-      {/* Main Form Content */}
-      <form onSubmit={handleSubmit} className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-8 py-8">
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden mb-8">
-          
-          {/* Section 1: Schedule Details */}
-          <div className="p-6 md:p-8 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-6 flex items-center gap-2">
-               Schedule Details
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  Profile Name <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  className={inputCls} 
-                  value={formData.profileName} 
-                  onChange={(e) => setField("profileName", e.target.value)} 
-                  placeholder="e.g., Monthly Office Rent"
+        {/* ---- Header ---- */}
+        <header className="pt-8 pb-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Purchases · Recurring expenses</p>
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-1">{title}</h1>
+            <p className="text-[13px] text-slate-500 mt-1">
+              {id ? "Update schedule, amount, and details" : "Set a schedule to auto-generate expenses"}
+            </p>
+          </div>
+
+          <button
+            onClick={() => navigate("/admin/accounts/purchases/recurring-expenses")}
+            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </header>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* ---- Schedule ---- */}
+          <Surface title="Schedule" description="When this recurring expense runs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+              <Field label="Profile name" required>
+                <input
+                  type="text"
+                  className={inputCls}
+                  value={formData.profileName}
+                  onChange={(e) => setField("profileName", e.target.value)}
+                  placeholder="e.g. Monthly office rent"
                 />
-              </div>
+              </Field>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  Repeat Every <span className="text-red-500">*</span>
-                </label>
-                <select 
-                  className={inputCls} 
-                  value={formData.repeatEvery} 
-                  onChange={(e) => setField("repeatEvery", e.target.value)}
-                >
+              <Field label="Repeat every" required>
+                <select className={inputCls} value={formData.repeatEvery} onChange={(e) => setField("repeatEvery", e.target.value)}>
                   <option value="Day">Day</option>
                   <option value="Week">Week</option>
                   <option value="Month">Month</option>
                   <option value="Year">Year</option>
                 </select>
-              </div>
+              </Field>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  Start Date <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="date" 
-                  className={inputCls} 
-                  value={formData.startDate} 
-                  onChange={(e) => setField("startDate", e.target.value)} 
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
-                  <Info size={12} /> The expense will be created on {formData.startDate}
-                </p>
-              </div>
+              <Field
+                label="Start date"
+                required
+                hint={
+                  <p className="mt-1 text-[11.5px] text-slate-500 flex items-center gap-1">
+                    <Info size={11} /> The first expense will be created on {formData.startDate}
+                  </p>
+                }
+              >
+                <input type="date" className={inputCls} value={formData.startDate} onChange={(e) => setField("startDate", e.target.value)} />
+              </Field>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  Ends On
-                </label>
-                <input 
-                  type="date" 
-                  className={inputCls} 
-                  value={formData.endDate} 
-                  onChange={(e) => setField("endDate", e.target.value)} 
-                  disabled={formData.neverExpires}
-                />
-                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer mt-1">
-                  <input 
-                    type="checkbox" 
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4" 
-                    checked={formData.neverExpires}
-                    onChange={(e) => setField("neverExpires", e.target.checked)}
+              <Field label="Ends on">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    className={`${inputCls} flex-1`}
+                    value={formData.endDate}
+                    onChange={(e) => setField("endDate", e.target.value)}
+                    disabled={formData.neverExpires}
                   />
-                  Never Expires
-                </label>
-              </div>
+                  <label className="flex items-center gap-1.5 text-[12px] text-slate-600 dark:text-slate-300 cursor-pointer whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={formData.neverExpires}
+                      onChange={(e) => setField("neverExpires", e.target.checked)}
+                      className="rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                    />
+                    Never
+                  </label>
+                </div>
+              </Field>
             </div>
-          </div>
+          </Surface>
 
-          {/* Section 2: Expense Details */}
-          <div className="p-6 md:p-8 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-6 flex items-center gap-2">
-               Expense Details
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  Expense Account <span className="text-red-500">*</span>
-                </label>
-                <SearchableSelect 
-                  options={EXPENSE_ACCOUNTS} 
-                  value={formData.expenseAccount} 
-                  onChange={(val) => setField("expenseAccount", val)} 
+          {/* ---- Expense ---- */}
+          <Surface title="Expense" description="What is being paid and from where">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+              <Field label="Expense account" required>
+                <SearchableSelect
+                  options={EXPENSE_ACCOUNTS}
+                  value={formData.expenseAccount}
+                  onChange={(val) => setField("expenseAccount", val)}
                   placeholder="Select an account"
                 />
-              </div>
+              </Field>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  Amount <span className="text-red-500">*</span>
-                </label>
-                <div className="flex w-full">
-                  <select className="border border-r-0 border-gray-300 dark:border-gray-600 rounded-l-md px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="INR">INR</option>
-                  </select>
-                  <input 
-                    type="number" 
-                    className={`${inputCls} rounded-l-none`} 
-                    value={formData.amount} 
-                    onChange={(e) => setField("amount", e.target.value)} 
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
+              <Field label="Amount" required>
+                <CurrencyInput value={formData.amount} onChange={(e) => setField("amount", e.target.value)} />
+              </Field>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  Paid Through <span className="text-red-500">*</span>
-                </label>
-                <SearchableSelect 
-                  options={PAID_THROUGH_ACCOUNTS} 
-                  value={formData.paidThrough} 
-                  onChange={(val) => setField("paidThrough", val)} 
+              <Field label="Paid through" required>
+                <SearchableSelect
+                  options={PAID_THROUGH_ACCOUNTS}
+                  value={formData.paidThrough}
+                  onChange={(val) => setField("paidThrough", val)}
                   placeholder="Select an account"
                 />
-              </div>
+              </Field>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  Vendor
-                </label>
-                <div className="flex w-full">
-                  <SearchableSelect 
-                    options={vendors.map(v => ({ value: v.id || v.vendorName, label: v.vendorName || v.name }))} 
-                    value={formData.vendor} 
-                    onChange={(val) => setField("vendor", val)} 
-                    placeholder="Select a vendor"
-                    className="rounded-r-none border-r-0"
-                  />
-                  <button type="button" className="bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 px-3 border border-gray-300 dark:border-gray-600 border-l-0 rounded-r-md hover:bg-blue-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center">
-                    <Search size={16} />
+              <Field label="Vendor">
+                <div className="flex">
+                  <div className="flex-1">
+                    <SearchableSelect
+                      options={vendors.map((v) => ({ value: v.id || v.vendorName, label: v.vendorName || v.name }))}
+                      value={formData.vendor}
+                      onChange={(val) => setField("vendor", val)}
+                      placeholder="Select vendor"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="ml-2 px-3 py-2 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <Search size={14} />
                   </button>
                 </div>
-              </div>
+              </Field>
             </div>
-          </div>
+          </Surface>
 
-          {/* Section 3: Additional Information */}
-          <div className="p-6 md:p-8">
-            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-6 flex items-center gap-2">
-               Additional Information
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-               <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  Customer Name
-                </label>
-                <div className="flex w-full">
-                  <SearchableSelect 
-                    options={customers.map(c => ({ value: c.id || c.customerName, label: c.customerName || c.name }))} 
-                    value={formData.customerName} 
-                    onChange={(val) => setField("customerName", val)} 
-                    placeholder="Select a customer"
-                    className="rounded-r-none border-r-0"
-                  />
-                  <button type="button" className="bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 px-3 border border-gray-300 dark:border-gray-600 border-l-0 rounded-r-md hover:bg-blue-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center">
-                    <Search size={16} />
+          {/* ---- Additional ---- */}
+          <Surface title="Additional information" description="Optional context for this profile">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+              <Field label="Customer (for billable expenses)">
+                <div className="flex">
+                  <div className="flex-1">
+                    <SearchableSelect
+                      options={customers.map((c) => ({ value: c.id || c.customerName, label: c.customerName || c.name }))}
+                      value={formData.customerName}
+                      onChange={(val) => setField("customerName", val)}
+                      placeholder="Select customer"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="ml-2 px-3 py-2 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <Search size={14} />
                   </button>
                 </div>
-              </div>
+              </Field>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  Reporting Tags
-                </label>
-                <div>
-                  <button type="button" className="text-blue-600 dark:text-blue-400 hover:underline text-sm flex items-center gap-1.5 font-medium mt-1">
-                    <Settings size={14} /> Associate Tags
-                  </button>
-                </div>
-              </div>
+              <Field label="Reporting tags">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 h-9 px-2.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors w-fit"
+                >
+                  <Settings size={12} /> Associate tags
+                </button>
+              </Field>
 
-              <div className="flex flex-col gap-1.5 md:col-span-2">
-                <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                  Notes
-                </label>
-                <textarea 
-                  className={`${inputCls} min-h-[100px] resize-y`} 
-                  placeholder="Max. 500 characters" 
+              <Field label="Notes" className="md:col-span-2">
+                <textarea
+                  rows={4}
+                  className={inputCls}
+                  placeholder="Max. 500 characters"
                   maxLength={500}
                   value={formData.notes}
                   onChange={(e) => setField("notes", e.target.value)}
                 />
-              </div>
+              </Field>
+            </div>
+          </Surface>
+
+          {/* ---- Footer ---- */}
+          <div className="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-gradient-to-t from-slate-50 dark:from-slate-950 via-slate-50/95 dark:via-slate-950/95 to-transparent">
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => navigate("/admin/accounts/purchases/recurring-expenses")}
+                className="px-3 py-2 text-[12.5px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-3 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+              >
+                {id ? "Save changes" : "Create profile"}
+              </button>
             </div>
           </div>
-
-        </div>
-      </form>
-
-      {/* 
-        Footer: Changed from 'fixed' to 'sticky bottom-0'. 
-        This ensures it stays at the bottom of the view but pushes the copyright down instead of overlapping it.
-      */}
-      <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-3 px-6 z-20 flex items-center gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] w-full">
-        <Button type="submit" onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 shadow-sm">
-          Save
-        </Button>
-        <Button 
-          type="button" 
-          variant="secondary" 
-          onClick={() => navigate("/admin/accounts/purchases/recurring-expenses")}
-          className="px-6 py-2"
-        >
-          Cancel
-        </Button>
+        </form>
       </div>
     </div>
   );

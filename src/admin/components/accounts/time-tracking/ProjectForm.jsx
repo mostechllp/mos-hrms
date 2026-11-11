@@ -2,14 +2,51 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { addProject, updateProject } from "../../../store/slices/accounts/projectsSlice";
-import { X, Plus, Trash2, Search, Info, Upload, ChevronDown, Check } from "lucide-react";
+import { X, Plus, Trash2, Search, Info, Upload } from "lucide-react";
+import { inputCls } from "../ui";
 
-const inputCls =
-  "w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 placeholder:text-gray-400 dark:placeholder:text-gray-500";
+/* ---------- primitives ---------- */
 
-// Borderless inline editors in the tasks table
-const inlineInputCls =
-  "w-full border-none focus:ring-0 text-sm p-0 bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none";
+const Field = ({ label, required, hint, children, className = "" }) => (
+  <div className={`flex flex-col gap-1.5 ${className}`}>
+    <label className="flex items-center gap-1 text-[12px] font-medium text-slate-600 dark:text-slate-300">
+      {label}
+      {required && <span className="text-rose-500">*</span>}
+    </label>
+    {children}
+  </div>
+);
+
+const Surface = ({ title, description, action, children, className = "" }) => (
+  <section className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}>
+    {(title || description || action) && (
+      <div className="px-5 sm:px-6 pt-5 pb-1 flex items-start justify-between gap-3">
+        <div>
+          {title && <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">{title}</h2>}
+          {description && <p className="text-[12px] text-slate-500 mt-0.5">{description}</p>}
+        </div>
+        {action}
+      </div>
+    )}
+    <div className="px-5 sm:px-6 py-5">{children}</div>
+  </section>
+);
+
+const CurrencyInput = ({ value, onChange }) => (
+  <div className="flex">
+    <span className="inline-flex items-center px-3 text-[12px] font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 border border-r-0 border-slate-200 dark:border-slate-700 rounded-l-lg">
+      INR
+    </span>
+    <input
+      type="number"
+      value={value}
+      onChange={onChange}
+      className="flex-1 min-w-0 px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-r-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition tabular-nums"
+    />
+  </div>
+);
+
+/* ---------- page ---------- */
 
 const ProjectForm = () => {
   const navigate = useNavigate();
@@ -37,37 +74,31 @@ const ProjectForm = () => {
   });
 
   useEffect(() => {
-    if (existingProject) {
-      setFormData({ ...existingProject });
-    }
+    if (existingProject) setFormData({ ...existingProject });
   }, [existingProject]);
 
   const setField = (key, value) => setFormData((prev) => ({ ...prev, [key]: value }));
 
-  const handleBudgetChange = (key, value) => {
+  const handleBudgetChange = (key, value) =>
     setFormData((prev) => ({ ...prev, budget: { ...prev.budget, [key]: value } }));
-  };
 
   const handleTaskChange = (index, field, value) => {
-    const newTasks = [...formData.tasks];
-    newTasks[index][field] = value;
-    setFormData((prev) => ({ ...prev, tasks: newTasks }));
+    const next = [...formData.tasks];
+    next[index][field] = value;
+    setFormData((prev) => ({ ...prev, tasks: next }));
   };
 
-  const addTask = () => {
+  const addTask = () =>
     setFormData((prev) => ({
       ...prev,
       tasks: [...prev.tasks, { id: Date.now().toString(), name: "", description: "", billable: true }],
     }));
-  };
 
-  const removeTask = (index) => {
-    const newTasks = formData.tasks.filter((_, i) => i !== index);
-    setFormData((prev) => ({ ...prev, tasks: newTasks }));
-  };
+  const removeTask = (index) =>
+    setFormData((prev) => ({ ...prev, tasks: prev.tasks.filter((_, i) => i !== index) }));
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!formData.projectName.trim() || !formData.customerName) return;
 
     setIsSubmitting(true);
@@ -77,16 +108,14 @@ const ProjectForm = () => {
       if (id) {
         await dispatch(updateProject({ id, ...formData })).unwrap();
       } else {
-        await dispatch(
-          addProject({
-            ...formData,
-            stats: { loggedHours: "00:00", billableHours: "00:00", billedHours: "00:00", unbilledHours: "00:00" },
-            transactions: {
-              expenses: [], bills: [], purchaseOrders: [], vendorCredits: [],
-              invoices: [], quotes: [], salesOrders: [], creditNotes: [],
-            },
-          })
-        ).unwrap();
+        await dispatch(addProject({
+          ...formData,
+          stats: { loggedHours: "00:00", billableHours: "00:00", billedHours: "00:00", unbilledHours: "00:00" },
+          transactions: {
+            expenses: [], bills: [], purchaseOrders: [], vendorCredits: [],
+            invoices: [], quotes: [], salesOrders: [], creditNotes: [],
+          },
+        })).unwrap();
       }
       navigate("/admin/accounts/time-tracking/projects");
     } catch (err) {
@@ -96,154 +125,119 @@ const ProjectForm = () => {
     }
   };
 
+  const title = id ? "Edit project" : "New project";
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100">
-      <div className="flex items-center justify-between py-4 px-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky top-0 z-10">
-        <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-          {id ? "Edit Project" : "New Project"}
-        </h1>
-        <button
-          onClick={() => navigate("/admin/accounts/time-tracking/projects")}
-          className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-        >
-          <X size={20} />
-        </button>
-      </div>
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-24">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
 
-      <form onSubmit={handleSubmit} className="flex-1 w-full max-w-5xl mx-auto px-4 py-6 pb-8">
-        {submitError && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-md text-sm">
-            {submitError}
+        {/* ---- Header ---- */}
+        <header className="pt-8 pb-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Time tracking · Projects</p>
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-1">{title}</h1>
+            <p className="text-[13px] text-slate-500 mt-1">
+              {id ? "Update project details, budget, and tasks" : "Create a project to track time and bill clients"}
+            </p>
           </div>
-        )}
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-8 space-y-8">
+          <button
+            onClick={() => navigate("/admin/accounts/time-tracking/projects")}
+            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </header>
 
-          {/* Core Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-red-500 dark:text-red-400 font-medium">Project Name*</label>
-              <input
-                type="text"
-                className={inputCls}
-                value={formData.projectName}
-                onChange={(e) => setField("projectName", e.target.value)}
-              />
+        <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* ---- Error banner ---- */}
+          {submitError && (
+            <div className="flex items-start gap-2 px-4 py-3 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900/40 text-[12.5px] text-rose-700 dark:text-rose-300">
+              <Info size={14} className="mt-0.5 shrink-0" />
+              <span>{submitError}</span>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">Project Code</label>
-              <input
-                type="text"
-                className={inputCls}
-                value={formData.projectCode}
-                onChange={(e) => setField("projectCode", e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-red-500 dark:text-red-400 font-medium">Customer Name*</label>
-              <div className="flex">
-                <select
-                  className={`${inputCls} rounded-r-none border-r-0`}
-                  value={formData.customerName}
-                  onChange={(e) => setField("customerName", e.target.value)}
-                >
-                  <option value="">Select customer</option>
-                  {customers.map((c) => (
-                    <option key={c.name} value={c.name}>{c.name}</option>
-                  ))}
+          )}
+
+          {/* ---- Basic details ---- */}
+          <Surface title="Basic details" description="The essentials that identify this project">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+              <Field label="Project name" required>
+                <input type="text" className={inputCls} value={formData.projectName} onChange={(e) => setField("projectName", e.target.value)} />
+              </Field>
+              <Field label="Project code">
+                <input type="text" className={inputCls} value={formData.projectCode} onChange={(e) => setField("projectCode", e.target.value)} />
+              </Field>
+
+              <Field label="Customer" required>
+                <div className="flex gap-2">
+                  <select className={`${inputCls} flex-1`} value={formData.customerName} onChange={(e) => setField("customerName", e.target.value)}>
+                    <option value="">Select customer…</option>
+                    {customers.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    className="px-3 py-2 text-[12px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <Search size={14} />
+                  </button>
+                </div>
+              </Field>
+
+              <Field label="Billing method" required>
+                <select className={inputCls} value={formData.billingMethod} onChange={(e) => setField("billingMethod", e.target.value)}>
+                  <option value="">Select method…</option>
+                  <option value="Hourly Rate Per Project">Hourly rate per project</option>
+                  <option value="Fixed Cost">Fixed cost</option>
+                  <option value="Hourly Rate Per Task">Hourly rate per task</option>
                 </select>
-                <button
-                  type="button"
-                  className="bg-blue-500 text-white px-3 border border-blue-500 rounded-r-md hover:bg-blue-600"
-                >
-                  <Search size={16} />
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-red-500 dark:text-red-400 font-medium">Billing Method*</label>
-              <select
-                className={inputCls}
-                value={formData.billingMethod}
-                onChange={(e) => setField("billingMethod", e.target.value)}
-              >
-                <option value="">Select method</option>
-                <option value="Hourly Rate Per Project">Hourly Rate Per Project</option>
-                <option value="Fixed Cost">Fixed Cost</option>
-                <option value="Hourly Rate Per Task">Hourly Rate Per Task</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1.5 md:col-span-2">
-              <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">Description</label>
-              <textarea
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 resize-none h-24 placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                placeholder="Max. 2000 characters"
-                value={formData.description}
-                onChange={(e) => setField("description", e.target.value)}
-              />
-            </div>
-          </div>
+              </Field>
 
-          {/* Budget */}
-          <div className="border-t border-gray-100 dark:border-gray-700 pt-6">
-            <h3 className="text-lg font-medium text-gray-800 dark:text-gray-100 mb-4">Budget</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-              <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-700 dark:text-gray-300 w-32 flex items-center gap-1">
-                  Cost Budget <Info size={14} className="text-gray-400 dark:text-gray-500" />
-                </label>
-                <div className="flex w-full">
-                  <span className="border border-r-0 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 rounded-l-md px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300">
-                    INR
-                  </span>
-                  <input
-                    type="number"
-                    className={`${inputCls} rounded-l-none`}
-                    value={formData.budget.costBudget}
-                    onChange={(e) => handleBudgetChange("costBudget", e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-700 dark:text-gray-300 w-32 flex items-center gap-1">
-                  Revenue Budget <Info size={14} className="text-gray-400 dark:text-gray-500" />
-                </label>
-                <div className="flex w-full">
-                  <span className="border border-r-0 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 rounded-l-md px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300">
-                    INR
-                  </span>
-                  <input
-                    type="number"
-                    className={`${inputCls} rounded-l-none`}
-                    value={formData.budget.revenueBudget}
-                    onChange={(e) => handleBudgetChange("revenueBudget", e.target.value)}
-                  />
-                </div>
-              </div>
+              <Field label="Description" className="md:col-span-2">
+                <textarea
+                  rows={3}
+                  className={inputCls}
+                  placeholder="Max. 2000 characters"
+                  value={formData.description}
+                  onChange={(e) => setField("description", e.target.value)}
+                />
+              </Field>
             </div>
-            <button type="button" className="text-blue-600 dark:text-blue-400 text-sm hover:underline mt-3">
-              Add budget for project hours.
+          </Surface>
+
+          {/* ---- Budget ---- */}
+          <Surface title="Budget" description="Cost and revenue guardrails for this project">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+              <Field label="Cost budget">
+                <CurrencyInput value={formData.budget.costBudget} onChange={(e) => handleBudgetChange("costBudget", e.target.value)} />
+              </Field>
+              <Field label="Revenue budget">
+                <CurrencyInput value={formData.budget.revenueBudget} onChange={(e) => handleBudgetChange("revenueBudget", e.target.value)} />
+              </Field>
+            </div>
+            <button type="button" className="mt-3 text-[12px] font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
+              Add budget for project hours
             </button>
-          </div>
+          </Surface>
 
-          {/* Users */}
-          <div className="border-t border-gray-100 dark:border-gray-700 pt-6">
-            <h3 className="text-lg font-medium text-gray-800 dark:text-gray-100 mb-4">Users</h3>
-            <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 text-xs uppercase font-semibold">
-                  <tr>
-                    <th className="px-4 py-2 w-16">S.NO</th>
-                    <th className="px-4 py-2">USER</th>
-                    <th className="px-4 py-2">EMAIL</th>
+          {/* ---- Users ---- */}
+          <Surface title="Users" description="Who can log time against this project">
+            <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+              <table className="w-full text-[12.5px]">
+                <thead>
+                  <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-y border-slate-100 dark:border-slate-800">
+                    <th className="text-left font-medium py-2.5 px-3 w-12">#</th>
+                    <th className="text-left font-medium py-2.5 px-3">Name</th>
+                    <th className="text-left font-medium py-2.5 px-3">Email</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {formData.users.map((user, idx) => (
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {formData.users?.map((user, idx) => (
                     <tr key={user.id}>
-                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{idx + 1}</td>
-                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{user.name}</td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{user.email}</td>
+                      <td className="py-3 px-3 text-slate-400 tabular-nums">{idx + 1}</td>
+                      <td className="py-3 px-3 text-slate-900 dark:text-slate-100 font-medium">{user.name}</td>
+                      <td className="py-3 px-3 text-slate-500 dark:text-slate-400">{user.email}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -251,71 +245,73 @@ const ProjectForm = () => {
             </div>
             <button
               type="button"
-              className="mt-3 text-blue-600 dark:text-blue-400 text-sm flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50"
+              className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
-              <Plus size={14} /> Add User
+              <Plus size={13} /> Add user
             </button>
-          </div>
+          </Surface>
 
-          {/* Project Tasks */}
-          <div className="border-t border-gray-100 dark:border-gray-700 pt-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-gray-100">Project Tasks</h3>
-              <button
-                type="button"
-                className="text-blue-600 dark:text-blue-400 text-sm flex items-center gap-1 hover:underline"
-              >
-                <Upload size={14} /> Import project tasks from existing projects.
+          {/* ---- Project tasks ---- */}
+          <Surface
+            title="Project tasks"
+            description="Break down work into trackable tasks"
+            action={
+              <button type="button" className="text-[12px] font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors inline-flex items-center gap-1">
+                <Upload size={12} /> Import
               </button>
-            </div>
-            <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 text-xs uppercase font-semibold">
-                  <tr>
-                    <th className="px-4 py-2 w-16">S.NO</th>
-                    <th className="px-4 py-2 w-1/3">TASK NAME</th>
-                    <th className="px-4 py-2">DESCRIPTION</th>
-                    <th className="px-4 py-2 w-24 text-center">BILLABLE</th>
-                    <th className="px-4 py-2 w-10"></th>
+            }
+            className="!py-0"
+          >
+            <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+              <table className="w-full min-w-[700px] text-[12.5px]">
+                <thead>
+                  <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-y border-slate-100 dark:border-slate-800">
+                    <th className="text-left  font-medium py-2.5 px-3 w-12">#</th>
+                    <th className="text-left  font-medium py-2.5 px-3">Task name</th>
+                    <th className="text-left  font-medium py-2.5 px-3">Description</th>
+                    <th className="text-center font-medium py-2.5 px-3 w-24">Billable</th>
+                    <th className="w-10 py-2.5" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {formData.tasks.map((task, idx) => (
-                    <tr key={task.id}>
-                      <td className="px-4 py-2 text-gray-500 dark:text-gray-400">{idx + 1}</td>
-                      <td className="px-4 py-2">
+                    <tr key={task.id} className="align-top group">
+                      <td className="py-3 px-3 text-slate-400 tabular-nums">{idx + 1}</td>
+                      <td className="py-3 px-3">
                         <input
                           type="text"
-                          className={inlineInputCls}
-                          placeholder="Task Name"
+                          placeholder="Task name"
+                          className="w-full px-2 py-1.5 text-[12.5px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
                           value={task.name}
                           onChange={(e) => handleTaskChange(idx, "name", e.target.value)}
                         />
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="py-3 px-3">
                         <input
                           type="text"
-                          className={inlineInputCls}
                           placeholder="Description"
+                          className="w-full px-2 py-1.5 text-[12.5px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
                           value={task.description}
                           onChange={(e) => handleTaskChange(idx, "description", e.target.value)}
                         />
                       </td>
-                      <td className="px-4 py-2 text-center">
+                      <td className="py-3 px-3 text-center">
                         <input
                           type="checkbox"
                           checked={task.billable}
                           onChange={(e) => handleTaskChange(idx, "billable", e.target.checked)}
-                          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:bg-gray-900"
+                          className="rounded border-slate-300 text-slate-900 focus:ring-slate-400"
                         />
                       </td>
-                      <td className="px-4 py-2 text-center">
+                      <td className="py-3 text-center">
                         <button
                           type="button"
                           onClick={() => removeTask(idx)}
-                          className="text-red-400 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                          title="Remove task"
+                          aria-label="Remove task"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                         </button>
                       </td>
                     </tr>
@@ -323,49 +319,52 @@ const ProjectForm = () => {
                 </tbody>
               </table>
             </div>
-            <button
-              type="button"
-              onClick={addTask}
-              className="mt-3 text-blue-600 dark:text-blue-400 text-sm flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50"
-            >
-              <Plus size={14} /> Add Project Task
-            </button>
-          </div>
+            <div className="pt-3 pb-5">
+              <button
+                type="button"
+                onClick={addTask}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                <Plus size={13} /> Add task
+              </button>
+            </div>
+          </Surface>
 
-          {/* Watchlist */}
-          <div className="border-t border-gray-100 dark:border-gray-700 pt-6">
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+          {/* ---- Watchlist ---- */}
+          <Surface>
+            <label className="inline-flex items-center gap-2 text-[12.5px] text-slate-700 dark:text-slate-300 cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.watchlist}
                 onChange={(e) => setField("watchlist", e.target.checked)}
-                className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:bg-gray-900"
+                className="rounded border-slate-300 text-slate-900 focus:ring-slate-400"
               />
-              Add to the watchlist on my dashboard{" "}
-              <Info size={14} className="text-gray-400 dark:text-gray-500" />
+              Add to dashboard watchlist
             </label>
-          </div>
-        </div>
+          </Surface>
 
-        {/* Footer Actions */}
-        <div className="mt-6 flex items-center gap-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {isSubmitting ? "Saving..." : "Save"}
-          </button>
-          <button
-            type="button"
-            disabled={isSubmitting}
-            onClick={() => navigate("/admin/accounts/time-tracking/projects")}
-            className="px-6 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+          {/* ---- Footer ---- */}
+          <div className="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-gradient-to-t from-slate-50 dark:from-slate-950 via-slate-50/95 dark:via-slate-950/95 to-transparent">
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => navigate("/admin/accounts/time-tracking/projects")}
+                className="px-3 py-2 text-[12.5px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-3 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors disabled:opacity-50"
+              >
+                {isSubmitting ? "Saving…" : id ? "Save changes" : "Create project"}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

@@ -903,3 +903,44 @@ i.text-green-600 {
 .dark .scrollbar-thin { scrollbar-color: rgb(75 85 99) transparent; }
 .dark .scrollbar-thin::-webkit-scrollbar-thumb { background-color: rgb(75 85 99); }
 .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover { background-color: rgb(107 114 128); }
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+.animate-blink { animation: blink 1s step-end infinite; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+.animate-shake { animation: shake 0.4s ease-in-out; }
+
+@keyframes pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop { animation: pop 0.35s ease-out forwards; }
+
+@keyframes drawCheck {
+  to { stroke-dashoffset: 0; }
+}
+.check-path {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: drawCheck 0.5s 0.2s ease-out forwards;
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); }
+}
+.animate-glow { animation: glowPulse 1.5s ease-in-out infinite; }
+
+@keyframes fall {
+  to { transform: translateY(120vh) rotate(360deg); opacity: 0; }
+}

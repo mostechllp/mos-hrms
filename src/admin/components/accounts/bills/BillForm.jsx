@@ -1,40 +1,63 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-// Import the async thunks
-import { addBill, updateBill } from "../../../store/slices/accounts/billsSlice"; 
-import { X, Plus, Trash2, Search, Paperclip, FileText, ChevronDown, Info, Upload, Settings, HelpCircle } from "lucide-react";
+import { addBill, updateBill } from "../../../store/slices/accounts/billsSlice";
+import {
+  X, Plus, Trash2, Search, Upload, Settings, ChevronDown,
+  FileText, Info, GripVertical,
+} from "lucide-react";
+import { inputCls } from "../ui";
+import SearchableSelect from "../../../../components/common/SearchableSelect";
 
-// Mocking UI components
-const inputCls = "w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 bg-white";
-const SearchableSelect = ({ options, value, onChange, placeholder, className }) => (
-  <select 
-    className={`w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-500 ${className}`}
-    value={value} 
-    onChange={(e) => onChange(e.target.value)}
-  >
-    <option value="">{placeholder}</option>
-    {options.map((opt) => (
-      <option key={opt.value} value={opt.value}>{opt.label}</option>
-    ))}
-  </select>
+/* ---------- primitives ---------- */
+
+const Field = ({ label, required, hint, children, className = "" }) => (
+  <div className={`flex flex-col gap-1.5 ${className}`}>
+    <label className="flex items-center gap-1 text-[12px] font-medium text-slate-600 dark:text-slate-300">
+      {label}
+      {required && <span className="text-rose-500">*</span>}
+    </label>
+    {children}
+  </div>
 );
+
+const Surface = ({ title, description, action, children, className = "" }) => (
+  <section className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}>
+    {(title || description || action) && (
+      <div className="px-5 sm:px-6 pt-5 pb-1 flex items-start justify-between gap-3">
+        <div>
+          {title && <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">{title}</h2>}
+          {description && <p className="text-[12px] text-slate-500 mt-0.5">{description}</p>}
+        </div>
+        {action}
+      </div>
+    )}
+    <div className="px-5 sm:px-6 py-5">{children}</div>
+  </section>
+);
+
+const SummaryRow = ({ label, value }) => (
+  <div className="flex items-center justify-between">
+    <span className="text-slate-600 dark:text-slate-300">{label}</span>
+    <span className="font-medium text-slate-900 dark:text-slate-100 tabular-nums">{value}</span>
+  </div>
+);
+
+/* ---------- page ---------- */
 
 const BillForm = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { id } = useParams();
-  
-  // Selectors for existing bill and vendors
-  const existingBill = useSelector((state) => 
+
+  const existingBill = useSelector((state) =>
     state?.bills?.bills?.find((b) => b.id === id)
   );
   const vendors = useSelector((state) => state?.vendors?.vendors || [
     { vendorName: "Acme Corp" },
-    { vendorName: "Global Tech" }
+    { vendorName: "Global Tech" },
   ]);
 
-  // Loading & Error states for the thunks
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
 
@@ -42,13 +65,13 @@ const BillForm = () => {
     billNumber: existingBill?.billNumber || "",
     vendor: existingBill?.vendor || "",
     orderNumber: existingBill?.orderNumber || "",
-    date: existingBill?.date || new Date().toISOString().split('T')[0],
-    dueDate: existingBill?.dueDate || new Date().toISOString().split('T')[0],
+    date: existingBill?.date || new Date().toISOString().split("T")[0],
+    dueDate: existingBill?.dueDate || new Date().toISOString().split("T")[0],
     paymentTerms: existingBill?.paymentTerms || "Due on Receipt",
     accountsPayable: existingBill?.accountsPayable || "Accounts Payable",
     subject: existingBill?.subject || "",
     items: existingBill?.items || [
-      { id: Date.now().toString(), name: "", description: "", account: "", quantity: 1, rate: 0, discount: 0, amount: 0, customer: "" }
+      { id: Date.now().toString(), name: "", description: "", account: "", quantity: 1, rate: 0, discount: 0, amount: 0, customer: "" },
     ],
     subTotal: existingBill?.subTotal || 0,
     total: existingBill?.total || 0,
@@ -57,15 +80,14 @@ const BillForm = () => {
     status: existingBill?.status || "Draft",
   });
 
-  // Sync form if existingBill loads asynchronously (e.g., from API)
   useEffect(() => {
     if (existingBill) {
       setFormData({
         billNumber: existingBill.billNumber || "",
         vendor: existingBill.vendor || "",
         orderNumber: existingBill.orderNumber || "",
-        date: existingBill.date || new Date().toISOString().split('T')[0],
-        dueDate: existingBill.dueDate || new Date().toISOString().split('T')[0],
+        date: existingBill.date || new Date().toISOString().split("T")[0],
+        dueDate: existingBill.dueDate || new Date().toISOString().split("T")[0],
         paymentTerms: existingBill.paymentTerms || "Due on Receipt",
         accountsPayable: existingBill.accountsPayable || "Accounts Payable",
         subject: existingBill.subject || "",
@@ -82,51 +104,36 @@ const BillForm = () => {
   const setField = (key, value) => setFormData((prev) => ({ ...prev, [key]: value }));
 
   const handleItemChange = (index, field, value) => {
-    const newItems = [...formData.items];
-    newItems[index][field] = value;
-    
+    const next = [...formData.items];
+    next[index][field] = value;
+
     if (["quantity", "rate", "discount"].includes(field)) {
-      const qty = Number(newItems[index].quantity) || 0;
-      const rate = Number(newItems[index].rate) || 0;
-      const disc = Number(newItems[index].discount) || 0;
-      newItems[index].amount = qty * rate * (1 - disc / 100);
+      const qty = Number(next[index].quantity) || 0;
+      const rate = Number(next[index].rate) || 0;
+      const disc = Number(next[index].discount) || 0;
+      next[index].amount = qty * rate * (1 - disc / 100);
     }
-    
-    // Recalculate totals
-    const newTotal = newItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-    setFormData(prev => ({ 
-      ...prev, 
-      items: newItems, 
-      subTotal: newTotal, 
-      total: newTotal,
-      balanceDue: newTotal
-    }));
+
+    const newTotal = next.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+    setFormData((prev) => ({ ...prev, items: next, subTotal: newTotal, total: newTotal, balanceDue: newTotal }));
   };
 
-  const addItemRow = () => {
-    setFormData(prev => ({
+  const addItemRow = () =>
+    setFormData((prev) => ({
       ...prev,
-      items: [...prev.items, { id: Date.now().toString(), name: "", description: "", account: "", quantity: 1, rate: 0, discount: 0, amount: 0, customer: "" }]
+      items: [...prev.items, { id: Date.now().toString(), name: "", description: "", account: "", quantity: 1, rate: 0, discount: 0, amount: 0, customer: "" }],
     }));
-  };
 
   const removeItemRow = (index) => {
-    const newItems = formData.items.filter((_, i) => i !== index);
-    const newTotal = newItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-    setFormData(prev => ({ 
-      ...prev, 
-      items: newItems,
-      subTotal: newTotal,
-      total: newTotal,
-      balanceDue: newTotal
-    }));
+    const next = formData.items.filter((_, i) => i !== index);
+    const newTotal = next.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+    setFormData((prev) => ({ ...prev, items: next, subTotal: newTotal, total: newTotal, balanceDue: newTotal }));
   };
 
   const handleSubmit = async (e, statusOverride) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!formData.vendor.trim()) return;
 
-    // Determine status based on which button was clicked
     const finalStatus = statusOverride || formData.status;
     const finalData = { ...formData, status: finalStatus };
 
@@ -134,14 +141,8 @@ const BillForm = () => {
     setSubmitError(null);
 
     try {
-      if (id) {
-        // Call updateBill thunk
-        await dispatch(updateBill({ id, ...finalData })).unwrap();
-      } else {
-        // Call addBill thunk
-        await dispatch(addBill(finalData)).unwrap();
-      }
-      // Navigate back to list on success
+      if (id) await dispatch(updateBill({ id, ...finalData })).unwrap();
+      else await dispatch(addBill(finalData)).unwrap();
       navigate("/admin/accounts/purchases/bills");
     } catch (err) {
       console.error("Failed to save bill:", err);
@@ -151,283 +152,332 @@ const BillForm = () => {
     }
   };
 
+  const title = id ? "Edit bill" : "New bill";
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 font-sans">
-      
-      {/* Top Header */}
-      <div className="flex items-center justify-between py-3 px-6 border-b border-gray-200 bg-white sticky top-0 z-10">
-        <h1 className="text-xl font-medium text-gray-800 flex items-center gap-2">
-           <span className="text-gray-600"><FileText size={20} /></span>
-           {id ? "Edit Bill" : "New Bill"}
-        </h1>
-        <button onClick={() => navigate("/admin/accounts/purchases/bills")} className="p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100">
-          <X size={20} />
-        </button>
-      </div>
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-24">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
 
-      <form onSubmit={(e) => handleSubmit(e, "Open")} className="flex-1 w-full max-w-6xl mx-auto px-4 py-6 pb-8">
-        
-        {/* Error Banner */}
-        {submitError && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
-            {submitError}
+        {/* ---- Header ---- */}
+        <header className="pt-8 pb-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Purchases · Bills</p>
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-1">{title}</h1>
+            <p className="text-[13px] text-slate-500 mt-1">
+              {id ? "Update vendor, dates, and line items" : "Record a bill to track money you owe"}
+            </p>
           </div>
-        )}
 
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-          
-          {/* Vendor Section */}
-          <div className="p-6 bg-gray-50/50 border-b border-gray-200">
-            <div className="flex flex-col gap-1.5 w-1/2">
-              <label className="text-sm text-gray-600 font-medium">Vendor Name <span className="text-red-500">*</span></label>
-              <div className="flex">
-                <SearchableSelect 
-                  options={vendors.map(v => ({ value: v.vendorName || v.name, label: v.vendorName || v.name }))} 
-                  value={formData.vendor} 
-                  onChange={(val) => setField("vendor", val)} 
-                  placeholder="Select a Vendor"
-                  className="rounded-r-none border-r-0 focus:z-10"
-                />
-                <button type="button" className="bg-blue-500 text-white px-3 border border-blue-500 rounded-r-md flex items-center justify-center hover:bg-blue-600">
-                  <Search size={16} />
-                </button>
-              </div>
+          <button
+            onClick={() => navigate("/admin/accounts/purchases/bills")}
+            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </header>
+
+        <form onSubmit={(e) => handleSubmit(e, "Open")} className="space-y-4">
+
+          {/* ---- Error banner ---- */}
+          {submitError && (
+            <div className="flex items-start gap-2 px-4 py-3 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900/40 text-[12.5px] text-rose-700 dark:text-rose-300">
+              <Info size={14} className="mt-0.5 shrink-0" />
+              <span>{submitError}</span>
             </div>
-          </div>
+          )}
 
-          {/* Form Details */}
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-             <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-600 w-32 shrink-0">Bill# <span className="text-red-500">*</span></label>
+          {/* ---- Vendor & details ---- */}
+          <Surface title="Vendor & details" description="Who the bill is from and its reference numbers">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-6 gap-y-5">
+              <div className="lg:col-span-3">
+                <Field label="Vendor" required>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <SearchableSelect
+                        options={vendors.map((v) => ({ value: v.vendorName || v.name, label: v.vendorName || v.name }))}
+                        value={formData.vendor}
+                        onChange={(val) => setField("vendor", val)}
+                        placeholder="Select a vendor…"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="px-3 py-2 text-[12px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <Search size={14} />
+                    </button>
+                  </div>
+                </Field>
+              </div>
+
+              <Field label="Bill #" required>
                 <input type="text" className={inputCls} value={formData.billNumber} onChange={(e) => setField("billNumber", e.target.value)} />
-             </div>
-             <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-600 w-32 shrink-0">Order Number</label>
+              </Field>
+              <Field label="Order number">
                 <input type="text" className={inputCls} value={formData.orderNumber} onChange={(e) => setField("orderNumber", e.target.value)} />
-             </div>
-             <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-600 w-32 shrink-0">Bill Date <span className="text-red-500">*</span></label>
+              </Field>
+              <Field label="Bill date" required>
                 <input type="date" className={inputCls} value={formData.date} onChange={(e) => setField("date", e.target.value)} />
-             </div>
-             <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-600 w-32 shrink-0">Payment Terms</label>
+              </Field>
+              <Field label="Payment terms">
                 <select className={inputCls} value={formData.paymentTerms} onChange={(e) => setField("paymentTerms", e.target.value)}>
-                  <option value="Due on Receipt">Due on Receipt</option>
+                  <option value="Due on Receipt">Due on receipt</option>
                   <option value="Net 15">Net 15</option>
                   <option value="Net 30">Net 30</option>
                 </select>
-             </div>
-             <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-600 w-32 shrink-0">Due Date</label>
+              </Field>
+              <Field label="Due date">
                 <input type="date" className={inputCls} value={formData.dueDate} onChange={(e) => setField("dueDate", e.target.value)} />
-             </div>
-             <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-600 w-32 shrink-0 flex items-center gap-1">Accounts Payable <Info size={14} className="text-gray-400"/></label>
+              </Field>
+              <Field label="Accounts payable">
                 <select className={inputCls} value={formData.accountsPayable} onChange={(e) => setField("accountsPayable", e.target.value)}>
                   <option value="Accounts Payable">Accounts Payable</option>
                 </select>
-             </div>
-          </div>
+              </Field>
 
-          <div className="px-6 pb-6 flex items-center gap-4">
-             <label className="text-sm text-gray-600 w-32 shrink-0 flex items-center gap-1">Subject <Info size={14} className="text-gray-400"/></label>
-             <input type="text" className={inputCls} placeholder="Enter a subject within 250 characters" value={formData.subject} onChange={(e) => setField("subject", e.target.value)} maxLength={250} />
-          </div>
-
-          <hr className="border-gray-200" />
-
-          {/* Item Table */}
-          <div className="p-6 overflow-x-auto">
-            <div className="flex justify-between items-center mb-4">
-               <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <span className="border border-gray-300 rounded px-2 py-1 flex items-center gap-1 text-xs cursor-pointer hover:bg-gray-50">At Line Item Level <ChevronDown size={12}/></span>
-               </div>
-               <button type="button" className="text-blue-600 text-sm hover:underline flex items-center gap-1"><Plus size={14}/> Bulk Actions</button>
+              <Field label="Subject" className="lg:col-span-3">
+                <input
+                  type="text"
+                  className={inputCls}
+                  placeholder="Enter a subject within 250 characters"
+                  value={formData.subject}
+                  onChange={(e) => setField("subject", e.target.value)}
+                  maxLength={250}
+                />
+              </Field>
             </div>
-            
-            <table className="w-full text-left text-sm whitespace-nowrap min-w-[1000px]">
-              <thead className="bg-gray-50 border-y border-gray-200 text-xs text-gray-500 font-semibold uppercase tracking-wider">
-                 <tr>
-                    <th className="px-3 py-2 w-8"></th>
-                    <th className="px-3 py-2 w-[25%]">ITEM DETAILS</th>
-                    <th className="px-3 py-2">ACCOUNT</th>
-                    <th className="px-3 py-2 text-right">QUANTITY</th>
-                    <th className="px-3 py-2 text-right">RATE</th>
-                    <th className="px-3 py-2 text-right">DISCOUNT</th>
-                    <th className="px-3 py-2">CUSTOMER DETAILS</th>
-                    <th className="px-3 py-2 text-right">AMOUNT</th>
-                    <th className="px-3 py-2 w-8"></th>
-                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                 {formData.items.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-gray-50 group">
-                       <td className="px-3 py-3 text-gray-400 text-center"><div className="cursor-grab">⋮⋮</div></td>
-                       <td className="px-3 py-3">
-                          <input 
-                            type="text" 
-                            className="w-full border border-transparent hover:border-gray-300 focus:border-blue-500 rounded px-2 py-1 text-sm focus:outline-none" 
-                            placeholder="Type or click to select an item." 
-                            value={item.name}
-                            onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+          </Surface>
+
+          {/* ---- Line items ---- */}
+          <Surface
+            title="Line items"
+            description="What is being billed"
+            action={
+              <button type="button" className="text-[12px] font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors inline-flex items-center gap-1">
+                <Plus size={12} /> Bulk actions
+              </button>
+            }
+            className="!py-0"
+          >
+            <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+              <table className="w-full min-w-[1000px] text-[12.5px]">
+                <thead>
+                  <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-y border-slate-100 dark:border-slate-800">
+                    <th className="w-8 py-2.5" />
+                    <th className="text-left  font-medium py-2.5 px-3">Item</th>
+                    <th className="text-left  font-medium py-2.5 px-3 w-36">Account</th>
+                    <th className="text-right font-medium py-2.5 px-3 w-24">Qty</th>
+                    <th className="text-right font-medium py-2.5 px-3 w-28">Rate</th>
+                    <th className="text-right font-medium py-2.5 px-3 w-24">Disc %</th>
+                    <th className="text-left  font-medium py-2.5 px-3 w-36">Customer</th>
+                    <th className="text-right font-medium py-2.5 px-3 w-28">Amount</th>
+                    <th className="w-8 py-2.5" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {formData.items.map((item, index) => (
+                    <tr key={item.id} className="align-top group">
+                      <td className="py-3 text-slate-300 dark:text-slate-600"><GripVertical size={12} className="mx-auto" /></td>
+
+                      <td className="py-3 px-3">
+                        <input
+                          type="text"
+                          placeholder="Item name"
+                          className="w-full px-2 py-1.5 text-[12.5px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition font-medium"
+                          value={item.name}
+                          onChange={(e) => handleItemChange(index, "name", e.target.value)}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Description (optional)"
+                          className="w-full mt-1 px-2 py-1 text-[11.5px] bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:border-slate-300 focus:bg-white dark:focus:bg-slate-900 rounded-md text-slate-600 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none transition"
+                          value={item.description}
+                          onChange={(e) => handleItemChange(index, "description", e.target.value)}
+                        />
+                      </td>
+
+                      <td className="py-3 px-3">
+                        <select
+                          className="w-full px-2 py-1.5 text-[12.5px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
+                          value={item.account}
+                          onChange={(e) => handleItemChange(index, "account", e.target.value)}
+                        >
+                          <option value="">Select</option>
+                          <option value="Inventory">Inventory</option>
+                          <option value="Office Supplies">Office Supplies</option>
+                        </select>
+                      </td>
+
+                      {["quantity", "rate", "discount"].map((key) => (
+                        <td key={key} className="py-3 px-3">
+                          <input
+                            type="number"
+                            className="w-full px-2 py-1.5 text-[12.5px] text-right bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition tabular-nums"
+                            value={item[key]}
+                            onChange={(e) => handleItemChange(index, key, e.target.value)}
                           />
-                       </td>
-                       <td className="px-3 py-3">
-                          <select className="w-full border border-transparent hover:border-gray-300 focus:border-blue-500 rounded px-2 py-1 text-sm focus:outline-none bg-transparent">
-                             <option value="">Select an account</option>
-                          </select>
-                       </td>
-                       <td className="px-3 py-3 text-right">
-                          <input 
-                            type="number" 
-                            className="w-20 text-right border border-transparent hover:border-gray-300 focus:border-blue-500 rounded px-2 py-1 text-sm focus:outline-none" 
-                            value={item.quantity}
-                            onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                          />
-                       </td>
-                       <td className="px-3 py-3 text-right">
-                          <input 
-                            type="number" 
-                            className="w-24 text-right border border-transparent hover:border-gray-300 focus:border-blue-500 rounded px-2 py-1 text-sm focus:outline-none" 
-                            value={item.rate}
-                            onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
-                          />
-                       </td>
-                       <td className="px-3 py-3 text-right">
-                          <div className="flex items-center justify-end">
-                             <input 
-                               type="number" 
-                               className="w-16 text-right border border-transparent hover:border-gray-300 focus:border-blue-500 rounded px-2 py-1 text-sm focus:outline-none" 
-                               value={item.discount}
-                               onChange={(e) => handleItemChange(index, 'discount', e.target.value)}
-                             />
-                             <span className="text-gray-500 ml-1">%</span>
-                          </div>
-                       </td>
-                       <td className="px-3 py-3">
-                          <select className="w-full border border-transparent hover:border-gray-300 focus:border-blue-500 rounded px-2 py-1 text-sm focus:outline-none bg-transparent">
-                             <option value="">Select Customer</option>
-                          </select>
-                       </td>
-                       <td className="px-3 py-3 text-right font-medium">
-                          {Number(item.amount).toFixed(2)}
-                       </td>
-                       <td className="px-3 py-3 text-center">
-                          <button type="button" onClick={() => removeItemRow(index)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                             <X size={16} />
-                          </button>
-                       </td>
+                        </td>
+                      ))}
+
+                      <td className="py-3 px-3">
+                        <select
+                          className="w-full px-2 py-1.5 text-[12.5px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
+                          value={item.customer}
+                          onChange={(e) => handleItemChange(index, "customer", e.target.value)}
+                        >
+                          <option value="">Select</option>
+                        </select>
+                      </td>
+
+                      <td className="text-right py-3 px-3 font-medium text-slate-900 dark:text-slate-100 tabular-nums">
+                        {Number(item.amount).toFixed(2)}
+                      </td>
+
+                      <td className="py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeItemRow(index)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                          title="Remove line"
+                          aria-label="Remove line"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
                     </tr>
-                 ))}
-              </tbody>
-            </table>
-
-            <div className="mt-4 flex items-center gap-2">
-               <button type="button" onClick={addItemRow} className="text-blue-600 text-sm flex items-center gap-1 hover:underline border border-blue-200 bg-blue-50 px-3 py-1.5 rounded">
-                  <Plus size={14}/> Add New Row
-               </button>
-               <button type="button" className="text-gray-600 text-sm flex items-center gap-1 hover:underline border border-gray-200 px-3 py-1.5 rounded bg-gray-50">
-                  <Settings size={14}/> Purchase Discounts <ChevronDown size={12}/>
-               </button>
-               <button type="button" className="text-gray-600 text-sm flex items-center gap-1 hover:underline border border-gray-200 px-3 py-1.5 rounded bg-gray-50">
-                  <Settings size={14}/> Reporting Tags <ChevronDown size={12}/>
-               </button>
+                  ))}
+                </tbody>
+              </table>
             </div>
+
+            <div className="pt-3 pb-5 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={addItemRow}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                <Plus size={13} /> Add row
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                <Settings size={12} /> Purchase discounts
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                <Settings size={12} /> Reporting tags
+              </button>
+            </div>
+          </Surface>
+
+          {/* ---- Notes & totals ---- */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Surface title="Notes & attachments">
+              <div className="space-y-4">
+                <Field label="Notes">
+                  <textarea
+                    rows={3}
+                    className={inputCls}
+                    placeholder="Will not be shown in the PDF"
+                    value={formData.notes}
+                    onChange={(e) => setField("notes", e.target.value)}
+                  />
+                </Field>
+                <Field label="Attachments">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-slate-700 dark:text-slate-200 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <Upload size={13} /> Upload file
+                  </button>
+                  <p className="text-[11px] text-slate-500 mt-2">Up to 5 files, 10 MB each.</p>
+                </Field>
+              </div>
+            </Surface>
+
+            <Surface title="Summary" className="h-fit">
+              <div className="space-y-3 text-[12.5px]">
+                <SummaryRow label="Subtotal" value={formData.subTotal.toFixed(2)} />
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <label className="inline-flex items-center gap-1 text-[11.5px] text-slate-600 dark:text-slate-300 cursor-pointer">
+                      <input type="radio" name="taxType" defaultChecked className="text-slate-900 focus:ring-slate-400 border-slate-300" /> TDS
+                    </label>
+                    <label className="inline-flex items-center gap-1 text-[11.5px] text-slate-600 dark:text-slate-300 cursor-pointer">
+                      <input type="radio" name="taxType" className="text-slate-900 focus:ring-slate-400 border-slate-300" /> TCS
+                    </label>
+                    <select className="text-[11.5px] px-1.5 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-400">
+                      <option>Select tax</option>
+                    </select>
+                  </div>
+                  <span className="font-medium text-slate-700 dark:text-slate-300 tabular-nums">-0.00</span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-600 dark:text-slate-300">Adjustment</span>
+                    <input
+                      type="number"
+                      className="w-20 px-1.5 py-1 text-[11.5px] text-right bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400 tabular-nums"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <span className="font-medium text-slate-700 dark:text-slate-300 tabular-nums">
+                    {formData.total.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-3 mt-1 flex items-baseline justify-between">
+                  <span className="text-[12px] font-semibold text-slate-900 dark:text-slate-100">Total</span>
+                  <span className="text-lg font-semibold text-slate-900 dark:text-slate-50 tabular-nums">
+                    ₹{formData.total.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </Surface>
           </div>
 
-          {/* Totals Section */}
-          <div className="flex justify-end p-6 pt-0">
-             <div className="w-full max-w-sm space-y-3 text-sm">
-                <div className="flex justify-between items-center">
-                   <span className="text-gray-600">Sub Total</span>
-                   <span className="font-medium">{formData.subTotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                   <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-1 text-gray-600"><input type="radio" name="taxType" defaultChecked className="text-blue-600 focus:ring-blue-500" /> TDS</label>
-                      <label className="flex items-center gap-1 text-gray-600"><input type="radio" name="taxType" className="text-blue-600 focus:ring-blue-500" /> TCS</label>
-                   </div>
-                   <select className="border border-gray-300 rounded px-2 py-1 text-sm w-40 focus:outline-none focus:border-blue-500">
-                      <option>Select a Tax</option>
-                   </select>
-                   <span className="font-medium text-gray-500">-0.00</span>
-                </div>
-                <div className="flex justify-between items-center">
-                   <span className="text-gray-600">Adjustment</span>
-                   <input type="number" className="w-24 border border-gray-300 rounded px-2 py-1 text-right text-sm focus:outline-none focus:border-blue-500" placeholder="0.00" />
-                   <Info size={14} className="text-gray-400" />
-                   <span className="font-medium">{formData.total.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center pt-3 border-t border-gray-200 mt-3">
-                   <span className="text-gray-800 font-semibold text-base">Total</span>
-                   <span className="font-semibold text-base">₹{formData.total.toFixed(2)}</span>
-                </div>
-             </div>
-          </div>
+          {/* ---- Additional fields ---- */}
+          <p className="text-[11.5px] text-slate-500 px-1">
+            Additional fields: manage custom fields for bills under{" "}
+            <span className="font-medium text-slate-700 dark:text-slate-300">Settings → Purchases → Bills</span>.
+          </p>
 
-          <hr className="border-gray-200" />
-
-          {/* Notes & Attachments */}
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 bg-gray-50/30">
-             <div>
-                <label className="block text-sm text-gray-700 font-medium mb-1">Notes</label>
-                <textarea 
-                  className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:border-blue-500 resize-none h-24" 
-                  placeholder="It will not be shown in PDF"
-                  value={formData.notes}
-                  onChange={(e) => setField("notes", e.target.value)}
-                ></textarea>
-             </div>
-             <div>
-                <label className="block text-sm text-gray-700 font-medium mb-1">Attach File(s) to Bill</label>
-                <div className="border-2 border-dashed border-gray-300 rounded-md p-4 text-center hover:bg-gray-50 transition-colors cursor-pointer">
-                   <Upload size={20} className="mx-auto text-gray-400 mb-2" />
-                   <span className="text-blue-600 text-sm font-medium">Upload File</span>
-                   <ChevronDown size={12} className="inline text-blue-600 ml-1" />
-                   <p className="text-xs text-gray-500 mt-1">You can upload a maximum of 5 files, 10MB each</p>
-                </div>
-             </div>
-          </div>
-
-          {/* Additional Fields */}
-          <div className="p-6 pt-0">
-             <p className="text-xs text-gray-500">
-                Additional Fields: Start adding custom fields for your payments made by going to <span className="font-semibold">Settings > Purchases > Bills.</span>
-             </p>
-          </div>
-
-        </div>
-
-        {/* Footer Actions */}
-        <div className="mt-6 flex items-center justify-between bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-           <div className="flex items-center gap-3">
-              <button 
-                type="button" 
+          {/* ---- Footer ---- */}
+          <div className="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-gradient-to-t from-slate-50 dark:from-slate-950 via-slate-50/95 dark:via-slate-950/95 to-transparent">
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => navigate("/admin/accounts/purchases/bills")}
+                className="px-3 py-2 text-[12.5px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
                 disabled={isSubmitting}
                 onClick={(e) => handleSubmit(e, "Draft")}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="px-3 py-2 text-[12.5px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
               >
-                 {isSubmitting ? "Saving..." : "Save as Draft"}
+                {isSubmitting ? "Saving…" : "Save as draft"}
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="px-3 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors disabled:opacity-50"
               >
-                 {isSubmitting ? "Saving..." : "Save as Open"}
+                {isSubmitting ? "Saving…" : "Save as open"}
               </button>
-              <button 
-                type="button" 
-                disabled={isSubmitting}
-                onClick={() => navigate("/admin/accounts/purchases/bills")} 
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                 Cancel
-              </button>
-           </div>
-        </div>
-      </form>
-
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

@@ -2,28 +2,64 @@ import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { addPayment, updatePayment } from "../../../store/slices/accounts/paymentsReceivedSlice";
-import { X, Info, ChevronDown, Upload, Settings, Search, FileText } from "lucide-react";
-import { Button, inputCls } from "../ui";
+import { X, ChevronDown, Upload, Settings, FileText, Info } from "lucide-react";
+import { inputCls } from "../ui";
 import SearchableSelect from "../../../../components/common/SearchableSelect";
+
+/* ---------- primitives ---------- */
+
+const Field = ({ label, required, children, className = "" }) => (
+  <div className={`flex flex-col gap-1.5 ${className}`}>
+    <label className="flex items-center gap-1 text-[12px] font-medium text-slate-600 dark:text-slate-300">
+      {label}
+      {required && <span className="text-rose-500">*</span>}
+    </label>
+    {children}
+  </div>
+);
+
+const Surface = ({ title, description, action, children, className = "" }) => (
+  <section className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}>
+    {(title || description || action) && (
+      <div className="px-5 sm:px-6 pt-5 pb-1 flex items-start justify-between gap-3">
+        <div>
+          {title && <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">{title}</h2>}
+          {description && <p className="text-[12px] text-slate-500 mt-0.5">{description}</p>}
+        </div>
+        {action}
+      </div>
+    )}
+    <div className="px-5 sm:px-6 py-5">{children}</div>
+  </section>
+);
+
+const SummaryRow = ({ label, value, tone }) => (
+  <div className="flex items-center justify-between">
+    <span className="text-slate-600 dark:text-slate-300">{label}</span>
+    <span className={`font-medium tabular-nums ${tone === "danger" ? "text-rose-600" : "text-slate-900 dark:text-slate-100"}`}>
+      {value}
+    </span>
+  </div>
+);
+
+/* ---------- page ---------- */
 
 const PaymentReceivedForm = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { id } = useParams();
-  
-  const existingPayment = useSelector((state) => 
+
+  const existingPayment = useSelector((state) =>
     state.paymentsReceived.payments.find((p) => p.id === id)
   );
-  
-  const customers = useSelector((state) => state.customers.customers);
-  const invoices = useSelector((state) => state.invoices.invoices);
+  const customers = useSelector((state) => state.customers.customers) || [];
 
   const [formData, setFormData] = useState({
     customerName: existingPayment?.customerName || "",
     customerEmail: existingPayment?.customerEmail || "",
     amountReceived: existingPayment?.amountReceived || "",
     bankCharges: existingPayment?.bankCharges || "",
-    paymentDate: existingPayment?.paymentDate || new Date().toISOString().split('T')[0],
+    paymentDate: existingPayment?.paymentDate || new Date().toISOString().split("T")[0],
     paymentNumber: existingPayment?.paymentNumber || Math.floor(1000 + Math.random() * 9000).toString(),
     paymentMode: existingPayment?.paymentMode || "Cash",
     depositTo: existingPayment?.depositTo || "Petty Cash",
@@ -33,247 +69,237 @@ const PaymentReceivedForm = () => {
     status: existingPayment?.status || "Draft",
   });
 
-  const setField = (key, value) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-  };
+  const setField = (key, value) => setFormData((prev) => ({ ...prev, [key]: value }));
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    
+    e?.preventDefault();
     const finalData = {
       ...formData,
       amountReceived: Number(formData.amountReceived) || 0,
       bankCharges: Number(formData.bankCharges) || 0,
     };
-
-    if (id) {
-      dispatch(updatePayment({ id, ...finalData }));
-    } else {
-      dispatch(addPayment(finalData));
-    }
+    if (id) dispatch(updatePayment({ id, ...finalData }));
+    else dispatch(addPayment(finalData));
     navigate("/admin/accounts/sales/payments");
   };
 
+  const title = id ? "Edit payment" : "Record payment";
+  const amount = Number(formData.amountReceived) || 0;
+
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-800">
-      {/* Header */}
-      <div className="flex items-center justify-between py-4 px-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
-        <h1 className="text-xl font-normal text-gray-800 dark:text-gray-100">
-          {id ? "Edit Payment" : "Record Payment"}
-        </h1>
-        <button onClick={() => navigate("/admin/accounts/sales/payments")} className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-          <X size={20} />
-        </button>
-      </div>
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-24">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
 
-      <form onSubmit={handleSubmit} className="flex-1 w-full pb-20">
-        <div className="py-6 px-8 w-full max-w-7xl mx-auto">
-          
-          {/* Top Section */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-y-6 gap-x-8 mb-8">
-             
-             {/* Customer Name */}
-             <div className="md:col-span-12 flex items-start gap-4">
-                <label className="w-40 text-sm text-right text-red-500 font-medium mt-2">Customer Name*</label>
-                <div className="flex-1 flex gap-4 max-w-4xl">
-                   <div className="flex-1 flex flex-col gap-1">
-                      <SearchableSelect 
-                         value={formData.customerName}
-                         onChange={(val) => {
-                             setField("customerName", val);
-                             const found = customers.find(c => c.displayName === val);
-                             if (found) setField("customerEmail", found.email);
-                         }}
-                         options={customers.map(c => ({ value: c.displayName, label: c.displayName }))}
-                         placeholder="Select Customer"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">PAN: <span className="text-blue-500 underline cursor-pointer">vbbv</span></p>
-                   </div>
-                   {formData.customerName && (
-                       <div className="bg-gray-700 text-white text-xs px-4 py-2 rounded-md flex items-center gap-2 h-fit mt-1 shrink-0">
-                           {formData.customerName}'s Details
-                           <ChevronDown size={14} className="-rotate-90" />
-                       </div>
-                   )}
-                </div>
-             </div>
-
-             <div className="md:col-span-12 border-b border-gray-200 dark:border-gray-700 my-2"></div>
-
-             {/* Amount Received */}
-             <div className="md:col-span-12 flex items-center gap-4">
-                <label className="w-40 text-sm text-right text-red-500 font-medium">Amount Received*</label>
-                <div className="flex max-w-sm w-full">
-                    <span className="inline-flex items-center px-3 border border-r-0 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-500 text-sm rounded-l-md">INR</span>
-                    <input type="number" className={`${inputCls} rounded-l-none`} value={formData.amountReceived} onChange={(e) => setField("amountReceived", e.target.value)} />
-                </div>
-             </div>
-
-             {/* Bank Charges */}
-             <div className="md:col-span-12 flex items-center gap-4">
-                <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium">Bank Charges (if any)</label>
-                <input type="number" className={`${inputCls} max-w-sm`} value={formData.bankCharges} onChange={(e) => setField("bankCharges", e.target.value)} />
-             </div>
-
-             {/* Payment Date */}
-             <div className="md:col-span-12 flex items-center gap-4">
-                <label className="w-40 text-sm text-right text-red-500 font-medium">Payment Date*</label>
-                <input type="date" className={`${inputCls} max-w-sm`} value={formData.paymentDate} onChange={(e) => setField("paymentDate", e.target.value)} />
-             </div>
-
-             {/* Payment # */}
-             <div className="md:col-span-12 flex items-center gap-4">
-                <label className="w-40 text-sm text-right text-red-500 font-medium">Payment #*</label>
-                <div className="relative max-w-sm w-full">
-                   <input type="text" className={inputCls} value={formData.paymentNumber} onChange={(e) => setField("paymentNumber", e.target.value)} />
-                   <Settings size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-500" />
-                </div>
-             </div>
-
-             {/* Payment Mode */}
-             <div className="md:col-span-12 flex items-center gap-4">
-                <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium">Payment Mode</label>
-                <select className={`${inputCls} max-w-sm`} value={formData.paymentMode} onChange={(e) => setField("paymentMode", e.target.value)}>
-                   <option value="Cash">Cash</option>
-                   <option value="Bank Transfer">Bank Transfer</option>
-                   <option value="Credit Card">Credit Card</option>
-                   <option value="Check">Check</option>
-                </select>
-             </div>
-
-             {/* Deposit To */}
-             <div className="md:col-span-12 flex items-center gap-4">
-                <label className="w-40 text-sm text-right text-red-500 font-medium">Deposit To*</label>
-                <select className={`${inputCls} max-w-sm`} value={formData.depositTo} onChange={(e) => setField("depositTo", e.target.value)}>
-                   <option value="Petty Cash">Petty Cash</option>
-                   <option value="Undeposited Funds">Undeposited Funds</option>
-                   <option value="Bank Account">Bank Account</option>
-                </select>
-             </div>
-
-             {/* Reference */}
-             <div className="md:col-span-12 flex items-center gap-4">
-                <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium">Reference#</label>
-                <input type="text" className={`${inputCls} max-w-sm`} value={formData.reference} onChange={(e) => setField("reference", e.target.value)} />
-             </div>
-
-             {/* TDS Deducted */}
-             <div className="md:col-span-12 flex items-center gap-4">
-                <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium">TDS Deducted?</label>
-                <div className="flex items-center gap-6">
-                    <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                        <input type="radio" checked={!formData.tdsDeducted} onChange={() => setField("tdsDeducted", false)} className="text-blue-600 focus:ring-blue-500" /> No
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                        <input type="radio" checked={formData.tdsDeducted} onChange={() => setField("tdsDeducted", true)} className="text-blue-600 focus:ring-blue-500" /> Yes, Income TDS
-                    </label>
-                </div>
-             </div>
-
+        {/* ---- Header ---- */}
+        <header className="pt-8 pb-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Sales · Payments received</p>
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-1">{title}</h1>
+            <p className="text-[13px] text-slate-500 mt-1">
+              {id ? "Update payment details" : "Record a payment against one or more unpaid invoices"}
+            </p>
           </div>
 
-          <hr className="my-8 border-gray-200 dark:border-gray-700" />
+          <button
+            onClick={() => navigate("/admin/accounts/sales/payments")}
+            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </header>
 
-          {/* Unpaid Invoices Section */}
-          <div className="mb-8">
-             <div className="flex justify-between items-center mb-4">
-                 <div className="flex items-center gap-4">
-                     <h2 className="text-lg font-medium text-gray-800 dark:text-gray-200">Unpaid Invoices</h2>
-                     <button type="button" className="px-3 py-1 bg-white border border-gray-300 rounded text-xs text-gray-700 flex items-center gap-2">
-                        <FileText size={14} className="text-gray-400"/> Filter by Date Range <ChevronDown size={12}/>
-                     </button>
-                 </div>
-                 <button type="button" className="text-sm text-blue-600 hover:underline">Clear Applied Amount</button>
-             </div>
-             
-             <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-               <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 font-semibold uppercase">
-                     <tr>
-                        <th className="px-4 py-3">Date</th>
-                        <th className="px-4 py-3">Invoice Number</th>
-                        <th className="px-4 py-3 text-right">Invoice Amount</th>
-                        <th className="px-4 py-3 text-right">Amount Due</th>
-                        <th className="px-4 py-3 text-right">Payment Received On</th>
-                        <th className="px-4 py-3 text-right">Payment</th>
-                     </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/60">
-                     {/* In a real scenario, you would map unpaid invoices here */}
-                     <tr>
-                         <td colSpan="6" className="px-4 py-12 text-center text-gray-500">
-                             There are no unpaid invoices associated with this customer.
-                         </td>
-                     </tr>
-                  </tbody>
-                  <tfoot className="bg-gray-50 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700">
-                     <tr>
-                         <td colSpan="5" className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total</td>
-                         <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-gray-100">0.00</td>
-                     </tr>
-                  </tfoot>
-               </table>
-             </div>
-             <p className="text-xs text-gray-400 mt-2">**List contains only SENT invoices</p>
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
 
-          {/* Totals Box */}
-          <div className="flex justify-end mb-8">
-             <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-96 text-sm space-y-3">
-                 <div className="flex justify-between items-center text-gray-600 dark:text-gray-400">
-                    <span>Amount Received :</span>
-                    <span className="font-medium text-gray-900 dark:text-gray-100">{Number(formData.amountReceived || 0).toFixed(2)}</span>
-                 </div>
-                 <div className="flex justify-between items-center text-gray-600 dark:text-gray-400">
-                    <span>Amount used for Payments :</span>
-                    <span className="font-medium text-gray-900 dark:text-gray-100">0.00</span>
-                 </div>
-                 <div className="flex justify-between items-center text-gray-600 dark:text-gray-400">
-                    <span>Amount Refunded :</span>
-                    <span className="font-medium text-gray-900 dark:text-gray-100">0.00</span>
-                 </div>
-                 <div className="flex justify-between items-center text-red-500 font-medium border-t border-gray-200 dark:border-gray-700 pt-3">
-                    <span className="flex items-center gap-1"><Info size={14}/> Amount in Excess :</span>
-                    <span>₹ {Number(formData.amountReceived || 0).toFixed(2)}</span>
-                 </div>
-             </div>
-          </div>
+          {/* ---- Customer & amount ---- */}
+          <Surface title="Payment details" description="Who paid, how much, and how">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-6 gap-y-5">
 
-          {/* Notes & Attachments */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div>
-                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (Internal use. Not visible to customer)</label>
-                 <textarea rows="3" className={inputCls} value={formData.notes} onChange={(e) => setField("notes", e.target.value)}></textarea>
+              <div className="lg:col-span-2 space-y-4">
+                <Field label="Customer" required>
+                  <SearchableSelect
+                    value={formData.customerName}
+                    onChange={(val) => {
+                      setField("customerName", val);
+                      const found = customers.find((c) => c.displayName === val);
+                      if (found) setField("customerEmail", found.email);
+                    }}
+                    options={customers.map((c) => ({ value: c.displayName, label: c.displayName }))}
+                    placeholder="Select customer…"
+                  />
+                </Field>
+
+                <Field label="Amount received" required>
+                  <div className="flex">
+                    <span className="inline-flex items-center px-3 text-[12px] font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 border border-r-0 border-slate-200 dark:border-slate-700 rounded-l-lg">
+                      INR
+                    </span>
+                    <input
+                      type="number"
+                      className="flex-1 min-w-0 px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-r-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition tabular-nums"
+                      value={formData.amountReceived}
+                      onChange={(e) => setField("amountReceived", e.target.value)}
+                    />
+                  </div>
+                </Field>
+
+                <Field label="Bank charges">
+                  <input
+                    type="number"
+                    className={inputCls}
+                    value={formData.bankCharges}
+                    onChange={(e) => setField("bankCharges", e.target.value)}
+                  />
+                </Field>
               </div>
-              <div>
-                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Attachments</label>
-                 <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-800 items-center justify-between max-w-xs">
-                     <button type="button" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 px-2 hover:bg-gray-50 rounded">
-                         <Upload size={14} /> Upload File
-                     </button>
-                     <ChevronDown size={14} className="text-gray-400" />
-                 </div>
-                 <p className="text-xs text-gray-400 mt-2">You can upload a maximum of 5 files, 5MB each</p>
+
+              <div className="space-y-4">
+                <Field label="Payment #" required>
+                  <div className="relative">
+                    <input type="text" className={inputCls} value={formData.paymentNumber} onChange={(e) => setField("paymentNumber", e.target.value)} />
+                    <Settings size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </div>
+                </Field>
+                <Field label="Payment date" required>
+                  <input type="date" className={inputCls} value={formData.paymentDate} onChange={(e) => setField("paymentDate", e.target.value)} />
+                </Field>
+                <Field label="Payment mode">
+                  <select className={inputCls} value={formData.paymentMode} onChange={(e) => setField("paymentMode", e.target.value)}>
+                    <option value="Cash">Cash</option>
+                    <option value="Bank Transfer">Bank transfer</option>
+                    <option value="Credit Card">Credit card</option>
+                    <option value="Check">Check</option>
+                  </select>
+                </Field>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5 mt-5 pt-5 border-t border-slate-100 dark:border-slate-800">
+              <Field label="Deposit to" required>
+                <select className={inputCls} value={formData.depositTo} onChange={(e) => setField("depositTo", e.target.value)}>
+                  <option value="Petty Cash">Petty cash</option>
+                  <option value="Undeposited Funds">Undeposited funds</option>
+                  <option value="Bank Account">Bank account</option>
+                </select>
+              </Field>
+              <Field label="Reference #">
+                <input type="text" className={inputCls} value={formData.reference} onChange={(e) => setField("reference", e.target.value)} />
+              </Field>
+              <Field label="TDS deducted?">
+                <div className="flex items-center gap-5 h-9">
+                  <label className="inline-flex items-center gap-2 text-[13px] text-slate-700 dark:text-slate-300 cursor-pointer">
+                    <input type="radio" checked={!formData.tdsDeducted} onChange={() => setField("tdsDeducted", false)} className="text-slate-900 focus:ring-slate-400 border-slate-300" />
+                    No
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-[13px] text-slate-700 dark:text-slate-300 cursor-pointer">
+                    <input type="radio" checked={formData.tdsDeducted} onChange={() => setField("tdsDeducted", true)} className="text-slate-900 focus:ring-slate-400 border-slate-300" />
+                    Yes, income TDS
+                  </label>
+                </div>
+              </Field>
+            </div>
+          </Surface>
+
+          {/* ---- Unpaid invoices ---- */}
+          <Surface
+            title="Unpaid invoices"
+            description="Apply this payment toward outstanding invoices"
+            action={
+              <button type="button" className="text-[12px] font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
+                Clear applied amount
+              </button>
+            }
+            className="!py-0"
+          >
+            <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+              <table className="w-full min-w-[700px] text-[12.5px]">
+                <thead>
+                  <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-y border-slate-100 dark:border-slate-800">
+                    <th className="text-left  font-medium py-2.5 px-3">Date</th>
+                    <th className="text-left  font-medium py-2.5 px-3">Invoice #</th>
+                    <th className="text-right font-medium py-2.5 px-3">Invoice amount</th>
+                    <th className="text-right font-medium py-2.5 px-3">Amount due</th>
+                    <th className="text-right font-medium py-2.5 px-3">Applied</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-[12.5px] text-slate-500">
+                      No unpaid invoices associated with this customer.
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-slate-100 dark:border-slate-800">
+                    <td colSpan={4} className="py-2.5 text-right text-[11.5px] font-medium text-slate-500">Total applied</td>
+                    <td className="py-2.5 text-right text-[12.5px] font-semibold text-slate-900 dark:text-slate-100 tabular-nums">0.00</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p className="py-3 text-[11px] text-slate-500">List contains only sent invoices.</p>
+          </Surface>
+
+          {/* ---- Notes & summary ---- */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Surface title="Notes & attachments">
+              <div className="space-y-4">
+                <Field label="Internal notes">
+                  <textarea
+                    rows={3}
+                    className={inputCls}
+                    placeholder="Internal use. Not visible to the customer."
+                    value={formData.notes}
+                    onChange={(e) => setField("notes", e.target.value)}
+                  />
+                </Field>
+                <Field label="Attachments">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-slate-700 dark:text-slate-200 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <Upload size={13} /> Upload file
+                  </button>
+                  <p className="text-[11px] text-slate-500 mt-2">Up to 5 files, 5 MB each.</p>
+                </Field>
+              </div>
+            </Surface>
+
+            <Surface title="Summary" className="h-fit">
+              <div className="space-y-3 text-[12.5px]">
+                <SummaryRow label="Amount received" value={amount.toFixed(2)} />
+                <SummaryRow label="Applied to invoices" value="0.00" />
+                <SummaryRow label="Refunded" value="0.00" />
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-3 mt-1">
+                  <SummaryRow
+                    label="Amount in excess"
+                    value={`₹ ${amount.toFixed(2)}`}
+                    tone="danger"
+                  />
+                </div>
+              </div>
+            </Surface>
           </div>
 
-          <div className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-500">
-                  Additional Fields: Start adding custom fields for your payments received by going to <i>Settings ➔ Sales ➔ Payments Received</i>.
-              </p>
+          {/* ---- Footer ---- */}
+          <div className="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-gradient-to-t from-slate-50 dark:from-slate-950 via-slate-50/95 dark:via-slate-950/95 to-transparent">
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => navigate("/admin/accounts/sales/payments")}
+                className="px-3 py-2 text-[12.5px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-3 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+              >
+                {id ? "Save changes" : "Save payment"}
+              </button>
+            </div>
           </div>
-
-        </div>
-      </form>
-
-      {/* Footer Actions */}
-      <div className="border-t border-gray-200 dark:border-gray-700 py-4 bg-gray-50 dark:bg-gray-800/50 flex justify-start gap-3 sticky bottom-0 z-10 px-8 mt-auto">
-        <Button onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700 text-white px-6">
-          Save
-        </Button>
-        <Button variant="secondary" onClick={() => navigate("/admin/accounts/sales/payments")} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 px-6">
-          Cancel
-        </Button>
+        </form>
       </div>
     </div>
   );

@@ -1,114 +1,168 @@
 import React from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { X, Edit2, HelpCircle } from "lucide-react";
-import { Button } from "../ui";
+import { X, Edit2, ChevronRight, Package } from "lucide-react";
+
+/* ---------- primitives ---------- */
+
+const Surface = ({ title, children, className = "" }) => (
+  <section className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}>
+    {title && (
+      <div className="px-5 sm:px-6 pt-5 pb-3 border-b border-slate-100 dark:border-slate-800">
+        <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">{title}</h2>
+      </div>
+    )}
+    <div className="px-5 sm:px-6 py-5">{children}</div>
+  </section>
+);
+
+const DetailRow = ({ label, children, className = "" }) => (
+  <div className={className}>
+    <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1">{label}</p>
+    <div className="text-[13px] text-slate-800 dark:text-slate-100">{children}</div>
+  </div>
+);
+
+const Empty = () => <span className="text-slate-400 dark:text-slate-600">—</span>;
+
+const Meta = ({ label, value, tone }) => {
+  const toneCls =
+    tone === "pos" ? "text-emerald-600 dark:text-emerald-400" :
+    tone === "neg" ? "text-rose-600 dark:text-rose-400" :
+                     "text-slate-900 dark:text-slate-50";
+  return (
+    <div className="flex flex-col">
+      <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1">{label}</p>
+      <p className={`text-[15px] font-semibold tabular-nums tracking-tight ${toneCls}`}>{value}</p>
+    </div>
+  );
+};
+
+/* ---------- page ---------- */
 
 const ItemViewPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  
-  const item = useSelector((state) => 
+
+  const item = useSelector((state) =>
     state.items.items.find((i) => i.id === id)
   );
 
+  /* ---- Not found ---- */
   if (!item) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Item not found</h2>
-        <Button onClick={() => navigate("/admin/accounts/items")}>Back to Items</Button>
+      <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+            <Package size={20} className="text-slate-400" />
+          </div>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1">Item not found</h2>
+          <p className="text-[13px] text-slate-500 mb-5">
+            It may have been deleted, or the link is incorrect.
+          </p>
+          <button
+            onClick={() => navigate("/admin/accounts/items")}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+          >
+            Back to items
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-800">
-      {/* Header */}
-      <div className="flex items-center justify-between py-4 px-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-normal text-gray-800 dark:text-gray-100">
-            {item.name}
-          </h1>
-          <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-            {item.type}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => navigate(`/admin/accounts/items/edit/${item.id}`)}
-            className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50"
-          >
-            <Edit2 size={14} className="mr-1" /> Edit
-          </Button>
-          <button
-            onClick={() => navigate("/admin/accounts/items")}
-            className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-          >
-            <X size={20} />
-          </button>
-        </div>
-      </div>
+    /* FULL WIDTH — no max-w container */
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-12">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
 
-      {/* Content */}
-      <div className="flex-1 w-full max-w-6xl py-8 px-8">
-        
-        {/* Core Info Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 pb-8 border-b border-gray-200 dark:border-gray-700">
-          <div>
-            <p className="text-xs text-gray-500 mb-1">Usage Unit</p>
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.usageUnit || "-"}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 mb-1">Selling Price</p>
-            <p className="text-sm font-medium text-green-600">${(Number(item.rate) || 0).toFixed(2)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 mb-1">Cost Price</p>
-            <p className="text-sm font-medium text-red-600">${(Number(item.purchaseRate) || 0).toFixed(2)}</p>
-          </div>
-        </div>
+        {/* ---- Header ---- */}
+        <header className="pt-8 pb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="min-w-0">
+            <nav className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-2">
+              <Link to="/admin/dashboard" className="hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Home</Link>
+              <ChevronRight size={11} className="text-slate-400" />
+              <Link to="/admin/accounts/items" className="hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Items</Link>
+              <ChevronRight size={11} className="text-slate-400" />
+              <span className="text-slate-700 dark:text-slate-300 font-medium truncate">{item.name}</span>
+            </nav>
 
-        {/* Sales Information */}
-        <div className="mb-10">
-          <h2 className="text-lg font-normal text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">
-            Sales Information
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Account</p>
-              <p className="text-sm text-gray-900 dark:text-gray-100">{item.salesAccount || "Sales"}</p>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight truncate">
+                {item.name}
+              </h1>
+              <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                {item.type}
+              </span>
             </div>
-            <div className="md:col-span-2">
-              <p className="text-xs text-gray-500 mb-1">Description</p>
-              <p className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
-                {item.description || "No description provided."}
-              </p>
-            </div>
+            <p className="text-[13px] text-slate-500 mt-1">
+              {item.usageUnit ? `Sold per ${item.usageUnit}` : "Item details"}
+            </p>
           </div>
-        </div>
 
-        {/* Purchase Information */}
-        <div className="mb-10">
-          <h2 className="text-lg font-normal text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">
-            Purchase Information
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Account</p>
-              <p className="text-sm text-gray-900 dark:text-gray-100">{item.purchaseAccount || "Cost of Goods Sold"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Preferred Vendor</p>
-              <p className="text-sm text-gray-900 dark:text-gray-100">{item.preferredVendor || "-"}</p>
-            </div>
-            <div className="md:col-span-2">
-              <p className="text-xs text-gray-500 mb-1">Description</p>
-              <p className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
-                {item.purchaseDescription || "No description provided."}
-              </p>
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate(`/admin/accounts/items/edit/${item.id}`)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
+              <Edit2 size={13} /> Edit
+            </button>
+            <button
+              onClick={() => navigate("/admin/accounts/items")}
+              className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
           </div>
-        </div>
+        </header>
+
+        {/* ---- KPI strip ---- */}
+        <Surface className="mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <Meta label="Usage unit"    value={item.usageUnit || "—"} />
+            <Meta label="Selling price" value={`$${(Number(item.rate) || 0).toFixed(2)}`}         tone="pos" />
+            <Meta label="Cost price"    value={`$${(Number(item.purchaseRate) || 0).toFixed(2)}`} tone="neg" />
+          </div>
+        </Surface>
+
+        {/* ---- Sales ---- */}
+        <Surface title="Sales information" className="mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+            <DetailRow label="Account">
+              {item.salesAccount || "Sales"}
+            </DetailRow>
+
+            <DetailRow label="Description" className="md:col-span-2">
+              {item.description ? (
+                <p className="whitespace-pre-wrap leading-relaxed">{item.description}</p>
+              ) : (
+                <Empty />
+              )}
+            </DetailRow>
+          </div>
+        </Surface>
+
+        {/* ---- Purchase ---- */}
+        <Surface title="Purchase information">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+            <DetailRow label="Account">
+              {item.purchaseAccount || "Cost of Goods Sold"}
+            </DetailRow>
+
+            <DetailRow label="Preferred vendor">
+              {item.preferredVendor || <Empty />}
+            </DetailRow>
+
+            <DetailRow label="Description" className="md:col-span-2">
+              {item.purchaseDescription ? (
+                <p className="whitespace-pre-wrap leading-relaxed">{item.purchaseDescription}</p>
+              ) : (
+                <Empty />
+              )}
+            </DetailRow>
+          </div>
+        </Surface>
 
       </div>
     </div>

@@ -1,17 +1,81 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { deletePayment, markPaymentAsPaid } from "../../store/slices/accounts/paymentsMadeSlice";
 import {
   Plus, MoreHorizontal, ChevronDown, FileText, Edit2, Trash2, X,
-  Printer, CheckCircle2, Sparkles, Search, Filter, Eye, Mail, Share2
+  Printer, CheckCircle2, Sparkles, Search, Filter, Eye, Upload, Settings,
+  Banknote,
 } from "lucide-react";
 import ConfirmModal from "../../components/common/ConfirmModal";
+
+/* ---------- primitives ---------- */
+
+const GhostBtn = ({ children, className = "", ...props }) => (
+  <button
+    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${className}`}
+    {...props}
+  >
+    {children}
+  </button>
+);
+
+const MenuItem = ({ icon: Icon, label }) => (
+  <button className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12.5px] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+    <Icon size={14} className="text-slate-400" />
+    <span className="flex-1 text-left">{label}</span>
+  </button>
+);
+
+const Surface = ({ children, className = "" }) => (
+  <div className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}>
+    {children}
+  </div>
+);
+
+const SectionLabel = ({ children }) => (
+  <h3 className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">{children}</h3>
+);
+
+const IconAction = ({ icon: Icon, label, onClick, tone = "default" }) => {
+  const tones = {
+    default: "text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800",
+    danger:  "text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20",
+  };
+  return (
+    <button onClick={onClick} title={label} aria-label={label} className={`p-1.5 rounded-md transition-colors ${tones[tone]}`}>
+      <Icon size={15} />
+    </button>
+  );
+};
+
+const StatusPill = ({ status }) => {
+  const styles = {
+    Paid:  "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+    Draft: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-md ${styles[status] || styles.Draft}`}>
+      {status}
+    </span>
+  );
+};
+
+const GhostAction = ({ icon: Icon, label, onClick }) => (
+  <button
+    onClick={onClick}
+    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+  >
+    <Icon size={13} /> {label}
+  </button>
+);
+
+/* ---------- page ---------- */
 
 const PaymentsMadePage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const payments = useSelector((state) => state.paymentsMade.payments);
+  const payments = useSelector((s) => s.paymentsMade.payments) || [];
 
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -19,6 +83,16 @@ const PaymentsMadePage = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMoreMenu(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
   const filteredPayments = payments.filter(
     (p) =>
@@ -64,437 +138,393 @@ const PaymentsMadePage = () => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 min-h-screen relative overflow-hidden flex flex-col text-gray-900 dark:text-gray-100">
-      {/* Top Header */}
-      <div className="px-6 py-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-2 cursor-pointer select-none">
-          <h1 className="text-lg font-medium text-gray-800 dark:text-gray-100">All Payments</h1>
-          <ChevronDown size={16} className="text-blue-600 dark:text-blue-400" />
-        </div>
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-12">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/admin/accounts/purchases/payments-made/new")}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 text-sm font-medium flex items-center gap-1 rounded"
-          >
-            <Plus size={16} /> New
-          </button>
-          <button className="p-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300">
-            <MoreHorizontal size={18} />
-          </button>
-        </div>
-      </div>
+        {/* ---- Header ---- */}
+        <header className="pt-8 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Purchases</p>
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-1">
+              Payments made
+            </h1>
+            <p className="text-[13px] text-slate-500 mt-1">
+              {payments.length === 0
+                ? "No payments made yet"
+                : `${payments.length} ${payments.length === 1 ? "payment" : "payments"} recorded`}
+            </p>
+          </div>
 
-      {payments.length === 0 ? (
-        /* EMPTY STATE LAYOUT */
-        <div className="flex flex-col items-center pt-16 pb-20 px-6">
-          <h2 className="text-2xl font-normal text-gray-800 dark:text-gray-100 mb-2">
-            You haven't made any payments yet.
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
-            Receipts of your bill payments will show up here.
-          </p>
-
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => navigate("/admin/accounts/purchases/payments-made/new")}
-              className="bg-blue-500 hover:bg-blue-600 text-white uppercase tracking-wider text-xs px-6 py-2.5 rounded font-semibold"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
             >
-              GO TO UNPAID BILLS
+              <Plus size={13} /> New
             </button>
-            <button className="text-blue-600 dark:text-blue-400 text-sm hover:underline">Import Payments</button>
-          </div>
 
-          {/* Partner Logos */}
-          <div className="mt-16 flex items-center justify-center gap-8 opacity-70 dark:opacity-80 flex-wrap">
-            <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-semibold">
-              <div className="w-6 h-6 bg-blue-500 rounded-full"></div> standard chartered
-            </div>
-            <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold text-lg">
-              <div className="w-6 h-6 bg-red-600 text-white text-center text-xs rounded">X</div> HSBC
-            </div>
-            <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-bold text-lg">
-              <div className="w-6 h-6 bg-blue-700 text-white text-center text-xs rounded">S</div> SBI
-            </div>
-            <div className="flex items-center gap-2 text-red-800 dark:text-red-400 font-bold text-sm">
-              <div className="w-6 h-6 bg-red-800 text-white text-center text-xs rounded">A</div> AXIS BANK
-            </div>
-          </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 max-w-2xl text-center">
-            We've partnered with the above Bank(s). You can now initiate payment directly via Zoho Books.{" "}
-            <a href="#" className="text-blue-600 dark:text-blue-400 hover:underline">Set Up Now</a>
-          </p>
-
-          {/* Life Cycle Section */}
-          <div className="w-full max-w-5xl mt-20 text-center border-t border-gray-200 dark:border-gray-700 pt-12">
-            <h3 className="text-lg font-medium text-gray-800 dark:text-gray-100 mb-12">
-              Life cycle of a Vendor Payment
-            </h3>
-
-            <div className="flex flex-col items-center gap-6">
-              <div className="border border-gray-300 dark:border-gray-600 rounded px-6 py-2 text-sm text-gray-600 dark:text-gray-400">
-                BILLS
-              </div>
-              <div className="w-px h-8 bg-gray-300 dark:bg-gray-600 border-l-2 border-dashed"></div>
-              <div className="w-2/3 border-t-2 border-dashed border-gray-300 dark:border-gray-600"></div>
-
-              <div className="flex justify-between w-full max-w-2xl px-12 flex-wrap gap-4">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 border-l-2 border-dashed"></div>
-                  <div className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded px-4 py-2 flex items-center gap-2 text-sm">
-                    <span className="text-lg">🏦</span> ACH PAYMENT
-                  </div>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 border-l-2 border-dashed"></div>
-                  <div className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded px-4 py-2 flex items-center gap-2 text-sm">
-                    <span className="text-lg">💳</span> CHECK
-                  </div>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 border-l-2 border-dashed"></div>
-                  <div className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded px-4 py-2 flex items-center gap-2 text-sm">
-                    <span className="text-lg">✍️</span> MANUAL / OFFLINE
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-16 text-left inline-block">
-              <h4 className="text-base font-medium text-gray-800 dark:text-gray-100 mb-4">
-                In the Payments Made module, you can:
-              </h4>
-              <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-blue-500 dark:text-blue-400" /> Record payments made to vendors
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-blue-500 dark:text-blue-400" /> View receipts of paid bills
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-blue-500 dark:text-blue-400" /> Record payments manually
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-blue-500 dark:text-blue-400" /> Send payment receipts to your customers
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* LIST TABLE */
-        <>
-          <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
-            <div className="flex items-center gap-4">
-              <button className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
-                <Filter size={16} />
-              </button>
-              <input
-                type="checkbox"
-                className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:bg-gray-900"
-              />
-            </div>
-            <div className="relative w-64">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search payments..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
-              />
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="px-6 py-3 w-10"></th>
-                  <th className="px-4 py-3">Payment #</th>
-                  <th className="px-4 py-3">Vendor</th>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Payment Mode</th>
-                  <th className="px-4 py-3 text-right">Amount</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {filteredPayments.map((payment) => (
-                  <tr
-                    key={payment.id}
-                    className="hover:bg-blue-50/50 dark:hover:bg-gray-800/60 cursor-pointer transition-colors group"
-                    onClick={() => setSelectedPayment(payment)}
-                  >
-                    <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:bg-gray-800"
-                      />
-                    </td>
-                    <td className="px-4 py-3 font-medium text-blue-600 dark:text-blue-400 group-hover:underline">
-                      {payment.paymentNumber}
-                    </td>
-                    <td className="px-4 py-3 text-gray-800 dark:text-gray-200 font-medium">{payment.vendor}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{payment.date}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{payment.paymentMode}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-200 text-right">
-                      ₹{Number(payment.amount).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          payment.status === "Paid"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
-                            : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-                        }`}
-                      >
-                        {payment.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => setSelectedPayment(payment)}
-                          className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button
-                          onClick={() => navigate(`/admin/accounts/purchases/payments-made/edit/${payment.id}`)}
-                          className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 rounded"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(payment)}
-                          className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {/* Sliding Drawer for View Details */}
-      {selectedPayment && (
-        <>
-          <div className="fixed inset-0 bg-black/30 dark:bg-black/60 z-40 backdrop-blur-sm" onClick={() => setSelectedPayment(null)} />
-          <div className="fixed top-0 right-0 h-full w-full md:w-[60%] lg:w-[55%] bg-white dark:bg-gray-800 shadow-2xl z-50 flex flex-col animate-slide-in border-l border-gray-200 dark:border-gray-700">
-
-            {/* Drawer Header (Action Bar) */}
-            <div className="flex flex-col bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shrink-0">
-              <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-gray-700">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{selectedPayment.paymentNumber}</h2>
-                <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
-                  <button
-                    onClick={() => navigate(`/admin/accounts/purchases/payments-made/edit/${selectedPayment.id}`)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                  >
-                    <Edit2 size={14} /> Edit
-                  </button>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors">
-                    <Printer size={14} /> PDF/Print <ChevronDown size={14} className="ml-0.5" />
-                  </button>
-                  {selectedPayment.status !== "Paid" && (
-                    <button
-                      onClick={() => handleMarkAsPaid(selectedPayment.id)}
-                      disabled={isMarkingPaid}
-                      className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
-                    >
-                      <CheckCircle2 size={14} /> {isMarkingPaid ? "Marking..." : "Mark as Paid"}
-                    </button>
-                  )}
-                  <button className="p-1.5 ml-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                    <MoreHorizontal size={18} />
-                  </button>
-                  <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-2"></div>
-                  <button
-                    onClick={() => setSelectedPayment(null)}
-                    className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 rounded"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-              </div>
-
-              {/* What's Next Banner */}
-              {selectedPayment.status !== "Paid" && (
-                <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900">
-                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md p-4 flex items-center justify-between shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <Sparkles size={20} className="text-blue-500 dark:text-blue-400 mt-0.5" />
-                      <div>
-                        <h3 className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wide">WHAT'S NEXT?</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          Mark the payment as Paid to confirm that it has been sent.
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleMarkAsPaid(selectedPayment.id)}
-                      disabled={isMarkingPaid}
-                      className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-4 py-1.5 rounded font-medium disabled:opacity-50"
-                    >
-                      {isMarkingPaid ? "Processing..." : "Mark as Paid"}
-                    </button>
-                  </div>
+            <div className="relative" ref={menuRef}>
+              <GhostBtn onClick={() => setShowMoreMenu((v) => !v)} className="!px-2">
+                <MoreHorizontal size={16} />
+              </GhostBtn>
+              {showMoreMenu && (
+                <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg shadow-slate-900/5 z-30 py-1.5">
+                  <MenuItem icon={Filter}   label="Filter" />
+                  <MenuItem icon={Upload}   label="Import" />
+                  <div className="h-px bg-slate-100 dark:bg-slate-800 my-1.5" />
+                  <MenuItem icon={Settings} label="Preferences" />
                 </div>
               )}
             </div>
+          </div>
+        </header>
 
-            {/* Scrollable PDF Document */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col items-center bg-[#F8F9FA] dark:bg-gray-950">
+        {/* ---- Empty state ---- */}
+        {payments.length === 0 ? (
+          <EmptyState onCreate={() => navigate("/admin/accounts/purchases/payments-made/new")} />
+        ) : (
 
-              {/*
-                IMPORTANT: The document "paper" below intentionally stays on white in
-                both themes — it's a print/PDF preview, so it must look like the actual
-                printed output. Only its outer container is themed dark.
-              */}
-              <div className="w-full max-w-3xl bg-white text-black shadow-[0_4px_20px_rgb(0,0,0,0.05)] dark:shadow-[0_4px_20px_rgb(0,0,0,0.4)] border border-gray-200 relative flex flex-col min-h-[900px] mb-8">
+          /* ---- Table surface ---- */
+          <Surface className="overflow-hidden">
+            <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+              <GhostBtn title="Filter" className="!px-2"><Filter size={15} /></GhostBtn>
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
+              <input type="checkbox" className="rounded border-slate-300 text-slate-900 focus:ring-slate-400" aria-label="Select all" />
 
-                {/* Draft Ribbon */}
-                {selectedPayment.status === "Draft" && (
-                  <div className="absolute top-0 left-0 w-32 h-32 overflow-hidden z-10 pointer-events-none">
-                    <div className="bg-[#8A949E] text-white text-sm font-semibold tracking-wider text-center py-1.5 shadow-md transform -rotate-45 translate-x-[-35px] translate-y-[25px] w-[160px]">
-                      Draft
-                    </div>
-                  </div>
-                )}
-
-                <div className="p-10 md:p-14 flex-1 flex flex-col font-sans">
-
-                  {/* Company Header */}
-                  <div className="text-sm space-y-1 mb-10">
-                    <div className="font-bold text-[16px] text-gray-900 mb-1">Fidha</div>
-                    <div className="text-gray-600">Keralam</div>
-                    <div className="text-gray-600">India</div>
-                    <div className="text-gray-600 text-xs mt-2">fidh3549@gmail.com</div>
-                  </div>
-
-                  {/* Document Title */}
-                  <div className="text-center mb-10">
-                    <h1 className="text-2xl font-serif text-black tracking-widest uppercase leading-tight">
-                      PAYMENTS MADE
-                    </h1>
-                    <div className="w-full border-b border-gray-200 mt-4"></div>
-                  </div>
-
-                  {/* Payment Details */}
-                  <div className="flex justify-between items-start mb-10">
-                    <div className="space-y-4 text-[13px] flex-1">
-                      <div className="flex"><span className="text-gray-500 w-32">Payment#</span> <span className="font-semibold text-gray-900">{selectedPayment.paymentNumber}</span></div>
-                      <div className="flex"><span className="text-gray-500 w-32">Payment Date</span> <span className="font-semibold text-gray-900">{selectedPayment.date}</span></div>
-                      <div className="flex"><span className="text-gray-500 w-32">Reference Number</span> <span className="font-semibold text-gray-900">{selectedPayment.reference || "-"}</span></div>
-                      <div className="flex"><span className="text-gray-500 w-32">Paid To</span> <span className="font-semibold text-blue-600">{selectedPayment.vendor}</span></div>
-                      <div className="flex"><span className="text-gray-500 w-32">Payment Mode</span> <span className="font-semibold text-gray-900">{selectedPayment.paymentMode}</span></div>
-                      <div className="flex"><span className="text-gray-500 w-32">Paid Through</span> <span className="font-semibold text-gray-900">{selectedPayment.paidThrough}</span></div>
-                      <div className="flex">
-                        <span className="text-gray-500 w-32">Amount Paid In Words</span>{" "}
-                        <span className="font-semibold text-gray-900 text-xs mt-0.5">
-                          Indian Rupee Three Thousand Three Hundred Thirty-Four Only
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Amount Box */}
-                    <div className="bg-[#6BA55C] text-white p-6 text-center w-44 shadow-sm">
-                      <p className="text-xs uppercase tracking-wider opacity-90 mb-1">Amount Paid</p>
-                      <p className="text-xl font-medium">₹{Number(selectedPayment.amount).toFixed(2)}</p>
-                    </div>
-                  </div>
-
-                  <div className="mb-10 text-[13px]">
-                    <p className="text-gray-500 mb-1">Paid To</p>
-                    <p className="font-semibold text-gray-900">{selectedPayment.vendor}</p>
-                  </div>
-
-                  {/* Payment For Table */}
-                  <div className="mt-8 mb-8 flex-1">
-                    <h3 className="text-base font-serif text-gray-900 mb-4">Payment for</h3>
-                    <table className="w-full text-left text-[12px] border-collapse">
-                      <thead>
-                        <tr className="bg-gray-100 text-gray-700">
-                          <th className="px-3 py-2 font-medium">Bill Number</th>
-                          <th className="px-3 py-2 font-medium">Bill Date</th>
-                          <th className="px-3 py-2 font-medium text-right">Bill Amount</th>
-                          <th className="px-3 py-2 font-medium text-right">Payment Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {selectedPayment.appliedBills?.map((bill, idx) => (
-                          <tr key={idx}>
-                            <td className="px-3 py-3 text-blue-600">{bill.billNumber}</td>
-                            <td className="px-3 py-3 text-gray-700">{bill.billDate}</td>
-                            <td className="px-3 py-3 text-right text-gray-700">₹{Number(bill.billAmount).toFixed(2)}</td>
-                            <td className="px-3 py-3 text-right text-gray-700">₹{Number(bill.paymentAmount).toFixed(2)}</td>
-                          </tr>
-                        ))}
-                        {(!selectedPayment.appliedBills || selectedPayment.appliedBills.length === 0) && (
-                          <tr>
-                            <td colSpan={4} className="px-3 py-6 text-center text-gray-400">
-                              No bills applied to this payment.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              {/* Journal Tabs (Bottom) */}
-              <div className="w-full max-w-3xl border-t border-gray-300 dark:border-gray-700 pt-4">
-                <div className="flex gap-6 border-b border-gray-200 dark:border-gray-700">
-                  <button className="pb-2 text-sm font-medium border-b-2 border-blue-500 text-blue-600 dark:text-blue-400">
-                    Journal
-                  </button>
-                </div>
-                <p className="py-4 text-xs text-gray-500 dark:text-gray-400">
-                  Journal entries will not be available for Payments in the Draft state.
-                </p>
+              <div className="relative ml-auto w-full sm:w-64">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search payments…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 text-[12.5px] bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
+                />
               </div>
             </div>
-          </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12.5px] whitespace-nowrap">
+                <thead>
+                  <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+                    <th className="w-10 px-4 sm:px-5 py-2.5"></th>
+                    <th className="px-4 py-2.5 text-left font-medium">Payment #</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Vendor</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Date</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Mode</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Amount</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Status</th>
+                    <th className="px-4 py-2.5 text-right font-medium w-24">Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredPayments.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-12 text-center text-[13px] text-slate-500">
+                        No payments match “{searchQuery}”
+                      </td>
+                    </tr>
+                  ) : filteredPayments.map((payment) => (
+                    <tr
+                      key={payment.id}
+                      onClick={() => setSelectedPayment(payment)}
+                      className="group cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                    >
+                      <td className="px-4 sm:px-5 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" className="rounded border-slate-300 text-slate-900 focus:ring-slate-400" aria-label={`Select ${payment.paymentNumber}`} />
+                      </td>
+
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
+                        <span className="group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {payment.paymentNumber}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{payment.vendor}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{payment.date}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{payment.paymentMode}</td>
+
+                      <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
+                        ₹{Number(payment.amount).toFixed(2)}
+                      </td>
+
+                      <td className="px-4 py-3"><StatusPill status={payment.status} /></td>
+
+                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <IconAction icon={Eye}    label="View"   onClick={() => setSelectedPayment(payment)} />
+                          <IconAction icon={Edit2}  label="Edit"   onClick={() => navigate(`/admin/accounts/purchases/payments-made/edit/${payment.id}`)} />
+                          <IconAction icon={Trash2} label="Delete" tone="danger" onClick={() => setDeleteTarget(payment)} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Surface>
+        )}
+      </div>
+
+      {/* ---- Drawer ---- */}
+      {selectedPayment && (
+        <>
+          <div
+            className="fixed inset-0 bg-slate-900/30 backdrop-blur-[1px] z-40 transition-opacity"
+            onClick={() => setSelectedPayment(null)}
+          />
+          <aside className="fixed top-0 right-0 h-full w-full md:w-[60%] lg:w-[55%] bg-slate-50 dark:bg-slate-950 shadow-2xl z-50 flex flex-col border-l border-slate-200 dark:border-slate-800 animate-slide-in">
+
+            {/* Drawer header */}
+            <div className="px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Payment made</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50 tracking-tight truncate">
+                    {selectedPayment.paymentNumber}
+                  </h2>
+                  <StatusPill status={selectedPayment.status} />
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedPayment(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Drawer body */}
+            <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
+
+              {/* Action row */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => navigate(`/admin/accounts/purchases/payments-made/edit/${selectedPayment.id}`)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+                >
+                  <Edit2 size={13} /> Edit
+                </button>
+                <GhostAction icon={Printer} label="PDF / Print" />
+                {selectedPayment.status !== "Paid" && (
+                  <button
+                    onClick={() => handleMarkAsPaid(selectedPayment.id)}
+                    disabled={isMarkingPaid}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/40 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50"
+                  >
+                    <CheckCircle2 size={13} /> {isMarkingPaid ? "Marking…" : "Mark as paid"}
+                  </button>
+                )}
+              </div>
+
+              {/* What's next */}
+              {selectedPayment.status !== "Paid" && (
+                <Surface className="p-4 bg-blue-50/60 dark:bg-blue-900/10 !border-blue-100 dark:!border-blue-900/40">
+                  <div className="flex items-start gap-2">
+                    <Sparkles size={14} className="text-blue-500 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[12.5px] font-semibold text-blue-900 dark:text-blue-200">What's next?</p>
+                      <p className="text-[12px] text-blue-700 dark:text-blue-300 mt-0.5">
+                        Mark the payment as paid to confirm it has been sent.
+                      </p>
+                      <button
+                        onClick={() => handleMarkAsPaid(selectedPayment.id)}
+                        disabled={isMarkingPaid}
+                        className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 text-[11.5px] font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50"
+                      >
+                        <CheckCircle2 size={12} /> {isMarkingPaid ? "Processing…" : "Mark as paid"}
+                      </button>
+                    </div>
+                  </div>
+                </Surface>
+              )}
+
+              <PaymentReceipt payment={selectedPayment} />
+
+              {/* Journal */}
+              <Surface className="p-4">
+                <SectionLabel>Journal</SectionLabel>
+                <p className="text-[12.5px] text-slate-500 leading-relaxed">
+                  Journal entries will not be available for payments in the <span className="font-medium text-slate-700 dark:text-slate-300">{selectedPayment.status}</span> state.
+                </p>
+              </Surface>
+            </div>
+          </aside>
         </>
       )}
 
-      {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={!!deleteTarget}
         onClose={handleCloseDeleteModal}
         onConfirm={handleDeleteConfirm}
-        title="Delete Payment"
+        title="Delete payment"
         message={
           deleteError
             ? deleteError
             : isDeleting
-            ? "Deleting payment, please wait..."
-            : `Are you sure you want to delete payment #${deleteTarget?.paymentNumber}? This action cannot be undone.`
+              ? "Deleting payment, please wait…"
+              : `Are you sure you want to delete payment #${deleteTarget?.paymentNumber}? This action cannot be undone.`
         }
-        confirmText={isDeleting ? "Deleting..." : "Delete"}
+        confirmText={isDeleting ? "Deleting…" : "Delete"}
         variant="danger"
         isLoading={isDeleting}
       />
-
-      <style>{`
-        @keyframes slideIn {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-        .animate-slide-in {
-          animation: slideIn 0.3s ease-out forwards;
-        }
-      `}</style>
     </div>
   );
 };
+
+/* ---------- sub-components ---------- */
+
+const EmptyState = ({ onCreate }) => {
+  const steps = [
+    { icon: FileText,     label: "Bills" },
+    { icon: CheckCircle2, label: "ACH" },
+    { icon: CheckCircle2, label: "Check" },
+    { icon: CheckCircle2, label: "Manual", tone: "pos" },
+  ];
+  return (
+    <Surface className="py-16 px-6">
+      <div className="max-w-md mx-auto text-center">
+        <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+          <Banknote size={22} className="text-slate-400" />
+        </div>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+          You haven't made any payments yet
+        </h2>
+        <p className="text-[13px] text-slate-500 mt-1.5 mb-6">
+          Receipts of your bill payments will show up here.
+        </p>
+        <button
+          onClick={onCreate}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+        >
+          <Plus size={13} /> Go to unpaid bills
+        </button>
+      </div>
+
+      <div className="mt-12 max-w-3xl mx-auto">
+        <SectionLabel>Payment lifecycle</SectionLabel>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+          {steps.map((s, i) => (
+            <React.Fragment key={s.label}>
+              <LifeStep icon={s.icon} label={s.label} tone={s.tone} />
+              {i < steps.length - 1 && <span className="text-slate-300 dark:text-slate-700 text-xs">→</span>}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-10 max-w-md mx-auto space-y-2">
+        {[
+          "Record payments made to vendors",
+          "View receipts of paid bills",
+          "Record payments manually",
+          "Send payment receipts to vendors",
+        ].map((b) => (
+          <div key={b} className="flex items-start gap-2 text-[12.5px] text-slate-600 dark:text-slate-300">
+            <CheckCircle2 size={14} className="text-emerald-500 mt-0.5 shrink-0" />
+            <span>{b}</span>
+          </div>
+        ))}
+      </div>
+    </Surface>
+  );
+};
+
+const LifeStep = ({ icon: Icon, label, tone }) => {
+  const tones = {
+    default: "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800",
+    pos:     "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-100 dark:border-emerald-900/40",
+  };
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-medium ${tones[tone || "default"]}`}>
+      <Icon size={13} />
+      <span className="whitespace-nowrap">{label}</span>
+    </div>
+  );
+};
+
+const PaymentReceipt = ({ payment }) => (
+  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-lg p-6 sm:p-8 mx-auto max-w-2xl relative text-slate-800 dark:text-slate-200">
+    {payment.status === "Draft" && (
+      <div className="absolute top-3 left-3 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-slate-200 dark:bg-slate-800 text-slate-500 rounded">
+        Draft
+      </div>
+    )}
+
+    <div className="text-[11.5px] space-y-0.5 mb-6">
+      <p className="font-semibold text-slate-900 dark:text-slate-100">Fidha</p>
+      <p className="text-slate-500">Keralam</p>
+      <p className="text-slate-500">India</p>
+      <p className="text-slate-500">fidh3549@gmail.com</p>
+    </div>
+
+    <div className="text-center mb-6">
+      <h1 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">Payments made</h1>
+      <div className="mt-2 mx-auto w-16 h-px bg-slate-200 dark:bg-slate-800"></div>
+    </div>
+
+    <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="col-span-2 space-y-2 text-[11.5px]">
+        <ReceiptRow label="Payment #"       value={payment.paymentNumber} />
+        <ReceiptRow label="Payment date"    value={payment.date} />
+        {payment.reference && <ReceiptRow label="Reference" value={payment.reference} />}
+        <ReceiptRow label="Paid to"         value={payment.vendor} />
+        <ReceiptRow label="Payment mode"    value={payment.paymentMode} />
+        <ReceiptRow label="Paid through"    value={payment.paidThrough} />
+      </div>
+      <div className="bg-emerald-600 text-white rounded-md px-3 py-3 flex flex-col justify-center text-center">
+        <p className="text-[9.5px] uppercase tracking-wider opacity-90 mb-0.5">Amount paid</p>
+        <p className="text-lg font-semibold tabular-nums">₹{Number(payment.amount).toFixed(2)}</p>
+      </div>
+    </div>
+
+    <div className="mb-6">
+      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Amount in words</p>
+      <p className="text-[11.5px] italic text-slate-700 dark:text-slate-300">
+        Indian Rupee Three Thousand Three Hundred Thirty-Four Only
+      </p>
+    </div>
+
+    <div className="mb-6">
+      <SectionLabel>Applied bills</SectionLabel>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[11.5px]">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-wider text-slate-500 border-y border-slate-200 dark:border-slate-800">
+              <th className="text-left  font-medium py-2">Bill #</th>
+              <th className="text-left  font-medium py-2">Bill date</th>
+              <th className="text-right font-medium py-2">Bill amount</th>
+              <th className="text-right font-medium py-2">Applied</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {payment.appliedBills?.length ? payment.appliedBills.map((bill, idx) => (
+              <tr key={idx}>
+                <td className="py-2 text-blue-600 dark:text-blue-400 font-medium">{bill.billNumber}</td>
+                <td className="py-2 text-slate-600 dark:text-slate-300">{bill.billDate}</td>
+                <td className="py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">₹{Number(bill.billAmount).toFixed(2)}</td>
+                <td className="py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">₹{Number(bill.paymentAmount).toFixed(2)}</td>
+              </tr>
+            )) : (
+              <tr>
+                <td colSpan={4} className="py-6 text-center text-[12px] text-slate-400">No bills applied to this payment.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+);
+
+const ReceiptRow = ({ label, value }) => (
+  <div className="flex items-center justify-between gap-3">
+    <span className="text-slate-500">{label}</span>
+    <span className="font-medium text-slate-900 dark:text-slate-100">{value || "—"}</span>
+  </div>
+);
 
 export default PaymentsMadePage;
