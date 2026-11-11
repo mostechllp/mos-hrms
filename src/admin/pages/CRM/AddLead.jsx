@@ -256,12 +256,34 @@ const AddLead = () => {
       const mapped = fromLeadApi(currentLead);
       let nextDate = "";
       let nextTime = "";
-      if (mapped.nextFollowUpAt && mapped.nextFollowUpAt.includes(" ")) {
-        const [d, t] = mapped.nextFollowUpAt.split(" ");
-        nextDate = d;
-        nextTime = t.slice(0, 5);
-      } else if (mapped.nextFollowUpAt) {
-        nextDate = mapped.nextFollowUpAt;
+
+      const rawFollowUp =
+        mapped.nextFollowUpAt ||
+        currentLead.next_follow_up_at ||
+        currentLead.next_follow_up_date ||
+        currentLead.follow_up_date ||
+        "";
+
+      if (rawFollowUp) {
+        // Handle both ISO-8601 ("2026-11-20T14:30:00") and SQL ("2026-11-20 14:30:00")
+        const delimiter = rawFollowUp.includes("T")
+          ? "T"
+          : rawFollowUp.includes(" ")
+            ? " "
+            : null;
+
+        if (delimiter) {
+          const [d, t] = rawFollowUp.split(delimiter);
+          nextDate = d || "";
+          nextTime = t ? t.slice(0, 5) : "";
+        } else {
+          nextDate = rawFollowUp.substring(0, 10);
+        }
+      }
+
+      // If time was provided in a separate field (e.g. next_follow_up_time or follow_up_time)
+      if (!nextTime && (currentLead.next_follow_up_time || currentLead.follow_up_time)) {
+        nextTime = String(currentLead.next_follow_up_time || currentLead.follow_up_time).slice(0, 5);
       }
 
       setForm({
