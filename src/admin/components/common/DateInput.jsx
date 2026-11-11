@@ -33,9 +33,9 @@ const DateInput = forwardRef(
         return dateValue;
       }
       
-      // If it's a string in YYYY-MM-DD format
-      if (typeof dateValue === "string" && dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const [year, month, day] = dateValue.split("-");
+      // If it's a string starting with YYYY-MM-DD (matches both YYYY-MM-DD and ISO-8601 strings)
+      if (typeof dateValue === "string" && dateValue.match(/^\d{4}-\d{2}-\d{2}/)) {
+        const [year, month, day] = dateValue.substring(0, 10).split("-");
         const date = new Date(year, month - 1, day);
         return isNaN(date.getTime()) ? null : date;
       }
@@ -183,9 +183,9 @@ const DateInput = forwardRef(
           const year = inputValue.getFullYear();
           displayValue = `${day}/${month}/${year}`;
         } 
-        // If inputValue is a string in YYYY-MM-DD format
-        else if (typeof inputValue === "string" && inputValue.includes("-")) {
-          const [year, month, day] = inputValue.split("-");
+        // If inputValue is a string in YYYY-MM-DD or ISO format
+        else if (typeof inputValue === "string" && inputValue.match(/^\d{4}-\d{2}-\d{2}/)) {
+          const [year, month, day] = inputValue.substring(0, 10).split("-");
           displayValue = `${day}/${month}/${year}`;
         }
         // If inputValue is already in DD/MM/YYYY format
