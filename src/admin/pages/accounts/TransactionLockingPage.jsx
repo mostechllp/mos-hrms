@@ -1,23 +1,57 @@
 import React, { useState } from "react";
-import { 
-  Lock, Unlock, Info, UserPlus, ArrowRight, X, AlertTriangle 
+import {
+  Lock, Unlock, Info, UserPlus, ArrowRight, X, AlertTriangle,
+  ShieldCheck, Layers,
 } from "lucide-react";
 
-const inputCls = "w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white";
+const inputCls =
+  "w-full px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition";
+
+/* ---------- primitives ---------- */
+
+const GhostBtn = ({ children, className = "", ...props }) => (
+  <button
+    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${className}`}
+    {...props}
+  >
+    {children}
+  </button>
+);
+
+const Surface = ({ children, className = "" }) => (
+  <div
+    className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}
+  >
+    {children}
+  </div>
+);
+
+const Field = ({ label, required, hint, children, className = "" }) => (
+  <div className={`flex flex-col gap-1.5 ${className}`}>
+    <label className="flex items-center gap-1 text-[12px] font-medium text-slate-600 dark:text-slate-300">
+      {label}
+      {required && <span className="text-rose-500">*</span>}
+      {hint && <Info size={12} className="text-slate-400 ml-0.5" />}
+    </label>
+    {children}
+  </div>
+);
+
+const SectionLabel = ({ children }) => (
+  <h3 className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">
+    {children}
+  </h3>
+);
+
+/* ---------- page ---------- */
 
 const TransactionLockingPage = () => {
-  // View State: 'individual' or 'all'
-  const [viewMode, setViewMode] = useState("individual");
-  
-  // Modal State
+  const [viewMode, setViewMode] = useState("individual"); // 'individual' | 'all'
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [lockTarget, setLockTarget] = useState(null);
-  
-  // Form State
-  const [lockDate, setLockDate] = useState(new Date().toISOString().split('T')[0]);
+  const [lockDate, setLockDate] = useState(new Date().toISOString().split("T")[0]);
   const [reason, setReason] = useState("");
 
-  // Module State (Mocked)
   const [modules, setModules] = useState({
     sales: { locked: false, date: null },
     purchases: { locked: false, date: null },
@@ -42,9 +76,9 @@ const TransactionLockingPage = () => {
         accountant: { locked: true, date: lockDate },
       });
     } else {
-      setModules(prev => ({
+      setModules((prev) => ({
         ...prev,
-        [lockTarget.key]: { locked: true, date: lockDate }
+        [lockTarget.key]: { locked: true, date: lockDate },
       }));
     }
 
@@ -52,186 +86,294 @@ const TransactionLockingPage = () => {
     setReason("");
   };
 
+  const anyLocked = Object.values(modules).some((m) => m.locked);
+
   const renderModuleCard = (key, name) => {
     const module = modules[key];
     return (
-      <div key={key} className="bg-white border border-gray-200 rounded-lg p-5 flex items-start gap-4 shadow-sm">
-        <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center text-gray-500 shrink-0">
-          {module.locked ? <Lock size={20} /> : <Unlock size={20} />}
+      <Surface key={key} className="p-5 flex items-start gap-4">
+        <div
+          className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+            module.locked
+              ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400"
+              : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+          }`}
+        >
+          {module.locked ? <Lock size={18} /> : <Unlock size={18} />}
         </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-lg font-medium text-gray-900">{name}</h3>
-            <Info size={14} className="text-gray-400 cursor-help" />
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-1">
+            <h3 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+              {name}
+            </h3>
+            <Info size={12} className="text-slate-400 cursor-help" />
+            {module.locked && (
+              <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">
+                Locked
+              </span>
+            )}
           </div>
-          <p className="text-sm text-gray-600">
-            {module.locked 
-              ? `Transactions up to ${module.date} are locked.` 
+          <p className="text-[12.5px] text-slate-500 dark:text-slate-400">
+            {module.locked
+              ? `Transactions up to ${module.date} are locked.`
               : "You have not locked the transactions in this module."}
           </p>
         </div>
-        <div className="shrink-0 pt-1">
-          {!module.locked && (
-            <button 
-              onClick={() => handleOpenLockModal({ type: 'module', key, name })}
-              className="text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded text-sm font-medium flex items-center gap-1 transition-colors"
+
+        {!module.locked && (
+          <div className="shrink-0">
+            <button
+              onClick={() => handleOpenLockModal({ type: "module", key, name })}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
-              <Lock size={14} /> Lock
+              <Lock size={13} /> Lock
             </button>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
+      </Surface>
     );
   };
 
   return (
-    <div className="bg-white min-h-screen relative flex flex-col font-sans">
-      
-      {/* Header */}
-      <div className="px-6 py-4 flex items-center justify-between border-b border-gray-200">
-        <h1 className="text-lg font-medium text-gray-800">Transaction Locking</h1>
-        
-        <div className="flex items-center gap-4">
-           <div className="bg-orange-50 border border-orange-100 text-sm text-gray-700 px-4 py-1.5 rounded-md flex items-center gap-2">
-              Restrict transaction locking with negative stock <a href="#" className="text-blue-600 hover:underline">Configure</a>
-           </div>
-           <button className="text-sm text-blue-600 font-medium hover:underline flex items-center gap-1">
-             <UserPlus size={16} /> Find Accountants
-           </button>
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-12">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+
+        {/* ---- Header ---- */}
+        <header className="pt-8 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+              Accountant
+            </p>
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-1">
+              Transaction locking
+            </h1>
+            <p className="text-[13px] text-slate-500 mt-1">
+              {anyLocked
+                ? "One or more modules are locked"
+                : "No modules locked yet"}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <GhostBtn className="border border-slate-200 dark:border-slate-800">
+              <UserPlus size={13} /> Find accountants
+            </GhostBtn>
+          </div>
+        </header>
+
+        <div className="space-y-4">
+
+          {/* Info card */}
+          <Surface className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg shrink-0">
+                <ShieldCheck size={16} />
+              </div>
+              <div>
+                <p className="text-[12.5px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Transaction locking prevents you and your users from making any
+                  changes to transactions that might affect your accounts. Once
+                  locked, users cannot edit, modify, or delete any transactions
+                  recorded before the specified date in this module.
+                </p>
+              </div>
+            </div>
+          </Surface>
+
+          {/* Warning banner */}
+          <Surface className="px-5 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-1.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-lg shrink-0">
+                  <AlertTriangle size={14} />
+                </div>
+                <p className="text-[12.5px] text-slate-700 dark:text-slate-200">
+                  Restrict transaction locking with negative stock
+                </p>
+              </div>
+              <GhostBtn className="shrink-0">Configure</GhostBtn>
+            </div>
+          </Surface>
+
+          {/* ---- View: ALL ---- */}
+          {viewMode === "all" ? (
+            <div className="space-y-4">
+              <Surface className="p-5 flex items-start gap-4">
+                <div className="w-11 h-11 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Lock size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+                      All transactions
+                    </h3>
+                    {modules.sales.locked && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">
+                        Locked
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[12.5px] text-slate-500 dark:text-slate-400">
+                    {modules.sales.locked
+                      ? `All transactions up to ${modules.sales.date} are locked.`
+                      : "You have not opted to lock all transactions."}
+                  </p>
+                </div>
+                {!modules.sales.locked && (
+                  <button
+                    onClick={() =>
+                      handleOpenLockModal({ type: "all", name: "All transactions" })
+                    }
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shrink-0"
+                  >
+                    <Lock size={13} /> Lock
+                  </button>
+                )}
+              </Surface>
+
+              <Surface className="p-5">
+                <SectionLabel>Alternative</SectionLabel>
+                <h3 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight mb-2">
+                  Lock individual modules
+                </h3>
+                <p className="text-[12.5px] text-slate-500 dark:text-slate-400 mb-3">
+                  Instead of locking everything at once, you can:
+                </p>
+                <ul className="space-y-2 mb-4">
+                  {[
+                    "Select the modules (Sales, Purchases, Banking, Accountant) you wish to lock individually.",
+                    "Set different lock dates for each module.",
+                  ].map((b) => (
+                    <li
+                      key={b}
+                      className="flex items-start gap-2 text-[12.5px] text-slate-600 dark:text-slate-300"
+                    >
+                      <div className="w-1 h-1 rounded-full bg-emerald-500 mt-2 shrink-0" />
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+                <GhostBtn
+                  onClick={() => setViewMode("individual")}
+                  className="border border-slate-200 dark:border-slate-800"
+                >
+                  <Lock size={13} /> Lock individual modules
+                </GhostBtn>
+              </Surface>
+            </div>
+          ) : (
+            /* ---- View: INDIVIDUAL ---- */
+            <div className="space-y-3">
+              <SectionLabel>Modules</SectionLabel>
+              {renderModuleCard("sales", "Sales")}
+              {renderModuleCard("purchases", "Purchases")}
+              {renderModuleCard("banking", "Banking")}
+              {renderModuleCard("accountant", "Accountant")}
+
+              <Surface className="p-5 mt-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg shrink-0">
+                      <Layers size={15} />
+                    </div>
+                    <div>
+                      <h3 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight mb-0.5">
+                        Lock all transactions at once
+                      </h3>
+                      <p className="text-[12.5px] text-slate-500 dark:text-slate-400 max-w-2xl">
+                        Freeze Sales, Purchases, Banking, and Accountant in one
+                        step instead of locking them individually.
+                      </p>
+                    </div>
+                  </div>
+                  <GhostBtn
+                    onClick={() => setViewMode("all")}
+                    className="border border-slate-200 dark:border-slate-800 shrink-0 self-start sm:self-auto"
+                  >
+                    Switch to lock all <ArrowRight size={13} />
+                  </GhostBtn>
+                </div>
+              </Surface>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* FULL WIDTH CONTENT AREA */}
-      <div className="px-6 py-6 w-full flex-1">
-        <p className="text-sm text-gray-700 mb-8 leading-relaxed max-w-5xl">
-          Transaction locking prevents you and your users from making any changes to transactions that might affect your accounts. Once transactions are locked, users cannot edit, modify, or delete any transactions that were recorded before the specified date in this module.
-        </p>
-
-        {viewMode === "all" ? (
-          <div className="space-y-8">
-            <div className="bg-white border border-gray-200 rounded-lg p-6 flex items-start gap-4 shadow-sm">
-              <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center text-gray-500 shrink-0">
-                <Lock size={24} />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-xl font-medium text-gray-900">All Transactions</h3>
-                </div>
-                <p className="text-sm text-gray-600">
-                  {modules.sales.locked 
-                    ? `All transactions up to ${modules.sales.date} are locked.` 
-                    : "You have not opted to lock all transactions."}
-                </p>
-              </div>
-              <div className="shrink-0 pt-1">
-                {!modules.sales.locked && (
-                  <button 
-                    onClick={() => handleOpenLockModal({ type: 'all', name: 'All Transactions' })}
-                    className="text-blue-600 hover:bg-blue-50 px-4 py-2 rounded text-sm font-medium flex items-center gap-1 transition-colors"
-                  >
-                    <Lock size={16} /> Lock
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-              <h3 className="text-xl font-medium text-gray-900 mb-4">Lock Individual Modules</h3>
-              <p className="text-base text-gray-800 mb-4">You will be able to:</p>
-              <ul className="list-disc pl-6 space-y-2 text-sm text-gray-700 mb-6">
-                <li>Select the modules (Sales, purchases, Banking, Accountant) you wish to lock, instead of locking all transactions.</li>
-                <li>Set different lock dates for each module.</li>
-              </ul>
-              <button 
-                onClick={() => setViewMode("individual")}
-                className="text-blue-600 hover:underline text-sm font-medium flex items-center gap-2"
-              >
-                <Lock size={16} /> Lock Individual Modules
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {renderModuleCard("sales", "Sales")}
-            {renderModuleCard("purchases", "Purchases")}
-            {renderModuleCard("banking", "Banking")}
-            {renderModuleCard("accountant", "Accountant")}
-
-            <div className="bg-[#FFF8E7] border border-[#FDE5B4] rounded-lg p-6 mt-8 flex items-start justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Lock All Transactions At Once</h3>
-                <p className="text-sm text-gray-700 max-w-3xl">
-                  You can freeze all transactions at once instead of locking the Sales, Purchases, Banking and Account transactions individually.
-                </p>
-              </div>
-              <button 
-                onClick={() => setViewMode("all")}
-                className="text-blue-600 hover:underline text-sm font-medium flex items-center gap-1 shrink-0 mt-1"
-              >
-                Switch to Lock All Transactions <ArrowRight size={14} />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* LOCK MODAL */}
+      {/* ---- LOCK MODAL ---- */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex justify-center items-start pt-16 px-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-fade-in border border-gray-200">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-              <h2 className="text-lg font-normal text-gray-800">
-                Lock - {lockTarget?.name}
-              </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-red-500 p-1 rounded-full">
-                <X size={20} />
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px] z-[60] flex items-start justify-center pt-8 sm:pt-16 px-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in">
+
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                  Lock
+                </p>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-0.5">
+                  {lockTarget?.name}
+                </h2>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                aria-label="Close"
+              >
+                <X size={18} />
               </button>
             </div>
-            
-            <form onSubmit={handleLockConfirm} className="p-6 space-y-5">
-              <div className="space-y-1.5">
-                <label className="text-sm text-red-500 font-medium flex items-center gap-1">
-                  Lock Date* <Info size={14} className="text-gray-400"/>
-                </label>
-                <input 
-                  type="date" 
-                  className={`${inputCls} max-w-sm`}
-                  value={lockDate}
-                  onChange={(e) => setLockDate(e.target.value)}
-                />
+
+            {/* Body */}
+            <form onSubmit={handleLockConfirm}>
+              <div className="px-5 py-5 space-y-4">
+
+                <Field label="Lock date" required hint>
+                  <input
+                    type="date"
+                    className={`${inputCls} tabular-nums`}
+                    value={lockDate}
+                    onChange={(e) => setLockDate(e.target.value)}
+                  />
+                </Field>
+
+                <Field label="Reason" required>
+                  <textarea
+                    rows={4}
+                    className={inputCls}
+                    placeholder="Enter the reason for locking…"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                  />
+                </Field>
+
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40 rounded-lg p-3 flex items-start gap-2">
+                  <AlertTriangle
+                    size={14}
+                    className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0"
+                  />
+                  <p className="text-[11.5px] text-slate-700 dark:text-slate-200 leading-relaxed">
+                    Once locked, you cannot edit, modify, or delete transactions
+                    recorded before this date. This action cannot be undone.
+                  </p>
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm text-red-500 font-medium">Reason*</label>
-                <textarea 
-                  className={`${inputCls} resize-none h-32`}
-                  placeholder="Enter the reason for locking..."
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                />
-              </div>
-
-              <div className="bg-orange-50 border border-orange-100 rounded-md p-3 flex items-start gap-2">
-                 <AlertTriangle size={16} className="text-orange-500 mt-0.5 shrink-0" />
-                 <p className="text-xs text-gray-700">
-                    Once locked, you cannot edit, modify, or delete transactions recorded before this date. This action cannot be undone.
-                 </p>
-              </div>
-
-              <div className="pt-2 flex items-center gap-3">
-                <button 
-                  type="submit" 
-                  disabled={!reason.trim()} 
-                  className="px-6 py-2 text-sm font-medium text-white bg-blue-500 rounded hover:bg-blue-600 disabled:opacity-50"
-                >
-                  Lock
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)} 
-                  className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+              {/* Footer */}
+              <div className="px-5 py-3 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-3 py-2 text-[12.5px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!reason.trim()}
+                  className="px-3 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Lock
                 </button>
               </div>
             </form>
@@ -241,12 +383,10 @@ const TransactionLockingPage = () => {
 
       <style>{`
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
+          from { opacity: 0; transform: translateY(-8px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fade-in {
-          animation: fadeIn 0.2s ease-out forwards;
-        }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
       `}</style>
     </div>
   );

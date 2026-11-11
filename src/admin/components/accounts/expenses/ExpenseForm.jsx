@@ -1,10 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { addExpense, updateExpense } from "../../../store/slices/accounts/expensesSlice";
-import { X, Settings, Search, UploadCloud, ChevronDown, ListTree, Plus, Trash2, MoreHorizontal } from "lucide-react";
-import { Button, inputCls } from "../ui";
+import {
+  X, Search, UploadCloud, ChevronDown, ListTree, Plus, Trash2,
+  MoreHorizontal, Tag, FileText, RotateCcw,
+} from "lucide-react";
+import { inputCls } from "../ui";
 import SearchableSelect from "../../../../components/common/SearchableSelect";
+
+/* ---------- constants ---------- */
 
 const EXPENSE_ACCOUNTS = [
   { value: "Advertising And Marketing", label: "Advertising And Marketing" },
@@ -21,7 +26,6 @@ const PAID_THROUGH_ACCOUNTS = [
   { value: "Bank Account", label: "Bank Account" },
 ];
 
-// Helper to generate empty bulk rows
 const createEmptyRow = () => ({
   id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
   date: "",
@@ -34,23 +38,81 @@ const createEmptyRow = () => ({
   billable: false,
 });
 
+/* ---------- primitives ---------- */
+
+const Field = ({ label, required, children, className = "" }) => (
+  <div className={`flex flex-col gap-1.5 ${className}`}>
+    <label className="flex items-center gap-1 text-[12px] font-medium text-slate-600 dark:text-slate-300">
+      {label}
+      {required && <span className="text-rose-500">*</span>}
+    </label>
+    {children}
+  </div>
+);
+
+const Surface = ({ title, description, action, children, className = "" }) => (
+  <section className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}>
+    {(title || description || action) && (
+      <div className="px-5 sm:px-6 pt-5 pb-1 flex items-start justify-between gap-3">
+        <div>
+          {title && <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">{title}</h2>}
+          {description && <p className="text-[12px] text-slate-500 mt-0.5">{description}</p>}
+        </div>
+        {action}
+      </div>
+    )}
+    <div className="px-5 sm:px-6 py-5">{children}</div>
+  </section>
+);
+
+const ReceiptDropzone = () => (
+  <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-6 flex flex-col items-center justify-center text-center bg-white dark:bg-slate-900">
+    <div className="w-10 h-10 rounded-lg bg-slate-900 dark:bg-white flex items-center justify-center mb-3">
+      <UploadCloud size={18} className="text-white dark:text-slate-900" />
+    </div>
+    <p className="text-[12.5px] font-medium text-slate-800 dark:text-slate-200 mb-0.5">Drag or drop receipts</p>
+    <p className="text-[11px] text-slate-500 mb-3">Max file size 10 MB</p>
+    <button
+      type="button"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11.5px] font-medium text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+    >
+      <UploadCloud size={12} /> Upload files <ChevronDown size={11} />
+    </button>
+  </div>
+);
+
+const CurrencyInput = ({ value, onChange, readOnly }) => (
+  <div className="flex">
+    <span className="inline-flex items-center px-3 text-[12px] font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 border border-r-0 border-slate-200 dark:border-slate-700 rounded-l-lg">
+      INR
+    </span>
+    <input
+      type="number"
+      value={value}
+      onChange={onChange}
+      readOnly={readOnly}
+      className="flex-1 min-w-0 px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-r-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition tabular-nums"
+    />
+  </div>
+);
+
+/* ---------- page ---------- */
+
 const ExpenseForm = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { id } = useParams();
-  
-  const existingExpense = useSelector((state) => 
+
+  const existingExpense = useSelector((state) =>
     state.expenses.expenses.find((e) => e.id === id)
   );
-  
-  const vendors = useSelector((state) => state.vendors.vendors);
-  const customers = useSelector((state) => state.customers.customers);
+  const vendors = useSelector((state) => state.vendors.vendors) || [];
+  const customers = useSelector((state) => state.customers.customers) || [];
 
-  const [activeTab, setActiveTab] = useState("Record Expense");
-  
-  // --- Form State for Single Expense ---
+  const [activeTab, setActiveTab] = useState("Record expense");
+
   const [formData, setFormData] = useState({
-    date: existingExpense?.date || new Date().toISOString().split('T')[0],
+    date: existingExpense?.date || new Date().toISOString().split("T")[0],
     expenseAccount: existingExpense?.expenseAccount || "",
     amount: existingExpense?.amount || "",
     paidThrough: existingExpense?.paidThrough || "",
@@ -59,12 +121,11 @@ const ExpenseForm = () => {
     notes: existingExpense?.notes || "",
     customerName: existingExpense?.customerName || "",
     isBillable: existingExpense?.isBillable || false,
-    currency: "INR"
+    currency: "INR",
   });
 
-  // --- Form State for Mileage ---
   const [mileageData, setMileageData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split("T")[0],
     employee: "",
     calculateMileageUsing: "distance",
     distance: "",
@@ -74,36 +135,22 @@ const ExpenseForm = () => {
     vendor: "",
     invoiceNumber: "",
     notes: "",
-    customerName: ""
+    customerName: "",
   });
 
-  // --- Form State for Bulk Add ---
-  const [bulkRows, setBulkRows] = useState([createEmptyRow(), createEmptyRow(), createEmptyRow(), createEmptyRow(), createEmptyRow()]);
+  const [bulkRows, setBulkRows] = useState([
+    createEmptyRow(), createEmptyRow(), createEmptyRow(), createEmptyRow(), createEmptyRow(),
+  ]);
 
-  const setField = (key, value) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-  };
+  const setField = (key, value) => setFormData((prev) => ({ ...prev, [key]: value }));
+  const setMileageField = (key, value) => setMileageData((prev) => ({ ...prev, [key]: value }));
 
-  const setMileageField = (key, value) => {
-    setMileageData((prev) => ({ ...prev, [key]: value }));
-  };
+  const handleBulkRowChange = (rowId, field, value) =>
+    setBulkRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, [field]: value } : r)));
+  const addBulkRow = () => setBulkRows([...bulkRows, createEmptyRow()]);
+  const removeBulkRow = (rowId) => setBulkRows(bulkRows.filter((r) => r.id !== rowId));
 
-  const handleBulkRowChange = (rowId, field, value) => {
-    setBulkRows(prev => prev.map(row => 
-      row.id === rowId ? { ...row, [field]: value } : row
-    ));
-  };
-
-  const addBulkRow = () => {
-    setBulkRows([...bulkRows, createEmptyRow()]);
-  };
-
-  const removeBulkRow = (rowId) => {
-    setBulkRows(bulkRows.filter(row => row.id !== rowId));
-  };
-
-  // Auto-calculate mileage amount
-  React.useEffect(() => {
+  useEffect(() => {
     if (mileageData.calculateMileageUsing === "distance" && mileageData.distance) {
       const amt = Number(mileageData.distance) * mileageData.ratePerKm;
       setMileageField("amount", amt.toFixed(2));
@@ -111,367 +158,401 @@ const ExpenseForm = () => {
   }, [mileageData.distance, mileageData.ratePerKm, mileageData.calculateMileageUsing]);
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (activeTab === "Record Expense") {
+    e?.preventDefault();
+
+    if (activeTab === "Record expense") {
       if (!formData.expenseAccount || !formData.amount) return;
       const finalData = {
         ...formData,
         amount: Number(formData.amount) || 0,
         isBillable: !!formData.customerName,
-        status: "Paid"
+        status: "Paid",
       };
-      if (id) {
-        dispatch(updateExpense({ id, ...finalData }));
-      } else {
-        dispatch(addExpense(finalData));
-      }
-    } else if (activeTab === "Record Mileage") {
+      if (id) dispatch(updateExpense({ id, ...finalData }));
+      else dispatch(addExpense(finalData));
+    } else if (activeTab === "Record mileage") {
       if (!mileageData.paidThrough || !mileageData.amount) return;
-      const finalData = {
+      dispatch(addExpense({
         ...mileageData,
-        expenseAccount: "Automobile Expense", // Default for mileage
+        expenseAccount: "Automobile Expense",
         amount: Number(mileageData.amount) || 0,
-        status: "Paid"
-      };
-      dispatch(addExpense(finalData));
-    } else if (activeTab === "Bulk Add Expenses") {
-      // Filter out completely empty rows
-      const validRows = bulkRows.filter(row => row.expenseAccount && row.amount);
-      validRows.forEach(row => {
-        dispatch(addExpense({
-          ...row,
-          amount: Number(row.amount) || 0,
-          status: "Paid"
-        }));
-      });
+        status: "Paid",
+      }));
+    } else if (activeTab === "Bulk add expenses") {
+      const valid = bulkRows.filter((r) => r.expenseAccount && r.amount);
+      valid.forEach((row) =>
+        dispatch(addExpense({ ...row, amount: Number(row.amount) || 0, status: "Paid" }))
+      );
     }
-    
     navigate("/admin/accounts/purchases/expenses");
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-800">
-      {/* Header / Tabs */}
-      <div className="px-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between">
-        <div className="flex gap-8">
-            {["Record Expense", "Record Mileage", "Bulk Add Expenses"].map(tab => (
-                <button 
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`py-4 text-sm font-medium transition-colors ${
-                        activeTab === tab ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-800"
-                    }`}
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-24">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+
+        {/* ---- Header ---- */}
+        <header className="pt-8 pb-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Purchases · Expenses</p>
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-1">
+              {id ? "Edit expense" : "Record expense"}
+            </h1>
+            <p className="text-[13px] text-slate-500 mt-1">
+              {id ? "Update expense details" : "Log a single expense, mileage, or several at once"}
+            </p>
+          </div>
+
+          <button
+            onClick={() => navigate("/admin/accounts/purchases/expenses")}
+            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </header>
+
+        {/* ---- Tabs ---- */}
+        <Surface className="mb-4 !py-0">
+          <div className="px-5 sm:px-6">
+            <div className="flex gap-1 -mb-px overflow-x-auto">
+              {["Record expense", "Record mileage", "Bulk add expenses"].map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`whitespace-nowrap px-3 py-2.5 text-[12.5px] font-medium transition-colors border-b-2 ${
+                    activeTab === tab
+                      ? "border-slate-900 dark:border-slate-100 text-slate-900 dark:text-slate-100"
+                      : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                  }`}
                 >
-                    {tab}
+                  {tab}
                 </button>
-            ))}
-        </div>
-        <button onClick={() => navigate("/admin/accounts/purchases/expenses")} className="p-2 text-gray-400 hover:text-gray-700">
-          <X size={20} />
-        </button>
-      </div>
-
-      <form onSubmit={handleSubmit} className="flex-1 w-full pb-20">
-        
-        {/* === TAB 1: RECORD EXPENSE === */}
-        {activeTab === "Record Expense" && (
-          <div className="py-6 px-8 w-full max-w-7xl mx-auto flex flex-col md:flex-row gap-12">
-            <div className="flex-1 space-y-6 max-w-3xl">
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-red-500 font-medium">Date*</label>
-                  <input type="date" className={`${inputCls} max-w-sm`} value={formData.date} onChange={(e) => setField("date", e.target.value)} />
-               </div>
-               <div className="flex items-start gap-4">
-                  <label className="w-40 text-sm text-right text-red-500 font-medium mt-2">Expense Account*</label>
-                  <div className="flex-1 max-w-sm space-y-2">
-                      <SearchableSelect value={formData.expenseAccount} onChange={(val) => setField("expenseAccount", val)} options={EXPENSE_ACCOUNTS} placeholder="Select an account" />
-                      <button type="button" className="text-xs text-blue-600 flex items-center gap-1 font-medium hover:underline">
-                          <ListTree size={14} /> Itemize
-                      </button>
-                  </div>
-               </div>
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-red-500 font-medium">Amount*</label>
-                  <div className="flex max-w-sm w-full">
-                      <select className="inline-flex items-center px-3 border border-r-0 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-500 text-sm rounded-l-md outline-none">
-                          <option>INR</option>
-                      </select>
-                      <input type="number" className={`${inputCls} rounded-l-none`} value={formData.amount} onChange={(e) => setField("amount", e.target.value)} />
-                  </div>
-               </div>
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-red-500 font-medium">Paid Through*</label>
-                  <div className="flex-1 max-w-sm">
-                      <SearchableSelect value={formData.paidThrough} onChange={(val) => setField("paidThrough", val)} options={PAID_THROUGH_ACCOUNTS} placeholder="Select an account" />
-                  </div>
-               </div>
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium">Vendor</label>
-                  <div className="flex-1 flex gap-2 max-w-sm">
-                      <div className="flex-1">
-                          <SearchableSelect value={formData.vendor} onChange={(val) => setField("vendor", val)} options={vendors.map(v => ({ value: v.displayName, label: v.displayName }))} placeholder="" />
-                      </div>
-                      <button type="button" className="px-3 bg-blue-500 text-white rounded hover:bg-blue-600">
-                          <Search size={18} />
-                      </button>
-                  </div>
-               </div>
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium">Invoice#</label>
-                  <input type="text" className={`${inputCls} max-w-sm`} value={formData.invoiceNumber} onChange={(e) => setField("invoiceNumber", e.target.value)} />
-               </div>
-               <div className="flex items-start gap-4">
-                  <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium mt-2">Notes</label>
-                  <textarea rows="3" className={`${inputCls} max-w-sm`} placeholder="Max. 500 characters" value={formData.notes} onChange={(e) => setField("notes", e.target.value)}></textarea>
-               </div>
-               <div className="border-b border-gray-200 dark:border-gray-700 my-6"></div>
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium">Customer Name</label>
-                  <div className="flex-1 flex gap-2 max-w-sm">
-                      <div className="flex-1">
-                          <SearchableSelect value={formData.customerName} onChange={(val) => setField("customerName", val)} options={customers.map(c => ({ value: c.displayName, label: c.displayName }))} placeholder="Select or add a customer" />
-                      </div>
-                      <button type="button" className="px-3 bg-blue-500 text-white rounded hover:bg-blue-600">
-                          <Search size={18} />
-                      </button>
-                  </div>
-               </div>
-            </div>
-            
-            <div className="w-full md:w-80">
-                <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 flex flex-col items-center justify-center text-center bg-gray-50/50 dark:bg-gray-800/20 h-80 sticky top-24">
-                    <div className="w-14 h-14 bg-blue-600 rounded-lg flex items-center justify-center text-white mb-4 shadow-sm">
-                        <UploadCloud size={28} />
-                    </div>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">Drag or Drop your Receipts</p>
-                    <p className="text-xs text-gray-500 mb-6">Maximum file size allowed is 10MB</p>
-                    <Button variant="secondary" className="bg-gray-200 dark:bg-gray-700 text-xs h-9 border-none w-full justify-center">
-                        <UploadCloud size={14} className="mr-2"/> Upload your Files <ChevronDown size={14} className="ml-2"/>
-                    </Button>
-                </div>
+              ))}
             </div>
           </div>
-        )}
+        </Surface>
 
-        {/* === TAB 2: RECORD MILEAGE === */}
-        {activeTab === "Record Mileage" && (
-          <div className="py-6 px-8 w-full max-w-7xl mx-auto flex flex-col md:flex-row gap-12">
-            <div className="flex-1 space-y-6 max-w-3xl">
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-red-500 font-medium">Date*</label>
-                  <input type="date" className={`${inputCls} max-w-sm`} value={mileageData.date} onChange={(e) => setMileageField("date", e.target.value)} />
-               </div>
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium">Employee</label>
-                  <select className={`${inputCls} max-w-sm`} value={mileageData.employee} onChange={(e) => setMileageField("employee", e.target.value)}>
-                     <option value="">Select Employee</option>
-                     <option value="fidha">Joe Doe</option>
-                  </select>
-               </div>
-               <div className="flex items-start gap-4">
-                  <label className="w-40 text-sm text-right text-red-500 font-medium mt-2">Calculate mileage using*</label>
-                  <div className="flex flex-col gap-3 mt-2">
-                      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                          <input type="radio" checked={mileageData.calculateMileageUsing === "distance"} onChange={() => setMileageField("calculateMileageUsing", "distance")} className="text-blue-600 focus:ring-blue-500" /> Distance travelled
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                          <input type="radio" checked={mileageData.calculateMileageUsing === "odometer"} onChange={() => setMileageField("calculateMileageUsing", "odometer")} className="text-blue-600 focus:ring-blue-500" /> Odometer reading
-                      </label>
-                  </div>
-               </div>
-               
-               {mileageData.calculateMileageUsing === "distance" && (
-                  <>
-                    <div className="flex items-center gap-4">
-                        <label className="w-40 text-sm text-right text-red-500 font-medium">Distance*</label>
-                        <div className="flex max-w-sm w-full">
-                            <input type="number" className={`${inputCls} rounded-r-none`} value={mileageData.distance} onChange={(e) => setMileageField("distance", e.target.value)} />
-                            <span className="inline-flex items-center px-3 border border-l-0 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-500 text-sm rounded-r-md">Kilometer(s)</span>
+        <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* ==== Record expense ==== */}
+          {activeTab === "Record expense" && (
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
+              <Surface title="Expense details" description="What was spent, on what, and how it was paid">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+                    <Field label="Date" required>
+                      <input type="date" className={inputCls} value={formData.date} onChange={(e) => setField("date", e.target.value)} />
+                    </Field>
+                    <Field label="Amount" required>
+                      <CurrencyInput value={formData.amount} onChange={(e) => setField("amount", e.target.value)} />
+                    </Field>
+
+                    <Field label="Expense account" required>
+                      <SearchableSelect value={formData.expenseAccount} onChange={(v) => setField("expenseAccount", v)} options={EXPENSE_ACCOUNTS} placeholder="Select an account" />
+                      <button type="button" className="mt-1 inline-flex items-center gap-1 text-[11.5px] font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
+                        <ListTree size={12} /> Itemize
+                      </button>
+                    </Field>
+
+                    <Field label="Paid through" required>
+                      <SearchableSelect value={formData.paidThrough} onChange={(v) => setField("paidThrough", v)} options={PAID_THROUGH_ACCOUNTS} placeholder="Select an account" />
+                    </Field>
+
+                    <Field label="Vendor">
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <SearchableSelect value={formData.vendor} onChange={(v) => setField("vendor", v)} options={vendors.map((v) => ({ value: v.displayName, label: v.displayName }))} placeholder="Select vendor" />
                         </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium"></label>
-                        <p className="text-xs text-gray-500">Rate per km = ₹ {mileageData.ratePerKm} <button type="button" className="text-blue-500 hover:underline">Change</button></p>
-                    </div>
-                  </>
-               )}
-
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-red-500 font-medium">Amount*</label>
-                  <div className="flex max-w-sm w-full">
-                      <select className="inline-flex items-center px-3 border border-r-0 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-500 text-sm rounded-l-md outline-none">
-                          <option>INR</option>
-                      </select>
-                      <input type="number" className={`${inputCls} rounded-l-none`} value={mileageData.amount} readOnly={mileageData.calculateMileageUsing === "distance"} onChange={(e) => setMileageField("amount", e.target.value)} />
-                  </div>
-               </div>
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-red-500 font-medium">Paid Through*</label>
-                  <div className="flex-1 max-w-sm">
-                      <SearchableSelect value={mileageData.paidThrough} onChange={(val) => setMileageField("paidThrough", val)} options={PAID_THROUGH_ACCOUNTS} placeholder="Select an account" />
-                  </div>
-               </div>
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium">Vendor</label>
-                  <div className="flex-1 flex gap-2 max-w-sm">
-                      <div className="flex-1">
-                          <SearchableSelect value={mileageData.vendor} onChange={(val) => setMileageField("vendor", val)} options={vendors.map(v => ({ value: v.displayName, label: v.displayName }))} placeholder="" />
+                        <button
+                          type="button"
+                          className="px-3 py-2 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        >
+                          <Search size={14} />
+                        </button>
                       </div>
-                      <button type="button" className="px-3 bg-blue-500 text-white rounded hover:bg-blue-600">
-                          <Search size={18} />
-                      </button>
-                  </div>
-               </div>
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium">Invoice#</label>
-                  <input type="text" className={`${inputCls} max-w-sm`} value={mileageData.invoiceNumber} onChange={(e) => setMileageField("invoiceNumber", e.target.value)} />
-               </div>
-               <div className="flex items-start gap-4">
-                  <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium mt-2">Notes</label>
-                  <textarea rows="3" className={`${inputCls} max-w-sm`} placeholder="Max. 500 characters" value={mileageData.notes} onChange={(e) => setMileageField("notes", e.target.value)}></textarea>
-               </div>
-               <div className="border-b border-gray-200 dark:border-gray-700 my-6"></div>
-               <div className="flex items-center gap-4">
-                  <label className="w-40 text-sm text-right text-gray-600 dark:text-gray-400 font-medium">Customer Name</label>
-                  <div className="flex-1 flex gap-2 max-w-sm">
-                      <div className="flex-1">
-                          <SearchableSelect value={mileageData.customerName} onChange={(val) => setMileageField("customerName", val)} options={customers.map(c => ({ value: c.displayName, label: c.displayName }))} placeholder="Select or add a customer" />
-                      </div>
-                      <button type="button" className="px-3 bg-blue-500 text-white rounded hover:bg-blue-600">
-                          <Search size={18} />
-                      </button>
-                  </div>
-               </div>
-            </div>
+                    </Field>
 
-            <div className="w-full md:w-80">
-                <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 flex flex-col items-center justify-center text-center bg-gray-50/50 dark:bg-gray-800/20 h-80 sticky top-24">
-                    <div className="w-14 h-14 bg-blue-600 rounded-lg flex items-center justify-center text-white mb-4 shadow-sm">
-                        <UploadCloud size={28} />
-                    </div>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">Drag or Drop your Receipts</p>
-                    <p className="text-xs text-gray-500 mb-6">Maximum file size allowed is 10MB</p>
-                    <Button variant="secondary" className="bg-gray-200 dark:bg-gray-700 text-xs h-9 border-none w-full justify-center">
-                        <UploadCloud size={14} className="mr-2"/> Upload your Files <ChevronDown size={14} className="ml-2"/>
-                    </Button>
+                    <Field label="Invoice #">
+                      <input type="text" className={inputCls} value={formData.invoiceNumber} onChange={(e) => setField("invoiceNumber", e.target.value)} />
+                    </Field>
+                  </div>
+
+                  <Field label="Notes">
+                    <textarea rows={3} className={inputCls} placeholder="Max. 500 characters" value={formData.notes} onChange={(e) => setField("notes", e.target.value)} />
+                  </Field>
+
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <Field label="Customer (for billable expenses)">
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <SearchableSelect value={formData.customerName} onChange={(v) => setField("customerName", v)} options={customers.map((c) => ({ value: c.displayName, label: c.displayName }))} placeholder="Select or add a customer" />
+                        </div>
+                        <button
+                          type="button"
+                          className="px-3 py-2 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        >
+                          <Search size={14} />
+                        </button>
+                      </div>
+                    </Field>
+                  </div>
                 </div>
+              </Surface>
+
+              <div className="space-y-4">
+                <Surface title="Receipt">
+                  <ReceiptDropzone />
+                </Surface>
+              </div>
+            </div>
+          )}
+
+          {/* ==== Record mileage ==== */}
+          {activeTab === "Record mileage" && (
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
+              <Surface title="Mileage details" description="Track mileage with automatic rate calculation">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+                    <Field label="Date" required>
+                      <input type="date" className={inputCls} value={mileageData.date} onChange={(e) => setMileageField("date", e.target.value)} />
+                    </Field>
+                    <Field label="Employee">
+                      <select className={inputCls} value={mileageData.employee} onChange={(e) => setMileageField("employee", e.target.value)}>
+                        <option value="">Select employee</option>
+                        <option value="fidha">Joe Doe</option>
+                      </select>
+                    </Field>
+                  </div>
+
+                  <Field label="Calculate mileage using" required>
+                    <div className="flex items-center gap-5 h-9">
+                      <label className="inline-flex items-center gap-2 text-[13px] text-slate-700 dark:text-slate-300 cursor-pointer">
+                        <input type="radio" checked={mileageData.calculateMileageUsing === "distance"} onChange={() => setMileageField("calculateMileageUsing", "distance")} className="text-slate-900 focus:ring-slate-400 border-slate-300" />
+                        Distance travelled
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-[13px] text-slate-700 dark:text-slate-300 cursor-pointer">
+                        <input type="radio" checked={mileageData.calculateMileageUsing === "odometer"} onChange={() => setMileageField("calculateMileageUsing", "odometer")} className="text-slate-900 focus:ring-slate-400 border-slate-300" />
+                        Odometer reading
+                      </label>
+                    </div>
+                  </Field>
+
+                  {mileageData.calculateMileageUsing === "distance" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+                      <Field label="Distance" required>
+                        <div className="flex">
+                          <input type="number" className="flex-1 min-w-0 px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-r-0 border-slate-200 dark:border-slate-700 rounded-l-lg text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400 tabular-nums" value={mileageData.distance} onChange={(e) => setMileageField("distance", e.target.value)} />
+                          <span className="inline-flex items-center px-3 text-[12px] font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 border border-l-0 border-slate-200 dark:border-slate-700 rounded-r-lg">
+                            km
+                          </span>
+                        </div>
+                      </Field>
+                      <Field label="Rate">
+                        <div className="flex items-center h-9 text-[12.5px] text-slate-600 dark:text-slate-300">
+                          ₹ {mileageData.ratePerKm} / km
+                          <button type="button" className="ml-2 text-slate-900 dark:text-slate-100 font-medium hover:underline">Change</button>
+                        </div>
+                      </Field>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+                    <Field label="Amount" required>
+                      <CurrencyInput
+                        value={mileageData.amount}
+                        onChange={(e) => setMileageField("amount", e.target.value)}
+                        readOnly={mileageData.calculateMileageUsing === "distance"}
+                      />
+                    </Field>
+                    <Field label="Paid through" required>
+                      <SearchableSelect value={mileageData.paidThrough} onChange={(v) => setMileageField("paidThrough", v)} options={PAID_THROUGH_ACCOUNTS} placeholder="Select an account" />
+                    </Field>
+                    <Field label="Vendor">
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <SearchableSelect value={mileageData.vendor} onChange={(v) => setMileageField("vendor", v)} options={vendors.map((v) => ({ value: v.displayName, label: v.displayName }))} placeholder="Select vendor" />
+                        </div>
+                        <button
+                          type="button"
+                          className="px-3 py-2 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        >
+                          <Search size={14} />
+                        </button>
+                      </div>
+                    </Field>
+                    <Field label="Invoice #">
+                      <input type="text" className={inputCls} value={mileageData.invoiceNumber} onChange={(e) => setMileageField("invoiceNumber", e.target.value)} />
+                    </Field>
+                  </div>
+
+                  <Field label="Notes">
+                    <textarea rows={3} className={inputCls} placeholder="Max. 500 characters" value={mileageData.notes} onChange={(e) => setMileageField("notes", e.target.value)} />
+                  </Field>
+
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <Field label="Customer (for billable expenses)">
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <SearchableSelect value={mileageData.customerName} onChange={(v) => setMileageField("customerName", v)} options={customers.map((c) => ({ value: c.displayName, label: c.displayName }))} placeholder="Select or add a customer" />
+                        </div>
+                        <button
+                          type="button"
+                          className="px-3 py-2 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        >
+                          <Search size={14} />
+                        </button>
+                      </div>
+                    </Field>
+                  </div>
+                </div>
+              </Surface>
+
+              <Surface title="Receipt">
+                <ReceiptDropzone />
+              </Surface>
+            </div>
+          )}
+
+          {/* ==== Bulk add expenses ==== */}
+          {activeTab === "Bulk add expenses" && (
+            <Surface title="Bulk expenses" description="Add multiple expenses at once" className="!py-0">
+              <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+                <table className="w-full min-w-[1100px] text-[12.5px]">
+                  <thead>
+                    <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-y border-slate-100 dark:border-slate-800">
+                      <th className="py-2.5 w-8" />
+                      <th className="text-left  font-medium py-2.5 px-2 text-rose-500">Date *</th>
+                      <th className="text-left  font-medium py-2.5 px-2 text-rose-500">Account *</th>
+                      <th className="text-left  font-medium py-2.5 px-2 text-rose-500">Amount *</th>
+                      <th className="text-left  font-medium py-2.5 px-2 text-rose-500">Paid through *</th>
+                      <th className="text-left  font-medium py-2.5 px-2">Vendor</th>
+                      <th className="text-left  font-medium py-2.5 px-2">Customer</th>
+                      <th className="text-left  font-medium py-2.5 px-2">Project</th>
+                      <th className="text-center font-medium py-2.5 px-2">Billable</th>
+                      <th className="text-left  font-medium py-2.5 px-2">Tags</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {bulkRows.map((row) => (
+                      <tr key={row.id} className="align-top group">
+                        <td className="py-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => removeBulkRow(row.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                            title="Remove row"
+                            aria-label="Remove row"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                        <td className="py-2 px-2">
+                          <input type="date" className="w-full px-2 py-1.5 text-[12px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400" value={row.date} onChange={(e) => handleBulkRowChange(row.id, "date", e.target.value)} />
+                        </td>
+                        <td className="py-2 px-2">
+                          <select className="w-full px-2 py-1.5 text-[12px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400" value={row.expenseAccount} onChange={(e) => handleBulkRowChange(row.id, "expenseAccount", e.target.value)}>
+                            <option value="">Select</option>
+                            {EXPENSE_ACCOUNTS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                          </select>
+                        </td>
+                        <td className="py-2 px-2">
+                          <div className="flex">
+                            <span className="inline-flex items-center px-2 text-[11px] font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 border border-r-0 border-slate-200 dark:border-slate-700 rounded-l-md">INR</span>
+                            <input type="number" className="flex-1 min-w-0 px-2 py-1.5 text-[12px] text-right bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-r-md focus:outline-none focus:ring-1 focus:ring-slate-400 tabular-nums" value={row.amount} onChange={(e) => handleBulkRowChange(row.id, "amount", e.target.value)} />
+                          </div>
+                        </td>
+                        <td className="py-2 px-2">
+                          <select className="w-full px-2 py-1.5 text-[12px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400" value={row.paidThrough} onChange={(e) => handleBulkRowChange(row.id, "paidThrough", e.target.value)}>
+                            <option value="">Select</option>
+                            {PAID_THROUGH_ACCOUNTS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                          </select>
+                        </td>
+                        <td className="py-2 px-2">
+                          <select className="w-full px-2 py-1.5 text-[12px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400" value={row.vendor} onChange={(e) => handleBulkRowChange(row.id, "vendor", e.target.value)}>
+                            <option value="">Select</option>
+                            {vendors.map((v) => <option key={v.id} value={v.displayName}>{v.displayName}</option>)}
+                          </select>
+                        </td>
+                        <td className="py-2 px-2">
+                          <select className="w-full px-2 py-1.5 text-[12px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400" value={row.customerName} onChange={(e) => handleBulkRowChange(row.id, "customerName", e.target.value)}>
+                            <option value="">Select</option>
+                            {customers.map((c) => <option key={c.id} value={c.displayName}>{c.displayName}</option>)}
+                          </select>
+                        </td>
+                        <td className="py-2 px-2">
+                          <select className="w-full px-2 py-1.5 text-[12px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400">
+                            <option value="">Select</option>
+                          </select>
+                        </td>
+                        <td className="py-2 px-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={row.billable}
+                            onChange={(e) => handleBulkRowChange(row.id, "billable", e.target.checked)}
+                            className="rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                          />
+                        </td>
+                        <td className="py-2 px-2">
+                          <div className="flex items-center gap-1">
+                            <button type="button" className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                              <Tag size={10} /> Tags
+                            </button>
+                            <button type="button" className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded transition-colors">
+                              <MoreHorizontal size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pt-3 pb-5">
+                <button
+                  type="button"
+                  onClick={addBulkRow}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <Plus size={13} /> Add row
+                </button>
+              </div>
+            </Surface>
+          )}
+
+          {/* ---- Footer ---- */}
+          <div className="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-gradient-to-t from-slate-50 dark:from-slate-950 via-slate-50/95 dark:via-slate-950/95 to-transparent">
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => navigate("/admin/accounts/purchases/expenses")}
+                className="px-3 py-2 text-[12.5px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              {activeTab !== "Bulk add expenses" && (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className="px-3 py-2 text-[12.5px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Save &amp; new
+                </button>
+              )}
+              <button
+                type="submit"
+                className="px-3 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+              >
+                {id ? "Save changes" : "Save"}
+              </button>
             </div>
           </div>
-        )}
-
-        {/* === TAB 3: BULK ADD EXPENSES === */}
-        {activeTab === "Bulk Add Expenses" && (
-          <div className="py-6 px-8 w-full overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap min-w-[1200px]">
-              <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 font-semibold uppercase tracking-wider">
-                 <tr>
-                    <th className="px-3 py-3 w-10"></th>
-                    <th className="px-3 py-3 text-red-500">Date*</th>
-                    <th className="px-3 py-3 text-red-500">Expense Account*</th>
-                    <th className="px-3 py-3 text-red-500">Amount*</th>
-                    <th className="px-3 py-3 text-red-500">Paid Through*</th>
-                    <th className="px-3 py-3">Vendor</th>
-                    <th className="px-3 py-3">Customer Name</th>
-                    <th className="px-3 py-3">Projects</th>
-                    <th className="px-3 py-3 text-center">Billable</th>
-                    <th className="px-3 py-3">Reporting Tags</th>
-                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60 bg-white dark:bg-gray-800">
-                 {bulkRows.map((row, index) => (
-                    <tr key={row.id}>
-                       <td className="px-3 py-2 text-center text-gray-400">
-                           <button type="button" onClick={() => removeBulkRow(row.id)} className="hover:text-red-500 transition-colors">
-                               <Trash2 size={16} />
-                           </button>
-                       </td>
-                       <td className="px-3 py-2">
-                          <input type="date" className={`${inputCls} py-1.5 px-2 text-sm`} value={row.date} onChange={(e) => handleBulkRowChange(row.id, "date", e.target.value)} />
-                       </td>
-                       <td className="px-3 py-2">
-                          <select className={`${inputCls} py-1.5 px-2 text-sm`} value={row.expenseAccount} onChange={(e) => handleBulkRowChange(row.id, "expenseAccount", e.target.value)}>
-                              <option value="">Select an account</option>
-                              {EXPENSE_ACCOUNTS.map(acc => <option key={acc.value} value={acc.value}>{acc.label}</option>)}
-                          </select>
-                       </td>
-                       <td className="px-3 py-2">
-                          <div className="flex">
-                              <select className="px-2 border border-r-0 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-500 text-sm rounded-l-md outline-none">
-                                  <option>INR</option>
-                              </select>
-                              <input type="number" className={`${inputCls} rounded-l-none py-1.5 px-2 text-sm`} value={row.amount} onChange={(e) => handleBulkRowChange(row.id, "amount", e.target.value)} />
-                          </div>
-                       </td>
-                       <td className="px-3 py-2">
-                          <select className={`${inputCls} py-1.5 px-2 text-sm`} value={row.paidThrough} onChange={(e) => handleBulkRowChange(row.id, "paidThrough", e.target.value)}>
-                              <option value="">Select an account</option>
-                              {PAID_THROUGH_ACCOUNTS.map(acc => <option key={acc.value} value={acc.value}>{acc.label}</option>)}
-                          </select>
-                       </td>
-                       <td className="px-3 py-2">
-                          <select className={`${inputCls} py-1.5 px-2 text-sm`} value={row.vendor} onChange={(e) => handleBulkRowChange(row.id, "vendor", e.target.value)}>
-                              <option value="">Select</option>
-                              {vendors.map(v => <option key={v.id} value={v.displayName}>{v.displayName}</option>)}
-                          </select>
-                       </td>
-                       <td className="px-3 py-2">
-                          <select className={`${inputCls} py-1.5 px-2 text-sm`} value={row.customerName} onChange={(e) => handleBulkRowChange(row.id, "customerName", e.target.value)}>
-                              <option value="">Select</option>
-                              {customers.map(c => <option key={c.id} value={c.displayName}>{c.displayName}</option>)}
-                          </select>
-                       </td>
-                       <td className="px-3 py-2">
-                          <select className={`${inputCls} py-1.5 px-2 text-sm`}>
-                              <option value="">Select</option>
-                          </select>
-                       </td>
-                       <td className="px-3 py-2 text-center">
-                          <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4" checked={row.billable} onChange={(e) => handleBulkRowChange(row.id, "billable", e.target.checked)} />
-                       </td>
-                       <td className="px-3 py-2">
-                          <button type="button" className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                              <TagIcon size={12} className="text-gray-400"/> Associate Tags
-                          </button>
-                          <button type="button" className="ml-2 text-gray-400 hover:text-gray-700"><MoreHorizontal size={16}/></button>
-                       </td>
-                    </tr>
-                 ))}
-              </tbody>
-            </table>
-            
-            <button type="button" onClick={addBulkRow} className="mt-4 text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1">
-               <Plus size={14} /> Add More Expenses
-            </button>
-          </div>
-        )}
-
-      </form>
-
-      {/* Footer Actions */}
-      <div className="border-t border-gray-200 dark:border-gray-700 py-4 bg-gray-50 dark:bg-gray-800/50 flex justify-start gap-3 sticky bottom-0 z-10 px-8 mt-auto">
-        <Button onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700 text-white px-6">
-          Save (Alt+S)
-        </Button>
-        {activeTab !== "Bulk Add Expenses" && (
-           <Button onClick={handleSubmit} variant="secondary" className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 px-6">
-             Save and New (Alt+N)
-           </Button>
-        )}
-        <Button variant="secondary" onClick={() => navigate("/admin/accounts/purchases/expenses")} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 px-6">
-          Cancel
-        </Button>
+        </form>
       </div>
     </div>
   );
 };
-
-// Simple icon for Reporting Tags
-const TagIcon = ({ size = 24, className = "" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-        <line x1="7" y1="7" x2="7.01" y2="7"></line>
-    </svg>
-);
 
 export default ExpenseForm;

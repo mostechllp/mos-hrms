@@ -335,31 +335,6 @@ const CustomerDetail = () => {
           label="Add Contact"
           onClick={() => setContactModalOpen(true)}
         />
-        <QuickChip
-          icon={Briefcase}
-          label="Add Opportunity"
-          onClick={() => showToast("Add opportunity", "info")}
-        />
-        <QuickChip
-          icon={Phone}
-          label="Schedule Call"
-          onClick={() => showToast("Schedule call", "info")}
-        />
-        <QuickChip
-          icon={CalendarPlus}
-          label="Schedule Meeting"
-          onClick={() => showToast("Schedule meeting", "info")}
-        />
-        <QuickChip
-          icon={FileText}
-          label="Add Note"
-          onClick={() => showToast("Add note", "info")}
-        />
-        <QuickChip
-          icon={Upload}
-          label="Upload Document"
-          onClick={() => showToast("Upload document", "info")}
-        />
       </div>
 
       {/* Info card — all key fields the API returns */}
