@@ -1,345 +1,346 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
-import { 
-  Plus, ChevronDown, RefreshCw, Play, Video, 
-  Settings, Calendar, ArrowRight, 
-  TrendingUp, TrendingDown, FileText, Wallet, 
-  Landmark, AlertCircle, ChevronRight, Download
+import {
+  Plus, RefreshCw, Download, MoreHorizontal, ArrowUpRight, ArrowDownRight,
 } from "lucide-react";
 import { MONTHS } from "./accountsData";
-import { LineChart, BarChart, DonutChart, HBars } from "../../components/accounts/charts";
+import { LineChart, BarChart, DonutChart } from "../../components/accounts/charts";
 import { AccountModal, TransactionModal, JournalModal } from "../../components/accounts/modals";
-import { Card, CardHeader, Button, SelectSm, money, fmtDate } from "../../components/accounts/ui";
+import { money } from "../../components/accounts/ui";
 
-const PALETTE = ["#2563eb", "#f59e0b", "#16a34a", "#8b5cf6", "#ef4444", "#14b8a6", "#6b7280"];
-const AGE_COLORS = ["#16a34a", "#84cc16", "#f59e0b", "#f97316", "#ef4444"];
+const PALETTE = ["#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444", "#14b8a6", "#64748b"];
 
-// --- MOCK DATA FOR VISUALIZATION (Fallback if Redux is empty) ---
 const MOCK_MONTHLY = {
-  income: [45000, 52000, 48000, 61000, 55000, 67000, 72000, 68000, 75000, 81000, 78000, 85000],
-  expenses: [32000, 35000, 31000, 38000, 34000, 41000, 39000, 42000, 40000, 45000, 43000, 46000]
+  income:   [45000, 52000, 48000, 61000, 55000, 67000, 72000, 68000, 75000, 81000, 78000, 85000],
+  expenses: [32000, 35000, 31000, 38000, 34000, 41000, 39000, 42000, 40000, 45000, 43000, 46000],
 };
 const MOCK_CASH_TREND = [15000, 17000, 16000, 23000, 21000, 26000, 33000, 26000, 35000, 36000, 35000, 39000];
 
+/* ---------- Small primitives ---------- */
+
+const Surface = ({ children, className = "" }) => (
+  <div className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}>
+    {children}
+  </div>
+);
+
+const SectionHeader = ({ title, subtitle, action }) => (
+  <div className="flex items-start justify-between px-5 pt-5 pb-3">
+    <div>
+      <h3 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">{title}</h3>
+      {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
+    </div>
+    {action}
+  </div>
+);
+
+const PillSelect = ({ value, onChange, options }) => (
+  <select
+    value={value}
+    onChange={onChange}
+    className="text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-md px-2.5 py-1.5 border-0 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer"
+  >
+    {options.map((o) => <option key={o}>{o}</option>)}
+  </select>
+);
+
+const Trend = ({ value }) => {
+  const positive = value >= 0;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${positive ? "text-emerald-600" : "text-rose-600"}`}>
+      {positive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+      {Math.abs(value)}%
+    </span>
+  );
+};
+
+/* ---------- Dashboard ---------- */
+
 const AccountsDashboard = () => {
   const reduxData = useSelector((s) => s.accounts);
-  
-  // Use Redux data if available, otherwise use mock data for visualization
-  const accounts = reduxData?.accounts || [];
-  const expenses = reduxData?.expenses || [];
-  const incomes = reduxData?.incomes || [];
-  const metrics = reduxData?.metrics || { deltas: { receivables: 12, payables: -5 }, spark: { receivables: [1,2,3,4,5], payables: [5,4,3,2,1] } };
-  const monthly = reduxData?.monthly || MOCK_MONTHLY;
-  const cashTrend = reduxData?.cashTrend || MOCK_CASH_TREND;
-  const bankAccounts = reduxData?.bankAccounts || [];
-  const agingReceivables = reduxData?.agingReceivables || { buckets: ["Current", "1-30", "31-60", "61-90", "90+"], rows: [{ values: [15000, 2000, 1000, 0, 0] }] };
-  const agingPayables = reduxData?.agingPayables || { buckets: ["Current", "1-30", "31-60", "61-90", "90+"], rows: [{ values: [8000, 1500, 0, 0, 0] }] };
+  const accounts   = reduxData?.accounts || [];
+  const monthly    = reduxData?.monthly || MOCK_MONTHLY;
+  const cashTrend  = reduxData?.cashTrend || MOCK_CASH_TREND;
 
-  // Local state for display
   const [modal, setModal] = useState(null);
   const [dateRange, setDateRange] = useState("This Fiscal Year");
-  
-  // Hardcoded totals for the Zoho-style top cards
-  const totalReceivables = 18500; 
-  const totalPayables = 9500;
+
+  // Totals (kept as-is per your flow)
+  const totalReceivables  = 18500;
+  const totalPayables     = 9500;
   const currentReceivable = 15000;
   const overdueReceivable = 3500;
-  const currentPayable = 8000;
-  const overduePayable = 1500;
+  const currentPayable    = 8000;
+  const overduePayable    = 1500;
 
-  // Chart Data Prep
   const labels = MONTHS.slice(-12);
-  const inc = monthly.income.slice(-12) || [];
+  const inc = monthly.income.slice(-12)   || [];
   const exp = monthly.expenses.slice(-12) || [];
   const totalInc = inc.reduce((a, b) => a + b, 0);
   const totalExp = exp.reduce((a, b) => a + b, 0);
 
   const expenseSlices = useMemo(() => {
-    const list = accounts.filter((a) => a.type === "Expense" && a.balance > 0).sort((a, b) => b.balance - a.balance);
-    if (list.length === 0) {
-        // Mock expense breakdown for visualization
-        return [
-            { label: "Payroll", value: 25000, color: PALETTE[0] },
-            { label: "Rent", value: 8000, color: PALETTE[1] },
-            { label: "Software", value: 5000, color: PALETTE[2] },
-            { label: "Marketing", value: 4000, color: PALETTE[3] },
-        ];
+    const list = accounts.filter((a) => a.type === "Expense" && a.balance > 0);
+    if (!list.length) {
+      return [
+        { label: "Payroll",   value: 25000, color: PALETTE[0] },
+        { label: "Rent",      value: 8000,  color: PALETTE[1] },
+        { label: "Software",  value: 5000,  color: PALETTE[2] },
+        { label: "Marketing", value: 4000,  color: PALETTE[3] },
+      ];
     }
-    return list.map((a, i) => ({ label: a.name, value: a.balance, color: PALETTE[Math.min(i, PALETTE.length - 1)] }));
+    return list.map((a, i) => ({ label: a.name, value: a.balance, color: PALETTE[i % PALETTE.length] }));
   }, [accounts]);
-  
   const expTotal = expenseSlices.reduce((s, d) => s + d.value, 0);
 
-  const bucketTotals = (ag) => ag.buckets.map((b, i) => ({ label: b, value: ag.rows.reduce((t, r) => t + r.values[i], 0), color: AGE_COLORS[i] }));
-  const arBuckets = bucketTotals(agingReceivables);
-  const apBuckets = bucketTotals(agingPayables);
-
   return (
-    <div className="space-y-4 bg-gray-50/50 dark:bg-gray-900/20 min-h-screen pb-10">
-      
-      {/* 1. WELCOME HEADER */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 font-bold text-lg">
-            F
-          </div>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-12">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+
+        {/* ---- Header ---- */}
+        <header className="pt-8 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-xl font-normal text-gray-800 dark:text-gray-100">
-              Hello, <span className="font-semibold">Joe Doe</span>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Accounts</p>
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-1">
+              Overview
             </h1>
-            <p className="text-xs text-gray-500">Fidha</p>
+            <p className="text-[13px] text-slate-500 mt-1">Financial snapshot for the current fiscal year</p>
           </div>
-        </div>
-        <div className="text-right text-xs text-gray-500 hidden sm:block">
-          <p>Zoho Books India Helpline: <span className="font-semibold text-gray-700 dark:text-gray-300">18003093036</span></p>
-          <p>Mon - Fri | 9:30 AM - 7:00 PM | Toll Free</p>
-        </div>
-      </div>
 
-      {/* 2. TOP TABS & ACTIONS */}
-      <div className="px-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex gap-6 border-b border-gray-200 dark:border-gray-700 w-full md:w-auto">
-          <button className="pb-3 text-sm font-medium text-blue-600 border-b-2 border-blue-600">Dashboard</button>
-        </div>
-        
-        {/* Quick Actions Row */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
-           <Button onClick={() => setModal("income")} className="whitespace-nowrap bg-blue-600 hover:bg-blue-700">
-             <Plus size={14} /> New
-           </Button>
-           <Button variant="secondary" className="whitespace-nowrap bg-white dark:bg-gray-800"><RefreshCw size={14} /> Refresh</Button>
-           <Button variant="secondary" className="whitespace-nowrap bg-white dark:bg-gray-800"><Play size={14} /> Run Auto-Scan</Button>
-           <Button variant="secondary" className="whitespace-nowrap bg-white dark:bg-gray-800"><Video size={14} /> Live Webinar</Button>
-           <Button variant="secondary" className="whitespace-nowrap bg-white dark:bg-gray-800"><Settings size={14} /> Configure</Button>
-        </div>
-      </div>
+          <div className="flex items-center gap-2">
+            <PillSelect value={dateRange} onChange={(e) => setDateRange(e.target.value)}
+              options={["This Fiscal Year", "Last Fiscal Year", "Custom"]} />
+            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+              <RefreshCw size={13} /> Refresh
+            </button>
+            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+              <Download size={13} /> Export
+            </button>
+            <button
+              onClick={() => setModal("income")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+            >
+              <Plus size={13} /> New
+            </button>
+          </div>
+        </header>
 
-      <div className="px-6 space-y-5">
-        
-        {/* 3. RECEIVABLES & PAYABLES CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Receivables */}
-          <Card className="p-0 border-t-4 border-t-blue-500 shadow-sm">
-            <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Total Receivables</h3>
-              <button className="text-xs text-blue-600 font-medium hover:underline flex items-center gap-1"><Plus size={12}/> New</button>
+        {/* ---- KPI Row ---- */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <KpiCard label="Total Receivables" value={totalReceivables} trend={12}
+            sub={`${money(overdueReceivable)} overdue`} />
+          <KpiCard label="Total Payables" value={totalPayables} trend={-5}
+            sub={`${money(overduePayable)} overdue`} />
+          <KpiCard label="Cash Position" value={totalInc - totalExp} trend={8}
+            sub="Incoming − Outgoing" />
+          <KpiCard label="Net Revenue" value={totalInc - totalExp} trend={6}
+            sub="Income − Expenses" />
+        </div>
+
+        {/* ---- Receivables / Payables split ---- */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+          <LedgerSplit
+            title="Receivables"
+            total={totalReceivables}
+            rows={[
+              { label: "Current", value: currentReceivable, color: "bg-blue-500" },
+              { label: "Overdue", value: overdueReceivable, color: "bg-amber-500" },
+            ]}
+          />
+          <LedgerSplit
+            title="Payables"
+            total={totalPayables}
+            rows={[
+              { label: "Current", value: currentPayable, color: "bg-blue-500" },
+              { label: "Overdue", value: overduePayable, color: "bg-amber-500" },
+            ]}
+          />
+        </div>
+
+        {/* ---- Cash Flow ---- */}
+        <Surface className="mb-4">
+          <SectionHeader title="Cash Flow" subtitle="Monthly movement over the fiscal year" />
+          <div className="px-5 pb-5 flex flex-col lg:flex-row gap-6">
+            <div className="flex-1 min-w-0">
+              <LineChart labels={labels}
+                series={[{ name: "Cash", color: "#3b82f6", values: cashTrend }]} height={260} />
             </div>
-            <div className="p-5">
-              <div className="flex justify-between items-end mb-6">
+            <div className="lg:w-56 flex lg:flex-col gap-4 lg:gap-0 lg:divide-y lg:divide-slate-100 dark:lg:divide-slate-800">
+              <StatLine label="Incoming" value={money(totalInc)} tone="pos" />
+              <StatLine label="Outgoing" value={money(totalExp)} tone="neg" />
+              <StatLine label="Net" value={money(totalInc - totalExp)} tone="accent" strong />
+            </div>
+          </div>
+        </Surface>
+
+        {/* ---- Income/Expense + Top Expenses ---- */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+          <Surface>
+            <SectionHeader
+              title="Income vs Expenses"
+              subtitle="Monthly comparison"
+              action={
+                <div className="flex gap-3 text-[11px] text-slate-500">
+                  <span className="flex items-center gap-1.5"><i className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Income</span>
+                  <span className="flex items-center gap-1.5"><i className="w-1.5 h-1.5 rounded-full bg-rose-500" />Expense</span>
+                </div>
+              }
+            />
+            <div className="px-5 pb-5">
+              <div className="flex gap-8 mb-5">
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Total Unpaid Invoices</p>
-                  <p className="text-3xl font-light text-gray-900 dark:text-white">{money(totalReceivables)}</p>
+                  <p className="text-[11px] text-slate-500">Total income</p>
+                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-100 tabular-nums">{money(totalInc)}</p>
                 </div>
-                <div className="flex gap-4 text-sm text-right">
-                  <div>
-                    <p className="text-[11px] text-gray-500 flex items-center gap-1 justify-end"><span className="w-2 h-2 rounded-full bg-blue-500"></span> Current</p>
-                    <p className="font-semibold">{money(currentReceivable)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-gray-500 flex items-center gap-1 justify-end"><span className="w-2 h-2 rounded-full bg-orange-500"></span> Overdue</p>
-                    <p className="font-semibold text-orange-600">{money(overdueReceivable)}</p>
-                  </div>
-                </div>
-              </div>
-              {/* Progress Bar */}
-              <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-gray-700 flex overflow-hidden">
-                <div className="bg-blue-500 h-full" style={{ width: `${(currentReceivable/totalReceivables)*100}%` }}></div>
-                <div className="bg-orange-500 h-full" style={{ width: `${(overdueReceivable/totalReceivables)*100}%` }}></div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Payables */}
-          <Card className="p-0 border-t-4 border-t-orange-500 shadow-sm">
-            <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Total Payables</h3>
-              <button className="text-xs text-blue-600 font-medium hover:underline flex items-center gap-1"><Plus size={12}/> New</button>
-            </div>
-            <div className="p-5">
-              <div className="flex justify-between items-end mb-6">
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Total Unpaid Bills</p>
-                  <p className="text-3xl font-light text-gray-900 dark:text-white">{money(totalPayables)}</p>
-                </div>
-                <div className="flex gap-4 text-sm text-right">
-                  <div>
-                    <p className="text-[11px] text-gray-500 flex items-center gap-1 justify-end"><span className="w-2 h-2 rounded-full bg-blue-500"></span> Current</p>
-                    <p className="font-semibold">{money(currentPayable)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-gray-500 flex items-center gap-1 justify-end"><span className="w-2 h-2 rounded-full bg-orange-500"></span> Overdue</p>
-                    <p className="font-semibold text-orange-600">{money(overduePayable)}</p>
-                  </div>
+                  <p className="text-[11px] text-slate-500">Total expenses</p>
+                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-100 tabular-nums">{money(totalExp)}</p>
                 </div>
               </div>
-              {/* Progress Bar */}
-              <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-gray-700 flex overflow-hidden">
-                <div className="bg-blue-500 h-full" style={{ width: `${(currentPayable/totalPayables)*100}%` }}></div>
-                <div className="bg-orange-500 h-full" style={{ width: `${(overduePayable/totalPayables)*100}%` }}></div>
-              </div>
+              <BarChart labels={labels} height={220}
+                series={[
+                  { name: "Income",   color: "#10b981", values: inc },
+                  { name: "Expenses", color: "#f43f5e", values: exp },
+                ]} />
             </div>
-          </Card>
-        </div>
+          </Surface>
 
-        {/* 4. CASH FLOW CHART */}
-        <Card className="p-0 shadow-sm">
-          <div className="p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-700">
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Cash Flow</h3>
-            <SelectSm value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="border-none bg-transparent font-medium">
-              <option>This Fiscal Year</option>
-              <option>Last Fiscal Year</option>
-            </SelectSm>
-          </div>
-          <div className="p-5 flex flex-col lg:flex-row gap-6">
-            <div className="flex-1">
-              <LineChart labels={labels} series={[{ name: "Cash Flow", color: "#2563eb", values: cashTrend }]} height={280} />
-            </div>
-            <div className="w-full lg:w-64 space-y-4 pt-4">
-                <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-700">
-                    <span className="text-xs text-gray-500 flex items-center gap-2"><span className="w-2 h-2 bg-blue-500 rounded-full"></span> Incoming</span>
-                    <span className="text-sm font-semibold text-green-600">{money(totalInc)} (+)</span>
-                </div>
-                <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-700">
-                    <span className="text-xs text-gray-500 flex items-center gap-2"><span className="w-2 h-2 bg-red-500 rounded-full"></span> Outgoing</span>
-                    <span className="text-sm font-semibold text-red-600">{money(totalExp)} (-)</span>
-                </div>
-                <div className="flex justify-between items-center pt-2">
-                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Cash as on 31/03/2026</span>
-                    <span className="text-sm font-bold text-blue-600">{money(totalInc - totalExp)} (=)</span>
-                </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* 5. INCOME/EXPENSE & TOP EXPENSES ROW */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Income and Expense */}
-          <Card className="p-0 shadow-sm">
-            <div className="p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-700">
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Income and Expense</h3>
-              <SelectSm value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="border-none bg-transparent font-medium">
-                <option>This Fiscal Year</option>
-              </SelectSm>
-            </div>
-            <div className="p-5">
-              <div className="flex justify-between items-center mb-6">
-                <div className="flex gap-6">
-                  <div>
-                    <p className="text-xs text-gray-500 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> Total Income</p>
-                    <p className="text-lg font-semibold">{money(totalInc)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Total Expenses</p>
-                    <p className="text-lg font-semibold">{money(totalExp)}</p>
-                  </div>
-                </div>
-                <div className="bg-gray-100 dark:bg-gray-700 p-0.5 rounded text-[10px] font-medium">
-                  <button className="px-2 py-1 bg-white dark:bg-gray-600 rounded shadow-sm">Accrual</button>
-                  <button className="px-2 py-1 text-gray-500">Cash</button>
-                </div>
-              </div>
-              <BarChart labels={labels} series={[{ name: "Income", color: "#16a34a", values: inc }, { name: "Expenses", color: "#f59e0b", values: exp }]} height={240} />
-              <p className="text-[10px] text-gray-400 mt-2 text-center">* Income and expense values displayed are exclusive of taxes.</p>
-            </div>
-          </Card>
-
-          {/* Top Expenses */}
-          <Card className="p-0 shadow-sm">
-            <div className="p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-700">
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Top Expenses</h3>
-              <SelectSm value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="border-none bg-transparent font-medium">
-                <option>This Fiscal Year</option>
-              </SelectSm>
-            </div>
-            <div className="p-5 flex flex-col items-center justify-center min-h-[300px]">
+          <Surface>
+            <SectionHeader title="Top Expenses" subtitle="Share of total spend" />
+            <div className="px-5 pb-6">
               {expenseSlices.length > 0 ? (
-                <div className="w-full flex flex-col items-center gap-6">
-                  <DonutChart data={expenseSlices} centerTop={money(expTotal)} centerBottom="Total expenses" size={200} thickness={25} />
-                  <div className="w-full grid grid-cols-2 gap-3">
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  <DonutChart data={expenseSlices} centerTop={money(expTotal)} centerBottom="total" size={170} thickness={22} />
+                  <div className="flex-1 w-full space-y-2.5">
                     {expenseSlices.map((d, i) => (
-                      <div key={i} className="flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-2 text-gray-600 dark:text-gray-300 truncate">
+                      <div key={i} className="flex items-center justify-between text-[12px]">
+                        <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300 min-w-0">
                           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
                           <span className="truncate">{d.label}</span>
                         </span>
-                        <span className="font-semibold text-gray-800 dark:text-gray-100">{((d.value / expTotal) * 100).toFixed(0)}%</span>
+                        <span className="font-medium text-slate-900 dark:text-slate-100 tabular-nums">
+                          {((d.value / expTotal) * 100).toFixed(0)}%
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-400">No Expense recorded for this fiscal year</p>
+                <p className="text-[13px] text-slate-400 py-8 text-center">No expense recorded</p>
               )}
             </div>
-          </Card>
+          </Surface>
         </div>
 
-        {/* 6. PROJECTS & BANK/CARDS */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <Card className="p-0 shadow-sm min-h-[200px] flex flex-col">
-             <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Projects</h3>
-            </div>
-            <div className="flex-1 flex items-center justify-center p-6">
-              <button className="text-sm text-blue-600 font-medium hover:underline">Add Project(s) to this watchlist</button>
-            </div>
-          </Card>
-
-          <Card className="p-0 shadow-sm min-h-[200px] flex flex-col">
-             <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Bank and Credit Cards</h3>
-            </div>
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-              <p className="text-xs text-gray-500 mb-2">Yet to add Bank and Credit Card details</p>
-              <button className="text-sm text-blue-600 font-medium hover:underline">Add Bank Account</button>
-            </div>
-          </Card>
-        </div>
-
-        {/* 7. ACCOUNT WATCHLIST */}
-        <Card className="p-0 shadow-sm min-h-[250px]">
-          <div className="p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-700">
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Account Watchlist</h3>
-            <SelectSm className="border-none bg-transparent font-medium text-xs">
-                <option>Accrual</option>
-            </SelectSm>
-          </div>
-          <div className="p-0 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-800/50 text-xs text-gray-500 border-b border-gray-100 dark:border-gray-700">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Account</th>
-                  <th className="px-4 py-3 font-medium text-right">Debit</th>
-                  <th className="px-4 py-3 font-medium text-right">Credit</th>
-                  <th className="px-4 py-3 font-medium text-right">Net</th>
+        {/* ---- Watchlist ---- */}
+        <Surface>
+          <SectionHeader
+            title="Account Watchlist"
+            subtitle="Debit / credit summary by account"
+            action={<PillSelect value="Accrual" onChange={() => {}} options={["Accrual", "Cash"]} />}
+          />
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12.5px]">
+              <thead>
+                <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-y border-slate-100 dark:border-slate-800">
+                  <th className="text-left  font-medium px-5 py-2.5">Account</th>
+                  <th className="text-right font-medium px-5 py-2.5">Debit</th>
+                  <th className="text-right font-medium px-5 py-2.5">Credit</th>
+                  <th className="text-right font-medium px-5 py-2.5">Net</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {/* Mock Rows for visual */}
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {[
-                  { name: "Sales", debit: "0.00", credit: "45,000.00", net: "45,000.00" },
-                  { name: "Cost of Goods Sold", debit: "12,500.00", credit: "0.00", net: "-12,500.00" },
-                  { name: "Rent Expense", debit: "5,000.00", credit: "0.00", net: "-5,000.00" },
+                  { name: "Sales",               debit: "0.00",       credit: "45,000.00", net: "45,000.00" },
+                  { name: "Cost of Goods Sold",  debit: "12,500.00",  credit: "0.00",       net: "-12,500.00" },
+                  { name: "Rent Expense",        debit: "5,000.00",   credit: "0.00",       net: "-5,000.00" },
                 ].map((row, i) => (
-                  <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 font-medium">{row.name}</td>
-                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{row.debit}</td>
-                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{row.credit}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{row.net}</td>
+                  <tr key={i} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="px-5 py-3 font-medium text-slate-700 dark:text-slate-200">{row.name}</td>
+                    <td className="px-5 py-3 text-right text-slate-500 tabular-nums">{row.debit}</td>
+                    <td className="px-5 py-3 text-right text-slate-500 tabular-nums">{row.credit}</td>
+                    <td className={`px-5 py-3 text-right font-semibold tabular-nums ${row.net.startsWith("-") ? "text-rose-600" : "text-slate-900 dark:text-slate-100"}`}>
+                      {row.net}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </Card>
+        </Surface>
 
       </div>
 
       {/* Modals */}
-      <TransactionModal kind="income" open={modal === "income"} onClose={() => setModal(null)} />
+      <TransactionModal kind="income"  open={modal === "income"}  onClose={() => setModal(null)} />
       <TransactionModal kind="expense" open={modal === "expense"} onClose={() => setModal(null)} />
       <JournalModal open={modal === "journal"} onClose={() => setModal(null)} />
       <AccountModal open={modal === "account"} onClose={() => setModal(null)} />
+    </div>
+  );
+};
+
+/* ---------- Sub-components ---------- */
+
+const KpiCard = ({ label, value, trend, sub }) => (
+  <Surface className="p-5">
+    <div className="flex items-center justify-between mb-2">
+      <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">{label}</p>
+      <Trend value={trend} />
+    </div>
+    <p className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">
+      {money(value)}
+    </p>
+    <p className="text-[11.5px] text-slate-500 mt-1">{sub}</p>
+  </Surface>
+);
+
+const LedgerSplit = ({ title, total, rows }) => (
+  <Surface className="p-5">
+    <div className="flex items-center justify-between mb-4">
+      <div>
+        <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">{title}</p>
+        <p className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight mt-1">
+          {money(total)}
+        </p>
+      </div>
+      <button className="text-[11px] font-medium text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors inline-flex items-center gap-1">
+        View <ArrowUpRight size={12} />
+      </button>
+    </div>
+
+    <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 flex overflow-hidden mb-3">
+      {rows.map((r, i) => (
+        <div key={i} className={`${r.color} h-full`} style={{ width: `${(r.value / total) * 100}%` }} />
+      ))}
+    </div>
+
+    <div className="grid grid-cols-2 gap-3">
+      {rows.map((r, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className={`w-1.5 h-1.5 rounded-full ${r.color}`} />
+          <span className="text-[11.5px] text-slate-500">{r.label}</span>
+          <span className="ml-auto text-[12px] font-medium text-slate-900 dark:text-slate-100 tabular-nums">
+            {money(r.value)}
+          </span>
+        </div>
+      ))}
+    </div>
+  </Surface>
+);
+
+const StatLine = ({ label, value, tone, strong }) => {
+  const toneCls =
+    tone === "pos"    ? "text-emerald-600" :
+    tone === "neg"    ? "text-rose-600"    :
+    tone === "accent" ? "text-blue-600"    :
+                        "text-slate-900 dark:text-slate-100";
+  return (
+    <div className="flex items-center justify-between lg:py-3">
+      <span className="text-[11.5px] text-slate-500">{label}</span>
+      <span className={`text-[13px] tabular-nums ${strong ? "font-semibold" : "font-medium"} ${toneCls}`}>
+        {value}
+      </span>
     </div>
   );
 };

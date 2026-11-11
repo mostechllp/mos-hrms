@@ -1,34 +1,64 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { 
+import {
   Home, Star, Share2, User, Clock, Search, Plus, MoreHorizontal,
-  Folder, ChevronRight, ChevronDown, Download, Printer, RotateCcw,
-  X, Filter, FileText, Settings, Play, ArrowRight, BarChart2,
-  FilePlus, Shield, Info, Menu
+  Folder, ChevronDown, Printer, RotateCcw, X, Filter, FileText,
+  Settings, Play, BarChart2, Menu, Share, Layers,
 } from "lucide-react";
 import { reportsCategories, allReports, pnlData } from "../../utils/reportsData";
 
-const ReportsCenterPage = () => {
-  const navigate = useNavigate();
+/* ---------- primitives ---------- */
 
-  // Sidebar State
+const GhostBtn = ({ children, className = "", ...props }) => (
+  <button
+    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${className}`}
+    {...props}
+  >
+    {children}
+  </button>
+);
+
+const Surface = ({ children, className = "" }) => (
+  <div
+    className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}
+  >
+    {children}
+  </div>
+);
+
+const SectionLabel = ({ children }) => (
+  <h3 className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">
+    {children}
+  </h3>
+);
+
+const EmptyState = ({ icon: Icon, title, message, action }) => (
+  <Surface className="py-16 px-6">
+    <div className="max-w-md mx-auto text-center">
+      <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+        <Icon size={22} className="text-slate-400" />
+      </div>
+      <h3 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100">
+        {title}
+      </h3>
+      <p className="text-[12.5px] text-slate-500 mt-1.5 mb-5">{message}</p>
+      {action}
+    </div>
+  </Surface>
+);
+
+/* ---------- page ---------- */
+
+const ReportsCenterPage = () => {
   const [activeTab, setActiveTab] = useState("Home");
   const [selectedCategory, setSelectedCategory] = useState("All Reports");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  
-  // Modals & Views
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewingReport, setIsViewingReport] = useState(false);
   const [reportViewMode, setReportViewMode] = useState("Table");
-  
-  // Create Report Modal State
   const [creationMode, setCreationMode] = useState("existing");
   const [selectedBaseReport, setSelectedBaseReport] = useState("");
-
-  // Filter/Search
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filter logic
   const filteredReports = allReports.filter((report) => {
     const matchesSearch = report.name.toLowerCase().includes(searchQuery.toLowerCase());
     if (selectedCategory === "All Reports") return matchesSearch;
@@ -36,386 +66,692 @@ const ReportsCenterPage = () => {
     return matchesSearch && report.category === selectedCategory;
   });
 
-  // --- RENDER: REPORT VIEW ---
+  /* =====================================================
+     RENDER: REPORT VIEW
+  ===================================================== */
   if (isViewingReport) {
     return (
-      <div className="bg-white min-h-screen relative flex flex-col font-sans">
-        
-        {/* Report Header */}
-        <div className="px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between border-b border-gray-200 bg-gray-50 gap-3">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setIsViewingReport(false)} className="p-1.5 text-gray-500 hover:bg-gray-200 rounded border border-gray-300">
-              <FileText size={20} />
-            </button>
-            <div>
-              <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Business Overview</p>
-              <h1 className="text-base md:text-lg font-medium text-gray-800 flex flex-wrap items-center gap-2">
-                Profit and Loss <span className="text-gray-400 font-normal text-xs md:text-sm">• From 01/10/2026 To 31/10/2026</span>
-              </h1>
+      <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-12">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+
+          {/* Header */}
+          <header className="pt-8 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <button
+                onClick={() => setIsViewingReport(false)}
+                className="p-2 mt-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors shrink-0"
+                aria-label="Back"
+              >
+                <FileText size={16} />
+              </button>
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                  Business overview
+                </p>
+                <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-1">
+                  Profit and loss
+                </h1>
+                <p className="text-[13px] text-slate-500 mt-0.5 tabular-nums">
+                  From 01/10/2026 → 31/10/2026
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-             <button className="p-1.5 border border-gray-300 rounded hover:bg-gray-100 text-gray-600"><Share2 size={16} /></button>
-             <button className="p-1.5 border border-gray-300 rounded hover:bg-gray-100 text-gray-600"><Printer size={16} /></button>
-             <div className="flex rounded border border-gray-300 overflow-hidden bg-white">
-               <button className="px-3 py-1.5 text-sm font-medium hover:bg-gray-50 flex items-center gap-1">Export <ChevronDown size={14}/></button>
-             </div>
-             <button className="p-1.5 border border-gray-300 rounded hover:bg-gray-100 text-gray-600"><RotateCcw size={16} /></button>
-             <button onClick={() => setIsViewingReport(false)} className="p-1.5 border border-gray-300 rounded hover:bg-red-50 text-red-500 ml-auto md:ml-0"><X size={16} /></button>
-          </div>
-        </div>
 
-        {/* Report Filters */}
-        <div className="px-4 md:px-6 py-2 flex flex-wrap items-center gap-2 md:gap-4 border-b border-gray-200 bg-white">
-          <div className="flex items-center gap-2 text-sm text-gray-600 w-full md:w-auto">
-            <Filter size={16} /> Filters :
-          </div>
-          <button className="px-3 py-1.5 text-xs md:text-sm border border-gray-300 rounded flex items-center gap-1 hover:bg-gray-50">Date Range : This Month <ChevronDown size={14}/></button>
-          <button className="px-3 py-1.5 text-xs md:text-sm border border-gray-300 rounded flex items-center gap-1 hover:bg-gray-50">Report Basis : Accrual <ChevronDown size={14}/></button>
-          <button className="px-3 py-1.5 text-xs md:text-sm border border-gray-300 rounded flex items-center gap-1 hover:bg-gray-50"><Plus size={14}/> More Filters</button>
-          
-          <div className="ml-auto flex items-center gap-2">
-             <div className="flex rounded border border-blue-500 overflow-hidden bg-blue-50">
-               <button className="px-4 py-1.5 text-sm font-medium text-blue-700">Run Report</button>
-               <button className="px-2 py-1.5 border-l border-blue-300 text-blue-700"><ChevronDown size={14}/></button>
-             </div>
-          </div>
-        </div>
-
-        {/* View Toggle & Report Content */}
-        <div className="p-4 md:p-6 flex-1 overflow-y-auto bg-white">
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
-            <div className="flex gap-4 border-b border-gray-200">
-              <button onClick={() => setReportViewMode("Table")} className={`pb-2 text-sm font-medium border-b-2 ${reportViewMode === "Table" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>Table View</button>
-              <button onClick={() => setReportViewMode("Chart")} className={`pb-2 text-sm font-medium border-b-2 ${reportViewMode === "Chart" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>Chart View</button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <GhostBtn className="!px-2 border border-slate-200 dark:border-slate-800" aria-label="Share">
+                <Share size={13} />
+              </GhostBtn>
+              <GhostBtn className="!px-2 border border-slate-200 dark:border-slate-800" aria-label="Print">
+                <Printer size={13} />
+              </GhostBtn>
+              <GhostBtn className="border border-slate-200 dark:border-slate-800">
+                Export <ChevronDown size={13} />
+              </GhostBtn>
+              <GhostBtn className="!px-2 border border-slate-200 dark:border-slate-800" aria-label="Refresh">
+                <RotateCcw size={13} />
+              </GhostBtn>
+              <button
+                onClick={() => setIsViewingReport(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
             </div>
-            <div className="flex items-center gap-2 md:gap-4 text-sm text-gray-600 flex-wrap">
-              <button className="flex items-center gap-1 border border-gray-300 px-2 md:px-3 py-1.5 rounded bg-white hover:bg-gray-50 text-xs md:text-sm">Compare With : None <ChevronDown size={14}/></button>
-              <button className="flex items-center gap-1 border border-gray-300 px-2 md:px-3 py-1.5 rounded bg-white hover:bg-gray-50 text-xs md:text-sm">Customize Columns <span className="bg-blue-100 text-blue-600 px-1.5 rounded text-xs font-bold">2</span></button>
-              <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50"><Settings size={16}/></button>
+          </header>
+
+          {/* Filters bar */}
+          <Surface className="px-4 py-3 mb-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-500 uppercase tracking-wider pr-2">
+                <Filter size={12} /> Filters
+              </span>
+              <GhostBtn className="border border-slate-200 dark:border-slate-800">
+                Date range: This month <ChevronDown size={13} />
+              </GhostBtn>
+              <GhostBtn className="border border-slate-200 dark:border-slate-800">
+                Report basis: Accrual <ChevronDown size={13} />
+              </GhostBtn>
+              <GhostBtn className="border border-slate-200 dark:border-slate-800">
+                <Plus size={13} /> More filters
+              </GhostBtn>
+
+              <div className="ml-auto inline-flex items-stretch rounded-lg overflow-hidden">
+                <button className="px-3 py-1.5 text-[12px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors">
+                  Run report
+                </button>
+                <button
+                  className="inline-flex items-center px-2 py-1.5 text-[12px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 border-l border-white/10 dark:border-slate-900/10 transition-colors"
+                  aria-label="More run options"
+                >
+                  <ChevronDown size={13} />
+                </button>
+              </div>
             </div>
-          </div>
+          </Surface>
 
-          <div className="text-center mb-8">
-            <p className="text-sm text-gray-500">Fidha</p>
-            <h2 className="text-xl font-medium text-gray-900 mt-1">Profit and Loss</h2>
-            <p className="text-sm text-gray-500 mt-1">Basis : Accrual</p>
-            <p className="text-sm text-gray-500 mt-1">From 01/10/2026 To 31/10/2026</p>
-          </div>
+          {/* Body */}
+          <div className="space-y-4">
 
-          {reportViewMode === "Table" ? (
-            <div className="max-w-4xl mx-auto overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-gray-500 text-xs font-semibold border-b border-gray-200">
-                  <tr>
-                    <th className="px-4 py-2">ACCOUNT</th>
-                    <th className="px-4 py-2 text-right">TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {pnlData.map((section, idx) => (
-                    <React.Fragment key={idx}>
-                      <tr className={section.isTotalRow ? "font-bold bg-gray-50/30" : ""}>
-                        <td className="px-4 py-3 text-gray-800">{section.section}</td>
-                        <td className="px-4 py-3 text-right text-gray-800">{section.total !== 0 || section.isTotalRow ? section.total.toFixed(2) : ""}</td>
+            {/* View toggle + config */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="inline-flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+                {["Table", "Chart"].map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setReportViewMode(mode)}
+                    className={`px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
+                      reportViewMode === mode
+                        ? "bg-white dark:bg-slate-900 shadow-sm text-slate-800 dark:text-slate-100"
+                        : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    }`}
+                  >
+                    {mode} view
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <GhostBtn className="border border-slate-200 dark:border-slate-800">
+                  Compare with: None <ChevronDown size={13} />
+                </GhostBtn>
+                <GhostBtn className="border border-slate-200 dark:border-slate-800">
+                  Customize columns
+                  <span className="ml-1 px-1.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    2
+                  </span>
+                </GhostBtn>
+                <GhostBtn className="!px-2 border border-slate-200 dark:border-slate-800" aria-label="Settings">
+                  <Settings size={13} />
+                </GhostBtn>
+              </div>
+            </div>
+
+            {/* Report card */}
+            <Surface className="p-6">
+              <div className="text-center mb-8">
+                <p className="text-[12px] text-slate-500">Fidha</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mt-1">
+                  Profit and loss
+                </h2>
+                <p className="text-[12px] text-slate-500 mt-1">Basis: Accrual</p>
+                <p className="text-[12px] text-slate-500 mt-0.5 tabular-nums">
+                  From 01/10/2026 to 31/10/2026
+                </p>
+              </div>
+
+              {reportViewMode === "Table" ? (
+                <div className="max-w-4xl mx-auto overflow-x-auto">
+                  <table className="w-full text-[12.5px] whitespace-nowrap">
+                    <thead>
+                      <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+                        <th className="px-3 py-2.5 text-left font-medium">Account</th>
+                        <th className="px-3 py-2.5 text-right font-medium">Total</th>
                       </tr>
-                      {section.items.map((item, i) => (
-                        <tr key={i} className="hover:bg-blue-50/30">
-                          <td className="px-6 md:px-8 py-2 text-blue-600 hover:underline cursor-pointer">{item.name}</td>
-                          <td className="px-4 py-2 text-right text-gray-800">{item.amount.toFixed(2)}</td>
-                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {pnlData.map((section, idx) => (
+                        <React.Fragment key={idx}>
+                          <tr
+                            className={
+                              section.isTotalRow
+                                ? "font-semibold bg-slate-50/60 dark:bg-slate-800/30"
+                                : ""
+                            }
+                          >
+                            <td className="px-3 py-2.5 text-slate-900 dark:text-slate-100">
+                              {section.section}
+                            </td>
+                            <td className="px-3 py-2.5 text-right text-slate-900 dark:text-slate-100 tabular-nums">
+                              {section.total !== 0 || section.isTotalRow
+                                ? section.total.toFixed(2)
+                                : ""}
+                            </td>
+                          </tr>
+                          {section.items.map((item, i) => (
+                            <tr
+                              key={i}
+                              className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                            >
+                              <td className="px-6 py-2 text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
+                                {item.name}
+                              </td>
+                              <td className="px-3 py-2 text-right text-slate-700 dark:text-slate-200 tabular-nums">
+                                {item.amount.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                          {section.items.length > 0 && (
+                            <tr className="bg-slate-50/50 dark:bg-slate-800/20">
+                              <td className="px-3 py-2 text-slate-700 dark:text-slate-200 font-medium">
+                                Total for {section.section}
+                              </td>
+                              <td className="px-3 py-2 text-right text-slate-700 dark:text-slate-200 font-medium tabular-nums">
+                                {section.total.toFixed(2)}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
-                      {section.items.length > 0 && (
-                        <tr className="bg-gray-50/50">
-                          <td className="px-4 py-2 text-gray-800 font-medium">Total for {section.section}</td>
-                          <td className="px-4 py-2 text-right text-gray-800 font-medium">{section.total.toFixed(2)}</td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="max-w-5xl mx-auto border border-gray-200 rounded-lg bg-white">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between p-4 border-b border-gray-200 gap-3">
-                <div className="flex items-center gap-4 flex-wrap">
-                  <button className="flex items-center gap-1 text-sm text-gray-700">X-axis : <span className="font-semibold">Project</span> <ChevronDown size={14}/></button>
-                  <button className="flex items-center gap-1 text-sm text-gray-700">Y-axis : <span className="font-semibold">Cost of Goods Sold</span> <ChevronDown size={14}/></button>
+                    </tbody>
+                  </table>
                 </div>
-                <div className="flex items-center gap-4">
-                  <button className="text-sm text-blue-600 hover:underline flex items-center gap-1"><Play size={12}/> Set target</button>
-                  <button className="flex items-center gap-1 text-sm text-gray-700"><BarChart2 size={14}/> Bar Chart <ChevronDown size={14}/></button>
-                </div>
-              </div>
-              
-              <div className="h-64 md:h-96 p-4 md:p-6 relative">
-                <div className="absolute left-2 md:left-10 top-0 h-full flex flex-col justify-between text-xs text-gray-400 pb-12 pt-8">
-                   <span>4 K</span><span>3 K</span><span>2 K</span><span>1 K</span><span>0</span>
-                </div>
-                <div className="ml-8 md:ml-12 h-full flex items-end justify-around border-b border-l border-gray-200 pb-2">
-                   <div className="flex flex-col items-center w-full">
-                      <div className="w-12 md:w-16 bg-blue-600 h-[70%] rounded-t hover:opacity-80 transition-opacity relative group cursor-pointer">
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">4,222.00</div>
+              ) : (
+                <div className="max-w-5xl mx-auto">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 mb-4 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <GhostBtn>
+                        X-axis:{" "}
+                        <span className="font-semibold text-slate-800 dark:text-slate-100">
+                          Project
+                        </span>{" "}
+                        <ChevronDown size={13} />
+                      </GhostBtn>
+                      <GhostBtn>
+                        Y-axis:{" "}
+                        <span className="font-semibold text-slate-800 dark:text-slate-100">
+                          Cost of goods sold
+                        </span>{" "}
+                        <ChevronDown size={13} />
+                      </GhostBtn>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <GhostBtn className="text-blue-600 dark:text-blue-400">
+                        <Play size={12} /> Set target
+                      </GhostBtn>
+                      <GhostBtn>
+                        <BarChart2 size={13} /> Bar chart <ChevronDown size={13} />
+                      </GhostBtn>
+                    </div>
+                  </div>
+
+                  <div className="h-64 sm:h-80 relative">
+                    <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-[10px] text-slate-400 dark:text-slate-500 pb-10 tabular-nums">
+                      <span>4 K</span>
+                      <span>3 K</span>
+                      <span>2 K</span>
+                      <span>1 K</span>
+                      <span>0</span>
+                    </div>
+                    <div className="ml-8 h-full flex items-end justify-around border-b border-l border-slate-200 dark:border-slate-800 pb-2">
+                      <div className="flex flex-col items-center w-full">
+                        <div className="w-14 bg-slate-900 dark:bg-slate-100 h-[70%] rounded-t hover:opacity-80 transition-opacity relative group cursor-pointer">
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-slate-700 text-white text-[11px] py-1 px-2 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap tabular-nums">
+                            4,222.00
+                          </div>
+                        </div>
+                        <div className="text-center mt-2">
+                          <p className="text-[12px] text-slate-800 dark:text-slate-100 font-medium">
+                            Project
+                          </p>
+                          <p className="text-[10.5px] text-slate-500">
+                            Not mentioned
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-center mt-2">
-                        <p className="text-xs text-gray-800 font-medium">Project</p>
-                        <p className="text-[10px] text-gray-500">Not mentioned</p>
-                      </div>
-                   </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
+            </Surface>
+          </div>
         </div>
       </div>
     );
   }
 
-  // --- RENDER: MAIN REPORTS PAGE ---
+  /* =====================================================
+     RENDER: MAIN REPORTS PAGE
+  ===================================================== */
+  const NAV_ITEMS = [
+    { name: "Home", icon: Home },
+    { name: "Favorites", icon: Star },
+    { name: "Shared Reports", icon: Share2 },
+    { name: "My Reports", icon: User },
+    { name: "Scheduled Reports", icon: Clock },
+  ];
+
+  const EMPTY_STATES = {
+    Favorites: {
+      icon: Star,
+      title: "No favorite reports yet",
+      message: "Click the star next to a report to pin it here for quick access.",
+    },
+    "Shared Reports": {
+      icon: Share2,
+      title: "No shared reports",
+      message: "Reports shared with you by teammates will show up here.",
+    },
+    "My Reports": {
+      icon: FileText,
+      title: "No custom reports yet",
+      message: "Create a custom report by customizing an existing one.",
+      action: (
+        <button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+        >
+          <Plus size={13} /> Create new report
+        </button>
+      ),
+    },
+    "Scheduled Reports": {
+      icon: Clock,
+      title: "No scheduled reports",
+      message: "Schedule reports to be delivered to your inbox automatically.",
+    },
+  };
+
+  const empty = EMPTY_STATES[activeTab];
+
   return (
-    <div className="bg-[#F8F9FA] min-h-screen flex flex-col font-sans">
-      
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center justify-between gap-3 md:gap-4 shrink-0">
-        <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-          <button 
-            onClick={() => setIsMobileSidebarOpen(true)} 
-            className="md:hidden p-2 border border-gray-300 rounded text-gray-600 hover:bg-gray-50 shrink-0"
-            aria-label="Open menu"
-          >
-            <Menu size={20} />
-          </button>
-          <h1 className="text-base md:text-xl font-medium text-gray-800 truncate">Reports Center</h1>
-        </div>
-        
-        <div className="hidden md:block flex-1 max-w-2xl">
-          <div className="relative w-full">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Search reports" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:border-blue-500 text-sm"
-            />
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 flex flex-col">
+      {/* ---- Header ---- */}
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-4 shrink-0">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="md:hidden p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors shrink-0"
+              aria-label="Open menu"
+            >
+              <Menu size={18} />
+            </button>
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                Accountant
+              </p>
+              <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight truncate mt-0.5">
+                Reports center
+              </h1>
+            </div>
+          </div>
+
+          <div className="hidden md:block flex-1 max-w-md">
+            <div className="relative w-full">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="text"
+                placeholder="Search reports…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-[12.5px] bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+            >
+              <Plus size={13} /> Create report
+            </button>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="md:hidden inline-flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+            >
+              <Plus size={13} />
+            </button>
+            <GhostBtn className="!px-2 border border-slate-200 dark:border-slate-800" aria-label="More">
+              <MoreHorizontal size={16} />
+            </GhostBtn>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={() => setIsCreateModalOpen(true)} className="hidden md:block bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 text-sm font-medium rounded whitespace-nowrap">
-            Create New Report
-          </button>
-          <button onClick={() => setIsCreateModalOpen(true)} className="md:hidden bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-xs font-medium rounded whitespace-nowrap">
-            + New
-          </button>
-          <button className="p-1.5 border border-gray-300 rounded hover:bg-gray-50 text-gray-600 shrink-0"><MoreHorizontal size={18} /></button>
+        {/* Mobile search */}
+        <div className="md:hidden mt-3">
+          <div className="relative w-full">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="text"
+              placeholder="Search reports…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-[12.5px] bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
+            />
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* Mobile Search */}
-      <div className="md:hidden bg-white border-b border-gray-200 px-4 py-2 shrink-0">
-        <div className="relative w-full">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input 
-            type="text" 
-            placeholder="Search reports" 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:border-blue-500 text-sm"
-          />
-        </div>
-      </div>
-
-      {/* Flex Container for Sidebar + Main Content */}
+      {/* ---- Body: Sidebar + Main ---- */}
       <div className="flex flex-1 overflow-hidden">
-        
-        {/* Mobile Sidebar Overlay */}
+
+        {/* Mobile overlay */}
         {isMobileSidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-black/50 z-[40] md:hidden" 
-            onClick={() => setIsMobileSidebarOpen(false)} 
+          <div
+            className="fixed inset-0 bg-slate-900/30 backdrop-blur-[1px] z-[40] md:hidden"
+            onClick={() => setIsMobileSidebarOpen(false)}
           />
         )}
 
         {/* Sidebar */}
-        <aside className={`
-          fixed md:static inset-y-0 left-0 z-[50] md:z-auto
-          w-64 bg-white border-r border-gray-200 flex flex-col shrink-0 overflow-y-auto
-          transform transition-transform duration-300 ease-in-out
-          ${isMobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}
-        `}>
-          <div className="flex justify-between items-center md:hidden p-4 border-b border-gray-100">
-            <h2 className="text-base font-medium text-gray-800">Menu</h2>
-            <button 
-              onClick={() => setIsMobileSidebarOpen(false)} 
-              className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-full"
+        <aside
+          className={`
+            fixed md:static inset-y-0 left-0 z-[50] md:z-auto
+            w-64 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800
+            flex flex-col shrink-0 overflow-y-auto
+            transform transition-transform duration-300 ease-in-out
+            ${isMobileSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"}
+          `}
+        >
+          <div className="flex justify-between items-center md:hidden px-4 py-4 border-b border-slate-100 dark:border-slate-800">
+            <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100">
+              Menu
+            </h2>
+            <button
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               aria-label="Close menu"
             >
-              <X size={20} />
+              <X size={16} />
             </button>
           </div>
 
-          <div className="p-4 flex-1">
-            <nav className="space-y-1 mb-8">
-              {[
-                { name: "Home", icon: Home },
-                { name: "Favorites", icon: Star },
-                { name: "Shared Reports", icon: Share2 },
-                { name: "My Reports", icon: User },
-                { name: "Scheduled Reports", icon: Clock },
-              ].map(item => (
-                <button 
-                  key={item.name} 
-                  onClick={() => { setActiveTab(item.name); setIsMobileSidebarOpen(false); }}
-                  className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === item.name ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
-                >
-                  <item.icon size={16} className={activeTab === item.name ? 'text-blue-600' : 'text-gray-400'} />
-                  {item.name}
-                </button>
-              ))}
+          <div className="p-3 flex-1">
+            <nav className="space-y-0.5 mb-6">
+              {NAV_ITEMS.map((item) => {
+                const active = activeTab === item.name;
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => {
+                      setActiveTab(item.name);
+                      setIsMobileSidebarOpen(false);
+                    }}
+                    className={`w-full text-left flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-colors ${
+                      active
+                        ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                        : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                    }`}
+                  >
+                    <item.icon
+                      size={14}
+                      className={
+                        active
+                          ? "text-slate-700 dark:text-slate-200"
+                          : "text-slate-400"
+                      }
+                    />
+                    {item.name}
+                  </button>
+                );
+              })}
             </nav>
 
-            <div className="mb-2 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Report Category</div>
+            <SectionLabel>Report categories</SectionLabel>
             <div className="space-y-0.5">
-              <button 
-                onClick={() => { setActiveTab("Home"); setSelectedCategory("All Reports"); setIsMobileSidebarOpen(false); }} 
-                className={`w-full text-left flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${selectedCategory === "All Reports" ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
+              <button
+                onClick={() => {
+                  setActiveTab("Home");
+                  setSelectedCategory("All Reports");
+                  setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full text-left flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[12.5px] transition-colors ${
+                  selectedCategory === "All Reports"
+                    ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                }`}
               >
-                All Reports
-                <span className="bg-gray-200 text-gray-600 text-xs px-2 rounded-full font-medium">{allReports.length}</span>
+                All reports
+                <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10.5px] px-1.5 rounded-full font-medium tabular-nums">
+                  {allReports.length}
+                </span>
               </button>
-              {reportsCategories.map(cat => (
-                <button 
-                  key={cat.id} 
-                  onClick={() => { setActiveTab("Home"); setSelectedCategory(cat.name); setIsMobileSidebarOpen(false); }}
-                  className={`w-full text-left flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${selectedCategory === cat.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
-                >
-                  <Folder size={14} className="text-gray-400 shrink-0" />
-                  <span className="truncate">{cat.name}</span>
-                </button>
-              ))}
+              {reportsCategories.map((cat) => {
+                const active = selectedCategory === cat.name;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      setActiveTab("Home");
+                      setSelectedCategory(cat.name);
+                      setIsMobileSidebarOpen(false);
+                    }}
+                    className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12.5px] transition-colors ${
+                      active
+                        ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
+                        : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                    }`}
+                  >
+                    <Folder size={13} className="text-slate-400 shrink-0" />
+                    <span className="truncate">{cat.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        {/* Main */}
+        <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
           {activeTab === "Home" && (
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="px-4 md:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-base md:text-lg font-medium text-gray-800">
-                  {selectedCategory} 
-                  {selectedCategory === "All Reports" && <span className="ml-2 text-sm text-gray-500 font-normal">{filteredReports.length}</span>}
+            <Surface className="overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+                  {selectedCategory}
+                  {selectedCategory === "All Reports" && (
+                    <span className="ml-2 text-[11.5px] text-slate-500 font-normal tabular-nums">
+                      {filteredReports.length}
+                    </span>
+                  )}
                 </h2>
               </div>
-              
+
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm min-w-[600px]">
-                  <thead className="bg-gray-50 text-gray-500 text-xs font-semibold uppercase tracking-wider border-b border-gray-200">
-                    <tr>
-                      <th className="px-4 md:px-6 py-3">Report Name</th>
-                      <th className="px-4 py-3">Report Category</th>
-                      <th className="px-4 py-3">Created By</th>
-                      <th className="px-4 py-3">Last Visited</th>
+                <table className="w-full text-[12.5px] whitespace-nowrap">
+                  <thead>
+                    <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+                      <th className="px-4 sm:px-5 py-2.5 text-left font-medium">Report name</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Category</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Created by</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Last visited</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {filteredReports.map(report => (
-                      <tr key={report.id} className="hover:bg-blue-50/50 cursor-pointer group" onClick={() => setIsViewingReport(true)}>
-                        <td className="px-4 md:px-6 py-3 font-medium text-blue-600 group-hover:underline flex items-center gap-2">
-                          <button className="text-gray-300 hover:text-yellow-400" onClick={(e) => e.stopPropagation()}>
-                            <Star size={14} fill={report.isFavorite ? "currentColor" : "none"} className={report.isFavorite ? "text-yellow-400" : ""} />
-                          </button>
-                          {report.name}
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {filteredReports.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="px-6 py-12 text-center text-[13px] text-slate-500"
+                        >
+                          No reports match "{searchQuery}"
                         </td>
-                        <td className="px-4 py-3 text-gray-600">{report.category}</td>
-                        <td className="px-4 py-3 text-gray-600">{report.createdBy}</td>
-                        <td className="px-4 py-3 text-gray-500">{report.lastVisited}</td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredReports.map((report) => (
+                        <tr
+                          key={report.id}
+                          className="group cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                          onClick={() => setIsViewingReport(true)}
+                        >
+                          <td className="px-4 sm:px-5 py-3 font-medium text-slate-900 dark:text-slate-100">
+                            <span className="inline-flex items-center gap-2">
+                              <button
+                                className="text-slate-300 hover:text-amber-400 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label="Toggle favorite"
+                              >
+                                <Star
+                                  size={13}
+                                  fill={report.isFavorite ? "currentColor" : "none"}
+                                  className={report.isFavorite ? "text-amber-400" : ""}
+                                />
+                              </button>
+                              <span className="group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                {report.name}
+                              </span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                            {report.category}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                            {report.createdBy}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500">
+                            {report.lastVisited}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </Surface>
           )}
 
-          {["Favorites", "Shared Reports", "My Reports", "Scheduled Reports"].includes(activeTab) && (
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm h-[60vh] md:h-[70vh] flex flex-col items-center justify-center p-6">
-               <div className="w-24 h-24 md:w-32 md:h-32 mb-6 relative flex items-center justify-center">
-                  <div className="absolute inset-0 bg-blue-50 rounded-full opacity-50"></div>
-                  {activeTab === "Favorites" && <Star size={40} className="text-blue-300 relative z-10 md:w-12 md:h-12" />}
-                  {activeTab === "Shared Reports" && <Share2 size={40} className="text-blue-300 relative z-10 md:w-12 md:h-12" />}
-                  {activeTab === "My Reports" && <FileText size={40} className="text-blue-300 relative z-10 md:w-12 md:h-12" />}
-                  {activeTab === "Scheduled Reports" && <Clock size={40} className="text-blue-300 relative z-10 md:w-12 md:h-12" />}
-               </div>
-               <h3 className="text-base md:text-lg font-medium text-gray-800 mb-2 text-center px-4">
-                  {activeTab === "Favorites" && "You haven't marked any reports as a favorite."}
-                  {activeTab === "Shared Reports" && "Currently, you don't have any shared reports."}
-                  {activeTab === "My Reports" && "You haven't created any custom reports yet."}
-                  {activeTab === "Scheduled Reports" && "You don't have any scheduled reports yet."}
-               </h3>
-               <p className="text-gray-500 text-sm mb-6 max-w-md text-center px-4">
-                  {activeTab === "Favorites" && "Click the Star icon next to a report to view it here."}
-                  {activeTab === "Shared Reports" && "If someone shares a custom report with you, you will be able to view it here."}
-                  {activeTab === "My Reports" && "Create a custom report by customizing an existing report."}
-                  {activeTab === "Scheduled Reports" && "Schedule reports to be sent to your email automatically."}
-               </p>
-               {activeTab === "My Reports" && (
-                  <button onClick={() => setIsCreateModalOpen(true)} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded text-sm font-medium">
-                     Create New Report
-                  </button>
-               )}
-            </div>
-          )}
+          {["Favorites", "Shared Reports", "My Reports", "Scheduled Reports"].includes(
+            activeTab
+          ) &&
+            empty && (
+              <EmptyState
+                icon={empty.icon}
+                title={empty.title}
+                message={empty.message}
+                action={empty.action}
+              />
+            )}
         </main>
       </div>
 
-      {/* CREATE CUSTOM REPORT MODAL */}
+      {/* ---- CREATE REPORT MODAL ---- */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-[100] flex justify-center items-start pt-10 md:pt-16 px-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-fade-in border border-gray-200 my-8">
-            <div className="flex justify-between items-center px-4 md:px-6 py-4 border-b border-gray-100">
-              <h2 className="text-base md:text-lg font-normal text-gray-800">Create Custom Report</h2>
-              <button onClick={() => setIsCreateModalOpen(false)} className="text-gray-400 hover:text-red-500 p-1 rounded-full">
-                <X size={20} />
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px] z-[100] flex items-start justify-center pt-8 sm:pt-16 px-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-xl w-full max-w-xl overflow-hidden animate-fade-in">
+
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                  New
+                </p>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-0.5">
+                  Create custom report
+                </h2>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                aria-label="Close"
+              >
+                <X size={18} />
               </button>
             </div>
-            <div className="p-4 md:p-6 space-y-6">
-              <p className="text-sm text-gray-700 font-medium">Choose how you would like to create the report</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div onClick={() => setCreationMode("existing")} className={`border rounded-lg p-4 cursor-pointer transition-all ${creationMode === "existing" ? "border-blue-500 bg-blue-50/30 ring-1 ring-blue-500" : "border-gray-200 hover:border-gray-300"}`}>
-                    <div className="flex items-start gap-3">
-                       <input type="radio" checked={creationMode === "existing"} onChange={() => setCreationMode("existing")} className="mt-1 text-blue-600 focus:ring-blue-500" />
-                       <div>
-                          <h3 className="text-sm font-medium text-gray-900">Create from existing report</h3>
-                          <p className="text-xs text-gray-500 mt-1">Start with an existing report and customize it by applying filters, modifying columns, adjusting layouts, grouping data, and more.</p>
-                       </div>
-                    </div>
-                 </div>
-                 <div onClick={() => setCreationMode("scratch")} className={`border rounded-lg p-4 cursor-pointer transition-all ${creationMode === "scratch" ? "border-blue-500 bg-blue-50/30 ring-1 ring-blue-500" : "border-gray-200 hover:border-gray-300"}`}>
-                    <div className="flex items-start gap-3">
-                       <input type="radio" checked={creationMode === "scratch"} onChange={() => setCreationMode("scratch")} className="mt-1 text-blue-600 focus:ring-blue-500" />
-                       <div>
-                          <h3 className="text-sm font-medium text-gray-900">Create an entirely new report</h3>
-                          <p className="text-xs text-gray-500 mt-1">Build reports from scratch using modules by custom report builder, and apply filters to display the required data.</p>
-                       </div>
-                    </div>
-                 </div>
+
+            {/* Body */}
+            <div className="px-5 py-5 space-y-5">
+              <p className="text-[12.5px] font-medium text-slate-700 dark:text-slate-200">
+                Choose how you would like to create the report
+              </p>
+
+              <div className="grid grid-cols-1 gap-3">
+                {[
+                  {
+                    key: "existing",
+                    title: "Create from existing report",
+                    description:
+                      "Start with an existing report and customize it with filters, columns, layouts, and grouping.",
+                  },
+                  {
+                    key: "scratch",
+                    title: "Create an entirely new report",
+                    description:
+                      "Build reports from scratch using modules in the custom report builder.",
+                  },
+                ].map((opt) => {
+                  const active = creationMode === opt.key;
+                  return (
+                    <label
+                      key={opt.key}
+                      className={`flex items-start gap-3 p-3.5 rounded-lg border cursor-pointer transition-colors ${
+                        active
+                          ? "border-slate-900 dark:border-slate-100 bg-slate-50 dark:bg-slate-800/60"
+                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="creationMode"
+                        checked={active}
+                        onChange={() => setCreationMode(opt.key)}
+                        className="mt-0.5 text-slate-900 focus:ring-slate-400 border-slate-300"
+                      />
+                      <div>
+                        <h3 className="text-[12.5px] font-semibold text-slate-900 dark:text-slate-100">
+                          {opt.title}
+                        </h3>
+                        <p className="text-[11.5px] text-slate-500 mt-1 leading-relaxed">
+                          {opt.description}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
+
               {creationMode === "existing" && (
-                 <div className="pt-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Select a Report</label>
-                    <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white" value={selectedBaseReport} onChange={(e) => setSelectedBaseReport(e.target.value)}>
-                       <option value="">Select a Report</option>
-                       {allReports.map(r => <option key={r.id} value={r.id}>{r.name} ({r.category})</option>)}
-                    </select>
-                 </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12px] font-medium text-slate-600 dark:text-slate-300">
+                    Select a report
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
+                    value={selectedBaseReport}
+                    onChange={(e) => setSelectedBaseReport(e.target.value)}
+                  >
+                    <option value="">Select a report</option>
+                    {allReports.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.category})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
             </div>
-            <div className="px-4 md:px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center gap-3">
-              <button onClick={() => { setIsCreateModalOpen(false); }} disabled={creationMode === "existing" && !selectedBaseReport} className="px-6 py-2 text-sm font-medium text-white bg-blue-500 rounded hover:bg-blue-600 disabled:opacity-50">Proceed</button>
-              <button onClick={() => setIsCreateModalOpen(false)} className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50">Cancel</button>
+
+            {/* Footer */}
+            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="px-3 py-2 text-[12.5px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                disabled={creationMode === "existing" && !selectedBaseReport}
+                className="px-3 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Proceed
+              </button>
             </div>
           </div>
         </div>
@@ -423,12 +759,10 @@ const ReportsCenterPage = () => {
 
       <style>{`
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
+          from { opacity: 0; transform: translateY(-8px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fade-in {
-          animation: fadeIn 0.2s ease-out forwards;
-        }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
       `}</style>
     </div>
   );

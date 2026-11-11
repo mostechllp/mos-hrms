@@ -1,435 +1,505 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { deleteExpense } from "../../store/slices/accounts/expensesSlice";
-import { 
-  Plus, MoreHorizontal, ArrowUpDown, Download, Upload, 
-  Settings, Search, Filter, ChevronDown, 
-  Eye, Edit2, Trash2, X, FileText, CheckCircle2,
-  Printer, Play, ArrowRight, RefreshCw, UploadCloud, CloudUpload
+import {
+  Plus, MoreHorizontal, ArrowUpDown, Download, Upload,
+  Settings, Search, Filter, ChevronDown,
+  Eye, Edit2, Trash2, X, RefreshCw, Printer,
+  FileText, CheckCircle2, UploadCloud, CloudUpload, Receipt,
 } from "lucide-react";
-import { Button } from "../../components/accounts/ui";
 import ConfirmModal from "../../components/common/ConfirmModal";
+
+/* ---------- primitives ---------- */
+
+const GhostBtn = ({ children, className = "", ...props }) => (
+  <button
+    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${className}`}
+    {...props}
+  >
+    {children}
+  </button>
+);
+
+const MenuItem = ({ icon: Icon, label }) => (
+  <button className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12.5px] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+    <Icon size={14} className="text-slate-400" />
+    <span className="flex-1 text-left">{label}</span>
+  </button>
+);
+
+const Surface = ({ children, className = "" }) => (
+  <div className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}>
+    {children}
+  </div>
+);
+
+const SectionLabel = ({ children }) => (
+  <h3 className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">{children}</h3>
+);
+
+const IconAction = ({ icon: Icon, label, onClick, tone = "default" }) => {
+  const tones = {
+    default: "text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800",
+    danger:  "text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20",
+  };
+  return (
+    <button onClick={onClick} title={label} aria-label={label} className={`p-1.5 rounded-md transition-colors ${tones[tone]}`}>
+      <Icon size={15} />
+    </button>
+  );
+};
+
+const GhostAction = ({ icon: Icon, label, onClick }) => (
+  <button
+    onClick={onClick}
+    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+  >
+    <Icon size={13} /> {label}
+  </button>
+);
+
+/* ---------- page ---------- */
 
 const ExpensesPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const expenses = useSelector((state) => state.expenses.expenses);
+  const expenses = useSelector((s) => s.expenses.expenses) || [];
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // Drawer & Delete State
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showPdfView, setShowPdfView] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMoreMenu(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
   const filteredExpenses = expenses.filter(
     (e) =>
-      e.expenseAccount.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.expenseAccount?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (e.vendor && e.vendor.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleDeleteConfirm = () => {
     if (deleteTarget) {
       dispatch(deleteExpense(deleteTarget.id));
+      if (selectedExpense?.id === deleteTarget.id) setSelectedExpense(null);
       setDeleteTarget(null);
-      if (selectedExpense?.id === deleteTarget.id) {
-        setSelectedExpense(null); 
-      }
     }
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 min-h-screen relative overflow-hidden">
-      {/* Top Header */}
-      <div className="px-6 py-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-6">
-          <button className="text-gray-500 font-medium pb-2 border-b-2 border-transparent hover:text-gray-800">Receipts Inbox</button>
-          <button className="text-gray-800 font-medium pb-2 border-b-2 border-blue-500 flex items-center gap-1">All Expenses <ChevronDown size={16} /></button>
-        </div>
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-12">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
 
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => navigate("/admin/accounts/purchases/expenses/new")} 
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2"
-          >
-            <Plus size={16} className="mr-1" /> New
-          </Button>
+        {/* ---- Header ---- */}
+        <header className="pt-8 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Purchases</p>
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-1">
+              Expenses
+            </h1>
+            <p className="text-[13px] text-slate-500 mt-1">
+              {expenses.length === 0
+                ? "No expenses recorded yet"
+                : `${expenses.length} ${expenses.length === 1 ? "expense" : "expenses"} recorded`}
+            </p>
+          </div>
 
-          {/* More Menu */}
-          <div className="relative">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowMoreMenu(!showMoreMenu)}
-              className="p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+              onClick={() => navigate("/admin/accounts/purchases/expenses/new")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
             >
-              <MoreHorizontal size={18} />
+              <Plus size={13} /> New
             </button>
-            
-            {showMoreMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowMoreMenu(false)} />
-                <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg z-20 py-1 text-sm text-gray-700 dark:text-gray-200">
-                   <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center">
-                    <span className="flex items-center gap-2"><ArrowUpDown size={14} /> Sort by</span>
-                  </button>
-                  <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center">
-                    <span className="flex items-center gap-2"><Download size={14} /> Import</span>
-                  </button>
-                  <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center">
-                    <span className="flex items-center gap-2"><Upload size={14} /> Export</span>
-                  </button>
-                  <div className="h-px bg-gray-200 dark:bg-gray-700 my-1"></div>
-                  <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                    <Settings size={14} /> Preferences
-                  </button>
+
+            <div className="relative" ref={menuRef}>
+              <GhostBtn onClick={() => setShowMoreMenu((v) => !v)} className="!px-2">
+                <MoreHorizontal size={16} />
+              </GhostBtn>
+              {showMoreMenu && (
+                <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg shadow-slate-900/5 z-30 py-1.5">
+                  <MenuItem icon={ArrowUpDown} label="Sort by" />
+                  <MenuItem icon={Download}   label="Import" />
+                  <MenuItem icon={Upload}     label="Export" />
+                  <div className="h-px bg-slate-100 dark:bg-slate-800 my-1.5" />
+                  <MenuItem icon={Settings}   label="Preferences" />
                 </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {expenses.length === 0 ? (
-        // Empty State Layout
-        <div className="flex flex-col items-center justify-center pt-10 pb-20 px-6">
-          
-
-          <h2 className="text-2xl font-medium text-gray-800 dark:text-gray-200 mb-2">Time To Manage Your Expenses!</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-xl text-center">
-            Create and manage expenses that are part of your organization's operating costs.
-          </p>
-          <div className="flex flex-col items-center gap-4">
-            <Button onClick={() => navigate("/admin/accounts/purchases/expenses/new")} className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded text-sm font-semibold tracking-wide uppercase">
-              Record Expense
-            </Button>
-            <button className="text-blue-500 text-sm font-medium hover:underline">Import Expenses</button>
-          </div>
-
-          {/* Life Cycle Section */}
-          <div className="mt-24 w-full max-w-5xl border-t border-gray-200 dark:border-gray-700 pt-10">
-            <h3 className="text-center text-xl font-medium text-gray-800 dark:text-gray-200 mb-16">Life cycle of an Expense</h3>
-            
-            <div className="flex flex-col md:flex-row items-center justify-center gap-4 relative">
-                
-                {/* Step 1 */}
-                <div className="border border-blue-200 bg-blue-50 dark:bg-blue-900/10 rounded-md px-4 py-2 flex items-center gap-2 text-blue-600 w-40 shadow-sm">
-                    <FileText size={16} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-center leading-tight">EXPENSE<br/>INCURRED</span>
-                </div>
-                
-                {/* Connector */}
-                <div className="hidden md:block w-12 border-t-2 border-dashed border-gray-300 relative">
-                    <ArrowRight size={12} className="absolute -right-1 -top-1.5 text-gray-300" />
-                </div>
-
-                {/* Step 2 */}
-                <div className="border border-blue-200 bg-blue-50 dark:bg-blue-900/10 rounded-md px-4 py-2 flex items-center gap-2 text-blue-600 w-40 shadow-sm">
-                    <RefreshCw size={16} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-center leading-tight">RECORD<br/>EXPENSE</span>
-                </div>
-
-                {/* Connector Branches */}
-                <div className="hidden md:flex flex-col justify-center w-16 relative h-24">
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full border-t-2 border-dashed border-gray-300"></div>
-                    <div className="absolute left-0 top-1/2 h-12 border-l-2 border-dashed border-gray-300"></div>
-                    <div className="absolute left-0 bottom-0 w-full border-t-2 border-dashed border-gray-300"></div>
-                </div>
-
-                {/* Right Branches */}
-                <div className="flex flex-col gap-4">
-                    {/* Top Branch */}
-                    <div className="flex items-center gap-2">
-                        <div className="border border-green-200 bg-green-50 dark:bg-green-900/10 rounded-md px-4 py-2 flex items-center gap-2 text-green-600 w-32 shadow-sm">
-                            <FileText size={16} />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">BILLABLE</span>
-                        </div>
-                        <div className="w-8 border-t-2 border-dashed border-gray-300 relative">
-                            <ArrowRight size={12} className="absolute -right-1 -top-1.5 text-gray-300" />
-                        </div>
-                        <div className="border border-blue-200 bg-white dark:bg-gray-800 rounded-md px-4 py-2 flex items-center gap-2 text-blue-600 w-40 shadow-sm">
-                            <FileText size={16} />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-center leading-tight">CONVERT TO INVOICE</span>
-                        </div>
-                        <div className="w-8 border-t-2 border-dashed border-gray-300 relative">
-                            <ArrowRight size={12} className="absolute -right-1 -top-1.5 text-gray-300" />
-                        </div>
-                        <div className="border border-green-200 bg-white dark:bg-gray-800 rounded-md px-4 py-2 flex items-center gap-2 text-green-600 w-40 shadow-sm">
-                            <FileText size={16} />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-center leading-tight">GET REIMBURSED</span>
-                        </div>
-                    </div>
-
-                    {/* Bottom Branch */}
-                    <div className="border border-red-200 bg-red-50 dark:bg-red-900/10 rounded-md px-4 py-2 flex items-center gap-2 text-red-600 w-32 shadow-sm">
-                        <FileText size={16} />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">NON-BILLABLE</span>
-                    </div>
-                </div>
-
+              )}
             </div>
+          </div>
+        </header>
 
-            <div className="mt-24 text-center max-w-4xl mx-auto border-t border-gray-200 dark:border-gray-700 pt-12">
-              <h4 className="text-xl text-gray-800 dark:text-gray-200 mb-6 font-medium">In the Expenses module, you can:</h4>
-              <div className="space-y-4 inline-block text-left text-sm text-gray-600 dark:text-gray-300">
-                <p className="flex items-center gap-3"><CheckCircle2 size={18} className="text-blue-500"/> Record a single expense or record expenses in bulk.</p>
-                <p className="flex items-center gap-3"><CheckCircle2 size={18} className="text-blue-500"/> Set mileage rates and record expenses based on the distance travelled.</p>
-                <p className="flex items-center gap-3"><CheckCircle2 size={18} className="text-blue-500"/> Convert an expense into an invoice to get it reimbursed.</p>
+        {/* ---- Empty state ---- */}
+        {expenses.length === 0 ? (
+          <EmptyState onCreate={() => navigate("/admin/accounts/purchases/expenses/new")} />
+        ) : (
+
+          /* ---- Table surface ---- */
+          <Surface className="overflow-hidden">
+            <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+              <GhostBtn title="Filter" className="!px-2"><Filter size={15} /></GhostBtn>
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
+              <input type="checkbox" className="rounded border-slate-300 text-slate-900 focus:ring-slate-400" aria-label="Select all" />
+
+              <div className="relative ml-auto w-full sm:w-64">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search expenses…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 text-[12.5px] bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
+                />
               </div>
             </div>
-          </div>
 
-        </div>
-      ) : (
-        // Table View
-        <>
-          <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
-            <div className="flex items-center gap-4">
-              <button className="p-1.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"><Filter size={16} /></button>
-              <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-            </div>
-            <div className="relative w-64">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search expenses..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500 text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="px-6 py-3 w-10"></th>
-                  <th className="px-4 py-3 cursor-pointer hover:text-gray-700">Expense Account <ArrowUpDown size={12} className="inline ml-1" /></th>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Vendor</th>
-                  <th className="px-4 py-3 text-right">Amount</th>
-                  <th className="px-4 py-3">Paid Through</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {filteredExpenses.map((expense) => (
-                  <tr
-                    key={expense.id}
-                    className="hover:bg-blue-50/50 dark:hover:bg-gray-700/30 cursor-pointer transition-colors group"
-                    onClick={() => { setSelectedExpense(expense); setShowPdfView(false); }} 
-                  >
-                    <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" className="rounded border-gray-300 text-blue-600" />
-                    </td>
-                    <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200 group-hover:underline">
-                      {expense.expenseAccount}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{expense.date}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{expense.vendor || "-"}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-100">
-                      ₹{expense.amount.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{expense.paidThrough}</td>
-                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => { setSelectedExpense(expense); setShowPdfView(false); }} className="p-1.5 text-gray-500 hover:text-blue-600 rounded"><Eye size={16} /></button>
-                        <button onClick={() => navigate(`/admin/accounts/purchases/expenses/edit/${expense.id}`)} className="p-1.5 text-gray-500 hover:text-green-600 rounded"><Edit2 size={16} /></button>
-                        <button onClick={() => setDeleteTarget(expense)} className="p-1.5 text-gray-500 hover:text-red-600 rounded"><Trash2 size={16} /></button>
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12.5px] whitespace-nowrap">
+                <thead>
+                  <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+                    <th className="w-10 px-4 sm:px-5 py-2.5"></th>
+                    <th className="px-4 py-2.5 text-left font-medium">
+                      <span className="inline-flex items-center gap-1 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
+                        Expense account <ArrowUpDown size={11} />
+                      </span>
+                    </th>
+                    <th className="px-4 py-2.5 text-left font-medium">Date</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Vendor</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Amount</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Paid through</th>
+                    <th className="px-4 py-2.5 text-right font-medium w-24">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+                </thead>
 
-      {/* Sliding Drawer for View */}
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredExpenses.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center text-[13px] text-slate-500">
+                        No expenses match “{searchQuery}”
+                      </td>
+                    </tr>
+                  ) : filteredExpenses.map((expense) => (
+                    <tr
+                      key={expense.id}
+                      onClick={() => { setSelectedExpense(expense); setShowPdfView(false); }}
+                      className="group cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                    >
+                      <td className="px-4 sm:px-5 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" className="rounded border-slate-300 text-slate-900 focus:ring-slate-400" aria-label={`Select ${expense.expenseAccount}`} />
+                      </td>
+
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
+                        <span className="group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {expense.expenseAccount}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{expense.date}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                        {expense.vendor || <span className="text-slate-300 dark:text-slate-600">—</span>}
+                      </td>
+
+                      <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
+                        ₹{expense.amount.toFixed(2)}
+                      </td>
+
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{expense.paidThrough}</td>
+
+                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <IconAction icon={Eye}    label="View"   onClick={() => { setSelectedExpense(expense); setShowPdfView(false); }} />
+                          <IconAction icon={Edit2}  label="Edit"   onClick={() => navigate(`/admin/accounts/purchases/expenses/edit/${expense.id}`)} />
+                          <IconAction icon={Trash2} label="Delete" tone="danger" onClick={() => setDeleteTarget(expense)} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Surface>
+        )}
+      </div>
+
+      {/* ---- Drawer ---- */}
       {selectedExpense && (
         <>
-          <div 
-            className="fixed inset-0 bg-black/30 z-40 transition-opacity"
+          <div
+            className="fixed inset-0 bg-slate-900/30 backdrop-blur-[1px] z-40 transition-opacity"
             onClick={() => setSelectedExpense(null)}
           />
-          <div className="fixed top-0 right-0 h-full w-full md:w-[60%] lg:w-1/2 bg-white dark:bg-gray-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out border-l border-gray-200 dark:border-gray-700 flex flex-col animate-slide-in">
-            
-            {/* Drawer Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                Expense Details
-              </h2>
-              <button onClick={() => setSelectedExpense(null)} className="p-1 text-gray-500 hover:text-gray-800">
-                <X size={20} />
+          <aside className="fixed top-0 right-0 h-full w-full md:w-[60%] lg:w-1/2 bg-slate-50 dark:bg-slate-950 shadow-2xl z-50 flex flex-col border-l border-slate-200 dark:border-slate-800 animate-slide-in">
+
+            {/* Drawer header */}
+            <div className="px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Expense</p>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50 tracking-tight truncate mt-0.5">
+                  {selectedExpense.expenseAccount}
+                </h2>
+              </div>
+              <button
+                onClick={() => setSelectedExpense(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                aria-label="Close"
+              >
+                <X size={18} />
               </button>
             </div>
 
-            {/* Drawer Body */}
-            <div className="flex-1 overflow-y-auto p-6 pb-24">
-              
-              {/* Action Toolbar */}
-              <div className="flex flex-wrap items-center gap-2 mb-8">
-                    <Button variant="secondary" className="px-3 py-1.5 text-xs h-8">
-                    <Edit2 size={14} className="mr-1"/> Edit
-                    </Button>
-                    <Button variant="secondary" className="px-3 py-1.5 text-xs h-8">
-                    <RefreshCw size={14} className="mr-1"/> Make Recurring
-                    </Button>
-                    <Button variant="secondary" className="px-3 py-1.5 text-xs h-8">
-                    <Printer size={14} className="mr-1"/> PDF/Print
-                    </Button>
+            {/* Drawer body */}
+            <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
+
+              {/* Actions row */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => navigate(`/admin/accounts/purchases/expenses/edit/${selectedExpense.id}`)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+                >
+                  <Edit2 size={13} /> Edit
+                </button>
+                <GhostAction icon={RefreshCw} label="Make recurring" />
+                <GhostAction icon={Printer}   label="PDF / Print" />
               </div>
 
-              {/* Top Section */}
-              <div className="flex flex-col md:flex-row gap-8 mb-8">
-                  <div className="flex-1 space-y-6">
-                      <div>
-                          <p className="text-sm text-gray-500 mb-1">Expense Amount</p>
-                          <p className="text-2xl font-medium text-red-500 mb-1">₹{selectedExpense.amount.toFixed(2)} <span className="text-xs text-gray-400 font-normal ml-2">on {selectedExpense.date}</span></p>
-                          <span className="inline-block px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold rounded uppercase tracking-wider">Non-Billable</span>
-                      </div>
-                      
-                      <div className="inline-block px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-sm font-medium rounded">
-                          {selectedExpense.expenseAccount}
-                      </div>
-
-                      <div>
-                          <p className="text-xs text-gray-500 mb-1">Paid Through</p>
-                          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{selectedExpense.paidThrough}</p>
-                      </div>
+              {/* Summary + upload */}
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4">
+                <Surface className="p-4 space-y-4">
+                  <div>
+                    <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1">Amount</p>
+                    <p className="text-2xl font-semibold text-rose-600 dark:text-rose-400 tabular-nums">
+                      ₹{selectedExpense.amount.toFixed(2)}
+                    </p>
+                    <p className="text-[11.5px] text-slate-500 mt-1">on {selectedExpense.date}</p>
+                    <span className="inline-flex items-center mt-2 px-2 py-0.5 text-[10.5px] font-medium uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded">
+                      Non-billable
+                    </span>
                   </div>
-                  
-                  {/* Receipt Upload Box */}
-                  <div className="w-full md:w-64 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 flex flex-col items-center justify-center text-center bg-gray-50/50 dark:bg-gray-800/20 h-64">
-                      <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white mb-4 shadow-sm">
-                          <CloudUpload size={24} />
-                      </div>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">Drag or Drop your Receipts</p>
-                      <p className="text-xs text-gray-500 mb-4">Maximum file size allowed is 10MB</p>
-                      <Button variant="secondary" className="bg-gray-200 dark:bg-gray-700 text-xs h-8 border-none w-full justify-center">
-                          <UploadCloud size={14} className="mr-1"/> Upload your Files <ChevronDown size={14} className="ml-2"/>
-                      </Button>
-                  </div>
-              </div>
 
-              {/* Show PDF Toggle */}
-              <div className="flex justify-end items-center gap-2 mb-4">
-                  <span className="text-sm text-gray-600 font-medium">Show PDF View</span>
-                  <button 
-                      onClick={() => setShowPdfView(!showPdfView)}
-                      className={`w-10 h-5 rounded-full relative transition-colors ${showPdfView ? 'bg-blue-500' : 'bg-gray-300'}`}
-                  >
-                      <span className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform ${showPdfView ? 'translate-x-5' : ''}`}></span>
+                  <div className="space-y-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider w-24">Account</span>
+                      <span className="inline-flex items-center px-2 py-0.5 text-[11.5px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded">
+                        {selectedExpense.expenseAccount}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider w-24">Paid through</span>
+                      <span className="text-[12.5px] text-slate-800 dark:text-slate-200">{selectedExpense.paidThrough}</span>
+                    </div>
+                  </div>
+                </Surface>
+
+                {/* Receipt upload */}
+                <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-5 flex flex-col items-center justify-center text-center bg-white dark:bg-slate-900">
+                  <div className="w-10 h-10 rounded-lg bg-slate-900 dark:bg-white flex items-center justify-center mb-3">
+                    <CloudUpload size={20} className="text-white dark:text-slate-900" />
+                  </div>
+                  <p className="text-[12.5px] font-medium text-slate-800 dark:text-slate-200 mb-0.5">Upload receipts</p>
+                  <p className="text-[11px] text-slate-500 mb-3">Max file size 10 MB</p>
+                  <button className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11.5px] font-medium text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <UploadCloud size={12} /> Choose files
                   </button>
+                </div>
               </div>
 
-              {/* PDF View Section */}
-              {showPdfView && (
-                  <div className="border border-gray-300 dark:border-gray-600 p-8 bg-white text-black shadow-sm mx-auto max-w-2xl relative mb-8">
-                      {/* Non-Billable Watermark */}
-                      <div className="absolute top-0 left-0 bg-blue-600 text-white px-6 py-2 text-xs font-bold -rotate-45 transform -translate-x-12 translate-y-6 shadow-sm z-10">
-                          Non-Billable
-                      </div>
-                      
-                      <div className="mb-12">
-                          <p className="font-bold text-gray-800 mb-1 text-sm">Fidha</p>
-                          <p className="text-gray-600 text-xs">Keralam</p>
-                          <p className="text-gray-600 text-xs">India</p>
-                          <p className="text-gray-600 text-xs">fidh3549@gmail.com</p>
-                      </div>
+              {/* PDF toggle */}
+              <div className="flex items-center justify-between">
+                <span className="text-[11.5px] text-slate-500">Preview as PDF</span>
+                <button
+                  onClick={() => setShowPdfView(!showPdfView)}
+                  className={`w-8 rounded-full relative transition-colors ${showPdfView ? "bg-slate-900 dark:bg-white" : "bg-slate-300 dark:bg-slate-700"}`}
+                  style={{ height: 18 }}
+                  aria-pressed={showPdfView}
+                >
+                  <span className={`absolute top-0.5 left-0.5 bg-white dark:bg-slate-900 rounded-full transition-transform ${showPdfView ? "translate-x-3.5" : ""}`} style={{ width: 14, height: 14 }} />
+                </button>
+              </div>
 
-                      <div className="text-center mb-12">
-                          <h1 className="text-3xl font-serif text-gray-800 tracking-wide">EXPENSE</h1>
-                      </div>
+              {/* PDF preview */}
+              {showPdfView && <ExpensePreview expense={selectedExpense} />}
 
-                      <div className="flex justify-between items-start mb-12">
-                          <div className="space-y-4 text-xs flex-1">
-                              <div className="flex">
-                                  <span className="text-gray-500 w-32">Expense Date</span>
-                                  <span className="text-gray-900 font-bold">{selectedExpense.date}</span>
-                              </div>
-                              <div className="flex">
-                                  <span className="text-gray-500 w-32">Expense Account</span>
-                                  <span className="text-gray-900 font-bold">{selectedExpense.expenseAccount}</span>
-                              </div>
-                              <div className="flex">
-                                  <span className="text-gray-500 w-32">Currency Code</span>
-                                  <span className="text-gray-900 font-bold">INR</span>
-                              </div>
-                              <div className="flex">
-                                  <span className="text-gray-500 w-32">Paid Through</span>
-                                  <span className="text-gray-900 font-bold">{selectedExpense.paidThrough}</span>
-                              </div>
-                          </div>
-
-                          <div className="bg-green-600 text-white p-4 text-center rounded-sm w-40 h-24 flex flex-col justify-center shadow-sm">
-                              <p className="text-xs uppercase tracking-wider opacity-90 mb-1">Expense Amount</p>
-                              <p className="text-2xl font-medium">₹{selectedExpense.amount.toFixed(2)}</p>
-                          </div>
-                      </div>
-
-                      <div className="mt-16 text-right text-xs text-gray-500">
-                          <p className="mb-8">Authorized Signature</p>
-                          <div className="w-48 border-b border-gray-400 ml-auto"></div>
-                      </div>
-                  </div>
-              )}
-
-              {/* Journal Section */}
-              <div className="mt-8">
-                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 border-b-2 border-blue-500 pb-2 mb-4 inline-block">Journal</h3>
-                <p className="text-xs text-gray-500 mb-4">Amount is displayed in your base currency <span className="bg-green-600 text-white px-1.5 py-0.5 rounded ml-1 font-bold">INR</span></p>
-                
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">Expense</h4>
-                <table className="w-full text-left text-xs">
-                    <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 border-b border-gray-200 dark:border-gray-700">
-                        <tr>
-                            <th className="px-4 py-2 font-medium">Account</th>
-                            <th className="px-4 py-2 font-medium text-right">Debit</th>
-                            <th className="px-4 py-2 font-medium text-right">Credit</th>
-                        </tr>
+              {/* Journal */}
+              <Surface className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <SectionLabel>Journal</SectionLabel>
+                  <span className="inline-flex items-center px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider bg-emerald-600 text-white rounded">
+                    INR
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-y border-slate-100 dark:border-slate-800">
+                        <th className="text-left  font-medium px-3 py-2">Account</th>
+                        <th className="text-right font-medium px-3 py-2">Debit</th>
+                        <th className="text-right font-medium px-3 py-2">Credit</th>
+                      </tr>
                     </thead>
-                    <tbody>
-                        <tr>
-                            <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{selectedExpense.paidThrough}</td>
-                            <td className="px-4 py-3 text-right text-gray-800 dark:text-gray-200">0.00</td>
-                            <td className="px-4 py-3 text-right text-gray-800 dark:text-gray-200">{selectedExpense.amount.toFixed(2)}</td>
-                        </tr>
-                        <tr>
-                            <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{selectedExpense.expenseAccount}</td>
-                            <td className="px-4 py-3 text-right text-gray-800 dark:text-gray-200">{selectedExpense.amount.toFixed(2)}</td>
-                            <td className="px-4 py-3 text-right text-gray-800 dark:text-gray-200">0.00</td>
-                        </tr>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      <tr>
+                        <td className="px-3 py-2.5 text-slate-700 dark:text-slate-300">{selectedExpense.paidThrough}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">0.00</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">{selectedExpense.amount.toFixed(2)}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2.5 text-slate-700 dark:text-slate-300">{selectedExpense.expenseAccount}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">{selectedExpense.amount.toFixed(2)}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">0.00</td>
+                      </tr>
                     </tbody>
                     <tfoot>
-                        <tr>
-                            <td className="px-4 py-3"></td>
-                            <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white border-t-2 border-gray-300 dark:border-gray-600">{selectedExpense.amount.toFixed(2)}</td>
-                            <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white border-t-2 border-gray-300 dark:border-gray-600">{selectedExpense.amount.toFixed(2)}</td>
-                        </tr>
+                      <tr className="border-t border-slate-200 dark:border-slate-800">
+                        <td className="px-3 py-2.5"></td>
+                        <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{selectedExpense.amount.toFixed(2)}</td>
+                        <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{selectedExpense.amount.toFixed(2)}</td>
+                      </tr>
                     </tfoot>
-                </table>
-              </div>
-
+                  </table>
+                </div>
+              </Surface>
             </div>
-          </div>
+          </aside>
         </>
       )}
 
-      {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDeleteConfirm}
-        title="Delete Expense"
-        message={`Are you sure you want to delete this expense of "${deleteTarget?.amount}"? This action cannot be undone.`}
+        title="Delete expense"
+        message={`Are you sure you want to delete this expense of ₹${deleteTarget?.amount}? This action cannot be undone.`}
         confirmText="Delete"
         variant="danger"
       />
     </div>
   );
 };
+
+/* ---------- sub-components ---------- */
+
+const EmptyState = ({ onCreate }) => {
+  const steps = [
+    { icon: FileText,     label: "Expense incurred" },
+    { icon: RefreshCw,    label: "Record expense" },
+    { icon: FileText,     label: "Billable → Invoice" },
+    { icon: CheckCircle2, label: "Reimbursed",  tone: "pos" },
+  ];
+  return (
+    <Surface className="py-16 px-6">
+      <div className="max-w-md mx-auto text-center">
+        <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+          <Receipt size={22} className="text-slate-400" />
+        </div>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+          Time to manage your expenses
+        </h2>
+        <p className="text-[13px] text-slate-500 mt-1.5 mb-6">
+          Create and manage expenses that are part of your organization's operating costs.
+        </p>
+        <button
+          onClick={onCreate}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+        >
+          <Plus size={13} /> Record expense
+        </button>
+      </div>
+
+      <div className="mt-12 max-w-3xl mx-auto">
+        <SectionLabel>Lifecycle of an expense</SectionLabel>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+          {steps.map((s, i) => (
+            <React.Fragment key={s.label}>
+              <LifeStep icon={s.icon} label={s.label} tone={s.tone} />
+              {i < steps.length - 1 && <span className="text-slate-300 dark:text-slate-700 text-xs">→</span>}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-12 max-w-md mx-auto space-y-2">
+        {[
+          "Record a single expense or add many in bulk",
+          "Track mileage with automatic rate calculation",
+          "Convert billable expenses into invoices",
+        ].map((b) => (
+          <div key={b} className="flex items-start gap-2 text-[12.5px] text-slate-600 dark:text-slate-300">
+            <CheckCircle2 size={14} className="text-emerald-500 mt-0.5 shrink-0" />
+            <span>{b}</span>
+          </div>
+        ))}
+      </div>
+    </Surface>
+  );
+};
+
+const LifeStep = ({ icon: Icon, label, tone }) => {
+  const tones = {
+    default: "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800",
+    pos:     "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-100 dark:border-emerald-900/40",
+    accent:  "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-900/40",
+  };
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-medium ${tones[tone || "default"]}`}>
+      <Icon size={13} />
+      <span className="whitespace-nowrap">{label}</span>
+    </div>
+  );
+};
+
+const ExpensePreview = ({ expense }) => (
+  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-lg p-6 sm:p-8 mx-auto max-w-2xl relative text-slate-800 dark:text-slate-200">
+    <div className="absolute top-3 left-3 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-slate-200 dark:bg-slate-800 text-slate-500 rounded">
+      Non-billable
+    </div>
+
+    <div className="text-[11.5px] space-y-0.5 mb-6">
+      <p className="font-semibold text-slate-900 dark:text-slate-100">Fidha</p>
+      <p className="text-slate-500">Keralam</p>
+      <p className="text-slate-500">India</p>
+      <p className="text-slate-500">fidh3549@gmail.com</p>
+    </div>
+
+    <div className="text-center mb-6">
+      <h1 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">Expense</h1>
+    </div>
+
+    <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="col-span-2 space-y-2 text-[11.5px]">
+        <ReceiptRow label="Expense date"    value={expense.date} />
+        <ReceiptRow label="Expense account" value={expense.expenseAccount} />
+        <ReceiptRow label="Currency"        value="INR" />
+        <ReceiptRow label="Paid through"    value={expense.paidThrough} />
+      </div>
+      <div className="bg-emerald-600 text-white rounded-md px-3 py-3 flex flex-col justify-center text-center">
+        <p className="text-[9.5px] uppercase tracking-wider opacity-90 mb-0.5">Amount</p>
+        <p className="text-lg font-semibold tabular-nums">₹{expense.amount.toFixed(2)}</p>
+      </div>
+    </div>
+
+    <div className="mt-10 flex justify-end text-[10.5px] text-slate-500">
+      <div className="text-center">
+        <div className="w-40 h-px bg-slate-300 dark:bg-slate-700 mb-1"></div>
+        <p className="text-[9.5px]">Authorized signature</p>
+      </div>
+    </div>
+  </div>
+);
+
+const ReceiptRow = ({ label, value }) => (
+  <div className="flex items-center justify-between gap-3">
+    <span className="text-slate-500">{label}</span>
+    <span className="font-medium text-slate-900 dark:text-slate-100">{value}</span>
+  </div>
+);
 
 export default ExpensesPage;

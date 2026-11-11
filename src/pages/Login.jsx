@@ -13,6 +13,10 @@ import {
 import { showToast } from "../components/common/Toast";
 import { useAppTheme } from "../context/ThemeContext";
 
+import OtpInput from "../components/common/OtpInput";
+import SuccessCheck from "../components/common/SuccessCheck";
+import { sounds } from "../hooks/useSound";
+
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,6 +36,10 @@ const Login = () => {
   const [isRequestingCode, setIsRequestingCode] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [resetStep, setResetStep] = useState(1);
+
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [otpError, setOtpError] = useState(false);
+
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   // ===== END ADDED =====
@@ -151,16 +159,19 @@ const Login = () => {
   };
 
   const handleResetPassword = async () => {
-    if (!resetCode) {
-      showToast("Please enter the reset code", "error");
+    setOtpError(false);
+
+    if (!resetCode || resetCode.length !== 6) {
+      setOtpError(true);
+      sounds.error(); 
+      showToast("Please enter the 6-digit code", "error");
+      setTimeout(() => setOtpError(false), 500);
       return;
     }
-
     if (!newPassword || newPassword.length < 6) {
       showToast("Password must be at least 6 characters", "error");
       return;
     }
-
     if (newPassword !== confirmPassword) {
       showToast("Passwords do not match", "error");
       return;
@@ -170,29 +181,38 @@ const Login = () => {
     try {
       const result = await dispatch(
         resetPassword({
-          email: resetEmail, // ADDED
+          email: resetEmail,
           code: resetCode,
           password: newPassword,
-          passwordConfirmation: confirmPassword, // ADDED
+          passwordConfirmation: confirmPassword,
         }),
       ).unwrap();
 
+      // Show the pretty success animation
+      setResetSuccess(true);
+      setOtpError(false);
       showToast(result.message || "Password reset successfully!", "success");
-      setShowForgotPassword(false);
-      setResetEmail("");
-      setResetCode("");
-      setNewPassword("");
-      setConfirmPassword(""); // ADDED
-      setResetStep(1);
-      setCodeSent(false);
+
+      // Reset the modal after animation finishes
+      setTimeout(() => {
+        setShowForgotPassword(false);
+        setResetSuccess(false);
+        setResetEmail("");
+        setResetCode("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setResetStep(1);
+        setCodeSent(false);
+      }, 1800);
     } catch (error) {
-      showToast(
-        error || "Failed to reset password. Please try again.",
-        "error",
-      );
-    } finally {
-      setIsResetting(false);
-    }
+  setOtpError(true); // persistent red + shake
+  showToast(
+    error || "Invalid or expired code. Please try again.",
+    "error",
+  );
+} finally {
+  setIsResetting(false);
+}
   };
 
   // Close forgot password modal on Escape key
@@ -804,160 +824,155 @@ const Login = () => {
             )}
 
             {/* Step 2: Enter Code & New Password */}
-            {resetStep === 2 && (
+            {/* Step 2: Enter Code & New Password */}
+{resetStep === 2 && (
+  <>
+    {resetSuccess ? (
+      <SuccessCheck
+        primaryColor={primaryColor}
+        onDone={() => {
+          setShowForgotPassword(false);
+          setResetSuccess(false);
+          setResetEmail("");
+          setResetCode("");
+          setNewPassword("");
+          setConfirmPassword("");
+          setResetStep(1);
+          setCodeSent(false);
+        }}
+      />
+    ) : (
+      <>
+        <div className="space-y-5">
+          <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+            <i className="fas fa-check-circle text-green-500"></i>
+            <p className="text-sm text-green-700 dark:text-green-300">
+              Code sent to <strong>{resetEmail}</strong>
+            </p>
+          </div>
+
+          {/* --- Animated OTP --- */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 text-center">
+              Enter the 6-digit code
+            </label>
+            <OtpInput
+  length={6}
+  value={resetCode}
+  onChange={(val) => {
+    setResetCode(val);
+    if (otpError) setOtpError(false); // clear red as soon as they type
+  }}
+  onComplete={() => {
+    document.getElementById("new-password-input")?.focus();
+  }}
+  primaryColor={primaryColor}
+  disabled={isResetting}
+  error={otpError}
+/>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
+              Paste the code or type it in — spaces and dashes are ignored
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              New Password
+            </label>
+            <div className="relative">
+              <i className="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+              <input
+                id="new-password-input"
+                type={showNewPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full pl-11 pr-11 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 transition-all"
+                style={{ "--tw-ring-color": `${primaryColor}33` }}
+                placeholder="New password (min 6 characters)"
+                disabled={isResetting}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <i
+                  className={`fas ${showNewPassword ? "fa-eye-slash" : "fa-eye"}`}
+                ></i>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Confirm New Password
+            </label>
+            <div className="relative">
+              <i className="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full pl-11 pr-11 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 transition-all"
+                style={{ "--tw-ring-color": `${primaryColor}33` }}
+                placeholder="Confirm new password"
+                disabled={isResetting}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <i
+                  className={`fas ${showConfirmPassword ? "fa-eye-slash" : "fa-eye"}`}
+                ></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+          <button
+            onClick={() => {
+              setResetStep(1);
+              setCodeSent(false);
+              setResetCode("");
+              setNewPassword("");
+              setConfirmPassword("");
+            }}
+            className="px-4 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+            disabled={isResetting}
+          >
+            <i className="fas fa-arrow-left mr-1"></i> Back
+          </button>
+          <button
+            onClick={handleResetPassword}
+            disabled={
+              isResetting ||
+              !resetCode ||
+              resetCode.length !== 6 ||
+              !newPassword ||
+              !confirmPassword ||
+              newPassword !== confirmPassword
+            }
+            className="flex-1 px-4 py-2.5 rounded-lg text-white font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ backgroundColor: primaryColor }}
+          >
+            {isResetting ? (
               <>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <i className="fas fa-check-circle text-green-500"></i>
-                    <p className="text-sm text-green-700 dark:text-green-300">
-                      Code sent to <strong>{resetEmail}</strong>
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Reset Code
-                    </label>
-                    <div className="relative">
-                      <i className="fas fa-shield-alt absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                      <input
-                        type="text"
-                        value={resetCode}
-                        onChange={(e) =>
-                          setResetCode(e.target.value.toUpperCase())
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            handleResetPassword();
-                          }
-                        }}
-                        className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-primary-custom focus:ring-2 focus:ring-primary-custom/20 transition-all uppercase"
-                        placeholder="Enter 6-digit code"
-                        disabled={isResetting}
-                        maxLength={6}
-                        autoFocus
-                      />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Enter the 6-digit code sent to your email
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      New Password
-                    </label>
-                    <div className="relative">
-                      <i className="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                      <input
-                        type={showNewPassword ? "text" : "password"}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            handleResetPassword();
-                          }
-                        }}
-                        className="w-full pl-11 pr-11 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-primary-custom focus:ring-2 focus:ring-primary-custom/20 transition-all"
-                        placeholder="New password (min 6 characters)"
-                        disabled={isResetting}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <i
-                          className={`fas ${showNewPassword ? "fa-eye-slash" : "fa-eye"}`}
-                        ></i>
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Confirm New Password
-                    </label>
-                    <div className="relative">
-                      <i className="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                      <input
-                        type={showConfirmPassword ? "text" : "password"}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            handleResetPassword();
-                          }
-                        }}
-                        className="w-full pl-11 pr-11 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-primary-custom focus:ring-2 focus:ring-primary-custom/20 transition-all"
-                        placeholder="Confirm new password"
-                        disabled={isResetting}
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowConfirmPassword(!showConfirmPassword)
-                        }
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <i
-                          className={`fas ${showConfirmPassword ? "fa-eye-slash" : "fa-eye"}`}
-                        ></i>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
-                  <button
-                    onClick={() => {
-                      setResetStep(1);
-                      setCodeSent(false);
-                      setResetCode("");
-                      setNewPassword("");
-                      setConfirmPassword("");
-                    }}
-                    className="px-4 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
-                    disabled={isResetting}
-                  >
-                    <i className="fas fa-arrow-left mr-1"></i> Back
-                  </button>
-                  <button
-                    onClick={handleResetPassword}
-                    disabled={
-                      isResetting ||
-                      !resetCode ||
-                      !newPassword ||
-                      !confirmPassword ||
-                      newPassword !== confirmPassword
-                    }
-                    className="flex-1 px-4 py-2.5 rounded-lg text-white font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{
-                      backgroundColor: primaryColor,
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.backgroundColor = adjustColor(
-                        primaryColor,
-                        -10,
-                      ))
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.backgroundColor = primaryColor)
-                    }
-                  >
-                    {isResetting ? (
-                      <>
-                        <i className="fas fa-spinner fa-spin"></i> Resetting...
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-check"></i> Reset Password
-                      </>
-                    )}
-                  </button>
-                </div>
+                <i className="fas fa-spinner fa-spin"></i> Verifying...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-check"></i> Verify & Reset
               </>
             )}
+          </button>
+        </div>
+      </>
+    )}
+  </>
+)}
           </div>
         </div>
       )}

@@ -2,10 +2,58 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { addPayment, updatePayment } from "../../../store/slices/accounts/paymentsMadeSlice";
-import { X, Search, ChevronDown, Info, Upload, Settings, Lightbulb } from "lucide-react";
+import { X, ChevronDown, Info, Upload, Settings, Lightbulb } from "lucide-react";
+import { inputCls } from "../ui";
 
-const inputCls =
-  "w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 placeholder:text-gray-400 dark:placeholder:text-gray-500";
+/* ---------- primitives ---------- */
+
+const Field = ({ label, required, children, className = "" }) => (
+  <div className={`flex flex-col gap-1.5 ${className}`}>
+    <label className="flex items-center gap-1 text-[12px] font-medium text-slate-600 dark:text-slate-300">
+      {label}
+      {required && <span className="text-rose-500">*</span>}
+    </label>
+    {children}
+  </div>
+);
+
+const Surface = ({ title, description, action, children, className = "" }) => (
+  <section className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}>
+    {(title || description || action) && (
+      <div className="px-5 sm:px-6 pt-5 pb-1 flex items-start justify-between gap-3">
+        <div>
+          {title && <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">{title}</h2>}
+          {description && <p className="text-[12px] text-slate-500 mt-0.5">{description}</p>}
+        </div>
+        {action}
+      </div>
+    )}
+    <div className="px-5 sm:px-6 py-5">{children}</div>
+  </section>
+);
+
+const SummaryRow = ({ label, value }) => (
+  <div className="flex items-center justify-between">
+    <span className="text-slate-600 dark:text-slate-300">{label}</span>
+    <span className="font-medium text-slate-900 dark:text-slate-100 tabular-nums">{value}</span>
+  </div>
+);
+
+const CurrencyInput = ({ value, onChange }) => (
+  <div className="flex">
+    <span className="inline-flex items-center px-3 text-[12px] font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 border border-r-0 border-slate-200 dark:border-slate-700 rounded-l-lg">
+      INR
+    </span>
+    <input
+      type="number"
+      value={value}
+      onChange={onChange}
+      className="flex-1 min-w-0 px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-r-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition tabular-nums"
+    />
+  </div>
+);
+
+/* ---------- page ---------- */
 
 const PaymentForm = () => {
   const navigate = useNavigate();
@@ -15,14 +63,10 @@ const PaymentForm = () => {
   const existingPayment = useSelector((state) =>
     state.paymentsMade.payments.find((p) => p.id === id)
   );
-  const vendors = useSelector(
-    (state) =>
-      state?.vendors?.vendors || [
-        { vendorName: "LocalFix" },
-        { vendorName: "Acme Corp" },
-      ]
-  );
-  const bills = useSelector((state) => state?.bills?.bills || []);
+  const vendors = useSelector((state) => state?.vendors?.vendors || [
+    { vendorName: "LocalFix" },
+    { vendorName: "Acme Corp" },
+  ]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
@@ -52,7 +96,7 @@ const PaymentForm = () => {
   const setField = (key, value) => setFormData((prev) => ({ ...prev, [key]: value }));
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!formData.vendor) return;
 
     setIsSubmitting(true);
@@ -61,11 +105,8 @@ const PaymentForm = () => {
     const finalData = { ...formData, type: activeTab };
 
     try {
-      if (id) {
-        await dispatch(updatePayment({ id, ...finalData })).unwrap();
-      } else {
-        await dispatch(addPayment(finalData)).unwrap();
-      }
+      if (id) await dispatch(updatePayment({ id, ...finalData })).unwrap();
+      else await dispatch(addPayment(finalData)).unwrap();
       navigate("/admin/accounts/purchases/payments-made");
     } catch (err) {
       setSubmitError(err?.message || "Something went wrong.");
@@ -74,332 +115,304 @@ const PaymentForm = () => {
     }
   };
 
+  const title = id ? "Edit payment" : "Record payment";
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100">
-      {/* Top Header with Tabs */}
-      <div className="flex items-center justify-between px-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky top-0 z-10">
-        <div className="flex gap-6 mt-2">
-          {["Bill Payment", "Vendor Advance"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab
-                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => navigate("/admin/accounts/purchases/payments-made")}
-          className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-        >
-          <X size={20} />
-        </button>
-      </div>
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-24">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
 
-      <form onSubmit={handleSubmit} className="flex-1 w-full max-w-5xl mx-auto px-4 py-6 pb-8">
-        {submitError && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-md text-sm">
-            {submitError}
-          </div>
-        )}
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-          {/* Vendor Section */}
-          <div className="p-6 flex items-start justify-between border-b border-gray-100 dark:border-gray-700">
-            <div className="flex flex-col gap-1.5 w-1/2">
-              <label className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                Vendor Name <span className="text-red-500 dark:text-red-400">*</span>
-              </label>
-              <select
-                className={inputCls}
-                value={formData.vendor}
-                onChange={(e) => setField("vendor", e.target.value)}
-              >
-                <option value="">Select a Vendor</option>
-                {vendors.map((v) => (
-                  <option key={v.vendorName} value={v.vendorName}>{v.vendorName}</option>
-                ))}
-              </select>
-            </div>
-            {formData.vendor && (
-              <div className="bg-gray-700 dark:bg-gray-600 text-white text-xs px-3 py-2 rounded flex items-center gap-2 cursor-pointer mt-6">
-                {formData.vendor}'s Details <ChevronDown size={12} />
-              </div>
-            )}
-          </div>
-
-          {/* Form Details */}
-          <div className="p-6 space-y-4">
-            <div className="flex items-center gap-4">
-              <label className="text-sm text-gray-600 dark:text-gray-400 w-40 shrink-0">
-                Payment # <span className="text-red-500 dark:text-red-400">*</span>
-              </label>
-              <div className="relative w-full max-w-md">
-                <input
-                  type="text"
-                  className={inputCls}
-                  value={formData.paymentNumber}
-                  onChange={(e) => setField("paymentNumber", e.target.value)}
-                />
-                <Settings size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-500 dark:text-blue-400 cursor-pointer" />
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <label className="text-sm text-gray-600 dark:text-gray-400 w-40 shrink-0 mt-2">
-                Payment Made <span className="text-red-500 dark:text-red-400">*</span>
-              </label>
-              <div className="w-full max-w-md space-y-2">
-                <div className="flex">
-                  <span className="border border-r-0 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 rounded-l-md px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300">
-                    INR
-                  </span>
-                  <input
-                    type="number"
-                    className={`${inputCls} rounded-l-none`}
-                    value={formData.amount}
-                    onChange={(e) => setField("amount", e.target.value)}
-                  />
-                </div>
-                {activeTab === "Bill Payment" && (
-                  <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                    <input
-                      type="checkbox"
-                      checked={payFullAmount}
-                      onChange={(e) => setPayFullAmount(e.target.checked)}
-                      className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:bg-gray-900"
-                    />
-                    Pay full amount (₹3,334.00)
-                  </label>
-                )}
-              </div>
-            </div>
-
-            {activeTab === "Vendor Advance" && (
-              <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-600 dark:text-gray-400 w-40 shrink-0">TDS</label>
-                <select className={`${inputCls} max-w-md`}>
-                  <option>Select a Tax</option>
-                </select>
-              </div>
-            )}
-
-            {/* Info Banner */}
-            <div className="flex items-start gap-3 bg-gray-50 dark:bg-gray-900 p-3 rounded-md border border-gray-100 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 max-w-2xl ml-44">
-              <Lightbulb size={18} className="text-yellow-500 dark:text-yellow-400 shrink-0" />
-              <div>
-                Initiate payments for your bills directly from Zoho Books by integrating with one of our partner banks.{" "}
-                <a href="#" className="text-blue-600 dark:text-blue-400 hover:underline">Set Up Now</a>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <label className="text-sm text-gray-600 dark:text-gray-400 w-40 shrink-0">
-                Payment Date <span className="text-red-500 dark:text-red-400">*</span>
-              </label>
-              <input
-                type="date"
-                className={`${inputCls} max-w-md`}
-                value={formData.date}
-                onChange={(e) => setField("date", e.target.value)}
-              />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <label className="text-sm text-gray-600 dark:text-gray-400 w-40 shrink-0">Payment Mode</label>
-              <select
-                className={`${inputCls} max-w-md`}
-                value={formData.paymentMode}
-                onChange={(e) => setField("paymentMode", e.target.value)}
-              >
-                <option value="Cash">Cash</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Check">Check</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <label className="text-sm text-gray-600 dark:text-gray-400 w-40 shrink-0">
-                Paid Through <span className="text-red-500 dark:text-red-400">*</span>
-              </label>
-              <select
-                className={`${inputCls} max-w-md`}
-                value={formData.paidThrough}
-                onChange={(e) => setField("paidThrough", e.target.value)}
-              >
-                <option value="Petty Cash">Petty Cash</option>
-                <option value="Undeposited Funds">Undeposited Funds</option>
-              </select>
-            </div>
-
-            {activeTab === "Vendor Advance" && (
-              <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-600 dark:text-gray-400 w-40 shrink-0">Deposit To</label>
-                <select
-                  className={`${inputCls} max-w-md`}
-                  value={formData.depositTo}
-                  onChange={(e) => setField("depositTo", e.target.value)}
-                >
-                  <option value="Prepaid Expenses">Prepaid Expenses</option>
-                </select>
-              </div>
-            )}
-
-            <div className="flex items-center gap-4">
-              <label className="text-sm text-gray-600 dark:text-gray-400 w-40 shrink-0">Reference#</label>
-              <input
-                type="text"
-                className={`${inputCls} max-w-md`}
-                value={formData.reference}
-                onChange={(e) => setField("reference", e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Unapplied Amount Table (For Bill Payment only) */}
-          {activeTab === "Bill Payment" && (
-            <div className="p-6 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex justify-end mb-2">
-                <button type="button" className="text-blue-600 dark:text-blue-400 text-sm hover:underline">
-                  Clear Applied Amount
-                </button>
-              </div>
-              <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead className="bg-gray-50 dark:bg-gray-900 border-y border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 font-semibold">
-                  <tr>
-                    <th className="px-3 py-2">Date</th>
-                    <th className="px-3 py-2">Bill#</th>
-                    <th className="px-3 py-2">PO#</th>
-                    <th className="px-3 py-2 text-right">Bill Amount</th>
-                    <th className="px-3 py-2 text-right">Amount Due</th>
-                    <th className="px-3 py-2">Payment Made on</th>
-                    <th className="px-3 py-2 text-right">Payment</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {formData.appliedBills.map((bill, idx) => (
-                    <tr key={idx}>
-                      <td className="px-3 py-3">
-                        <div className="text-gray-800 dark:text-gray-200">{bill.billDate}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">Due Date: {bill.billDate}</div>
-                      </td>
-                      <td className="px-3 py-3 text-gray-800 dark:text-gray-200">{bill.billNumber}</td>
-                      <td className="px-3 py-3"></td>
-                      <td className="px-3 py-3 text-right text-gray-800 dark:text-gray-200">
-                        {Number(bill.billAmount).toFixed(2)}
-                      </td>
-                      <td className="px-3 py-3 text-right text-gray-800 dark:text-gray-200">
-                        {Number(bill.billAmount).toFixed(2)}
-                      </td>
-                      <td className="px-3 py-3">
-                        <input type="date" className={inputCls} defaultValue={bill.billDate} />
-                      </td>
-                      <td className="px-3 py-3 text-right">
-                        <input type="number" className={`${inputCls} text-right`} defaultValue={bill.paymentAmount} />
-                        <div className="text-blue-600 dark:text-blue-400 text-xs text-right mt-1 cursor-pointer hover:underline">
-                          Pay in Full
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="flex justify-end mt-4">
-                <div className="w-1/3 flex justify-between text-sm font-semibold text-gray-800 dark:text-gray-200">
-                  <span>Total :</span>
-                  <span>₹{Number(formData.amount).toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Summary Box (For Bill Payment) */}
-          {activeTab === "Bill Payment" && (
-            <div className="px-6 pb-6 flex justify-end">
-              <div className="w-full max-w-sm bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4 space-y-2 text-sm">
-                <div className="flex justify-between text-gray-700 dark:text-gray-300">
-                  <span>Amount Paid:</span>
-                  <span>{Number(formData.amount).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-700 dark:text-gray-300">
-                  <span>Amount used for Payments:</span>
-                  <span>0.00</span>
-                </div>
-                <div className="flex justify-between text-gray-700 dark:text-gray-300">
-                  <span>Amount Refunded:</span>
-                  <span>0.00</span>
-                </div>
-                <div className="flex justify-between text-gray-800 dark:text-gray-200 font-medium">
-                  <span>Amount in Excess:</span>
-                  <span>₹ 0.00</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <hr className="border-gray-200 dark:border-gray-700" />
-
-          {/* Notes & Attachments */}
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">
-                Notes (Internal use. Not visible to vendor)
-              </label>
-              <textarea
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-3 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 resize-none h-24 placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                placeholder="Enter notes..."
-                value={formData.notes}
-                onChange={(e) => setField("notes", e.target.value)}
-              ></textarea>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Attachments</label>
-              <button
-                type="button"
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
-              >
-                <Upload size={14} /> Upload File <ChevronDown size={14} />
-              </button>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                You can upload a maximum of 5 files, 10MB each
-              </p>
-            </div>
-          </div>
-
-          <div className="p-6 pt-0">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Additional Fields: Start adding custom fields for your payments made by going to{" "}
-              <span className="font-semibold text-gray-700 dark:text-gray-300">
-                Settings &gt; Purchases &gt; Payments Made.
-              </span>
+        {/* ---- Header ---- */}
+        <header className="pt-8 pb-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Purchases · Payments made</p>
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-1">{title}</h1>
+            <p className="text-[13px] text-slate-500 mt-1">
+              {id ? "Update vendor, amount, and applied bills" : "Record a payment against a bill or record a vendor advance"}
             </p>
           </div>
-        </div>
 
-        {/* Footer Actions */}
-        <div className="mt-6 flex items-center gap-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm">
           <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {isSubmitting ? "Saving..." : "Save"}
-          </button>
-          <button
-            type="button"
-            disabled={isSubmitting}
             onClick={() => navigate("/admin/accounts/purchases/payments-made")}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            aria-label="Close"
           >
-            Cancel
+            <X size={18} />
           </button>
-        </div>
-      </form>
+        </header>
+
+        {/* ---- Tabs ---- */}
+        <Surface className="mb-4 !py-0">
+          <div className="px-5 sm:px-6">
+            <div className="flex gap-1 -mb-px overflow-x-auto">
+              {["Bill Payment", "Vendor Advance"].map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`whitespace-nowrap px-3 py-2.5 text-[12.5px] font-medium transition-colors border-b-2 ${
+                    activeTab === tab
+                      ? "border-slate-900 dark:border-slate-100 text-slate-900 dark:text-slate-100"
+                      : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+        </Surface>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* ---- Error banner ---- */}
+          {submitError && (
+            <div className="flex items-start gap-2 px-4 py-3 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900/40 text-[12.5px] text-rose-700 dark:text-rose-300">
+              <Info size={14} className="mt-0.5 shrink-0" />
+              <span>{submitError}</span>
+            </div>
+          )}
+
+          {/* ---- Vendor & payment ---- */}
+          <Surface title="Vendor & payment" description="Who you're paying and how much">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-6 gap-y-5">
+              <Field label="Vendor" required className="lg:col-span-3">
+                <div className="flex gap-2">
+                  <select
+                    className={`${inputCls} flex-1`}
+                    value={formData.vendor}
+                    onChange={(e) => setField("vendor", e.target.value)}
+                  >
+                    <option value="">Select a vendor…</option>
+                    {vendors.map((v) => (
+                      <option key={v.vendorName} value={v.vendorName}>{v.vendorName}</option>
+                    ))}
+                  </select>
+                  {formData.vendor && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap"
+                    >
+                      Details <ChevronDown size={12} />
+                    </button>
+                  )}
+                </div>
+              </Field>
+
+              <Field label="Payment #" required>
+                <div className="relative">
+                  <input type="text" className={inputCls} value={formData.paymentNumber} onChange={(e) => setField("paymentNumber", e.target.value)} />
+                  <Settings size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                </div>
+              </Field>
+
+              <Field label="Payment date" required>
+                <input type="date" className={inputCls} value={formData.date} onChange={(e) => setField("date", e.target.value)} />
+              </Field>
+
+              <Field label="Reference #">
+                <input type="text" className={inputCls} value={formData.reference} onChange={(e) => setField("reference", e.target.value)} />
+              </Field>
+
+              <Field label="Amount paid" required className="lg:col-span-3">
+                <div className="space-y-2 max-w-md">
+                  <CurrencyInput value={formData.amount} onChange={(e) => setField("amount", e.target.value)} />
+                  {activeTab === "Bill Payment" && (
+                    <label className="inline-flex items-center gap-2 text-[12px] text-slate-600 dark:text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={payFullAmount}
+                        onChange={(e) => setPayFullAmount(e.target.checked)}
+                        className="rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                      />
+                      Pay full amount (₹3,334.00)
+                    </label>
+                  )}
+                </div>
+              </Field>
+            </div>
+
+            {activeTab === "Vendor Advance" && (
+              <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                <Field label="TDS">
+                  <select className={inputCls}>
+                    <option>Select a tax</option>
+                  </select>
+                </Field>
+                <Field label="Deposit to">
+                  <select className={inputCls} value={formData.depositTo} onChange={(e) => setField("depositTo", e.target.value)}>
+                    <option value="Prepaid Expenses">Prepaid expenses</option>
+                  </select>
+                </Field>
+              </div>
+            )}
+
+            <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+              <Field label="Payment mode">
+                <select className={inputCls} value={formData.paymentMode} onChange={(e) => setField("paymentMode", e.target.value)}>
+                  <option value="Cash">Cash</option>
+                  <option value="Bank Transfer">Bank transfer</option>
+                  <option value="Check">Check</option>
+                </select>
+              </Field>
+              <Field label="Paid through" required>
+                <select className={inputCls} value={formData.paidThrough} onChange={(e) => setField("paidThrough", e.target.value)}>
+                  <option value="Petty Cash">Petty cash</option>
+                  <option value="Undeposited Funds">Undeposited funds</option>
+                </select>
+              </Field>
+            </div>
+
+            <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800 flex items-start gap-2.5 px-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-950/50 border border-slate-200/80 dark:border-slate-800">
+              <Lightbulb size={14} className="text-amber-500 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[11.5px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Initiate payments for your bills directly by integrating with a partner bank.
+                </p>
+                <a href="#" className="text-[11.5px] font-medium text-slate-900 dark:text-slate-100 underline underline-offset-2 hover:no-underline">
+                  Set up now
+                </a>
+              </div>
+            </div>
+          </Surface>
+
+          {/* ---- Applied bills (Bill Payment only) ---- */}
+          {activeTab === "Bill Payment" && (
+            <Surface
+              title="Applied bills"
+              description="Which bills this payment covers"
+              action={
+                <button type="button" className="text-[12px] font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
+                  Clear applied amount
+                </button>
+              }
+              className="!py-0"
+            >
+              <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+                <table className="w-full min-w-[900px] text-[12.5px]">
+                  <thead>
+                    <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-y border-slate-100 dark:border-slate-800">
+                      <th className="text-left  font-medium py-2.5 px-3">Date</th>
+                      <th className="text-left  font-medium py-2.5 px-3">Bill #</th>
+                      <th className="text-left  font-medium py-2.5 px-3">PO #</th>
+                      <th className="text-right font-medium py-2.5 px-3">Bill amount</th>
+                      <th className="text-right font-medium py-2.5 px-3">Amount due</th>
+                      <th className="text-left  font-medium py-2.5 px-3">Payment made on</th>
+                      <th className="text-right font-medium py-2.5 px-3">Payment</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {formData.appliedBills.length ? formData.appliedBills.map((bill, idx) => (
+                      <tr key={idx} className="align-top">
+                        <td className="py-3 px-3">
+                          <p className="text-slate-800 dark:text-slate-200">{bill.billDate}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">Due {bill.billDate}</p>
+                        </td>
+                        <td className="py-3 px-3 text-slate-800 dark:text-slate-200 font-medium">{bill.billNumber}</td>
+                        <td className="py-3 px-3 text-slate-500"></td>
+                        <td className="py-3 px-3 text-right tabular-nums text-slate-800 dark:text-slate-200">
+                          {Number(bill.billAmount).toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3 text-right tabular-nums text-slate-800 dark:text-slate-200">
+                          {Number(bill.billAmount).toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3">
+                          <input type="date" className="w-full px-2 py-1.5 text-[12px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400" defaultValue={bill.billDate} />
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <input type="number" className="w-full px-2 py-1.5 text-[12px] text-right bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400 tabular-nums" defaultValue={bill.paymentAmount} />
+                          <button type="button" className="mt-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                            Pay in full
+                          </button>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={7} className="py-10 text-center text-[12.5px] text-slate-500">
+                          No unpaid bills selected for this vendor.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-slate-100 dark:border-slate-800">
+                      <td colSpan={6} className="py-2.5 px-3 text-right text-[11.5px] font-medium text-slate-500">Total</td>
+                      <td className="py-2.5 px-3 text-right text-[12.5px] font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
+                        ₹{Number(formData.amount).toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </Surface>
+          )}
+
+          {/* ---- Notes & summary ---- */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Surface title="Notes & attachments">
+              <div className="space-y-4">
+                <Field label="Internal notes">
+                  <textarea
+                    rows={3}
+                    className={inputCls}
+                    placeholder="Internal use. Not visible to the vendor."
+                    value={formData.notes}
+                    onChange={(e) => setField("notes", e.target.value)}
+                  />
+                </Field>
+                <Field label="Attachments">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-slate-700 dark:text-slate-200 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <Upload size={13} /> Upload file
+                  </button>
+                  <p className="text-[11px] text-slate-500 mt-2">Up to 5 files, 10 MB each.</p>
+                </Field>
+              </div>
+            </Surface>
+
+            {activeTab === "Bill Payment" && (
+              <Surface title="Summary" className="h-fit">
+                <div className="space-y-3 text-[12.5px]">
+                  <SummaryRow label="Amount paid"             value={Number(formData.amount).toFixed(2)} />
+                  <SummaryRow label="Amount used for payments" value="0.00" />
+                  <SummaryRow label="Amount refunded"         value="0.00" />
+                  <div className="border-t border-slate-100 dark:border-slate-800 pt-3 mt-1">
+                    <SummaryRow label="Amount in excess" value="₹ 0.00" />
+                  </div>
+                </div>
+              </Surface>
+            )}
+          </div>
+
+          {/* ---- Additional fields ---- */}
+          <p className="text-[11.5px] text-slate-500 px-1">
+            Additional fields: manage custom fields for payments under{" "}
+            <span className="font-medium text-slate-700 dark:text-slate-300">Settings → Purchases → Payments made</span>.
+          </p>
+
+          {/* ---- Footer ---- */}
+          <div className="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-gradient-to-t from-slate-50 dark:from-slate-950 via-slate-50/95 dark:via-slate-950/95 to-transparent">
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => navigate("/admin/accounts/purchases/payments-made")}
+                className="px-3 py-2 text-[12.5px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-3 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors disabled:opacity-50"
+              >
+                {isSubmitting ? "Saving…" : id ? "Save changes" : "Save payment"}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
