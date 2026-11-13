@@ -390,17 +390,18 @@ const ProductModal = ({
           </Field>
 
           {/* Row 3: Unit / Price / Currency / Tax */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <SearchableSelect
-              label="Unit"
-              value={form.unit}
-              onChange={(v) => update("unit", v)}
-              options={unitSelectOptions}
-              disabled={submitting}
-              placeholder="Select unit..."
-              searchPlaceholder="Search units..."
-              clearable={false}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+            <Field label="Unit">
+              <SearchableSelect
+                value={form.unit}
+                onChange={(v) => update("unit", v)}
+                options={unitSelectOptions}
+                disabled={submitting}
+                placeholder="Select unit..."
+                searchPlaceholder="Search units..."
+                clearable={false}
+              />
+            </Field>
             <Field label="Default Price">
               <input
                 type="number"
@@ -413,16 +414,17 @@ const ProductModal = ({
                 className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
             </Field>
-            <SearchableSelect
-              label="Currency"
-              value={form.currency}
-              onChange={(v) => update("currency", v)}
-              options={currencySelectOptions}
-              disabled={submitting}
-              placeholder="Select currency..."
-              searchPlaceholder="Search currencies..."
-              clearable={false}
-            />
+            <Field label="Currency">
+              <SearchableSelect
+                value={form.currency}
+                onChange={(v) => update("currency", v)}
+                options={currencySelectOptions}
+                disabled={submitting}
+                placeholder="Select currency..."
+                searchPlaceholder="Search currencies..."
+                clearable={false}
+              />
+            </Field>
             <Field label="Tax Rate %">
               <input
                 type="number"
