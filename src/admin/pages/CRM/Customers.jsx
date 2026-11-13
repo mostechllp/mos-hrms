@@ -4,8 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Plus, Search, Filter, Download, Eye, Pencil, Trash2,
-  UserPlus, Briefcase, CalendarClock, X, Users,
-  UserCheck, UserX, UserPlus2, Briefcase as BriefcaseIcon,
+  X, Users, UserCheck, UserX, UserPlus2, Briefcase as BriefcaseIcon,
   Clock, LayoutGrid, List,
 } from "lucide-react";
 import { showToast } from "../../../components/common/Toast";
@@ -401,12 +400,6 @@ const Customers = () => {
                           onClick={() => navigate(`/admin/crm/customers/${c.id}`)} />
                         <IconBtn icon={Pencil} color="text-amber-500" title="Edit"
                           onClick={() => navigate(`/admin/crm/customers/${c.id}/edit`)} />
-                        <IconBtn icon={UserPlus} color="text-indigo-500" title="Add Contact"
-                          onClick={() => showToast("Add contact — later", "info")} />
-                        <IconBtn icon={Briefcase} color="text-purple-500" title="Add Opportunity"
-                          onClick={() => showToast("Add opportunity — later", "info")} />
-                        <IconBtn icon={CalendarClock} color="text-teal-500" title="Schedule"
-                          onClick={() => showToast("Schedule — later", "info")} />
                         <IconBtn icon={Trash2} color="text-red-500" title="Delete"
                           onClick={() => handleDeleteClick(c)} disabled={submitting} />
                       </div>

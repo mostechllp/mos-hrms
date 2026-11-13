@@ -94,6 +94,7 @@ const Products = () => {
     filters,
     options,
     optionsLoading,
+    optionsLoaded,
     submitting,
   } = useSelector((s) => s.products);
 
@@ -207,10 +208,12 @@ const Products = () => {
   // ------------------------------------------------------------
   const openCreate = async () => {
     setEditingProduct(null);
-    try {
-      await dispatch(fetchProductFormOptions()).unwrap();
-    } catch {
-      /* non-fatal */
+    if (!optionsLoaded) {
+      try {
+        await dispatch(fetchProductFormOptions()).unwrap();
+      } catch {
+        /* non-fatal */
+      }
     }
     setModalOpen(true);
   };
@@ -225,11 +228,13 @@ const Products = () => {
       // fall back to the row data if the detail fetch fails
       setEditingProduct(product);
     }
-    // 3. make sure dropdown options are fresh
-    try {
-      await dispatch(fetchProductFormOptions()).unwrap();
-    } catch {
-      /* non-fatal */
+    // 3. ensure dropdown options are present
+    if (!optionsLoaded) {
+      try {
+        await dispatch(fetchProductFormOptions()).unwrap();
+      } catch {
+        /* non-fatal */
+      }
     }
     setModalOpen(true);
   };
@@ -334,11 +339,27 @@ const Products = () => {
   };
 
   // Options from slice
-  const typeOptions = options.types || ["Product", "Service"];
-  // options.categories is now [{ id, name, products_count }, ...]
+  const typeOptions = (options.types || ["Product", "Service"])
+    .map((t) => (typeof t === "string" ? t : t?.name || t?.value || t?.label || ""))
+    .filter(Boolean);
+
+  // options.categories can be strings or objects [{ id, name, ... }]
   const categoryList = options.categories || [];
-  const categoryOptions = categoryList.map((c) => c.name); // names for filters
-  const statusOptions = options.statuses || ["Active", "Inactive"];
+  const categoryOptions = categoryList
+    .map((c) => (typeof c === "string" ? c : c?.name || c?.category_name || c?.label || ""))
+    .filter(Boolean);
+
+  const statusOptions = (options.statuses || ["Active", "Inactive"])
+    .map((s) => (typeof s === "string" ? s : s?.name || s?.value || s?.label || ""))
+    .filter(Boolean);
+
+  const currencyOptions = (
+    options.currency_codes ||
+    options.currencies ||
+    ["INR", "USD", "AED", "GBP"]
+  )
+    .map((c) => (typeof c === "string" ? c : c?.code || c?.name || c?.value || ""))
+    .filter(Boolean);
 
   return (
     <div className="w-full overflow-x-hidden space-y-6">
@@ -469,7 +490,7 @@ const Products = () => {
               label="Currency"
               value={filters.currency}
               onChange={(v) => updateFilter("currency", v)}
-              options={options.currencies || []}
+              options={currencyOptions}
             />
           </div>
           {activeFilterCount > 0 && (
@@ -758,11 +779,22 @@ const FilterSelect = ({ label, value, onChange, options = [] }) => (
       className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
     >
       <option value="">All</option>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
+      {(options || []).map((o, idx) => {
+        if (typeof o === "string" || typeof o === "number") {
+          return (
+            <option key={`${o}-${idx}`} value={o}>
+              {o}
+            </option>
+          );
+        }
+        const val = o?.value ?? o?.code ?? o?.id ?? o?.name ?? "";
+        const lbl = o?.label ?? o?.name ?? o?.code ?? String(val);
+        return (
+          <option key={`${val}-${idx}`} value={val}>
+            {lbl}
+          </option>
+        );
+      })}
     </select>
   </div>
 );
