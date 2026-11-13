@@ -330,20 +330,28 @@ const Activities = () => {
   // ------------------------------------------------------------
   // Filter dropdown options — from form-options / lookups
   // ------------------------------------------------------------
+   // ✅ FIXED: Map to API's 'activity_types'
   const typeOptions = useMemo(
-    () => options.types || ["Call", "Email", "Meeting", "Task", "Site Visit"],
-    [options.types],
+    () => options.activity_types || ["Call", "Email", "Meeting", "Task", "Site Visit"],
+    [options.activity_types],
   );
 
   const statusOptions = useMemo(
-    () => options.statuses || ["Planned", "In Progress", "Completed", "Overdue", "Cancelled"],
+    () => options.statuses || ["Pending", "In Progress", "Completed", "Cancelled"], // Updated default to match API
     [options.statuses],
   );
 
-  const priorityOptions = useMemo(
-    () => options.priorities || ["Low", "Medium", "High"],
-    [options.priorities],
-  );
+  // ✅ FIXED: Use 'priority_names' (array of strings) or map the 'priorities' objects
+  const priorityOptions = useMemo(() => {
+    if (options.priority_names?.length > 0) {
+      return options.priority_names;
+    }
+    if (options.priorities?.length > 0) {
+      // If you only have the objects, map them to their names
+      return options.priorities.map(p => p.name);
+    }
+    return ["Low", "Medium", "High"];
+  }, [options.priority_names, options.priorities]);
 
   // 👇 Fixed: use { value, label } for assigned_to so we show names, not IDs
   const assignedOptions = useMemo(
