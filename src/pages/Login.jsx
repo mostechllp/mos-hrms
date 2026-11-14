@@ -8,6 +8,8 @@ import {
   setRememberMe,
   requestPasswordReset,
   resetPassword,
+  sendLoginOtp,
+  verifyLoginOtp,
 } from "../store/slices/authSlice";
 import { showToast } from "../components/common/Toast";
 import { useAppTheme } from "../context/ThemeContext";
@@ -48,8 +50,10 @@ const Login = () => {
   const [otpLoginStep, setOtpLoginStep] = useState(1); // 1=email, 2=otp, 3=verifying
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [otpLoginError, setOtpLoginError] = useState(false);
-
-  const DEMO_OTP = "123456";
+  const [otpAgreeToTerms, setOtpAgreeToTerms] = useState(false);
+  
+  // ✅ NEW: Blocks the automatic redirect while the OTP animation plays
+  const [isOtpLoggingIn, setIsOtpLoggingIn] = useState(false);
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -88,12 +92,13 @@ const Login = () => {
 
   // Redirect based on user type
   useEffect(() => {
-    if (isAuthenticated && userType) {
+    // ✅ Skip redirect if we are currently playing the OTP animation
+    if (isAuthenticated && userType && !isOtpLoggingIn) {
       const redirectPath =
         userType === "admin" ? "/admin/dashboard" : "/employee/dashboard";
       navigate(redirectPath, { replace: true });
     }
-  }, [isAuthenticated, userType, navigate]);
+  }, [isAuthenticated, userType, navigate, isOtpLoggingIn]);
 
   // Show login error
   useEffect(() => {
@@ -152,10 +157,7 @@ const Login = () => {
       setCodeSent(true);
       setResetStep(2);
     } catch (err) {
-      showToast(
-        err || "Failed to send reset code. Please try again.",
-        "error",
-      );
+      showToast(err || "Failed to send reset code. Please try again.", "error");
     } finally {
       setIsRequestingCode(false);
     }
@@ -204,10 +206,7 @@ const Login = () => {
     } catch (err) {
       setOtpError(true);
       sounds.error();
-      showToast(
-        err || "Invalid or expired code. Please try again.",
-        "error",
-      );
+      showToast(err || "Invalid or expired code. Please try again.", "error");
     } finally {
       setIsResetting(false);
     }
@@ -219,6 +218,7 @@ const Login = () => {
     setOtpLoginCode("");
     setOtpLoginStep(1);
     setOtpLoginError(false);
+    setOtpAgreeToTerms(false);
     setShowOtpLogin(true);
   };
 
@@ -232,29 +232,55 @@ const Login = () => {
       showToast("Please enter a valid email address", "error");
       return;
     }
+
     setIsSendingOtp(true);
-    // simulate API call (replace with real dispatch later)
-    await new Promise((r) => setTimeout(r, 800));
-    setIsSendingOtp(false);
-    showToast(
-      `OTP sent to ${otpLoginEmail} (demo code: ${DEMO_OTP})`,
-      "success",
-    );
-    setOtpLoginStep(2);
+    try {
+      const result = await dispatch(
+        sendLoginOtp({ email: otpLoginEmail }),
+      ).unwrap();
+      showToast(result, "success");
+      setOtpLoginStep(2);
+    } catch (err) {
+      showToast(err, "error");
+    } finally {
+      setIsSendingOtp(false);
+    }
   };
 
   const handleVerifyOtp = (code) => {
     setOtpLoginError(false);
     if (code.length !== 6) return;
-    if (code !== DEMO_OTP) {
+
+    if (!otpAgreeToTerms) {
       setOtpLoginError(true);
       sounds.error();
-      showToast("Invalid OTP. Please try again.", "error");
-      setTimeout(() => setOtpLoginCode(""), 400);
+      showToast(
+        "Please agree to the Privacy Policy and Terms & Conditions",
+        "error",
+      );
+      setTimeout(() => setOtpLoginError(false), 500);
       return;
     }
-    // correct → start verify animation
-    setOtpLoginStep(3);
+
+    setOtpLoginStep(3); // Show verifying animation
+    setIsOtpLoggingIn(true); // ✅ Block the automatic redirect
+
+    // Dispatch in the background (no await here so animation plays smoothly)
+    dispatch(
+      verifyLoginOtp({
+        email: otpLoginEmail,
+        otp: code,
+        agreeToTerms: otpAgreeToTerms,
+      })
+    ).catch((err) => {
+      // Handle failure: close animation, unblock redirect, show error
+      setIsOtpLoggingIn(false); // ✅ Unblock if it fails
+      setOtpLoginStep(2);
+      setOtpLoginError(true);
+      sounds.error();
+      showToast(err, "error");
+      setTimeout(() => setOtpLoginCode(""), 400);
+    });
   };
 
   const handleOtpVerifyDone = () => {
@@ -262,8 +288,15 @@ const Login = () => {
     setOtpLoginStep(1);
     setOtpLoginCode("");
     setOtpLoginEmail("");
-    showToast("Logged in successfully!", "success");
-    // TODO: navigate to dashboard once backend is ready
+    
+    // ✅ Now we unblock and redirect
+    setIsOtpLoggingIn(false);
+    
+    if (isAuthenticated && userType) {
+      const redirectPath =
+        userType === "admin" ? "/admin/dashboard" : "/employee/dashboard";
+      navigate(redirectPath, { replace: true });
+    }
   };
 
   // Escape key handler
@@ -484,12 +517,13 @@ const Login = () => {
     </div>
   );
 
-  // Modal Component
+   // Modal Component
   const Modal = ({ isOpen, onClose, title, children }) => {
     if (!isOpen) return null;
     return (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        // ✅ z-[1200] to sit above the OTP modal (z-[1100])
+        className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       >
         <div
@@ -740,7 +774,7 @@ const Login = () => {
               className="w-full font-semibold py-3 rounded-full transition-all duration-200 flex items-center justify-center gap-2 border-2 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-70 disabled:cursor-not-allowed"
               style={{ borderColor: primaryColor, color: primaryColor }}
             >
-              <i className="fas fa-keyboard"></i> Login with OTP 
+              <i className="fas fa-keyboard"></i> Login with OTP
             </button>
           </form>
         </div>
@@ -1061,7 +1095,7 @@ const Login = () => {
                     ></i>
                   </div>
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                    {otpLoginStep === 1 ? "Login with OTP - DEMO, not integrated" : "Enter OTP"}
+                    {otpLoginStep === 1 ? "Login with OTP" : "Enter OTP"}
                   </h3>
                 </div>
                 <button
@@ -1156,15 +1190,49 @@ const Login = () => {
                       onChange={(val) => {
                         setOtpLoginCode(val);
                         if (otpLoginError) setOtpLoginError(false);
-                        if (val.length === 6) handleVerifyOtp(val);
                       }}
                       primaryColor={primaryColor}
                       error={otpLoginError}
                     />
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
-                      Demo code: <strong>{DEMO_OTP}</strong> — auto-verifies on
-                      6th digit
-                    </p>
+                  </div>
+
+                  {/* OTP Terms & Conditions */}
+                  <div className="pt-2">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        id="otpAgreeToTerms"
+                        checked={otpAgreeToTerms}
+                        onChange={(e) => setOtpAgreeToTerms(e.target.checked)}
+                        className="w-4 h-4 mr-2 rounded border-gray-300 text-primary focus:ring-primary flex-shrink-0"
+                        style={{ accentColor: primaryColor }}
+                      />
+                      <span className="text-xs text-gray-600 dark:text-gray-400 leading-none whitespace-nowrap">
+                        I agree to the{" "}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault(); // Prevents the checkbox from toggling when clicking the link
+                            setShowPrivacyModal(true);
+                          }}
+                          className="text-blue-600 dark:text-blue-400 hover:underline font-medium bg-transparent border-none p-0 inline align-baseline"
+                        >
+                          Privacy Policy
+                        </button>{" "}
+                        and{" "}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setShowTermsModal(true);
+                          }}
+                          className="text-blue-600 dark:text-blue-400 hover:underline font-medium bg-transparent border-none p-0 inline align-baseline"
+                        >
+                          Terms & Conditions
+                        </button>
+                        <span className="text-red-500"> *</span>
+                      </span>
+                    </label>
                   </div>
                 </div>
                 <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
@@ -1180,7 +1248,7 @@ const Login = () => {
                   </button>
                   <button
                     onClick={() => handleVerifyOtp(otpLoginCode)}
-                    disabled={otpLoginCode.length !== 6}
+                    disabled={otpLoginCode.length !== 6 || !otpAgreeToTerms}
                     className="flex-1 px-4 py-2.5 rounded-lg text-white font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: primaryColor }}
                   >
