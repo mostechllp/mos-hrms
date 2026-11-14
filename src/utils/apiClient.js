@@ -140,7 +140,15 @@ apiClient.interceptors.request.use(
       config.headers['Content-Type'] = 'application/json';
     }
 
-    if (config.url?.includes('/auth/refresh')) return config;
+    // ✅ Skip auth endpoints entirely
+    if (
+      config.url?.includes('/auth/refresh') || 
+      config.url?.includes('/auth/login') ||
+      config.url?.includes('/auth/forgot-password') ||
+      config.url?.includes('/auth/reset-password')
+    ) {
+      return config;
+    }
 
     let token = getToken();
 
@@ -148,9 +156,7 @@ apiClient.interceptors.request.use(
       try {
         token = await refreshAccessToken();
       } catch {
-        // already cleared auth state inside doRefresh; let the request go
-        // out without a valid token so it fails naturally instead of
-        // throwing here and breaking the caller's flow.
+        // already cleared auth state inside doRefresh
       }
     }
 
@@ -169,6 +175,15 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
 
     if (error.response?.status !== 401 || !originalRequest) {
+      return Promise.reject(error);
+    }
+
+    // ✅ Do NOT try to refresh tokens for login requests
+    if (
+      originalRequest.url?.includes('/auth/login') || 
+      originalRequest.url?.includes('/auth/forgot-password') ||
+      originalRequest.url?.includes('/auth/reset-password')
+    ) {
       return Promise.reject(error);
     }
 
