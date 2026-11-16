@@ -1,12 +1,13 @@
+// src/admin/pages/accounts/ItemForm.jsx
 import React, { useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { addItem, updateItem } from "../../../store/slices/accounts/itemsSlice";
-import { X, HelpCircle, ChevronRight } from "lucide-react";
+import { X, HelpCircle, ChevronRight, Sparkles } from "lucide-react";
 import { inputCls } from "../ui";
 import SearchableSelect from "../../../../components/common/SearchableSelect";
 
-/* ---------- options (unchanged) ---------- */
+/* ---------- options ---------- */
 const UNIT_OPTIONS = [
   { value: "Box", label: "Box" }, { value: "Hours", label: "Hours" },
   { value: "Pieces", label: "Pieces" }, { value: "Kg", label: "Kg" },
@@ -101,21 +102,27 @@ const VENDOR_OPTIONS = [
 
 const Field = ({ label, required, hint, children, className = "" }) => (
   <div className={`flex flex-col gap-1.5 ${className}`}>
-    <label className="flex items-center gap-1 text-[12px] font-medium text-slate-600 dark:text-slate-300">
+    <label className="flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-300">
       {label}
-      {required && <span className="text-rose-500">*</span>}
-      {hint && <HelpCircle size={12} className="text-slate-400 ml-0.5" />}
+      {required && <span className="text-red-500">*</span>}
+      {hint && <HelpCircle size={12} className="text-gray-400 ml-0.5" />}
     </label>
     {children}
   </div>
 );
 
-const Surface = ({ title, description, children, className = "" }) => (
-  <section className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}>
+const Card = ({ title, description, children, className = "" }) => (
+  <section
+    className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-soft ${className}`}
+  >
     {(title || description) && (
       <div className="px-5 sm:px-6 pt-5 pb-1">
-        {title && <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">{title}</h2>}
-        {description && <p className="text-[12px] text-slate-500 mt-0.5">{description}</p>}
+        {title && (
+          <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
+            {title}
+          </h2>
+        )}
+        {description && <p className="text-xs text-gray-500 mt-0.5">{description}</p>}
       </div>
     )}
     <div className="px-5 sm:px-6 py-5">{children}</div>
@@ -124,7 +131,7 @@ const Surface = ({ title, description, children, className = "" }) => (
 
 const CurrencyInput = ({ value, onChange, required }) => (
   <div className="flex">
-    <span className="inline-flex items-center px-3 text-[12px] font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 border border-r-0 border-slate-200 dark:border-slate-700 rounded-l-lg">
+    <span className="inline-flex items-center px-3 text-xs font-medium text-gray-500 bg-gray-50 dark:bg-gray-700/50 border border-r-0 border-gray-200 dark:border-gray-700 rounded-l-lg">
       INR
     </span>
     <input
@@ -132,7 +139,7 @@ const CurrencyInput = ({ value, onChange, required }) => (
       value={value}
       onChange={onChange}
       required={required}
-      className="flex-1 min-w-0 px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-r-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition tabular-nums"
+      className="flex-1 min-w-0 px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-r-lg text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
     />
   </div>
 );
@@ -182,189 +189,215 @@ const ItemForm = () => {
   const title = id ? "Edit item" : "New item";
 
   return (
-    /* FULL WIDTH — no max-w container */
-    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-24">
-      <div className="w-full px-4 sm:px-6 lg:px-8">
+    <div className="w-full overflow-x-hidden pb-24">
+      {/* ---- Header ---- */}
+      <div className="flex flex-wrap justify-between items-start mb-4 md:mb-6 gap-3">
+        <div className="min-w-0">
+          <nav className="flex items-center gap-1.5 text-[11px] text-gray-500 mb-1.5 flex-wrap">
+            <Link
+              to="/admin/dashboard"
+              className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+            >
+              Home
+            </Link>
+            <ChevronRight size={11} className="text-gray-400" />
+            <Link
+              to="/admin/accounts/items"
+              className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+            >
+              Items
+            </Link>
+            <ChevronRight size={11} className="text-gray-400" />
+            <span className="text-gray-700 dark:text-gray-300 font-medium truncate">
+              {id ? existingItem?.name || "Edit" : "New"}
+            </span>
+          </nav>
+          <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
+            {title}
+          </h2>
+          <p className="text-xs md:text-[13px] text-gray-500 mt-0.5">
+            {id
+              ? "Update pricing, accounts, and vendor defaults"
+              : "Add a good or service you buy or sell"}
+          </p>
+        </div>
 
-        {/* ---- Header ---- */}
-        <header className="pt-8 pb-6 flex items-start justify-between gap-4">
-          <div>
-            <nav className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-2">
-              <Link to="/admin/dashboard" className="hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Home</Link>
-              <ChevronRight size={11} className="text-slate-400" />
-              <Link to="/admin/accounts/items" className="hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Items</Link>
-              <ChevronRight size={11} className="text-slate-400" />
-              <span className="text-slate-700 dark:text-slate-300 font-medium">
-                {id ? existingItem?.name || "Edit" : "New"}
-              </span>
-            </nav>
-            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight">
-              {title}
-            </h1>
-            <p className="text-[13px] text-slate-500 mt-1">
-              {id ? "Update pricing, accounts, and vendor defaults" : "Add a good or service you buy or sell"}
-            </p>
-          </div>
-
-          <button
-            onClick={() => navigate("/admin/accounts/items")}
-            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
-        </header>
-
-        {/* ---- Form ---- */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-
-          {/* Basic Information */}
-          <Surface title="Basic information" description="Name, type, and unit of measure">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-              <Field label="Name" required className="md:col-span-2">
-                <input
-                  type="text"
-                  className={inputCls}
-                  value={formData.name}
-                  onChange={(e) => setField("name", e.target.value)}
-                  required
-                  autoFocus
-                />
-              </Field>
-
-              <Field label="Type" required>
-                <div className="flex items-center gap-5 h-9">
-                  {["Goods", "Service"].map((t) => (
-                    <label key={t} className="inline-flex items-center gap-2 text-[13px] text-slate-700 dark:text-slate-300 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="type"
-                        checked={formData.type === t}
-                        onChange={() => setField("type", t)}
-                        className="text-slate-900 focus:ring-slate-400 border-slate-300"
-                      />
-                      {t}
-                    </label>
-                  ))}
-                </div>
-              </Field>
-
-              <Field label="Usage unit" hint>
-                <SearchableSelect
-                  value={formData.usageUnit}
-                  onChange={(val) => setField("usageUnit", val)}
-                  options={UNIT_OPTIONS}
-                  placeholder="Select or type to add"
-                  searchPlaceholder="Search units..."
-                  clearable
-                  onAddNew={() => console.log("Add new unit clicked")}
-                />
-              </Field>
-            </div>
-          </Surface>
-
-          {/* Sales Information */}
-          <Surface title="Sales information" description="How this item is priced and posted when you sell it">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-              <Field label="Selling price" required>
-                <CurrencyInput
-                  value={formData.rate}
-                  onChange={(e) => setField("rate", e.target.value)}
-                  required
-                />
-              </Field>
-
-              <Field label="Sales account" required>
-                <SearchableSelect
-                  value={formData.salesAccount}
-                  onChange={(val) => setField("salesAccount", val)}
-                  options={SALES_ACCOUNTS}
-                  placeholder="Select account"
-                  searchPlaceholder="Search accounts..."
-                  clearable={false}
-                  onAddNew={() => console.log("Add new account clicked")}
-                  addNewLabel="New Account"
-                />
-              </Field>
-
-              <Field label="Description" className="md:col-span-2">
-                <textarea
-                  rows={2}
-                  className={inputCls}
-                  value={formData.description}
-                  onChange={(e) => setField("description", e.target.value)}
-                  placeholder="Optional notes shown on invoices"
-                />
-              </Field>
-            </div>
-          </Surface>
-
-          {/* Purchase Information */}
-          <Surface title="Purchase information" description="Cost, expense account, and preferred vendor">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-              <Field label="Cost price" required>
-                <CurrencyInput
-                  value={formData.purchaseRate}
-                  onChange={(e) => setField("purchaseRate", e.target.value)}
-                />
-              </Field>
-
-              <Field label="Purchase account" required>
-                <SearchableSelect
-                  value={formData.purchaseAccount}
-                  onChange={(val) => setField("purchaseAccount", val)}
-                  options={PURCHASE_ACCOUNTS}
-                  placeholder="Select account"
-                  searchPlaceholder="Search accounts..."
-                  clearable={false}
-                  onAddNew={() => console.log("Add new account clicked")}
-                  addNewLabel="New Account"
-                />
-              </Field>
-
-              <Field label="Preferred vendor" className="md:col-span-2">
-                <SearchableSelect
-                  value={formData.preferredVendor}
-                  onChange={(val) => setField("preferredVendor", val)}
-                  options={VENDOR_OPTIONS}
-                  placeholder="Select vendor"
-                  searchPlaceholder="Search vendors..."
-                  clearable
-                />
-              </Field>
-
-              <Field label="Description" className="md:col-span-2">
-                <textarea
-                  rows={2}
-                  className={inputCls}
-                  value={formData.purchaseDescription}
-                  onChange={(e) => setField("purchaseDescription", e.target.value)}
-                  placeholder="Optional notes shown on bills"
-                />
-              </Field>
-            </div>
-          </Surface>
-
-          {/* Footer actions */}
-          <div className="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-gradient-to-t from-slate-50 dark:from-slate-950 via-slate-50/95 dark:via-slate-950/95 to-transparent">
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => navigate("/admin/accounts/items")}
-                className="px-3 py-2 text-[12.5px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-3 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
-              >
-                {id ? "Save changes" : "Create item"}
-              </button>
-            </div>
-          </div>
-        </form>
+        <button
+          onClick={() => navigate("/admin/accounts/items")}
+          className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors shrink-0"
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
       </div>
+
+      {/* ---- Info banner ---- */}
+      <div className="mb-4 flex items-start gap-2.5 px-4 py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200/80 dark:border-green-800/60 text-xs md:text-[12.5px] text-gray-700 dark:text-gray-300">
+        <Sparkles size={14} className="text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+        <p className="leading-relaxed">
+          Items are goods and services you buy or sell. Set a sales price, purchase cost, and
+          the accounts they post to.{" "}
+          <a
+            href="#"
+            className="font-semibold text-green-700 dark:text-green-400 underline underline-offset-2 hover:no-underline"
+          >
+            Learn more →
+          </a>
+        </p>
+      </div>
+
+      {/* ---- Form ---- */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+
+        {/* Basic Information */}
+        <Card title="Basic information" description="Name, type, and unit of measure">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+            <Field label="Name" required className="md:col-span-2">
+              <input
+                type="text"
+                className={inputCls}
+                value={formData.name}
+                onChange={(e) => setField("name", e.target.value)}
+                required
+                autoFocus
+              />
+            </Field>
+
+            <Field label="Type" required>
+              <div className="flex items-center gap-5 h-9">
+                {["Goods", "Service"].map((t) => (
+                  <label
+                    key={t}
+                    className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="type"
+                      checked={formData.type === t}
+                      onChange={() => setField("type", t)}
+                      className="text-green-500 focus:ring-green-400 border-gray-300"
+                    />
+                    {t}
+                  </label>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="Usage unit" hint>
+              <SearchableSelect
+                value={formData.usageUnit}
+                onChange={(val) => setField("usageUnit", val)}
+                options={UNIT_OPTIONS}
+                placeholder="Select or type to add"
+                searchPlaceholder="Search units..."
+                clearable
+                onAddNew={() => console.log("Add new unit clicked")}
+              />
+            </Field>
+          </div>
+        </Card>
+
+        {/* Sales Information */}
+        <Card title="Sales information" description="How this item is priced and posted when you sell it">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+            <Field label="Selling price" required>
+              <CurrencyInput
+                value={formData.rate}
+                onChange={(e) => setField("rate", e.target.value)}
+                required
+              />
+            </Field>
+
+            <Field label="Sales account" required>
+              <SearchableSelect
+                value={formData.salesAccount}
+                onChange={(val) => setField("salesAccount", val)}
+                options={SALES_ACCOUNTS}
+                placeholder="Select account"
+                searchPlaceholder="Search accounts..."
+                clearable={false}
+                onAddNew={() => console.log("Add new account clicked")}
+                addNewLabel="New Account"
+              />
+            </Field>
+
+            <Field label="Description" className="md:col-span-2">
+              <textarea
+                rows={2}
+                className={inputCls}
+                value={formData.description}
+                onChange={(e) => setField("description", e.target.value)}
+                placeholder="Optional notes shown on invoices"
+              />
+            </Field>
+          </div>
+        </Card>
+
+        {/* Purchase Information */}
+        <Card title="Purchase information" description="Cost, expense account, and preferred vendor">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+            <Field label="Cost price" required>
+              <CurrencyInput
+                value={formData.purchaseRate}
+                onChange={(e) => setField("purchaseRate", e.target.value)}
+              />
+            </Field>
+
+            <Field label="Purchase account" required>
+              <SearchableSelect
+                value={formData.purchaseAccount}
+                onChange={(val) => setField("purchaseAccount", val)}
+                options={PURCHASE_ACCOUNTS}
+                placeholder="Select account"
+                searchPlaceholder="Search accounts..."
+                clearable={false}
+                onAddNew={() => console.log("Add new account clicked")}
+                addNewLabel="New Account"
+              />
+            </Field>
+
+            <Field label="Preferred vendor" className="md:col-span-2">
+              <SearchableSelect
+                value={formData.preferredVendor}
+                onChange={(val) => setField("preferredVendor", val)}
+                options={VENDOR_OPTIONS}
+                placeholder="Select vendor"
+                searchPlaceholder="Search vendors..."
+                clearable
+              />
+            </Field>
+
+            <Field label="Description" className="md:col-span-2">
+              <textarea
+                rows={2}
+                className={inputCls}
+                value={formData.purchaseDescription}
+                onChange={(e) => setField("purchaseDescription", e.target.value)}
+                placeholder="Optional notes shown on bills"
+              />
+            </Field>
+          </div>
+        </Card>
+
+        {/* Footer actions */}
+        <div className="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-gradient-to-t from-gray-50 dark:from-gray-900 via-gray-50/95 dark:via-gray-900/95 to-transparent">
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => navigate("/admin/accounts/items")}
+              className="px-4 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-1.5 text-xs md:text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full shadow-md hover:shadow-lg transition-all"
+            >
+              {id ? "Save changes" : "Create item"}
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
   );
 };

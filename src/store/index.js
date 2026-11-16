@@ -65,6 +65,7 @@ import currencyAdjustmentsReducer  from "../admin/store/slices/accounts/currency
 import chartOfAccountsReducer  from "../admin/store/slices/accounts/chartOfAccountsSlice";
 import budgetsReducer  from "../admin/store/slices/accounts/budgetsSlice";
 import accountDocumentsReducer  from "../admin/store/slices/accounts/documentsSlice";
+import subscriptionReducer  from "../admin/store/slices/subscriptionSlice";
 
 // Employee reducers
 import leavesReducer from "../employee/store/slices/leavesSlice";
@@ -148,6 +149,7 @@ export const store = configureStore({
     chartOfAccounts: chartOfAccountsReducer,
     budgets: budgetsReducer,
     accountDocuments: accountDocumentsReducer,
+    subscriptions: subscriptionReducer,
 
     // Employee
     EmpLeaves: leavesReducer,
