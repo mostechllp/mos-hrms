@@ -13,13 +13,13 @@ const GlobalUploadStatus = () => {
   useEffect(() => {
     // Poll for upload status every 5 seconds
     const intervals = {};
-    
+
     uploads.forEach(upload => {
       if (upload.status === 'processing' && !intervals[upload.id]) {
         intervals[upload.id] = setInterval(async () => {
           try {
             const result = await dispatch(fetchUploadStatus(upload.id)).unwrap();
-            
+
             if (result.status === 'completed') {
               clearInterval(intervals[upload.id]);
               showToast(`File "${upload.fileName}" processed successfully!`, 'success');
@@ -37,14 +37,14 @@ const GlobalUploadStatus = () => {
         }, 5000);
       }
     });
-    
+
     return () => {
       Object.values(intervals).forEach(interval => clearInterval(interval));
     };
   }, [uploads, dispatch]);
 
   const pendingUploads = uploads.filter(u => u.status === 'processing');
-  
+
   if (pendingUploads.length === 0 || !visible) return null;
 
   return (
@@ -68,15 +68,15 @@ const GlobalUploadStatus = () => {
               <i className="fas fa-times"></i>
             </button>
           </div>
-          
+
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
             Processing in background...
           </div>
-          
+
           <div className="w-full bg-gray-200 rounded-full h-1.5">
             <div className="bg-blue-500 h-1.5 rounded-full animate-pulse" style={{ width: '100%' }}></div>
           </div>
-          
+
           <div className="mt-2 text-xs text-gray-400">
             <i className="fas fa-info-circle mr-1"></i>
             You can continue working while this processes

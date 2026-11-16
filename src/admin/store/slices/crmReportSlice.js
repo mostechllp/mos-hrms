@@ -239,9 +239,15 @@ const reportSlice = createSlice({
       })
       .addCase(fetchReportFilterOptions.fulfilled, (s, a) => {
         s.filterOptionsLoading = false;
+        const payload = a.payload || {};
         s.filterOptions = {
           ...FALLBACK_REPORT_FILTERS,
-          ...(a.payload || {}),
+          ...payload,
+          teams:
+            payload.teams ||
+            payload.sales_teams ||
+            payload.salesTeams ||
+            FALLBACK_REPORT_FILTERS.teams,
         };
       })
       .addCase(fetchReportFilterOptions.rejected, (s, a) => {
