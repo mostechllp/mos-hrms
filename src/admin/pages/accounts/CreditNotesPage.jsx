@@ -1,30 +1,122 @@
-import React, { useState } from "react";
+// src/admin/pages/accounts/CreditNotesPage.jsx
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { updateCreditNoteStatus, deleteCreditNote } from "../../store/slices/accounts/creditNotesSlice";
-import { 
-  Plus, MoreHorizontal, ArrowUpDown, Download, Upload, 
-  Settings, Search, Filter, ChevronDown, 
+import {
+  Plus, MoreHorizontal, ArrowUpDown, Download, Upload,
+  Settings, Search, Filter,
   Eye, Edit2, Trash2, X, FileText, CheckCircle2,
-  Printer, Play, CreditCard, XCircle,
-  Mail,
-  RefreshCw,
-  ChevronRight
+  Printer, CreditCard, XCircle,
+  Mail, RefreshCw, ChevronRight, ChevronDown,
 } from "lucide-react";
-import { Button } from "../../components/accounts/ui";
 import ConfirmModal from "../../components/common/ConfirmModal";
+
+/* ---------- primitives ---------- */
+
+const GhostBtn = ({ children, className = "", ...props }) => (
+  <button
+    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs md:text-sm font-medium text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${className}`}
+    {...props}
+  >
+    {children}
+  </button>
+);
+
+const MenuItem = ({ icon: Icon, label }) => (
+  <button className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs md:text-[12.5px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
+    <Icon size={14} className="text-gray-400" />
+    <span className="flex-1 text-left">{label}</span>
+  </button>
+);
+
+const Card = ({ children, className = "" }) => (
+  <div
+    className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-soft ${className}`}
+  >
+    {children}
+  </div>
+);
+
+const SectionLabel = ({ children }) => (
+  <h3 className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-2">
+    {children}
+  </h3>
+);
+
+const IconAction = ({ icon: Icon, label, onClick, tone = "default" }) => {
+  const tones = {
+    default:
+      "text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700",
+    danger:
+      "text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20",
+    primary:
+      "text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20",
+    warning:
+      "text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20",
+  };
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={`p-1.5 rounded-lg transition-colors ${tones[tone]}`}
+    >
+      <Icon size={14} />
+    </button>
+  );
+};
+
+const StatusPill = ({ status }) => {
+  const styles = {
+    Draft:  "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+    Open:   "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+    Closed: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+    Void:   "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+  };
+  return (
+    <span
+      className={`inline-block px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-semibold whitespace-nowrap capitalize ${styles[status] || styles.Draft}`}
+    >
+      {status}
+    </span>
+  );
+};
+
+const GhostAction = ({ icon: Icon, label, onClick, primary = false }) => (
+  <button
+    onClick={onClick}
+    className={
+      primary
+        ? "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full shadow-md hover:shadow-lg transition-all"
+        : "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+    }
+  >
+    <Icon size={13} /> {label}
+  </button>
+);
+
+/* ---------- page ---------- */
 
 const CreditNotesPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const creditNotes = useSelector((state) => state.creditNotes.creditNotes);
+  const creditNotes = useSelector((state) => state.creditNotes.creditNotes) || [];
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // Drawer & Delete State
   const [selectedNote, setSelectedNote] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target))
+        setShowMoreMenu(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
   const filteredNotes = creditNotes.filter(
     (n) =>
@@ -37,7 +129,7 @@ const CreditNotesPage = () => {
       dispatch(deleteCreditNote(deleteTarget.id));
       setDeleteTarget(null);
       if (selectedNote?.id === deleteTarget.id) {
-        setSelectedNote(null); 
+        setSelectedNote(null);
       }
     }
   };
@@ -49,417 +141,343 @@ const CreditNotesPage = () => {
     }
   };
 
+  const total = creditNotes.length;
+  const draft = creditNotes.filter((n) => n.status === "Draft").length;
+  const open = creditNotes.filter((n) => n.status === "Open").length;
+  const closed = creditNotes.filter((n) => n.status === "Closed").length;
+
   return (
-    <div className="bg-white dark:bg-gray-800 min-h-screen relative overflow-hidden">
-      {/* Top Header */}
-      <div className="px-6 py-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-2 cursor-pointer select-none">
-          <h1 className="text-xl font-medium text-gray-800 dark:text-gray-100">All Credit Notes</h1>
-          <ChevronDown size={18} className="text-blue-600" />
+    <div className="w-full overflow-x-hidden">
+      {/* ---- Stats Cards ---- */}
+      <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
+        <MiniStat label="Total Credit Notes" value={total} icon="fas fa-file-invoice" color="green" />
+        <MiniStat label="Drafts" value={draft} icon="fas fa-pen-to-square" color="amber" />
+        <MiniStat label="Open" value={open} icon="fas fa-folder-open" color="blue" />
+        <MiniStat label="Closed" value={closed} icon="fas fa-check-circle" color="green" />
+      </div>
+
+      {/* ---- Header ---- */}
+      <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6 gap-3">
+        <div>
+          <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
+            Credit Notes
+          </h2>
+          <p className="text-xs md:text-[13px] text-gray-500 mt-0.5">
+            {total === 0
+              ? "No credit notes yet"
+              : `${total} ${total === 1 ? "credit note" : "credit notes"} issued`}
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => navigate("/admin/accounts/sales/credit-notes/new")} 
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2"
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => navigate("/admin/accounts/sales/credit-notes/new")}
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full shadow-md hover:shadow-lg transition-all"
           >
-            <Plus size={16} className="mr-1" /> New
-          </Button>
+            <Plus size={14} /> New Credit Note
+          </button>
 
-          {/* More Menu */}
-          <div className="relative">
+          <div className="relative" ref={menuRef}>
             <button
-              onClick={() => setShowMoreMenu(!showMoreMenu)}
-              className="p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+              onClick={() => setShowMoreMenu((v) => !v)}
+              className="inline-flex items-center justify-center px-2.5 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              aria-label="More options"
             >
-              <MoreHorizontal size={18} />
+              <MoreHorizontal size={16} />
             </button>
-            
+
             {showMoreMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowMoreMenu(false)} />
-                <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg z-20 py-1 text-sm text-gray-700 dark:text-gray-200">
-                   <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center">
-                    <span className="flex items-center gap-2"><ArrowUpDown size={14} /> Sort by</span>
-                  </button>
-                  <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center">
-                    <span className="flex items-center gap-2"><Download size={14} /> Import</span>
-                  </button>
-                  <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-between items-center">
-                    <span className="flex items-center gap-2"><Upload size={14} /> Export</span>
-                  </button>
-                  <div className="h-px bg-gray-200 dark:bg-gray-700 my-1"></div>
-                  <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                    <Settings size={14} /> Preferences
-                  </button>
-                </div>
-              </>
+              <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-30 py-1.5 overflow-hidden">
+                <MenuItem icon={ArrowUpDown} label="Sort by" />
+                <MenuItem icon={Download} label="Import" />
+                <MenuItem icon={Upload} label="Export" />
+                <div className="h-px bg-gray-100 dark:bg-gray-700 my-1.5" />
+                <MenuItem icon={Settings} label="Preferences" />
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {creditNotes.length === 0 ? (
-        // Empty State Layout
-        <div className="flex flex-col items-center justify-center pt-10 pb-20 px-6">
-          
-          <h2 className="text-2xl font-medium text-gray-800 dark:text-gray-200 mb-2">Handle Returns and Adjustments With Credit Notes</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-xl text-center">
-            Create credit notes for returns, refunds, or invoice corrections without modifying the original invoice.
-          </p>
-          <div className="flex flex-col items-center gap-4">
-            <Button onClick={() => navigate("/admin/accounts/sales/credit-notes/new")} className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded text-sm font-semibold tracking-wide uppercase">
-              Create Credit Note
-            </Button>
-            <button className="text-blue-500 text-sm font-medium hover:underline">Import Credit Notes</button>
-          </div>
-
-          {/* Life Cycle Section */}
-          <div className="mt-24 w-full max-w-5xl border-t border-gray-200 dark:border-gray-700 pt-10">
-            <h3 className="text-center text-xl font-medium text-gray-800 dark:text-gray-200 mb-16">Life cycle of a Credit Note</h3>
-            
-            <div className="flex flex-col md:flex-row items-center justify-center gap-6 relative">
-                
-                {/* Left Branches */}
-                <div className="flex flex-col gap-6">
-                    <div className="border border-orange-200 bg-orange-50 dark:bg-orange-900/10 rounded-md p-3 flex items-center gap-2 text-orange-600 w-52 shadow-sm">
-                        <div className="w-5 h-5 rounded-full border border-orange-400 flex items-center justify-center"><span className="text-[10px]">↺</span></div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider">Product Returned</span>
-                    </div>
-                    <div className="border border-red-200 bg-red-50 dark:bg-red-900/10 rounded-md p-3 flex items-center gap-2 text-red-600 w-52 shadow-sm">
-                        <XCircle size={16} />
-                        <span className="text-[11px] font-bold uppercase tracking-wider">Order Cancelled</span>
-                    </div>
-                </div>
-
-                {/* Connector */}
-                <div className="hidden md:block w-16 relative h-24">
-                    <div className="absolute top-1/4 left-0 w-full border-t-2 border-dashed border-gray-300"></div>
-                    <div className="absolute top-3/4 left-0 w-full border-t-2 border-dashed border-gray-300"></div>
-                    <div className="absolute left-0 top-1/4 h-1/2 border-l-2 border-dashed border-gray-300"></div>
-                </div>
-
-                {/* Main Node */}
-                <div className="border border-blue-200 bg-blue-50 dark:bg-blue-900/10 rounded-md p-3 flex items-center gap-2 text-blue-600 w-40 justify-center shadow-sm">
-                    <FileText size={18} />
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Credit Notes</span>
-                </div>
-
-                {/* Connector */}
-                <div className="hidden md:block w-16 relative h-24">
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full border-t-2 border-dashed border-gray-300"></div>
-                    <div className="absolute right-0 top-1/4 h-1/2 border-r-2 border-dashed border-gray-300"></div>
-                    <div className="absolute top-1/4 right-0 w-full border-t-2 border-dashed border-gray-300"></div>
-                    <div className="absolute top-3/4 right-0 w-full border-t-2 border-dashed border-gray-300"></div>
-                </div>
-
-                {/* Right Branches */}
-                <div className="flex flex-col gap-6">
-                    <div className="border border-blue-200 bg-white dark:bg-gray-800 rounded-md p-3 flex items-center gap-2 text-blue-600 w-52 shadow-sm">
-                        <CreditCard size={16} />
-                        <span className="text-[11px] font-bold uppercase tracking-wider">Refund</span>
-                    </div>
-                    <div className="border border-blue-200 bg-white dark:bg-gray-800 rounded-md p-3 flex items-center gap-2 text-blue-600 w-52 shadow-sm">
-                        <UserIcon size={16} />
-                        <span className="text-[11px] font-bold uppercase tracking-wider">Credits</span>
-                    </div>
-                </div>
-
-                {/* Arrow to future invoices */}
-                <div className="hidden md:flex items-center">
-                    <div className="w-8 border-t-2 border-dashed border-gray-300"></div>
-                    <ChevronRight className="text-gray-300" size={16} />
-                </div>
-                <div className="border border-green-200 bg-green-50 dark:bg-green-900/10 rounded-md p-3 flex items-center gap-2 text-green-600 w-52 shadow-sm">
-                    <FileText size={16} />
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Apply to Future Invoices</span>
-                </div>
-
-            </div>
-
-            <div className="mt-24 text-center max-w-4xl mx-auto border-t border-gray-200 dark:border-gray-700 pt-12">
-              <h4 className="text-xl text-gray-800 dark:text-gray-200 mb-6 font-medium">In the Credit Notes module, you can:</h4>
-              <div className="space-y-4 inline-block text-left text-sm text-gray-600 dark:text-gray-300">
-                <p className="flex items-center gap-3"><CheckCircle2 size={18} className="text-blue-500"/> Issue refunds and credits to your customers and apply them to invoices</p>
-                <p className="flex items-center gap-3"><CheckCircle2 size={18} className="text-blue-500"/> Record and manage excess payments as credits. <a href="#" className="text-blue-500 hover:underline">Learn More</a></p>
-              </div>
-            </div>
-          </div>
-
-        </div>
+      {/* ---- Empty / Table ---- */}
+      {total === 0 ? (
+        <EmptyState onCreate={() => navigate("/admin/accounts/sales/credit-notes/new")} />
       ) : (
-        // Table View
-        <>
-          <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
-            <div className="flex items-center gap-4">
-              <button className="p-1.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"><Filter size={16} /></button>
-              <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-            </div>
-            <div className="relative w-64">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <Card className="overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+            <GhostBtn title="Filter" className="!px-2">
+              <Filter size={15} />
+            </GhostBtn>
+            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
+            <input
+              type="checkbox"
+              className="rounded border-gray-300 dark:border-gray-600 text-green-500 focus:ring-green-400"
+              aria-label="Select all"
+            />
+
+            <div className="relative ml-auto w-full sm:w-64">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
               <input
                 type="text"
-                placeholder="Search credit notes..."
+                placeholder="Search credit notes…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500 text-sm"
+                className="w-full pl-9 pr-3 py-1.5 text-xs md:text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-full text-gray-700 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition"
               />
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="px-6 py-3 w-10"></th>
-                  <th className="px-4 py-3 cursor-pointer hover:text-gray-700">Credit Note # <ArrowUpDown size={12} className="inline ml-1" /></th>
-                  <th className="px-4 py-3">Customer Name</th>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3 text-right">Amount</th>
-                  <th className="px-4 py-3 text-right">Credits Remaining</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {filteredNotes.map((note) => (
-                  <tr
-                    key={note.id}
-                    className="hover:bg-blue-50/50 dark:hover:bg-gray-700/30 cursor-pointer transition-colors group"
-                    onClick={() => setSelectedNote(note)} 
-                  >
-                    <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" className="rounded border-gray-300 text-blue-600" />
-                    </td>
-                    <td className="px-4 py-3 font-medium text-blue-600 dark:text-blue-400 group-hover:underline">
-                      {note.creditNoteNumber}
-                    </td>
-                    <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{note.customerName}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{note.date}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-100">
-                      ₹{note.total.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-100">
-                      ₹{note.creditsRemaining.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3">
-                       <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                           note.status === 'Draft' ? 'bg-gray-100 text-gray-600' : 
-                           note.status === 'Open' ? 'bg-blue-100 text-blue-600' :
-                           note.status === 'Closed' ? 'bg-green-100 text-green-600' :
-                           'bg-purple-100 text-purple-600'
-                       }`}>
-                         {note.status.toUpperCase()}
-                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => setSelectedNote(note)} className="p-1.5 text-gray-500 hover:text-blue-600 rounded"><Eye size={16} /></button>
-                        <button onClick={() => navigate(`/admin/accounts/sales/credit-notes/edit/${note.id}`)} className="p-1.5 text-gray-500 hover:text-green-600 rounded"><Edit2 size={16} /></button>
-                        <button onClick={() => setDeleteTarget(note)} className="p-1.5 text-gray-500 hover:text-red-600 rounded"><Trash2 size={16} /></button>
-                      </div>
-                    </td>
+            <div className="min-w-[1000px] lg:min-w-0">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                    <th className="w-10 px-4 sm:px-5 py-2 md:py-3"></th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      <span className="inline-flex items-center gap-1 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                        Credit Note # <ArrowUpDown size={11} />
+                      </span>
+                    </th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Customer
+                    </th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Date
+                    </th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Amount
+                    </th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Credits Remaining
+                    </th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Status
+                    </th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Action
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {filteredNotes.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={8}
+                        className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                      >
+                        No credit notes match "{searchQuery}"
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredNotes.map((note) => (
+                      <tr
+                        key={note.id}
+                        onClick={() => setSelectedNote(note)}
+                        className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
+                      >
+                        <td
+                          className="px-3 md:px-4 py-2 md:py-3"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 dark:border-gray-600 text-green-500 focus:ring-green-400"
+                            aria-label={`Select ${note.creditNoteNumber}`}
+                          />
+                        </td>
+
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedNote(note);
+                            }}
+                            className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
+                          >
+                            {note.creditNoteNumber}
+                          </button>
+                        </td>
+
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          {note.customerName}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                          {note.date}
+                        </td>
+
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
+                          ₹{note.total.toFixed(2)}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
+                          ₹{note.creditsRemaining.toFixed(2)}
+                        </td>
+
+                        <td className="px-3 md:px-4 py-2 md:py-3">
+                          <StatusPill status={note.status} />
+                        </td>
+
+                        <td
+                          className="px-3 md:px-4 py-2 md:py-3 text-right"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center justify-end gap-1">
+                            <IconAction
+                              icon={Eye}
+                              label="View"
+                              tone="primary"
+                              onClick={() => setSelectedNote(note)}
+                            />
+                            <IconAction
+                              icon={Edit2}
+                              label="Edit"
+                              tone="warning"
+                              onClick={() =>
+                                navigate(`/admin/accounts/sales/credit-notes/edit/${note.id}`)
+                              }
+                            />
+                            <IconAction
+                              icon={Trash2}
+                              label="Delete"
+                              tone="danger"
+                              onClick={() => setDeleteTarget(note)}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </>
+        </Card>
       )}
 
-      {/* Sliding Drawer for View */}
+      {/* ---- Drawer ---- */}
       {selectedNote && (
         <>
-          <div 
-            className="fixed inset-0 bg-black/30 z-40 transition-opacity"
+          <div
+            className="fixed inset-0 bg-gray-900/30 backdrop-blur-[1px] z-40 transition-opacity"
             onClick={() => setSelectedNote(null)}
           />
-          <div className="fixed top-0 right-0 h-full w-full md:w-[60%] lg:w-1/2 bg-white dark:bg-gray-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out border-l border-gray-200 dark:border-gray-700 flex flex-col animate-slide-in">
-            
-            {/* Drawer Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-              <div className="flex items-center gap-4">
-                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                  {selectedNote.creditNoteNumber}
-                </h2>
-                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                    selectedNote.status === 'Draft' ? 'bg-gray-200 text-gray-700' : 
-                    selectedNote.status === 'Open' ? 'bg-blue-100 text-blue-700' :
-                    'bg-green-100 text-green-700'
-                }`}>
-                    {selectedNote.status.toUpperCase()}
-                </span>
+          <aside className="fixed top-0 right-0 h-full w-full md:w-[60%] lg:w-1/2 bg-gray-50 dark:bg-gray-900 shadow-2xl z-50 flex flex-col border-l border-gray-200 dark:border-gray-700 animate-slide-in">
+            {/* Header */}
+            <div className="px-5 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+                  Credit note
+                </p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 tracking-tight truncate">
+                    {selectedNote.creditNoteNumber}
+                  </h2>
+                  <StatusPill status={selectedNote.status} />
+                </div>
               </div>
-              <button onClick={() => setSelectedNote(null)} className="p-1 text-gray-500 hover:text-gray-800">
-                <X size={20} />
+              <button
+                onClick={() => setSelectedNote(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors shrink-0"
+                aria-label="Close"
+              >
+                <X size={18} />
               </button>
             </div>
 
-            {/* Drawer Body */}
-            <div className="flex-1 overflow-y-auto p-6">
-              
-              {/* Action Toolbar */}
-              <div className="flex flex-wrap items-center gap-2 mb-6">
-                    <Button variant="secondary" className="px-3 py-1.5 text-xs h-8">
-                    <Edit2 size={14} className="mr-1"/> Edit
-                    </Button>
-                    <Button variant="secondary" className="px-3 py-1.5 text-xs h-8">
-                    <Mail size={14} className="mr-1"/> Email
-                    </Button>
-                    <Button variant="secondary" className="px-3 py-1.5 text-xs h-8">
-                    <Printer size={14} className="mr-1"/> PDF/Print
-                    </Button>
-                    <Button variant="secondary" className="px-3 py-1.5 text-xs h-8">
-                    <RefreshCw size={14} className="mr-1"/> Refund
-                    </Button>
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
+              {/* Actions */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() =>
+                    navigate(`/admin/accounts/sales/credit-notes/edit/${selectedNote.id}`)
+                  }
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full shadow-md hover:shadow-lg transition-all"
+                >
+                  <Edit2 size={13} /> Edit
+                </button>
+                <GhostAction icon={Mail} label="Email" />
+                <GhostAction icon={Printer} label="PDF / Print" />
+                <GhostAction icon={RefreshCw} label="Refund" />
               </div>
 
-              {/* What's Next Banner */}
-              {selectedNote.status === 'Draft' && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg p-4 mb-6">
-                  <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-1 flex items-center gap-2">
-                     ✨ WHAT'S NEXT?
-                  </h3>
-                  <p className="text-sm text-blue-700 dark:text-blue-400 mb-3">
-                    Go ahead and email this credit note to your customer or simply convert it to open.
-                  </p>
-                  <div className="flex gap-2">
-                    <Button onClick={() => handleStatusChange('Open')} className="bg-blue-600 text-white text-xs h-8">Send Credit Note</Button>
-                    <Button variant="secondary" onClick={() => handleStatusChange('Open')} className="text-xs h-8">Convert to Open</Button>
+              {/* Draft banner */}
+              {selectedNote.status === "Draft" && (
+                <Card className="p-4 bg-green-50 dark:bg-green-900/20 !border-green-200/80 dark:!border-green-800/60">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2
+                      size={14}
+                      className="text-green-600 dark:text-green-400 mt-0.5 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs md:text-[12.5px] font-semibold text-gray-800 dark:text-gray-100">
+                        What's next?
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                        Go ahead and email this credit note to your customer, or
+                        simply convert it to open.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 mt-3">
+                        <button
+                          onClick={() => handleStatusChange("Open")}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full transition-colors"
+                        >
+                          <Mail size={12} /> Send credit note
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange("Open")}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium text-green-700 dark:text-green-400 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-800 rounded-full hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                        >
+                          Convert to open
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </Card>
               )}
 
-              {/* PDF Preview */}
-              <div className="border border-gray-300 dark:border-gray-600 p-8 bg-white text-black shadow-sm mx-auto max-w-2xl relative mt-4">
-                    {/* Draft Watermark */}
-                    {selectedNote.status === 'Draft' && (
-                        <div className="absolute top-0 left-0 bg-gray-400 text-white px-4 py-2 text-sm font-bold -rotate-45 transform -translate-x-8 translate-y-4 shadow-sm">
-                            Draft
-                        </div>
-                    )}
-                    
-                    {/* PDF Header */}
-                    <div className="flex justify-between items-start mb-6 pb-4">
-                        <div className="text-xs">
-                            <p className="font-bold text-gray-800 mb-1 text-sm">Fidha</p>
-                            <p className="text-gray-600">Keralam</p>
-                            <p className="text-gray-600">India</p>
-                            <p className="text-gray-600">fidh3549@gmail.com</p>
-                        </div>
-                        <div className="text-right">
-                            <h1 className="text-2xl font-serif text-gray-800 tracking-wide mb-2">CREDIT NOTE</h1>
-                        </div>
-                    </div>
+              <CreditNotePreview note={selectedNote} />
 
-                    {/* Info Grid */}
-                    <div className="flex border border-gray-300 mb-4 text-xs">
-                        <div className="flex-1 p-2 space-y-1 border-r border-gray-300">
-                            <p><span className="text-gray-500 inline-block w-20">#</span> : {selectedNote.creditNoteNumber}</p>
-                            <p><span className="text-gray-500 inline-block w-20">Credit Date</span> : {selectedNote.date}</p>
-                        </div>
-                        <div className="w-1/3 bg-gray-50"></div>
-                    </div>
-
-                    {/* Billing Info */}
-                    <div className="border border-gray-300 p-2 mb-4 text-xs">
-                        <p className="font-bold text-gray-800 mb-1">Bill To</p>
-                        <p className="text-blue-600 font-medium underline">{selectedNote.customerName}</p>
-                        <p className="text-gray-600 text-[10px] mt-1 leading-tight">
-                            v v<br/>
-                            bubvnv<br/>
-                            bvn<br/>
-                            nbvn bvnbv<br/>
-                            Aland Islands
-                        </p>
-                    </div>
-
-                    {/* Items Table */}
-                    <table className="w-full text-left text-xs mb-4 border border-gray-300">
-                        <thead className="bg-gray-100 border-b border-gray-300">
-                            <tr>
-                                <th className="py-2 px-2 w-8 border-r border-gray-300 text-center">#</th>
-                                <th className="py-2 px-2 border-r border-gray-300">Item & Description</th>
-                                <th className="py-2 px-2 text-right border-r border-gray-300 w-16">Qty</th>
-                                <th className="py-2 px-2 text-right border-r border-gray-300 w-20">Rate</th>
-                                <th className="py-2 px-2 text-right w-24">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-300">
-                            {selectedNote.items.map((item, idx) => (
-                                <tr key={idx}>
-                                    <td className="py-2 px-2 border-r border-gray-300 text-center text-gray-500">{idx + 1}</td>
-                                    <td className="py-2 px-2 border-r border-gray-300">
-                                        <p className="font-medium text-gray-800">{item.name}</p>
-                                        <p className="text-[10px] text-gray-500 mt-0.5">{item.description}</p>
-                                    </td>
-                                    <td className="py-2 px-2 text-right border-r border-gray-300 text-gray-700">{item.qty.toFixed(2)}<br/><span className="text-[9px] text-gray-400">cm</span></td>
-                                    <td className="py-2 px-2 text-right border-r border-gray-300 text-gray-700">{item.rate.toFixed(2)}</td>
-                                    <td className="py-2 px-2 text-right text-gray-700">{(item.qty * item.rate).toFixed(2)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-
-                    {/* Bottom Section */}
-                    <div className="flex border border-gray-300 text-xs">
-                        <div className="flex-1 p-2 border-r border-gray-300 space-y-2">
-                            <div>
-                                <p className="text-gray-500 text-[10px]">Total In Words</p>
-                                <p className="font-bold italic text-gray-800">Indian Rupee Three Hundred Thirty-Three Only</p>
-                            </div>
-                        </div>
-                        <div className="w-64">
-                            <div className="flex justify-between p-2 border-b border-gray-300">
-                                <span className="text-gray-500">Sub Total</span>
-                                <span className="text-gray-900">{selectedNote.subtotal.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between p-2 border-b border-gray-300">
-                                <span className="font-bold text-gray-900">Total</span>
-                                <span className="font-bold text-gray-900">₹{selectedNote.total.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between p-2 bg-gray-50 font-bold">
-                                <span className="text-gray-900">Credits Remaining</span>
-                                <span className="text-gray-900">₹{selectedNote.creditsRemaining.toFixed(2)}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="mt-12 text-xs text-gray-500 flex justify-between items-end">
-                        <div></div>
-                        <div className="text-center">
-                            <div className="w-48 h-px bg-gray-400 mb-1"></div>
-                            <p className="text-[10px]">Authorized Signature</p>
-                        </div>
-                    </div>
-                    <div className="text-right text-[10px] text-gray-400 mt-4">1</div>
-                </div>
-
-              {/* Footer Template Info */}
-              <div className="text-right mt-4 max-w-2xl mx-auto text-xs text-gray-500">
-                  <p>PDF Template : 'Spreadsheet Template' <a href="#" className="text-blue-500 hover:underline">Change</a></p>
-              </div>
-
-              {/* Journal Section below PDF */}
-              <div className="mt-8">
-                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 border-b pb-2 mb-4">Journal</h3>
-                <p className="text-sm text-gray-500">
-                    Journal entries will not be available for Credit Notes in the {selectedNote.status} state.
+              {/* PDF template */}
+              <div className="text-right max-w-2xl mx-auto text-[11.5px] text-gray-500">
+                <p>
+                  PDF Template :{" "}
+                  <span className="text-gray-700 dark:text-gray-300">
+                    Spreadsheet Template
+                  </span>{" "}
+                  ·{" "}
+                  <a href="#" className="text-green-600 dark:text-green-400 hover:underline">
+                    Change
+                  </a>
                 </p>
               </div>
 
+              {/* Journal */}
+              <Card className="p-4">
+                <SectionLabel>Journal</SectionLabel>
+                <p className="text-xs md:text-[12.5px] text-gray-500 leading-relaxed">
+                  Journal entries will not be available for credit notes in the{" "}
+                  <span className="font-medium text-gray-700 dark:text-gray-300">
+                    {selectedNote.status}
+                  </span>{" "}
+                  state.
+                </p>
+              </Card>
             </div>
-          </div>
+          </aside>
         </>
       )}
 
-      {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDeleteConfirm}
-        title="Delete Credit Note"
+        title="Delete credit note"
         message={`Are you sure you want to delete credit note "${deleteTarget?.creditNoteNumber}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="danger"
@@ -468,12 +486,251 @@ const CreditNotesPage = () => {
   );
 };
 
-// Simple Icon replacement for User inside the file
-const UserIcon = ({ size = 24, className = "" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-        <circle cx="12" cy="7" r="4"></circle>
-    </svg>
+/* ---------- sub-components ---------- */
+
+const MiniStat = ({ label, value, icon, color }) => {
+  const bg = {
+    green: "bg-green-100 dark:bg-green-900/30",
+    blue: "bg-blue-100 dark:bg-blue-900/30",
+    amber: "bg-amber-100 dark:bg-amber-900/30",
+    red: "bg-red-100 dark:bg-red-900/30",
+    violet: "bg-violet-100 dark:bg-violet-900/30",
+  }[color] || "bg-gray-100 dark:bg-gray-700";
+
+  const fg = {
+    green: "text-green-600 dark:text-green-400",
+    blue: "text-blue-600 dark:text-blue-400",
+    amber: "text-amber-600 dark:text-amber-400",
+    red: "text-red-600 dark:text-red-400",
+    violet: "text-violet-600 dark:text-violet-400",
+  }[color] || "text-gray-600 dark:text-gray-400";
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
+      <div className="flex justify-between items-start mb-1 md:mb-2">
+        <div
+          className={`w-8 h-8 md:w-10 md:h-10 ${bg} rounded-xl flex items-center justify-center`}
+        >
+          <i className={`${icon} ${fg} text-sm md:text-lg`}></i>
+        </div>
+      </div>
+      <div className={`text-xl md:text-2xl font-bold ${fg}`}>{value}</div>
+      <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">
+        {label}
+      </div>
+    </div>
+  );
+};
+
+const EmptyState = ({ onCreate }) => (
+  <Card className="py-16 px-6">
+    <div className="max-w-md mx-auto text-center">
+      <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+        <FileText size={22} className="text-gray-400" />
+      </div>
+      <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
+        Handle returns and adjustments with credit notes
+      </h2>
+      <p className="text-sm text-gray-500 mt-1.5 mb-6">
+        Create credit notes for returns, refunds, or invoice corrections without
+        modifying the original invoice.
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <button
+          onClick={onCreate}
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full shadow-md hover:shadow-lg transition-all"
+        >
+          <Plus size={14} /> Create credit note
+        </button>
+        <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+          <Upload size={14} /> Import credit notes
+        </button>
+      </div>
+    </div>
+
+    {/* Lifecycle */}
+    <div className="mt-14 max-w-3xl mx-auto">
+      <SectionLabel>Lifecycle of a credit note</SectionLabel>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+        <LifeStep icon={FileText} label="Product returned" tone="warn" />
+        <span className="text-gray-300 dark:text-gray-700 text-xs">→</span>
+        <LifeStep icon={FileText} label="Order cancelled" tone="neg" />
+        <span className="text-gray-300 dark:text-gray-700 text-xs">→</span>
+        <LifeStep icon={FileText} label="Credit note" tone="accent" />
+        <span className="text-gray-300 dark:text-gray-700 text-xs">→</span>
+        <LifeStep icon={CreditCard} label="Refund" tone="accent" />
+        <span className="text-gray-300 dark:text-gray-700 text-xs">→</span>
+        <LifeStep icon={CheckCircle2} label="Apply to future invoices" tone="pos" />
+      </div>
+    </div>
+
+    {/* Benefits */}
+    <div className="mt-12 max-w-md mx-auto space-y-2">
+      {[
+        "Issue refunds and credits to your customers and apply them to invoices",
+        "Record and manage excess payments as credits",
+      ].map((b) => (
+        <div
+          key={b}
+          className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300"
+        >
+          <CheckCircle2 size={14} className="text-green-500 mt-0.5 shrink-0" />
+          <span>{b}</span>
+        </div>
+      ))}
+    </div>
+  </Card>
+);
+
+const LifeStep = ({ icon: Icon, label, tone }) => {
+  const tones = {
+    default:
+      "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700",
+    pos: "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800",
+    neg: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800",
+    warn: "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800",
+    accent:
+      "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800",
+  };
+  return (
+    <div
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-xs font-medium ${tones[tone || "default"]}`}
+    >
+      <Icon size={13} />
+      <span className="whitespace-nowrap">{label}</span>
+    </div>
+  );
+};
+
+/* ---------- credit note preview ---------- */
+
+const CreditNotePreview = ({ note }) => (
+  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 sm:p-8 mx-auto max-w-2xl relative text-gray-800 dark:text-gray-200 shadow-soft">
+    {note.status === "Draft" && (
+      <div className="absolute top-3 left-3 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-gray-200 dark:bg-gray-700 text-gray-500 rounded-full">
+        Draft
+      </div>
+    )}
+
+    <div className="flex justify-between items-start mb-8 pb-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="text-[11.5px] space-y-0.5">
+        <p className="font-semibold text-gray-800 dark:text-gray-100">Fidha</p>
+        <p className="text-gray-500">Keralam</p>
+        <p className="text-gray-500">India</p>
+        <p className="text-gray-500">fidh3549@gmail.com</p>
+      </div>
+      <div className="text-right">
+        <h1 className="text-xl font-semibold tracking-tight text-gray-800 dark:text-gray-100">
+          Credit note
+        </h1>
+        <p className="text-[11px] text-gray-500 mt-1">#{note.creditNoteNumber}</p>
+      </div>
+    </div>
+
+    <div className="grid grid-cols-2 gap-4 text-[11.5px] mb-6">
+      <div className="space-y-1">
+        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+          Bill to
+        </p>
+        <p className="font-medium text-gray-800 dark:text-gray-100">
+          {note.customerName}
+        </p>
+      </div>
+      <div className="text-right space-y-0.5 text-gray-500">
+        <p>
+          Credit date{" "}
+          <span className="text-gray-800 dark:text-gray-100 ml-1">{note.date}</span>
+        </p>
+      </div>
+    </div>
+
+    <table className="w-full border-collapse text-[11.5px] mb-4">
+      <thead>
+        <tr className="bg-gray-50 dark:bg-gray-700/50 border-y border-gray-200 dark:border-gray-700">
+          <th className="text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-2 px-2 w-6">
+            #
+          </th>
+          <th className="text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-2 px-2">
+            Item
+          </th>
+          <th className="text-right text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-2 px-2">
+            Qty
+          </th>
+          <th className="text-right text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-2 px-2">
+            Rate
+          </th>
+          <th className="text-right text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-2 px-2">
+            Amount
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {note.items?.map((item, idx) => (
+          <tr
+            key={idx}
+            className="border-b border-gray-200 dark:border-gray-700"
+          >
+            <td className="py-2 px-2 text-gray-400 tabular-nums">{idx + 1}</td>
+            <td className="py-2 px-2">
+              <p className="font-medium text-gray-800 dark:text-gray-100">
+                {item.name}
+              </p>
+              {item.description && (
+                <p className="text-[10px] text-gray-500 mt-0.5">
+                  {item.description}
+                </p>
+              )}
+            </td>
+            <td className="py-2 px-2 text-right tabular-nums">
+              {item.qty.toFixed(2)}
+            </td>
+            <td className="py-2 px-2 text-right tabular-nums">
+              {item.rate.toFixed(2)}
+            </td>
+            <td className="py-2 px-2 text-right tabular-nums">
+              {(item.qty * item.rate).toFixed(2)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    <div className="flex justify-end">
+      <div className="w-64 text-[11.5px]">
+        <div className="flex justify-between py-1 text-gray-500">
+          <span>Subtotal</span>
+          <span className="text-gray-800 dark:text-gray-100 tabular-nums">
+            {note.subtotal.toFixed(2)}
+          </span>
+        </div>
+        <div className="flex justify-between py-2 border-t border-gray-200 dark:border-gray-700 font-semibold text-gray-800 dark:text-gray-100">
+          <span>Total</span>
+          <span className="tabular-nums">₹{note.total.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between py-1.5 bg-gray-50 dark:bg-gray-700/50 px-2 rounded mt-1 text-gray-700 dark:text-gray-300">
+          <span className="font-medium">Credits remaining</span>
+          <span className="font-semibold tabular-nums">
+            ₹{note.creditsRemaining.toFixed(2)}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div className="mt-8 text-[10.5px] text-gray-500">
+      <p className="text-[9.5px] uppercase tracking-wider text-gray-400 mb-0.5">
+        Total in words
+      </p>
+      <p className="italic">Indian Rupee Three Hundred Thirty-Three Only</p>
+    </div>
+
+    <div className="mt-10 flex justify-between items-end text-[10.5px] text-gray-500">
+      <span></span>
+      <div className="text-center">
+        <div className="w-40 h-px bg-gray-300 dark:bg-gray-700 mb-1"></div>
+        <p className="text-[9.5px]">Authorized signature</p>
+      </div>
+    </div>
+  </div>
 );
 
 export default CreditNotesPage;

@@ -155,6 +155,14 @@ const CrmSettings = lazy(() => import("./admin/pages/CRM/CrmSettings"));
 const CrmProposals = lazy(() => import("./admin/pages/CRM/Proposals"));
 const Meetings = lazy(() => import("./admin/pages/Meetings"));
 
+const SubscriptionsAdminPage = lazy(
+  () => import("./admin/pages/SubscriptionsAdminPage"),
+);
+const SubscribersPage  = lazy(
+  () => import("./admin/pages/SubscribersPage"),
+);
+
+
 // 👇 NEW: Accounts module
 const AccountsDashboard = lazy(
   () => import("./admin/pages/accounts/AccountsDashboard"),
@@ -354,6 +362,9 @@ const MyPayroll = lazy(() => import("./employee/pages/MyPayroll"));
 const Warnings = lazy(() => import("./admin/pages/Warnings"));
 const EmployeeWarnings = lazy(() => import("./employee/pages/Warnings"));
 const MyMeetings = lazy(() => import("./employee/pages/MyMeetings"));
+const MySubscriptionPage   = lazy(
+  () => import("./employee/pages/MySubscriptionPage"),
+);
 
 // Custom wrapper for lazy-loaded components
 const LazyWrapper = ({ children }) => {
@@ -601,6 +612,12 @@ function App() {
             <Route path="proposals" element={<CrmProposals />} />
           </Route>
           <Route path="meetings" element={<Meetings />} />
+          <Route path="subscriptions" element={<SubscriptionsAdminPage />} />
+          <Route
+            path="subscriptions/plans"
+            element={<SubscriptionsAdminPage />}
+          />
+          <Route path="subscriptions/subscribers" element={<SubscribersPage />} />
 
           {/* ───────────── ACCOUNTS ───────────── */}
           <Route
@@ -830,10 +847,7 @@ function App() {
             element={<ChartOfAccountsPage />}
           />
 
-          <Route
-            path="accounts/accountant/budgets"
-            element={<BudgetsPage />}
-          />
+          <Route path="accounts/accountant/budgets" element={<BudgetsPage />} />
           <Route
             path="accounts/accountant/budgets/new"
             element={<BudgetForm />}
@@ -866,10 +880,7 @@ function App() {
             element={<ChartOfAccounts />}
           />
 
-          <Route
-            path="accounts/documents"
-            element={<AccountDocumentsPage />}
-          />
+          <Route path="accounts/documents" element={<AccountDocumentsPage />} />
           <Route path="accounts/journal-entries" element={<JournalEntries />} />
           <Route path="accounts/incomes" element={<Incomes />} />
           <Route path="accounts/expenses" element={<Expenses />} />
@@ -911,8 +922,14 @@ function App() {
           <Route path="tasks" element={<EmployeeTasks />} />
           <Route path="notifications" element={<EmployeeNotifications />} />
           <Route path="profile" element={<EmployeeProfile />} />
-          <Route path="my-attendance-requests" element={<AttendanceRequests />} />
-          <Route path="attendance-requests" element={<AttendanceRequests isAdmin={true} />} />
+          <Route
+            path="my-attendance-requests"
+            element={<AttendanceRequests />}
+          />
+          <Route
+            path="attendance-requests"
+            element={<AttendanceRequests isAdmin={true} />}
+          />
           <Route path="organizations" element={<Organizations />} />
           <Route path="my-warnings" element={<EmployeeWarnings />} />
 
@@ -1088,6 +1105,14 @@ function App() {
           </Route>
           <Route path="meetings" element={<Meetings />} />
           <Route path="my-meetings" element={<MyMeetings />} />
+
+          <Route path="subscriptions" element={<SubscriptionsAdminPage />} />
+          <Route
+            path="subscriptions/plans"
+            element={<SubscriptionsAdminPage />}
+          />
+          <Route path="subscriptions/subscribers" element={<SubscribersPage />} />
+          <Route path="subscriptions/my-subscription" element={<MySubscriptionPage />} />
 
           {/* ───────────── ACCOUNTS ───────────── */}
           <Route
@@ -1317,10 +1342,7 @@ function App() {
             element={<ChartOfAccountsPage />}
           />
 
-          <Route
-            path="accounts/accountant/budgets"
-            element={<BudgetsPage />}
-          />
+          <Route path="accounts/accountant/budgets" element={<BudgetsPage />} />
           <Route
             path="accounts/accountant/budgets/new"
             element={<BudgetForm />}
@@ -1353,10 +1375,7 @@ function App() {
             element={<ChartOfAccounts />}
           />
 
-          <Route
-            path="accounts/documents"
-            element={<AccountDocumentsPage />}
-          />
+          <Route path="accounts/documents" element={<AccountDocumentsPage />} />
           <Route path="accounts/journal-entries" element={<JournalEntries />} />
           <Route path="accounts/incomes" element={<Incomes />} />
           <Route path="accounts/expenses" element={<Expenses />} />
