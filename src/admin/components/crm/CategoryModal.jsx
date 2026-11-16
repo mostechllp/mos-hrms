@@ -32,21 +32,15 @@ const CategoryModal = ({ isOpen, onClose, onChanged }) => {
   const [editing, setEditing] = useState(null); // null | { id?, name, description, status }
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Load on open
+  // Load on open & debounced search (single consolidated effect)
   useEffect(() => {
     if (!isOpen) return;
-    dispatch(fetchProductCategories());
-  }, [isOpen, dispatch]);
-
-  // Debounced search
-  useEffect(() => {
-    if (!isOpen) return;
+    const delay = searchInput ? 400 : 0;
     const t = setTimeout(() => {
       dispatch(fetchProductCategories({ search: searchInput }));
-    }, 400);
+    }, delay);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput, isOpen]);
+  }, [isOpen, searchInput, dispatch]);
 
   // Reset when modal closes
   useEffect(() => {

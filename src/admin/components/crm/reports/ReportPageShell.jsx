@@ -8,6 +8,67 @@ import {
   clearReportError,
 } from "../../../store/slices/crmReportSlice";
 
+const getOptionValue = (opt) => {
+  if (opt === null || opt === undefined) return "";
+  if (typeof opt === "string" || typeof opt === "number") return String(opt);
+  return String(
+    opt.id ??
+      opt.value ??
+      opt.team_id ??
+      opt.salesperson_id ??
+      opt.customer_id ??
+      opt.code ??
+      opt.key ??
+      opt.name ??
+      "",
+  );
+};
+
+const getOptionLabel = (opt) => {
+  if (opt === null || opt === undefined) return "";
+  if (typeof opt === "string" || typeof opt === "number") return String(opt);
+  const fullName = opt.first_name
+    ? `${opt.first_name} ${opt.last_name || ""}`.trim()
+    : null;
+  return String(
+    opt.label ??
+      opt.name ??
+      opt.team_name ??
+      opt.company_name ??
+      opt.customer_name ??
+      opt.title ??
+      fullName ??
+      opt.value ??
+      opt.id ??
+      "",
+  );
+};
+
+const sanitizeList = (rawList, defaultLabel = "") => {
+  if (!Array.isArray(rawList)) return [];
+  const normalizedDefault = defaultLabel.toLowerCase().trim();
+  return rawList.filter((item) => {
+    const val = getOptionValue(item).trim();
+    const lbl = getOptionLabel(item).trim();
+    if (!val && !lbl) return false;
+    if (
+      normalizedDefault &&
+      (lbl.toLowerCase() === normalizedDefault ||
+        val.toLowerCase() === normalizedDefault ||
+        lbl.toLowerCase() === "all" ||
+        val.toLowerCase() === "all")
+    ) {
+      return false;
+    }
+    return true;
+  });
+};
+
+const SELECT_CLASS =
+  "w-full px-3 py-1.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:border-blue-500";
+
+const OPTION_CLASS = "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100";
+
 const ReportPageShell = ({
   title,
   subtitle,
@@ -25,6 +86,18 @@ const ReportPageShell = ({
   const [exportOpen, setExportOpen] = useState(false);
 
   const set = (k, v) => onFilterChange?.({ [k]: v });
+
+  const teamsRaw =
+    filterOptions?.teams?.length
+      ? filterOptions.teams
+      : filterOptions?.sales_teams || filterOptions?.salesTeams || [];
+
+  const dateRangesList = sanitizeList(filterOptions?.date_ranges);
+  const salespersonsList = sanitizeList(filterOptions?.salespersons, "All Salespersons");
+  const teamsList = sanitizeList(teamsRaw, "All Teams");
+  const customersList = sanitizeList(filterOptions?.customers, "All Customers");
+  const leadSourcesList = sanitizeList(filterOptions?.lead_sources, "All Sources");
+  const stagesList = sanitizeList(filterOptions?.stages, "All Stages");
 
   const activeFilterCount = Object.entries(filters || {}).filter(
     ([k, v]) =>
@@ -98,11 +171,15 @@ const ReportPageShell = ({
               <select
                 value={filters.date_range || "month"}
                 onChange={(e) => set("date_range", e.target.value)}
-                className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:border-blue-500"
+                className={SELECT_CLASS}
               >
-                {filterOptions.date_ranges?.map((d) => (
-                  <option key={d.value} value={d.value}>
-                    {d.label}
+                {dateRangesList.map((d) => (
+                  <option
+                    key={getOptionValue(d)}
+                    value={getOptionValue(d)}
+                    className={OPTION_CLASS}
+                  >
+                    {getOptionLabel(d)}
                   </option>
                 ))}
               </select>
@@ -115,7 +192,7 @@ const ReportPageShell = ({
                     type="date"
                     value={filters.from_date || ""}
                     onChange={(e) => set("from_date", e.target.value)}
-                    className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"
+                    className={SELECT_CLASS}
                   />
                 </FilterField>
                 <FilterField label="To">
@@ -123,7 +200,7 @@ const ReportPageShell = ({
                     type="date"
                     value={filters.to_date || ""}
                     onChange={(e) => set("to_date", e.target.value)}
-                    className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"
+                    className={SELECT_CLASS}
                   />
                 </FilterField>
               </>
@@ -133,12 +210,18 @@ const ReportPageShell = ({
               <select
                 value={filters.salesperson_id || ""}
                 onChange={(e) => set("salesperson_id", e.target.value)}
-                className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:border-blue-500"
+                className={SELECT_CLASS}
               >
-                <option value="">All Salespersons</option>
-                {filterOptions.salespersons?.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
+                <option value="" className={OPTION_CLASS}>
+                  All Salespersons
+                </option>
+                {salespersonsList.map((s) => (
+                  <option
+                    key={getOptionValue(s)}
+                    value={getOptionValue(s)}
+                    className={OPTION_CLASS}
+                  >
+                    {getOptionLabel(s)}
                   </option>
                 ))}
               </select>
@@ -148,12 +231,18 @@ const ReportPageShell = ({
               <select
                 value={filters.team_id || ""}
                 onChange={(e) => set("team_id", e.target.value)}
-                className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:border-blue-500"
+                className={SELECT_CLASS}
               >
-                <option value="">All Teams</option>
-                {filterOptions.teams?.map((t) => (
-                  <option key={t.id ?? t.value} value={t.id ?? t.value}>
-                    {t.name ?? t.label}
+                <option value="" className={OPTION_CLASS}>
+                  All Teams
+                </option>
+                {teamsList.map((t) => (
+                  <option
+                    key={getOptionValue(t)}
+                    value={getOptionValue(t)}
+                    className={OPTION_CLASS}
+                  >
+                    {getOptionLabel(t)}
                   </option>
                 ))}
               </select>
@@ -163,12 +252,18 @@ const ReportPageShell = ({
               <select
                 value={filters.customer_id || ""}
                 onChange={(e) => set("customer_id", e.target.value)}
-                className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:border-blue-500"
+                className={SELECT_CLASS}
               >
-                <option value="">All Customers</option>
-                {filterOptions.customers?.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
+                <option value="" className={OPTION_CLASS}>
+                  All Customers
+                </option>
+                {customersList.map((c) => (
+                  <option
+                    key={getOptionValue(c)}
+                    value={getOptionValue(c)}
+                    className={OPTION_CLASS}
+                  >
+                    {getOptionLabel(c)}
                   </option>
                 ))}
               </select>
@@ -178,12 +273,18 @@ const ReportPageShell = ({
               <select
                 value={filters.lead_source || ""}
                 onChange={(e) => set("lead_source", e.target.value)}
-                className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:border-blue-500"
+                className={SELECT_CLASS}
               >
-                <option value="">All Sources</option>
-                {filterOptions.lead_sources?.map((s) => (
-                  <option key={s.value ?? s} value={s.value ?? s}>
-                    {s.label ?? s}
+                <option value="" className={OPTION_CLASS}>
+                  All Sources
+                </option>
+                {leadSourcesList.map((s) => (
+                  <option
+                    key={getOptionValue(s)}
+                    value={getOptionValue(s)}
+                    className={OPTION_CLASS}
+                  >
+                    {getOptionLabel(s)}
                   </option>
                 ))}
               </select>
@@ -193,12 +294,18 @@ const ReportPageShell = ({
               <select
                 value={filters.stage || ""}
                 onChange={(e) => set("stage", e.target.value)}
-                className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:border-blue-500"
+                className={SELECT_CLASS}
               >
-                <option value="">All Stages</option>
-                {filterOptions.stages?.map((s) => (
-                  <option key={s.value ?? s} value={s.value ?? s}>
-                    {s.label ?? s}
+                <option value="" className={OPTION_CLASS}>
+                  All Stages
+                </option>
+                {stagesList.map((s) => (
+                  <option
+                    key={getOptionValue(s)}
+                    value={getOptionValue(s)}
+                    className={OPTION_CLASS}
+                  >
+                    {getOptionLabel(s)}
                   </option>
                 ))}
               </select>
