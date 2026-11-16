@@ -173,30 +173,39 @@ const Dashboard = () => {
 
   const formatTo12Hour = (timeString) => {
     if (!timeString) return "";
-    try {
-      // Parse ISO string to local time first
-      if (timeString.includes("T") && timeString.includes("Z")) {
-        return formatTimeInTimezone(timeString, workTimezone, {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        });
-      }
 
-      // Parse time string (expected format: "HH:MM" or "HH:MM:SS")
-      let hours, minutes;
+    try {
+      // Check if the string is a full ISO date string
+      if (
+  timeString.includes("T") &&
+  (timeString.includes("Z") || timeString.includes("+"))
+) {
+  const dateObj = new Date(timeString);
+  if (isNaN(dateObj.getTime())) return timeString;
+
+  // Break times from the API are already local wall-clock time but are
+  // labelled "Z". Format as UTC so no timezone shift is applied.
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "UTC",
+  }).format(dateObj);
+}
+
+      // Handle raw "HH:MM:SS" strings (fallback)
       if (timeString.includes(":")) {
         const parts = timeString.split(":");
-        hours = parseInt(parts[0], 10);
-        minutes = parts[1];
-      } else {
-        return timeString;
+        const hours = parseInt(parts[0], 10);
+        const minutes = parts[1];
+        const ampm = hours >= 12 ? "PM" : "AM";
+        const hours12 = hours % 12 || 12;
+        return `${hours12}:${minutes} ${ampm}`;
       }
 
-      const ampm = hours >= 12 ? "PM" : "AM";
-      const hours12 = hours % 12 || 12;
-      return `${hours12}:${minutes} ${ampm}`;
+      return timeString;
     } catch (e) {
+      console.error("Error formatting time:", e);
       return timeString;
     }
   };
@@ -217,32 +226,35 @@ const Dashboard = () => {
 
   // Sync break state from server (source of truth across devices)
   useEffect(() => {
-  const breaks = employeeBreaks?.breaks || [];
-  const todayStr = getTodayInTimezone(workTimezone);
+    const breaks = employeeBreaks?.breaks || [];
+    const todayStr = getTodayInTimezone(workTimezone);
 
-  const openBreak = breaks.find((b) => {
-    if (!b || !b.start_time) return false;
-    if (b.end_time) return false;
-    return getDatePartInTimezone(b.start_time, workTimezone) === todayStr;
-  });
-
-  if (openBreak) {
-    setIsOnBreak(true);
-    // Keep the local start time if we already have one (this device started it).
-    // Only use the server time when there's none (other device / page reload).
-    setBreakStartTime((prev) => {
-      if (prev) return prev;
-      localStorage.setItem("attendance-break-start-time", openBreak.start_time);
-      return openBreak.start_time;
+    const openBreak = breaks.find((b) => {
+      if (!b || !b.start_time) return false;
+      if (b.end_time) return false;
+      return getDatePartInTimezone(b.start_time, workTimezone) === todayStr;
     });
-    localStorage.setItem("attendance-on-break", "true");
-  } else {
-    setIsOnBreak(false);
-    setBreakStartTime(null); // <- reset so the next break starts clean
-    localStorage.setItem("attendance-on-break", "false");
-    localStorage.removeItem("attendance-break-start-time");
-  }
-}, [employeeBreaks, workTimezone]);
+
+    if (openBreak) {
+      setIsOnBreak(true);
+      // Keep the local start time if we already have one (this device started it).
+      // Only use the server time when there's none (other device / page reload).
+      setBreakStartTime((prev) => {
+        if (prev) return prev;
+        localStorage.setItem(
+          "attendance-break-start-time",
+          openBreak.start_time,
+        );
+        return openBreak.start_time;
+      });
+      localStorage.setItem("attendance-on-break", "true");
+    } else {
+      setIsOnBreak(false);
+      setBreakStartTime(null); // <- reset so the next break starts clean
+      localStorage.setItem("attendance-on-break", "false");
+      localStorage.removeItem("attendance-break-start-time");
+    }
+  }, [employeeBreaks, workTimezone]);
 
   // Poll + refresh breaks whenever the tab regains focus (cross-device sync)
   useEffect(() => {
@@ -357,7 +369,7 @@ const Dashboard = () => {
         setPunchOutData(null);
 
         setIsOnBreak(false);
-        
+
         setTotalBreakMs(0);
         setNumberOfBreaks(0);
         setBreakHistory([]);
@@ -469,7 +481,7 @@ const Dashboard = () => {
     return labelMap[status] || status;
   };
 
-    const handleBreakToggle = async () => {
+  const handleBreakToggle = async () => {
     if (breakToggling) return;
     setBreakToggling(true);
 
@@ -478,11 +490,11 @@ const Dashboard = () => {
         // ---- START BREAK ----
         // 🎯 Capture local time BEFORE the API call so the timer pauses instantly
         const clientStartTime = new Date().toISOString();
-        
+
         const resultAction = await dispatch(startBreak());
 
         if (startBreak.fulfilled.match(resultAction)) {
-          // Use the local time for the UI timer, NOT the server time, 
+          // Use the local time for the UI timer, NOT the server time,
           // to prevent network latency from subtracting seconds from the duration.
           setIsOnBreak(true);
           setBreakStartTime(clientStartTime);
@@ -520,14 +532,14 @@ const Dashboard = () => {
         // ---- END BREAK ----
         // 🎯 Capture local time BEFORE the API call
         const clientEndTime = new Date();
-        
+
         const resultAction = await dispatch(endBreak());
 
         if (endBreak.fulfilled.match(resultAction)) {
           const breakStart = breakStartTime
             ? new Date(breakStartTime)
             : clientEndTime;
-          
+
           // Calculate difference using the local start and local end times
           const diff = Math.max(0, clientEndTime - breakStart);
           const newTotal = totalBreakMs + diff;
@@ -1054,7 +1066,7 @@ const Dashboard = () => {
   const statusDisplay = getStatusDisplay();
   const displayPunchTime = punchInTimeFromApi || todayAttendance.punch_in_time;
 
-    // Update duration every second when punched in
+  // Update duration every second when punched in
   useEffect(() => {
     if (isActuallyPunchedIn && displayPunchTime) {
       const updateDuration = () => {
@@ -1101,7 +1113,7 @@ const Dashboard = () => {
     return `${baseUrl}/storage/${avatarPath}`;
   };
 
-    const getDuration = () => {
+  const getDuration = () => {
     if (!displayPunchTime) return "00h 00m 00s";
 
     const startTime = parsePunchTime(displayPunchTime);
@@ -1138,7 +1150,10 @@ const Dashboard = () => {
     }
 
     // 3. Work Duration = Total Elapsed - Total past breaks - Current active break
-    let workDurationMs = Math.max(0, totalElapsedMs - totalBreakMs - currentBreakMs);
+    let workDurationMs = Math.max(
+      0,
+      totalElapsedMs - totalBreakMs - currentBreakMs,
+    );
 
     const h = Math.floor(workDurationMs / 3600000);
     const m = Math.floor((workDurationMs % 3600000) / 60000);
@@ -1240,7 +1255,7 @@ const Dashboard = () => {
               {formatPunchTime(displayPunchTime)}
             </div>
           </div>
-                    <div className="punch-item text-center">
+          <div className="punch-item text-center">
             <div className="punch-label text-xs text-[var(--muted)] mb-2">
               Duration
             </div>
@@ -1390,7 +1405,7 @@ const Dashboard = () => {
             </h3>
           </div>
 
-                    {/* Added shrink-0 to buttons so they don't squish, and fixed the scrollbar container */}
+          {/* Added shrink-0 to buttons so they don't squish, and fixed the scrollbar container */}
           <div className="flex overflow-x-auto gap-2 mb-3 pb-2 custom-scrollbar">
             {[
               "today_assigned_tasks",
@@ -1820,8 +1835,10 @@ const Dashboard = () => {
                     activeBreakTab === "today"
                       ? rawBreaks.filter(
                           (b) =>
-                            getDatePartInTimezone(b.start_time, workTimezone) ===
-                            todayDateStr,
+                            getDatePartInTimezone(
+                              b.start_time,
+                              workTimezone,
+                            ) === todayDateStr,
                         )
                       : rawBreaks;
 
@@ -1833,10 +1850,10 @@ const Dashboard = () => {
                             Date
                           </th>
                           <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                            Break Out
+                            Start Time
                           </th>
                           <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
-                            Break In
+                            End Time
                           </th>
                           <th className="text-left py-3 px-4 text-[var(--muted)] font-semibold text-xs uppercase tracking-wider">
                             Duration
@@ -1852,9 +1869,11 @@ const Dashboard = () => {
                         {(() => {
                           if (activeBreakTab === "today") {
                             return displayBreaks.map((b, index) => {
-                              let dateStr = b.start_time
-                                ? b.start_time.split("T")[0]
-                                : "-";
+                              let dateStr =
+                                b.date ||
+                                (b.start_time
+                                  ? b.start_time.split("T")[0]
+                                  : "-");
                               let formattedDate = dateStr;
                               let dayOfWeek = "";
                               if (dateStr && dateStr.includes("-")) {
@@ -1921,11 +1940,15 @@ const Dashboard = () => {
                           }
 
                           // For "All Breaks", group by date
+                          // Find this inside your activeBreakTab === "all" block
                           const groupedBreaks = displayBreaks.reduce(
                             (acc, b) => {
-                              const d = b.start_time
-                                ? b.start_time.split("T")[0]
-                                : "-";
+                              // ✅ Use the API's provided date, not the UTC string split
+                              const d =
+                                b.date ||
+                                (b.start_time
+                                  ? b.start_time.split("T")[0]
+                                  : "-");
                               if (!acc[d]) acc[d] = [];
                               acc[d].push(b);
                               return acc;

@@ -34,7 +34,7 @@ const SearchableSelect = ({
         .map((o) => ({
           value: String(o.value),
           label: String(o.label ?? o.value),
-          isHeading: o.isHeading || false, // <-- Preserve this!
+          isHeading: o.isHeading || false,
         })),
     [options],
   );
@@ -49,20 +49,19 @@ const SearchableSelect = ({
     const q = query.trim().toLowerCase();
     if (!q) return normalizedOptions;
 
-    // If searching, only show matching items and their preceding heading
     const result = [];
     let currentHeading = null;
 
     for (let i = 0; i < normalizedOptions.length; i++) {
-        const opt = normalizedOptions[i];
-        if (opt.isHeading) {
-            currentHeading = opt;
-        } else if (opt.label.toLowerCase().includes(q)) {
-            if (currentHeading && !result.includes(currentHeading)) {
-                result.push(currentHeading);
-            }
-            result.push(opt);
+      const opt = normalizedOptions[i];
+      if (opt.isHeading) {
+        currentHeading = opt;
+      } else if (opt.label.toLowerCase().includes(q)) {
+        if (currentHeading && !result.includes(currentHeading)) {
+          result.push(currentHeading);
         }
+        result.push(opt);
+      }
     }
     return result;
   }, [normalizedOptions, query]);
@@ -80,23 +79,33 @@ const SearchableSelect = ({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [open]);
 
-  // Focus search box when opened
+  // Focus search box when opened & reset horizontal scroll
   useEffect(() => {
     if (open) {
+      if (listRef.current) {
+        listRef.current.scrollLeft = 0;
+      }
       requestAnimationFrame(() => inputRef.current?.focus());
-      // Set highlighted to the first non-heading item
-      const firstSelectableIndex = filtered.findIndex(o => !o.isHeading);
+      const firstSelectableIndex = filtered.findIndex((o) => !o.isHeading);
       setHighlighted(firstSelectableIndex >= 0 ? firstSelectableIndex : 0);
     }
-  }, [open]);
+  }, [open, filtered]);
 
-  // Keep highlighted item in view
+  // Keep highlighted item in view without horizontal scrolling
   useEffect(() => {
     if (!open || !listRef.current) return;
-    const el = listRef.current.children[highlighted];
-    if (el && el.scrollIntoView) {
-      el.scrollIntoView({ block: "nearest" });
+    const list = listRef.current;
+    const el = list.children[highlighted];
+    if (el) {
+      const elTop = el.offsetTop;
+      const elBottom = elTop + el.offsetHeight;
+      if (elTop < list.scrollTop) {
+        list.scrollTop = elTop;
+      } else if (elBottom > list.scrollTop + list.clientHeight) {
+        list.scrollTop = elBottom - list.clientHeight;
+      }
     }
+    list.scrollLeft = 0;
   }, [highlighted, open]);
 
   const commit = (opt) => {
@@ -215,7 +224,7 @@ const SearchableSelect = ({
 
         {/* Dropdown */}
         {open && (
-          <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden animate-fadeIn">
+          <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-[170px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden animate-fadeIn">
             {/* Search box */}
             <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 dark:border-gray-700">
               <FiSearch size={14} className="text-gray-400 flex-shrink-0" />
@@ -225,7 +234,7 @@ const SearchableSelect = ({
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
-                  setHighlighted(0); // Reset highlight on search
+                  setHighlighted(0);
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder={searchPlaceholder}
@@ -249,7 +258,7 @@ const SearchableSelect = ({
             {/* Options list */}
             <div
               ref={listRef}
-              className="max-h-60 overflow-y-auto py-1"
+              className="max-h-60 overflow-y-auto overflow-x-hidden py-1"
               role="listbox"
             >
               {loading ? (
@@ -301,7 +310,7 @@ const SearchableSelect = ({
                       aria-selected={isSelected}
                       onMouseEnter={() => setHighlighted(idx)}
                       onClick={() => commit(opt)}
-                      className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between gap-2 ${
+                      className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between gap-2 overflow-hidden ${
                         isSelected
                           ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 font-semibold"
                           : isHighlighted
@@ -309,7 +318,7 @@ const SearchableSelect = ({
                             : "text-gray-700 dark:text-gray-300"
                       }`}
                     >
-                      <span className="truncate">{opt.label}</span>
+                      <span className="truncate min-w-0 flex-1 text-left">{opt.label}</span>
                       {isSelected && (
                         <span className="text-green-500 flex-shrink-0">
                           <i className="fas fa-check text-xs"></i>

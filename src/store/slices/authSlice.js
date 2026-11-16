@@ -254,6 +254,60 @@ export const fetchCurrentUser = createAsyncThunk(
   }
 );
 
+export const sendLoginOtp = createAsyncThunk(
+  "auth/sendLoginOtp",
+  async ({ email }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post("/auth/login/send-otp", {
+        email,
+      });
+      return response.data?.message || "OTP sent to your email";
+    } catch (error) {
+      console.error("Send OTP error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to send OTP. Please try again."
+      );
+    }
+  }
+);
+
+// ✅ 2. Verify OTP for Login
+export const verifyLoginOtp = createAsyncThunk(
+  "auth/verifyLoginOtp",
+  async ({ email, otp, agreeToTerms }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post("/auth/login/verify-otp", {
+        email,
+        otp,
+        agreeToTerms,
+      });
+
+      const data = response.data.data;
+      const { access_token, user } = data;
+
+      // Store tokens exactly like the password login
+      localStorage.setItem("auth-token", access_token);
+      localStorage.setItem("user-type", user.type);
+      localStorage.setItem("user-data", JSON.stringify(user));
+
+      if (user.type === "admin") {
+        localStorage.setItem("hr-token", access_token);
+        localStorage.setItem("hr-user", JSON.stringify(user));
+      } else if (user.type === "employee") {
+        localStorage.setItem("employee-token", access_token);
+        localStorage.setItem("employee-user", JSON.stringify(user));
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Verify OTP error:", error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || "Invalid OTP. Please try again."
+      );
+    }
+  }
+);
+
 const getUserFromStorage = () => {
   const userData = localStorage.getItem("user-data");
   if (userData) {
@@ -465,7 +519,29 @@ const authSlice = createSlice({
         state.resetMessage = "";
         state.resetError = action.payload || "Failed to reset password";
         state.error = action.payload || "Failed to reset password";
+      })
+      // Inside authSlice.js extraReducers:
+      // ===== ADDED: Verify Login OTP =====
+      .addCase(verifyLoginOtp.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(verifyLoginOtp.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isAuthenticated = true;
+        state.token = action.payload.access_token;
+        state.userType = action.payload.user.type;
+        state.user = {
+          ...action.payload.user,
+          name: action.payload.user.employee?.name || action.payload.user.username,
+        };
+      })
+      .addCase(verifyLoginOtp.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.isAuthenticated = false;
       });
+      
       // ===== END ADDED =====
   },
 });
