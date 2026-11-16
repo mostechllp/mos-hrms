@@ -1,28 +1,40 @@
-// Layout.jsx
-import { useState } from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import { useAppSelector } from "../../store/hooks";
 import Sidebar from "../../../components/common/Sidebar";
+import useSidebar from "../../../hooks/useSidebar";
 import Header from "../common/Header";
 import UnifiedWidgets from "../widgets/UnifiedWidgets";
 
 const Layout = () => {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const {
+    isMobile,
+    mobileOpen,
+    setMobileOpen,
+    collapsed,
+    toggleCollapsed,
+    toggleSidebar,
+    sidebarWidth,
+  } = useSidebar();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  const toggleSidebar = () => {
-    setSidebarOpen((prev) => !prev);
-  };
-
   return (
     <div className="app flex min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+      <Sidebar
+        isMobile={isMobile}
+        mobileOpen={mobileOpen}
+        setMobileOpen={setMobileOpen}
+        collapsed={collapsed}
+        onToggleCollapse={toggleCollapsed}
+      />
 
-      <div className="main flex-1 flex flex-col min-h-screen">
+      <div
+        className="main flex-1 min-w-0 flex flex-col min-h-screen transition-[margin-left] duration-300"
+        style={{ marginLeft: sidebarWidth }}
+      >
         <Header onMenuClick={toggleSidebar} />
         <div className="content-section py-7 px-4 md:px-7 flex-1">
           <Outlet />

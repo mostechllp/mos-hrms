@@ -1,3 +1,4 @@
+// src/admin/pages/accounts/TimesheetPage.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { addTimesheet, deleteTimesheet } from "../../store/slices/accounts/timesheetsSlice";
@@ -12,7 +13,7 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 
 const GhostBtn = ({ children, className = "", ...props }) => (
   <button
-    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${className}`}
+    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs md:text-sm font-medium text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${className}`}
     {...props}
   >
     {children}
@@ -20,48 +21,61 @@ const GhostBtn = ({ children, className = "", ...props }) => (
 );
 
 const MenuItem = ({ icon: Icon, label }) => (
-  <button className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12.5px] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-    <Icon size={14} className="text-slate-400" />
+  <button className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs md:text-[12.5px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
+    <Icon size={14} className="text-gray-400" />
     <span className="flex-1 text-left">{label}</span>
   </button>
 );
 
-const Surface = ({ children, className = "" }) => (
-  <div className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl ${className}`}>
+const Card = ({ children, className = "" }) => (
+  <div
+    className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-soft ${className}`}
+  >
     {children}
   </div>
 );
 
 const SectionLabel = ({ children }) => (
-  <h3 className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">{children}</h3>
+  <h3 className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-2">
+    {children}
+  </h3>
 );
 
 const IconAction = ({ icon: Icon, label, onClick, tone = "default" }) => {
   const tones = {
-    default: "text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800",
-    danger:  "text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20",
+    default:
+      "text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700",
+    danger:
+      "text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20",
+    primary:
+      "text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20",
   };
   return (
-    <button onClick={onClick} title={label} aria-label={label} className={`p-1.5 rounded-md transition-colors ${tones[tone]}`}>
-      <Icon size={15} />
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={`p-1.5 rounded-lg transition-colors ${tones[tone]}`}
+    >
+      <Icon size={14} />
     </button>
   );
 };
 
 const Field = ({ label, required, children, className = "" }) => (
   <div className={`flex flex-col gap-1.5 ${className}`}>
-    <label className="flex items-center gap-1 text-[12px] font-medium text-slate-600 dark:text-slate-300">
+    <label className="flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-300">
       {label}
-      {required && <span className="text-rose-500">*</span>}
+      {required && <span className="text-red-500">*</span>}
     </label>
     {children}
   </div>
 );
 
 const DetailItem = ({ label, value }) => (
-  <div className="flex justify-between gap-3 text-[12px]">
-    <span className="text-slate-500">{label}</span>
-    <span className="font-medium text-slate-900 dark:text-slate-100 text-right">{value || "—"}</span>
+  <div className="flex justify-between gap-3 text-xs md:text-[12px]">
+    <span className="text-gray-500">{label}</span>
+    <span className="font-medium text-gray-900 dark:text-gray-100 text-right">{value || "—"}</span>
   </div>
 );
 
@@ -159,170 +173,208 @@ const TimesheetPage = () => {
 
   const closeModal = () => setIsModalOpen(false);
 
+  const totalEntries = timesheets.length;
+  const billableEntries = timesheets.filter((t) => t.billable).length;
+  const unbilledEntries = timesheets.filter((t) => !t.billable).length;
+  const totalHours = timesheets.reduce((s, t) => {
+    const [h = 0, m = 0] = (t.hours || "0:0").split(":").map(Number);
+    return s + h + m / 60;
+  }, 0);
+
   return (
-    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-12">
-      <div className="w-full px-4 sm:px-6 lg:px-8">
+    <div className="w-full overflow-x-hidden">
+      {/* ---- Stats Cards ---- */}
+      <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
+        <MiniStat label="Total Entries" value={totalEntries} icon="fas fa-clock" color="green" />
+        <MiniStat label="Billable" value={billableEntries} icon="fas fa-circle-check" color="blue" />
+        <MiniStat label="Non-billable" value={unbilledEntries} icon="fas fa-circle-minus" color="violet" />
+        <MiniStat
+          label="Total Hours"
+          value={`${totalHours.toFixed(1)}h`}
+          icon="fas fa-hourglass-half"
+          color="amber"
+        />
+      </div>
 
-        {/* ---- Header ---- */}
-        <header className="pt-8 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Time tracking</p>
-            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-1">
-              Timesheets
-            </h1>
-            <p className="text-[13px] text-slate-500 mt-1">
-              {timesheets.length === 0
-                ? "No time entries yet"
-                : `${timesheets.length} ${timesheets.length === 1 ? "entry" : "entries"} logged`}
-            </p>
-          </div>
+      {/* ---- Header ---- */}
+      <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6 gap-3">
+        <div>
+          <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
+            Timesheets
+          </h2>
+          <p className="text-xs md:text-[13px] text-gray-500 mt-0.5">
+            {totalEntries === 0
+              ? "No time entries yet"
+              : `${totalEntries} ${totalEntries === 1 ? "entry" : "entries"} logged`}
+          </p>
+        </div>
 
-          <div className="flex items-center gap-2">
-            <GhostBtn title="Filter" className="!px-2"><Filter size={15} /></GhostBtn>
+        <div className="flex flex-wrap items-center gap-2">
+          <GhostBtn title="Filter" className="border border-gray-200 dark:border-gray-700 !px-2">
+            <Filter size={15} />
+          </GhostBtn>
 
+          <button className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <Clock size={13} /> Start timer
+          </button>
+
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full shadow-md hover:shadow-lg transition-all"
+          >
+            <Plus size={14} /> New Entry
+          </button>
+
+          <div className="relative" ref={menuRef}>
             <button
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              onClick={() => setShowMoreMenu((v) => !v)}
+              className="inline-flex items-center justify-center px-2.5 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              aria-label="More options"
             >
-              <Clock size={13} /> Start timer
+              <MoreHorizontal size={16} />
             </button>
-
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
-            >
-              <Plus size={13} /> New entry
-            </button>
-
-            <div className="relative" ref={menuRef}>
-              <GhostBtn onClick={() => setShowMoreMenu((v) => !v)} className="!px-2">
-                <MoreHorizontal size={16} />
-              </GhostBtn>
-              {showMoreMenu && (
-                <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg shadow-slate-900/5 z-30 py-1.5">
-                  <MenuItem icon={Filter}   label="Filter" />
-                  <MenuItem icon={FileText} label="Export" />
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {/* ---- Empty state ---- */}
-        {timesheets.length === 0 ? (
-          <EmptyState onCreate={() => setIsModalOpen(true)} />
-        ) : (
-
-          /* ---- Table surface ---- */
-          <Surface className="overflow-hidden">
-            <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-slate-100 dark:border-slate-800">
-              <GhostBtn title="Filter" className="!px-2"><Filter size={15} /></GhostBtn>
-              <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
-              <input type="checkbox" className="rounded border-slate-300 text-slate-900 focus:ring-slate-400" aria-label="Select all" />
-
-              <div className="relative ml-auto w-full sm:w-64">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search entries…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 text-[12.5px] bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
-                />
+            {showMoreMenu && (
+              <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-30 py-1.5 overflow-hidden">
+                <MenuItem icon={Filter}   label="Filter" />
+                <MenuItem icon={FileText} label="Export" />
               </div>
-            </div>
+            )}
+          </div>
+        </div>
+      </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12.5px] whitespace-nowrap">
+      {/* ---- Empty state ---- */}
+      {totalEntries === 0 ? (
+        <EmptyState onCreate={() => setIsModalOpen(true)} />
+      ) : (
+        /* ---- Table surface ---- */
+        <Card className="overflow-hidden">
+          <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+            <GhostBtn title="Filter" className="!px-2">
+              <Filter size={15} />
+            </GhostBtn>
+            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
+            <input
+              type="checkbox"
+              className="rounded border-gray-300 dark:border-gray-600 text-green-500 focus:ring-green-400"
+              aria-label="Select all"
+            />
+
+            <div className="relative ml-auto w-full sm:w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search entries…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-xs md:text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-full text-gray-700 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <div className="min-w-[900px] lg:min-w-0">
+              <table className="w-full border-collapse">
                 <thead>
-                  <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
-                    <th className="w-10 px-4 sm:px-5 py-2.5"></th>
-                    <th className="px-4 py-2.5 text-left font-medium">Date</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Project</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Customer</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Task</th>
-                    <th className="px-4 py-2.5 text-left font-medium">User</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Time</th>
-                    <th className="px-4 py-2.5 text-right font-medium w-24">Actions</th>
+                  <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                    <th className="w-10 px-4 sm:px-5 py-2 md:py-3"></th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Date</th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Project</th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Customer</th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Task</th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">User</th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Time</th>
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Action</th>
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tbody>
                   {filteredEntries.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-12 text-center text-[13px] text-slate-500">
-                        No entries match “{searchQuery}”
+                      <td colSpan={8} className="px-6 py-12 text-center text-xs md:text-[13px] text-gray-500">
+                        No entries match "{searchQuery}"
                       </td>
                     </tr>
-                  ) : filteredEntries.map((entry) => (
-                    <tr
-                      key={entry.id}
-                      onClick={() => setSelectedEntry(entry)}
-                      className="group cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                    >
-                      <td className="px-4 sm:px-5 py-3" onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" className="rounded border-slate-300 text-slate-900 focus:ring-slate-400" aria-label={`Select entry ${entry.id}`} />
-                      </td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{entry.date}</td>
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
-                        <span className="group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                          {entry.projectName}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{entry.customerName}</td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{entry.taskName}</td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{entry.userName}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
-                        {entry.hours}
-                      </td>
-                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <IconAction icon={Search} label="View"   onClick={() => setSelectedEntry(entry)} />
-                          <IconAction icon={Trash2} label="Delete" tone="danger" onClick={() => setDeleteTarget(entry)} />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  ) : (
+                    filteredEntries.map((entry) => (
+                      <tr
+                        key={entry.id}
+                        onClick={() => setSelectedEntry(entry)}
+                        className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
+                      >
+                        <td className="px-3 md:px-4 py-2 md:py-3" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 dark:border-gray-600 text-green-500 focus:ring-green-400"
+                            aria-label={`Select entry ${entry.id}`}
+                          />
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                          {entry.date}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEntry(entry);
+                            }}
+                            className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
+                          >
+                            {entry.projectName}
+                          </button>
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                          {entry.customerName}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                          {entry.taskName}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                          {entry.userName}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
+                          {entry.hours}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 md:py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <IconAction icon={Search} label="View" tone="primary" onClick={() => setSelectedEntry(entry)} />
+                            <IconAction icon={Trash2} label="Delete" tone="danger" onClick={() => setDeleteTarget(entry)} />
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
-          </Surface>
-        )}
-      </div>
+          </div>
+        </Card>
+      )}
 
       {/* ---- Slide-over detail ---- */}
       {selectedEntry && (
         <>
           <div
-            className="fixed inset-0 bg-slate-900/30 backdrop-blur-[1px] z-40 transition-opacity"
+            className="fixed inset-0 bg-gray-900/30 backdrop-blur-[1px] z-40 transition-opacity"
             onClick={() => setSelectedEntry(null)}
           />
-          <aside className="fixed top-0 right-0 h-full w-full md:w-[420px] bg-slate-50 dark:bg-slate-950 shadow-2xl z-50 flex flex-col border-l border-slate-200 dark:border-slate-800 animate-slide-in">
+          <aside className="fixed top-0 right-0 h-full w-full md:w-[420px] bg-gray-50 dark:bg-gray-900 shadow-2xl z-50 flex flex-col border-l border-gray-200 dark:border-gray-700 animate-slide-in">
 
             {/* Header */}
-            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-start justify-between gap-3">
+            <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Log entry</p>
-                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50 tracking-tight truncate mt-0.5">
+                <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Log entry</p>
+                <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 tracking-tight truncate mt-0.5">
                   {selectedEntry.userName}
                 </h2>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                  aria-label="Edit"
-                >
-                  <Edit2 size={16} />
-                </button>
-                <button
-                  onClick={() => setDeleteTarget(selectedEntry)}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
-                  aria-label="Delete"
-                >
-                  <Trash2 size={16} />
-                </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <IconAction icon={Edit2}  label="Edit"   onClick={() => {}} />
+                <IconAction icon={Trash2} label="Delete" tone="danger" onClick={() => setDeleteTarget(selectedEntry)} />
                 <button
                   onClick={() => setSelectedEntry(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                   aria-label="Close"
                 >
                   <X size={18} />
@@ -332,26 +384,26 @@ const TimesheetPage = () => {
 
             {/* Summary */}
             <div className="px-5 py-5">
-              <Surface className="p-5 text-center relative">
-                <div className="absolute top-3 right-3 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded">
+              <Card className="p-5 text-center relative">
+                <div className="absolute top-3 right-3 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">
                   {selectedEntry.status || "Unbilled"}
                 </div>
-                <div className="flex items-center justify-center gap-1.5 text-[11.5px] text-slate-500 mb-2">
+                <div className="flex items-center justify-center gap-1.5 text-[11.5px] text-gray-500 mb-2">
                   <Calendar size={13} /> {selectedEntry.date}
                 </div>
-                <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums">
-                  {selectedEntry.hours.split(":")[0]}h <span className="text-slate-400">:</span> {selectedEntry.hours.split(":")[1]}m
+                <div className="text-2xl font-semibold text-gray-900 dark:text-gray-50 tabular-nums">
+                  {selectedEntry.hours.split(":")[0]}h <span className="text-gray-400">:</span> {selectedEntry.hours.split(":")[1]}m
                 </div>
-              </Surface>
+              </Card>
             </div>
 
             {/* Tabs */}
-            <div className="px-5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+            <div className="px-5 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <div className="flex gap-1 -mb-px">
-                <button className="px-3 py-2.5 text-[12.5px] font-medium text-slate-900 dark:text-slate-100 border-b-2 border-slate-900 dark:border-slate-100">
+                <button className="px-3 py-2.5 text-xs md:text-[12.5px] font-medium text-green-600 dark:text-green-400 border-b-2 border-green-500">
                   Other details
                 </button>
-                <button className="px-3 py-2.5 text-[12.5px] font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors border-b-2 border-transparent">
+                <button className="px-3 py-2.5 text-xs md:text-[12.5px] font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors border-b-2 border-transparent">
                   Comments
                 </button>
               </div>
@@ -359,20 +411,20 @@ const TimesheetPage = () => {
 
             {/* Details */}
             <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
-              <Surface className="p-4 space-y-2.5">
+              <Card className="p-4 space-y-2.5">
                 <DetailItem label="Project"  value={selectedEntry.projectName} />
                 <DetailItem label="Customer" value={selectedEntry.customerName} />
                 <DetailItem label="Task"     value={selectedEntry.taskName} />
                 <DetailItem label="User"     value={selectedEntry.userName} />
-              </Surface>
+              </Card>
 
               {selectedEntry.notes && (
-                <Surface className="p-4">
+                <Card className="p-4">
                   <SectionLabel>Notes</SectionLabel>
-                  <p className="text-[12.5px] text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                  <p className="text-xs md:text-[12.5px] text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
                     {selectedEntry.notes}
                   </p>
-                </Surface>
+                </Card>
               )}
             </div>
           </aside>
@@ -381,20 +433,20 @@ const TimesheetPage = () => {
 
       {/* ---- New log entry modal ---- */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px] z-[60] flex items-start justify-center pt-8 sm:pt-16 px-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in">
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-[1px] z-[60] flex items-start justify-center pt-8 sm:pt-16 px-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in">
 
             {/* Header */}
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-3">
+            <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-start justify-between gap-3">
               <div>
-                <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">New log entry</p>
-                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50 tracking-tight mt-0.5">
+                <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">New log entry</p>
+                <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 tracking-tight mt-0.5">
                   Log time
                 </h2>
               </div>
               <button
                 onClick={closeModal}
-                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 aria-label="Close"
               >
                 <X size={18} />
@@ -410,7 +462,7 @@ const TimesheetPage = () => {
                     type="date"
                     value={formData.date}
                     onChange={(e) => handleFormChange("date", e.target.value)}
-                    className="w-full px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition"
                   />
                 </Field>
 
@@ -420,7 +472,7 @@ const TimesheetPage = () => {
                     placeholder="HH:MM"
                     value={formData.timeSpent}
                     onChange={(e) => handleFormChange("timeSpent", e.target.value)}
-                    className="w-full px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition tabular-nums"
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition tabular-nums"
                   />
                 </Field>
               </div>
@@ -429,7 +481,7 @@ const TimesheetPage = () => {
                 <select
                   value={formData.projectName}
                   onChange={(e) => handleFormChange("projectName", e.target.value)}
-                  className="w-full px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
+                  className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition"
                 >
                   <option value="">Select a project…</option>
                   {projects.map((p) => (
@@ -443,7 +495,7 @@ const TimesheetPage = () => {
                   <select
                     value={formData.taskName}
                     onChange={(e) => handleFormChange("taskName", e.target.value)}
-                    className="w-full px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition"
                   >
                     <option value="">Select task…</option>
                     <option value="Design">Design</option>
@@ -455,7 +507,7 @@ const TimesheetPage = () => {
                   <select
                     value={formData.userName}
                     onChange={(e) => handleFormChange("userName", e.target.value)}
-                    className="w-full px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition"
                   >
                     <option value="">Select user…</option>
                     <option value="Joe Doe">Joe Doe</option>
@@ -463,12 +515,12 @@ const TimesheetPage = () => {
                 </Field>
               </div>
 
-              <label className="inline-flex items-center gap-2 text-[12.5px] text-slate-700 dark:text-slate-300 cursor-pointer">
+              <label className="inline-flex items-center gap-2 text-xs md:text-[12.5px] text-gray-700 dark:text-gray-300 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.billable}
                   onChange={(e) => handleFormChange("billable", e.target.checked)}
-                  className="rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                  className="rounded border-gray-300 dark:border-gray-600 text-green-500 focus:ring-green-400"
                 />
                 Billable
               </label>
@@ -479,28 +531,26 @@ const TimesheetPage = () => {
                   placeholder="Add notes…"
                   value={formData.notes}
                   onChange={(e) => handleFormChange("notes", e.target.value)}
-                  className="w-full px-3 py-2 text-[13px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-300 transition"
+                  className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition"
                 />
               </Field>
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+            <div className="px-5 py-3 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-2">
               <button
                 onClick={closeModal}
-                className="px-3 py-2 text-[12.5px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                className="px-4 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
               >
                 Cancel
               </button>
-              <button
-                className="px-3 py-2 text-[12.5px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-              >
+              <button className="px-4 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 Start timer
               </button>
               <button
                 onClick={handleSaveLog}
                 disabled={isSubmitting}
-                className="px-3 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors disabled:opacity-50"
+                className="px-4 py-1.5 text-xs md:text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full shadow-md hover:shadow-lg transition-all disabled:opacity-50"
               >
                 {isSubmitting ? "Saving…" : "Save entry"}
               </button>
@@ -519,11 +569,58 @@ const TimesheetPage = () => {
         variant="danger"
         isLoading={isDeleting}
       />
+
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .animate-slide-in { animation: slideIn 0.3s ease-out forwards; }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+      `}</style>
     </div>
   );
 };
 
 /* ---------- sub-components ---------- */
+
+const MiniStat = ({ label, value, icon, color, isMoney }) => {
+  const bg = {
+    green: "bg-green-100 dark:bg-green-900/30",
+    blue: "bg-blue-100 dark:bg-blue-900/30",
+    amber: "bg-amber-100 dark:bg-amber-900/30",
+    red: "bg-red-100 dark:bg-red-900/30",
+    violet: "bg-violet-100 dark:bg-violet-900/30",
+  }[color] || "bg-gray-100 dark:bg-gray-700";
+
+  const fg = {
+    green: "text-green-600 dark:text-green-400",
+    blue: "text-blue-600 dark:text-blue-400",
+    amber: "text-amber-600 dark:text-amber-400",
+    red: "text-red-600 dark:text-red-400",
+    violet: "text-violet-600 dark:text-violet-400",
+  }[color] || "text-gray-600 dark:text-gray-400";
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
+      <div className="flex justify-between items-start mb-1 md:mb-2">
+        <div className={`w-8 h-8 md:w-10 md:h-10 ${bg} rounded-xl flex items-center justify-center`}>
+          <i className={`${icon} ${fg} text-sm md:text-lg`}></i>
+        </div>
+      </div>
+      <div className={`text-xl md:text-2xl font-bold ${fg} tabular-nums ${isMoney ? "truncate" : ""}`}>
+        {value}
+      </div>
+      <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">
+        {label}
+      </div>
+    </div>
+  );
+};
 
 const EmptyState = ({ onCreate }) => {
   const steps = [
@@ -533,22 +630,22 @@ const EmptyState = ({ onCreate }) => {
     { icon: CheckCircle2, label: "Get paid", tone: "pos" },
   ];
   return (
-    <Surface className="py-16 px-6">
+    <Card className="py-16 px-6">
       <div className="max-w-md mx-auto text-center">
-        <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-          <Clock size={22} className="text-slate-400" />
+        <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+          <Clock size={22} className="text-gray-400" />
         </div>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
           Create your first time entry
         </h2>
-        <p className="text-[13px] text-slate-500 mt-1.5 mb-6">
+        <p className="text-sm text-gray-500 mt-1.5 mb-6">
           Log time spent on project tasks and charge your customers accordingly.
         </p>
         <button
           onClick={onCreate}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[12.5px] font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full shadow-md hover:shadow-lg transition-all"
         >
-          <Plus size={13} /> Log time
+          <Plus size={14} /> Log time
         </button>
       </div>
 
@@ -558,7 +655,7 @@ const EmptyState = ({ onCreate }) => {
           {steps.map((s, i) => (
             <React.Fragment key={s.label}>
               <LifeStep icon={s.icon} label={s.label} tone={s.tone} />
-              {i < steps.length - 1 && <span className="text-slate-300 dark:text-slate-700 text-xs">→</span>}
+              {i < steps.length - 1 && <span className="text-gray-300 dark:text-gray-600 text-xs">→</span>}
             </React.Fragment>
           ))}
         </div>
@@ -570,24 +667,24 @@ const EmptyState = ({ onCreate }) => {
           "Mark entries as billable to include in invoices",
           "Track who logged time and when",
         ].map((b) => (
-          <div key={b} className="flex items-start gap-2 text-[12.5px] text-slate-600 dark:text-slate-300">
-            <CheckCircle2 size={14} className="text-emerald-500 mt-0.5 shrink-0" />
+          <div key={b} className="flex items-start gap-2 text-xs md:text-[12.5px] text-gray-600 dark:text-gray-300">
+            <CheckCircle2 size={14} className="text-green-500 mt-0.5 shrink-0" />
             <span>{b}</span>
           </div>
         ))}
       </div>
-    </Surface>
+    </Card>
   );
 };
 
 const LifeStep = ({ icon: Icon, label, tone }) => {
   const tones = {
-    default: "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800",
-    pos:     "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-100 dark:border-emerald-900/40",
+    default: "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700",
+    pos:     "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-100 dark:border-green-900/40",
     accent:  "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-900/40",
   };
   return (
-    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-medium ${tones[tone || "default"]}`}>
+    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[12px] font-medium ${tones[tone || "default"]}`}>
       <Icon size={13} />
       <span className="whitespace-nowrap">{label}</span>
     </div>

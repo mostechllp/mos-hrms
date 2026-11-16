@@ -1,6 +1,8 @@
+// src/components/layout/Sidebar.jsx (or wherever this file is located)
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
+import logo from "../../../public/favicon-dark.png"
 
 const ADMIN_ROUTE_MAP = {
   dashboard: "/admin/dashboard",
@@ -47,6 +49,10 @@ const ADMIN_ROUTE_MAP = {
   "general-ledger": "/admin/accounts/general-ledger",
   "trial-balance": "/admin/accounts/trial-balance",
   "accounts-reports": "/admin/accounts/reports",
+
+  "subscriptions": "/admin/subscriptions",
+  "subscriptions-plans": "/admin/subscriptions/plans",
+  "subscriptions-subscribers": "/admin/subscriptions/subscribers",
 };
 
 const EMPLOYEE_ROUTE_MAP = {
@@ -97,6 +103,11 @@ const EMPLOYEE_ROUTE_MAP = {
   "general-ledger": "/employee/accounts/general-ledger",
   "trial-balance": "/employee/accounts/trial-balance",
   "accounts-reports": "/employee/accounts/reports",
+
+  "subscriptions": "/employee/subscriptions",
+  "subscriptions-plans": "/employee/subscriptions/plans",
+  "subscriptions-subscribers": "/employee/subscriptions/subscribers",
+  "my-subscription": "/employee/subscriptions/my-subscription",
 };
 
 const ICON_MAP = {
@@ -142,10 +153,10 @@ const ICON_MAP = {
   "accounts-dashboard": "fas fa-gauge",
   sales: "fas fa-arrow-trend-up",
   purchases: "fas fa-arrow-trend-down",
-  money: "fas fa-wallet",             // Added
-  operations: "fas fa-layer-group",   // Added
+  money: "fas fa-wallet",
+  operations: "fas fa-layer-group",
   accountant: "fas fa-sliders",
-  "accounts-reports": "fas fa-chart-scatter",
+  "accounts-reports": "fas fa-chart-line", // Added missing icon
   
   // Accounts (Level 2 & 3 Leaves)
   items: "fas fa-cubes",
@@ -160,7 +171,13 @@ const ICON_MAP = {
   // Operations Sub-items
   "time-projects": "fas fa-diagram-project",
   "time-timesheet": "fas fa-clock-rotate-left",
+
+  subscriptions: "fas fa-arrows-rotate",
+  "subscriptions-plans": "fas fa-layer-group",
+  "subscriptions-subscribers": "fas fa-users",
+  "my-subscription": "fas fa-id-card",
 };
+
 // ============================================================
 // PARENT MENU CONFIG (Now supports 3 levels)
 // ============================================================
@@ -377,18 +394,6 @@ const PARENT_MENU_CONFIG = {
             path: "/admin/accounts/banking",
             employeePath: "/employee/accounts/banking",
           },
-          {
-            slug: "money-cards",
-            label: "Credit Cards",
-            path: "/admin/accounts/money/cards",
-            employeePath: "/employee/accounts/money/cards",
-          },
-          {
-            slug: "money-transfers",
-            label: "Transfers",
-            path: "/admin/accounts/money/transfers",
-            employeePath: "/employee/accounts/money/transfers",
-          },
         ],
       },
 
@@ -490,6 +495,27 @@ const PARENT_MENU_CONFIG = {
     ],
     order: 25,
   },
+  subscriptions: {
+  label: "Subscriptions",
+  icon: "fas fa-arrows-rotate",
+  permissionKeys: ["subscriptions", "subscriptions-plans"],
+  expandOnHover: false,
+  children: [
+    {
+      slug: "subscriptions-plans",
+      label: "Plans",
+      path: ADMIN_ROUTE_MAP["subscriptions-plans"],
+      employeePath: EMPLOYEE_ROUTE_MAP["subscriptions-plans"],
+    },
+    {
+      slug: "subscriptions-subscribers",
+      label: "Subscribers",
+      path: ADMIN_ROUTE_MAP["subscriptions-subscribers"],
+      employeePath: EMPLOYEE_ROUTE_MAP["subscriptions-subscribers"],
+    },
+  ],
+  order: 24,
+},
 };
 
 // Helper to extract all child slugs for processing logic
@@ -536,31 +562,34 @@ const MODULE_ORDER = {
   operations: 29,
   accountant: 30,
   "accounts-reports": 31,
+  subscriptions: 24,
+  "subscriptions-plans": 24,
+  "subscriptions-subscribers": 24,
+  "my-subscription": 23,
 };
 
-const HIDDEN_FOR_ADMIN = ["my-leaves", "my-tasks", "my-warnings"];
+const HIDDEN_FOR_ADMIN = ["my-leaves", "my-tasks", "my-warnings", "my-subscription"];
 const ALWAYS_SHOWN_MODULES = ["projects", "project-tasks"];
 
-const Sidebar = ({ isOpen, setIsOpen }) => {
-  const [isMobile, setIsMobile] = useState(false);
+const Sidebar = ({
+  isMobile,
+  mobileOpen,
+  setMobileOpen,
+  collapsed,
+  onToggleCollapse,
+}) => {
   const [expandedMenus, setExpandedMenus] = useState({});
   const location = useLocation();
   const { user } = useSelector((state) => state.auth);
 
+  // Close the mobile drawer on navigation
   useEffect(() => {
-    const checkMobile = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      if (!mobile) setIsOpen(false);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, [setIsOpen]);
+    if (isMobile) setMobileOpen(false);
+  }, [location.pathname, isMobile, setMobileOpen]);
 
-  useEffect(() => {
-    if (isMobile) setIsOpen(false);
-  }, [location, isMobile, setIsOpen]);
+  const showLabels = isMobile || !collapsed;
+  const isCollapsedDesktop = !isMobile && collapsed;
+  const itemPad = isCollapsedDesktop ? "justify-center px-0" : "px-5";
 
   const isAdmin = user?.type === "admin";
   const activeRouteMap = isAdmin ? ADMIN_ROUTE_MAP : EMPLOYEE_ROUTE_MAP;
@@ -605,19 +634,17 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     Object.entries(PARENT_MENU_CONFIG).forEach(([parentKey, config]) => {
       if (!canAccessParent(config)) return;
 
-      // Recursive mapper for children
-      const mapChildren = (children) => {
-        return children.map((child) => {
+      const mapChildren = (children) =>
+        children.map((child) => {
           const isAccordion = child.children && child.children.length > 0;
           return {
             slug: child.slug,
             label: child.label,
             path: isAccordion ? "#" : isAdmin ? child.path : child.employeePath,
-            icon: ICON_MAP[child.slug] || "fas fa-circle", // Ensure icons are mapped here
+            icon: ICON_MAP[child.slug] || "fas fa-circle",
             children: isAccordion ? mapChildren(child.children) : null,
           };
         });
-      };
 
       const children = mapChildren(config.children);
       const isActive = children.some(
@@ -635,7 +662,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         children,
         isActive,
         order: config.order || 500,
-        expandOnHover: config.expandOnHover !== false,
       });
 
       processedSlugs.add(parentKey);
@@ -654,6 +680,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       if (slug === "project-tasks") moduleName = "Project Tasks";
       if (slug === "warnings") moduleName = "Warnings";
       if (slug === "my-warnings") moduleName = "My Warnings";
+      if (slug === "my-subscription") moduleName = "My Subscription";
 
       standaloneItems.push({
         type: "single",
@@ -676,132 +703,172 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     setExpandedMenus((prev) => ({ ...prev, [slug]: !prev[slug] }));
   };
 
-  const isMenuExpanded = (item) => {
-    if (isMobile) return expandedMenus[item.slug] || false;
-    if (item.expandOnHover === false) return expandedMenus[item.slug] || false;
-    return isOpen;
+  // Clicking a parent while collapsed expands the sidebar and opens that menu
+  const handleParentClick = (slug) => {
+    if (isCollapsedDesktop) {
+      onToggleCollapse();
+      setExpandedMenus((prev) => ({ ...prev, [slug]: true }));
+    } else {
+      toggleMenu(slug);
+    }
   };
 
-  const showChevron = !isMobile && isOpen;
+  const isMenuExpanded = (item) =>
+    showLabels && (expandedMenus[item.slug] || false);
 
   // --- RECURSIVE RENDERER FOR SUB-MENUS ---
-  const renderSubMenu = (children, level = 1) => {
-    return (
-      <div
-        className={`mt-1 space-y-1 ${level === 1 ? "ml-6 border-l-2 border-gray-700/50 pl-2" : "ml-4 border-l border-gray-700/30 pl-2"}`}
-      >
-        {children.map((child) => {
-          const hasChildren = child.children && child.children.length > 0;
-          const isChildExpanded = expandedMenus[child.slug] || false;
+  const renderSubMenu = (children, level = 1) => (
+    <div
+      className={`mt-1 space-y-1 ${level === 1 ? "ml-6 border-l-2 border-gray-700/50 pl-2" : "ml-4 border-l border-gray-700/30 pl-2"}`}
+    >
+      {children.map((child) => {
+        const hasChildren = child.children && child.children.length > 0;
+        const isChildExpanded = expandedMenus[child.slug] || false;
+        const isChildActive =
+          location.pathname === child.path ||
+          (hasChildren &&
+            child.children.some((c) => c.path === location.pathname));
 
-          // Check if this child or any of its children are active
-          const isChildActive =
-            location.pathname === child.path ||
-            (hasChildren &&
-              child.children.some((c) => c.path === location.pathname));
-
-          if (hasChildren) {
-            // Render Accordion Parent (Level 2)
-            return (
-              <div key={child.slug}>
-                <div
-                  onClick={() => toggleMenu(child.slug)}
-                  className={`flex items-center justify-between gap-3 px-3 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer select-none ${
-                    isChildActive
-                      ? "text-white font-medium"
-                      : "text-gray-400 hover:text-white hover:bg-white/10"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {/* ICON ADDED HERE FOR LEVEL 2 ACCORDION PARENTS */}
-                    <i
-                      className={`${child.icon} w-5 text-xs flex-shrink-0`}
-                    ></i>
-                    <span className="text-sm">{child.label}</span>
-                  </div>
-                  <i
-                    className={`fas fa-chevron-${isChildExpanded ? "up" : "down"} text-[10px] transition-transform duration-200`}
-                  ></i>
-                </div>
-                {isChildExpanded && renderSubMenu(child.children, level + 1)}
-              </div>
-            );
-          }
-
-          // Render Leaf Link (Level 2 or Level 3)
+        if (hasChildren) {
           return (
-            <NavLink
-              key={child.slug}
-              to={child.path}
-              onClick={() => isMobile && setIsOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer ${
-                  isActive
-                    ? "bg-green-500/20 text-white"
+            <div key={child.slug}>
+              <div
+                onClick={() => toggleMenu(child.slug)}
+                className={`flex items-center justify-between gap-3 px-3 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer select-none ${
+                  isChildActive
+                    ? "text-white font-medium"
                     : "text-gray-400 hover:text-white hover:bg-white/10"
-                }`
-              }
-            >
-              {level === 1 && (
-                <i className={`${child.icon} w-5 text-xs flex-shrink-0`}></i>
-              )}
-              <span className="text-sm">{child.label}</span>
-            </NavLink>
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <i className={`${child.icon} w-5 text-xs flex-shrink-0`}></i>
+                  <span className="text-sm">{child.label}</span>
+                </div>
+                <i
+                  className={`fas fa-chevron-${isChildExpanded ? "up" : "down"} text-[10px]`}
+                ></i>
+              </div>
+              {isChildExpanded && renderSubMenu(child.children, level + 1)}
+            </div>
           );
-        })}
-      </div>
-    );
-  };
+        }
+
+        return (
+          <NavLink
+            key={child.slug}
+            to={child.path}
+            onClick={() => isMobile && setMobileOpen(false)}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer ${
+                isActive
+                  ? "bg-green-500/20 text-white"
+                  : "text-gray-400 hover:text-white hover:bg-white/10"
+              }`
+            }
+          >
+            {/* CHANGED: Removed 'level === 1' condition so Reports (level 1) gets its icon */}
+            <i className={`${child.icon} w-5 text-xs flex-shrink-0`}></i>
+            <span className="text-sm">{child.label}</span>
+          </NavLink>
+        );
+      })}
+    </div>
+  );
 
   return (
     <>
-      {isMobile && isOpen && (
+      {isMobile && mobileOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
-          onClick={() => setIsOpen(false)}
+          onClick={() => setMobileOpen(false)}
         />
       )}
 
       <aside
-        className={`
-          fixed top-0 left-0 h-full bg-gray-900 z-50 transition-all duration-300 flex flex-col
-          ${isMobile ? `${isOpen ? "translate-x-0" : "-translate-x-full"} w-72` : "w-[72px] hover:w-80 group"}
-        `}
-        onMouseEnter={() => !isMobile && setIsOpen(true)}
-        onMouseLeave={() => !isMobile && setIsOpen(false)}
-      >
-        <div className="flex-shrink-0 py-5 px-4 border-b border-white/10 flex justify-center items-center">
-          <img
-            src="https://violet-leopard-500489.hostingersite.com/hr/public/assets/images/hr-logo2.jpg"
-            alt="HMR Logo"
-            className={`object-contain rounded-lg bg-white p-1 transition-all duration-300 ${!isMobile && !isOpen ? "w-10 h-10" : "w-12 h-12"}`}
-          />
-        </div>
+  className={`fixed top-0 left-0 h-full bg-gray-900 z-50 transition-all duration-300 flex flex-col ${
+    isMobile
+      ? `w-[288px] ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`
+      : collapsed
+        ? "w-[72px]"
+        : "w-[268px]"
+  }`}
+>
+        
+       <div
+  className={`flex-shrink-0 h-[88px] border-b border-white/10 flex items-center ${
+    isCollapsedDesktop ? "justify-center px-0" : "justify-between px-4"
+  }`}
+>
+{!isCollapsedDesktop && (
+  <div className="flex items-center gap-3 min-w-0">
+    <img
+      src={logo}
+      alt="HMR Logo"
+      className="w-12 h-12 flex-shrink-0 object-contain rounded-lg p-1"
+    />
+    <div className="min-w-0 leading-tight">
+      <p className="text-white text-sm font-semibold truncate">
+        Mostech Business Solutions
+      </p>
+      <p className="text-white/70 text-xs truncate">HRMS Solution</p>
+    </div>
+  </div>
+)}
 
-        <nav className="flex-1 overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent hover:scrollbar-thumb-gray-600">
+  {/* Sidebar toggle icon */}
+  <button
+    type="button"
+    onClick={() => (isMobile ? setMobileOpen(false) : onToggleCollapse())}
+    aria-label={
+      isMobile ? "Close menu" : collapsed ? "Expand sidebar" : "Collapse sidebar"
+    }
+    title={
+      isMobile ? "Close menu" : collapsed ? "Expand sidebar" : "Collapse sidebar"
+    }
+    className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-gray-200 transition-colors duration-200 hover:bg-green-500 hover:text-white"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <line x1="15" y1="4" x2="15" y2="20" />
+    </svg>
+  </button>
+</div>
+
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent hover:scrollbar-thumb-gray-600">
           {navItems.map((item) => {
             if (item.type === "parent") {
               const expanded = isMenuExpanded(item);
               return (
                 <div key={item.slug} className="mb-1">
                   <div
-                    onClick={() => toggleMenu(item.slug)}
-                    className={`flex items-center gap-3 px-5 py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer select-none ${
+                    onClick={() => handleParentClick(item.slug)}
+                    title={isCollapsedDesktop ? item.label : undefined}
+                    className={`flex items-center gap-3 ${itemPad} py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer select-none ${
                       item.isActive
                         ? "bg-green-500/20 text-white"
                         : "text-gray-400 hover:text-white hover:bg-white/10"
                     }`}
                   >
-                    <i className={item.icon + " w-6 text-lg flex-shrink-0"}></i>
-                    <span
-                      className={`flex-1 transition-opacity duration-200 ${!isMobile && !isOpen ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}
-                    >
-                      {item.label}
-                    </span>
-                    {(isMobile || showChevron) && (
-                      <i
-                        className={`fas fa-chevron-${expanded ? "up" : "down"} text-xs transition-transform duration-200 flex-shrink-0`}
-                      ></i>
+                    <i
+                      className={item.icon + " w-6 text-lg text-center flex-shrink-0"}
+                    ></i>
+                    {showLabels && (
+                      <>
+                        <span className="flex-1 truncate">{item.label}</span>
+                        <i
+                          className={`fas fa-chevron-${expanded ? "up" : "down"} text-xs flex-shrink-0`}
+                        ></i>
+                      </>
                     )}
                   </div>
                   {expanded && renderSubMenu(item.children, 1)}
@@ -818,21 +885,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                   item.path === "/admin/dashboard" ||
                   item.path === "/employee/dashboard"
                 }
-                onClick={() => isMobile && setIsOpen(false)}
+                title={isCollapsedDesktop ? item.label : undefined}
+                onClick={() => isMobile && setMobileOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-5 py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden ${
+                  `flex items-center gap-3 ${itemPad} py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden ${
                     isActive
                       ? "bg-green-500/20 text-white"
                       : "text-gray-400 hover:text-white hover:bg-white/10"
                   }`
                 }
               >
-                <i className={item.icon + " w-6 text-lg flex-shrink-0"}></i>
-                <span
-                  className={`transition-opacity duration-200 ${!isMobile && !isOpen ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}
-                >
-                  {item.label}
-                </span>
+                <i
+                  className={item.icon + " w-6 text-lg text-center flex-shrink-0"}
+                ></i>
+                {showLabels && <span className="truncate">{item.label}</span>}
               </NavLink>
             );
           })}
