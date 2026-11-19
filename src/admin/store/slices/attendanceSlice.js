@@ -462,7 +462,6 @@ export const fetchAbsentees = createAsyncThunk(
 
 // ========== BREAK CRUD THUNKS ==========
 
-// Fetch breaks for a specific attendance record
 export const fetchBreaks = createAsyncThunk(
   "attendance/fetchBreaks",
   async (attendanceId, { rejectWithValue }) => {
@@ -470,7 +469,11 @@ export const fetchBreaks = createAsyncThunk(
       const response = await apiClient.get(
         `/admin/attendance/${attendanceId}/breaks`,
       );
-      return { attendanceId, breaks: response.data?.data || [] };
+      // The array is inside response.data.data.breaks
+      return { 
+        attendanceId, 
+        breaks: response.data?.data?.breaks || [] 
+      };
     } catch (error) {
       return rejectWithValue(handleApiError(error));
     }
@@ -594,6 +597,9 @@ const attendanceSlice = createSlice({
     clearCompletedUploads: (state) => {
       state.uploads = state.uploads.filter((u) => u.status === "processing");
     },
+    clearSelectedBreak: (state) => {
+  state.selectedBreak = null;
+},
   },
   extraReducers: (builder) => {
     builder
@@ -847,5 +853,6 @@ export const {
   updateUploadStatus,
   removeUpload,
   clearCompletedUploads,
+  clearSelectedBreak
 } = attendanceSlice.actions;
 export default attendanceSlice.reducer;

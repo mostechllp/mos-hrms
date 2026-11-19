@@ -22,6 +22,7 @@ import {
   createManualAttendance,
   updateAttendance,
   deleteAttendance,
+  fetchBreaks,
 } from "../store/slices/attendanceSlice";
 import LocationViewModal from "../components/attendance/LocationViewModal";
 import BreakDetailsModal from "../components/attendance/BreakDetailsModal";
@@ -36,8 +37,7 @@ const getAvatarUrl = (avatarPath) => {
   }
 
   const baseUrl =
-    import.meta.env.VITE_API_URL?.replace("/api", "") ||
-    window.location.origin;
+    import.meta.env.VITE_API_URL?.replace("/api", "") || window.location.origin;
 
   if (avatarPath.startsWith("avatars/")) {
     return `${baseUrl}/storage/${avatarPath}`;
@@ -66,11 +66,12 @@ const Attendances = () => {
     stats,
     totalCount,
     lastPage,
+    breaksMap,
   } = useSelector((state) => state.attendance);
-  
+
   // Get employees from Redux state
   const { employees, loading: employeesLoading } = useSelector(
-    (state) => state.employees || { employees: [], loading: false }
+    (state) => state.employees || { employees: [], loading: false },
   );
 
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -340,7 +341,7 @@ const Attendances = () => {
       employeeName: record.employeeName,
       date: record.date,
     };
-    
+
     setSelectedLocation(locationData);
     setShowLocationModal(true);
   };
@@ -370,17 +371,17 @@ const Attendances = () => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  
+
   const handlePerPageChange = (value) => {
     setPerPage(value);
     setCurrentPage(1);
   };
-  
+
   const handleCompanyFilterChange = (e) => {
     setCompanyFilter(e.target.value);
     setCurrentPage(1);
   };
-  
+
   const handleSearchChange = (value) => {
     setSearchTerm(value);
     setCurrentPage(1);
@@ -593,7 +594,7 @@ const Attendances = () => {
                       <i className="fas fa-check text-green-500 ml-auto text-xs"></i>
                     )}
                   </div>
-                  
+
                   {filteredEmployees.map((emp) => {
                     const avatarUrl = getAvatarUrl(emp.avatar);
                     return (
@@ -610,14 +611,15 @@ const Attendances = () => {
                             onError={(e) => {
                               e.target.style.display = "none";
                               const parent = e.target.parentElement;
-                              const fallback = parent.querySelector(".avatar-fallback");
+                              const fallback =
+                                parent.querySelector(".avatar-fallback");
                               if (fallback) {
                                 fallback.style.display = "flex";
                               }
                             }}
                           />
                         ) : null}
-                        <div 
+                        <div
                           className={`w-6 h-6 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600 dark:text-green-400 text-xs font-bold avatar-fallback ${
                             avatarUrl ? "hidden" : "flex"
                           }`}
@@ -658,7 +660,7 @@ const Attendances = () => {
           ></i>
           <span className="hidden sm:inline">Refresh</span>
         </button>
-        
+
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto ml-auto">
           <SearchBar
             value={searchTerm}
@@ -773,7 +775,11 @@ const Attendances = () => {
                         <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => setSelectedBreakRecord(record)}
+                              onClick={() => {
+                                // Dispatch fetchBreaks using the attendance record's ID
+                                dispatch(fetchBreaks(record.id));
+                                setSelectedBreakRecord(record);
+                              }}
                               className="px-2 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors text-xs flex-shrink-0"
                             >
                               View

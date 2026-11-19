@@ -6,16 +6,22 @@ import { TimeInput } from "../../components/common/TimeInput";
 import {
   updateBreak,
   deleteBreak,
+  fetchBreakById,
+  clearSelectedBreak,
 } from "../../store/slices/attendanceSlice";
 
-const BreakEditModal = ({ 
-  isOpen, 
-  onClose, 
-  onSave, 
-  onDelete, 
-  breakData, 
-  loading 
+const BreakEditModal = ({
+  isOpen,
+  onClose,
+  onSave,
+  onDelete,
+  breakData,
+  loading,
 }) => {
+  const dispatch = useDispatch();
+  const { selectedBreak } = useSelector((state) => state.attendance || {});
+  const activeBreak = selectedBreak || breakData;
+
   const [formData, setFormData] = useState({
     start_time: "",
     end_time: "",
@@ -23,46 +29,54 @@ const BreakEditModal = ({
   });
   const [isDeleteConfirm, setIsDeleteConfirm] = useState(false);
 
-  // Update form data when breakData changes
-  useEffect(() => {
-    if (breakData) {
-      // Extract only the time part from ISO string (HH:MM)
+    useEffect(() => {
+    if (activeBreak) {
       const extractTime = (dateString) => {
         if (!dateString) return "";
         try {
-          const date = new Date(dateString);
-          const hours = String(date.getHours()).padStart(2, '0');
-          const minutes = String(date.getMinutes()).padStart(2, '0');
-          return `${hours}:${minutes}`;
+          // The API returns either "YYYY-MM-DDTHH:mm:ss.000000Z" or "YYYY-MM-DD HH:mm:ss"
+          // We can safely extract the HH:mm directly from the string to avoid timezone shifts
+          const timeMatch = dateString.match(/T(\d{2}):(\d{2})|(\d{2}):(\d{2}):/);
+          if (timeMatch) {
+            // If it matches ISO format (T09:51)
+            if (timeMatch[1] && timeMatch[2]) {
+              return `${timeMatch[1]}:${timeMatch[2]}`;
+            }
+            // If it matches Space format ( 09:51:)
+            if (timeMatch[3] && timeMatch[4]) {
+              return `${timeMatch[3]}:${timeMatch[4]}`;
+            }
+          }
+          return "";
         } catch (e) {
           return "";
         }
       };
 
       setFormData({
-        start_time: extractTime(breakData.start_time),
-        end_time: breakData.end_time ? extractTime(breakData.end_time) : "",
-        duration_minutes: breakData.duration_minutes || "",
+        start_time: extractTime(activeBreak.start_time),
+        end_time: activeBreak.end_time ? extractTime(activeBreak.end_time) : "",
+        duration_minutes: activeBreak.duration_minutes || "",
       });
     }
-  }, [breakData]);
+  }, [activeBreak]);
 
   // Calculate duration when start_time or end_time changes
   const calculateDuration = (start, end) => {
     if (!start || !end) return "";
-    
+
     try {
-      const [startHour, startMin] = start.split(':').map(Number);
-      const [endHour, endMin] = end.split(':').map(Number);
-      
+      const [startHour, startMin] = start.split(":").map(Number);
+      const [endHour, endMin] = end.split(":").map(Number);
+
       let startTotalMinutes = startHour * 60 + startMin;
       let endTotalMinutes = endHour * 60 + endMin;
-      
+
       // If end time is before start time, assume it's the next day
       if (endTotalMinutes < startTotalMinutes) {
         endTotalMinutes += 24 * 60;
       }
-      
+
       const duration = endTotalMinutes - startTotalMinutes;
       return duration > 0 ? String(duration) : "";
     } catch (e) {
@@ -73,22 +87,22 @@ const BreakEditModal = ({
   // Calculate end_time when start_time and duration change
   const calculateEndTime = (start, durationMinutes) => {
     if (!start || !durationMinutes) return "";
-    
+
     try {
-      const [startHour, startMin] = start.split(':').map(Number);
+      const [startHour, startMin] = start.split(":").map(Number);
       const duration = parseInt(durationMinutes);
-      
+
       if (isNaN(duration) || duration < 0) return "";
-      
+
       let totalMinutes = startHour * 60 + startMin + duration;
-      
+
       // If duration exceeds 24 hours, wrap around
       if (totalMinutes >= 24 * 60) {
         totalMinutes = totalMinutes % (24 * 60);
       }
-      
-      const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
-      const minutes = String(totalMinutes % 60).padStart(2, '0');
+
+      const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+      const minutes = String(totalMinutes % 60).padStart(2, "0");
       return `${hours}:${minutes}`;
     } catch (e) {
       return "";
@@ -98,7 +112,7 @@ const BreakEditModal = ({
   // Handle start time change - update duration if end time exists
   const handleStartTimeChange = (e) => {
     const value = e.target.value;
-    setFormData(prev => {
+    setFormData((prev) => {
       const newData = { ...prev, start_time: value };
       // If end time exists, recalculate duration
       if (newData.end_time) {
@@ -114,7 +128,7 @@ const BreakEditModal = ({
   // Handle end time change - update duration
   const handleEndTimeChange = (e) => {
     const value = e.target.value;
-    setFormData(prev => {
+    setFormData((prev) => {
       const newData = { ...prev, end_time: value };
       // If start time exists, recalculate duration
       if (newData.start_time) {
@@ -130,7 +144,7 @@ const BreakEditModal = ({
   // Handle duration change - update end time
   const handleDurationChange = (e) => {
     const value = e.target.value;
-    setFormData(prev => {
+    setFormData((prev) => {
       const newData = { ...prev, duration_minutes: value };
       // If start time exists, recalculate end time
       if (newData.start_time && value) {
@@ -145,44 +159,36 @@ const BreakEditModal = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+      const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // Get the date from the original break data
+
     const getDateFromISO = (isoString) => {
       if (!isoString) return "";
-      try {
-        const date = new Date(isoString);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      } catch (e) {
-        return "";
-      }
+      // Just grab the YYYY-MM-DD part
+      return isoString.split("T")[0].split(" ")[0]; 
     };
 
-    // Build full datetime strings with the original date and new time
-    const dateStr = getDateFromISO(breakData.start_time);
-    
-    // Ensure duration is calculated if not set
+    // Use the date from the original break data
+    const dateStr = getDateFromISO(activeBreak.start_time);
+
     let finalDuration = formData.duration_minutes;
     if (!finalDuration && formData.start_time && formData.end_time) {
       finalDuration = calculateDuration(formData.start_time, formData.end_time);
     }
 
+    // Build the string directly as "YYYY-MM-DD HH:mm:00" 
     const payload = {
-      start_time: formData.start_time ? `${dateStr} ${formData.start_time}:00` : "",
-      end_time: formData.end_time ? `${dateStr} ${formData.end_time}:00` : "",
+      start_time: formData.start_time ? `${dateStr} ${formData.start_time}:00` : null,
+      end_time: formData.end_time ? `${dateStr} ${formData.end_time}:00` : null,
       duration_minutes: finalDuration || formData.duration_minutes,
     };
 
-    onSave(breakData.id, payload);
+    onSave(activeBreak.id, payload);
   };
 
-  const handleDelete = () => {
+    const handleDelete = () => {
     if (isDeleteConfirm) {
-      onDelete(breakData.id);
+      onDelete(activeBreak.id); // Use activeBreak
     } else {
       setIsDeleteConfirm(true);
     }
@@ -211,14 +217,16 @@ const BreakEditModal = ({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date
             </label>
-            <div className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-              {breakData?.start_time ? new Date(breakData.start_time).toLocaleDateString("en-US", {
-                weekday: "short",
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              }) : "-"}
-            </div>
+                      <div className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+            {activeBreak?.start_time
+              ? new Date(activeBreak.start_time).toLocaleDateString("en-US", {
+                  weekday: "short",
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })
+              : "-"}
+          </div>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               Date cannot be edited. Only time can be changed.
             </p>
@@ -245,7 +253,9 @@ const BreakEditModal = ({
             />
             {formData.start_time && formData.end_time && (
               <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                Duration: {calculateDuration(formData.start_time, formData.end_time) || 0} minutes
+                Duration:{" "}
+                {calculateDuration(formData.start_time, formData.end_time) || 0}{" "}
+                minutes
               </p>
             )}
           </div>
@@ -265,13 +275,17 @@ const BreakEditModal = ({
             />
             {formData.duration_minutes && formData.start_time && (
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                End time will be: {calculateEndTime(formData.start_time, formData.duration_minutes) || "-"}
+                End time will be:{" "}
+                {calculateEndTime(
+                  formData.start_time,
+                  formData.duration_minutes,
+                ) || "-"}
               </p>
             )}
           </div>
 
           <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            {breakData?.id && (
+            {activeBreak?.id && (
               <button
                 type="button"
                 onClick={handleDelete}
@@ -314,23 +328,25 @@ const BreakEditModal = ({
 };
 
 // Main BreakDetailsModal component
-const BreakDetailsModal = ({ 
-  isOpen, 
-  onClose, 
+const BreakDetailsModal = ({
+  isOpen,
+  onClose,
   onRefresh, // Add this prop
-  initialBreaks, 
-  employeeName, 
-  date, 
-  attendanceId 
+  initialBreaks,
+  employeeName,
+  date,
+  attendanceId,
 }) => {
   const dispatch = useDispatch();
-  const { actionLoading, breaksMap } = useSelector(
-    (state) => state.attendance || { 
-      actionLoading: false, 
-      breaksMap: {}
-    }
+  const { actionLoading, breaksMap, selectedBreak } = useSelector(
+    (state) =>
+      state.attendance || {
+        actionLoading: false,
+        breaksMap: {},
+        selectedBreak: null,
+      },
   );
-  
+
   const [breaks, setBreaks] = useState(initialBreaks || []);
   const [editingBreak, setEditingBreak] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -357,41 +373,58 @@ const BreakDetailsModal = ({
 
   if (!isOpen) return null;
 
- const formatTime = (isoString) => {
-  if (!isoString) return "-";
+      const formatTime = (isoString) => {
+    if (!isoString) return "-";
+    try {
+      // Extract HH:mm directly
+      const timeMatch = isoString.match(/T(\d{2}):(\d{2})|(\d{2}):(\d{2}):/);
+      if (timeMatch) {
+        let hours, minutes;
+        if (timeMatch[1] && timeMatch[2]) {
+          hours = timeMatch[1];
+          minutes = timeMatch[2];
+        } else if (timeMatch[3] && timeMatch[4]) {
+          hours = timeMatch[3];
+          minutes = timeMatch[4];
+        }
+        
+        if (hours && minutes) {
+          let h = parseInt(hours, 10);
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          h = h % 12;
+          h = h ? h : 12; // 0 should be 12
+          return `${String(h).padStart(2, '0')}:${minutes} ${ampm}`;
+        }
+      }
+      return "-";
+    } catch (e) {
+      return "-";
+    }
+  };
 
-  try {
-    const timePart = isoString.split("T")[1];
-
-    if (!timePart) return "-";
-
-    const [hours, minutes] = timePart.split(":");
-
-    const date = new Date();
-    date.setHours(Number(hours), Number(minutes), 0, 0);
-
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch (e) {
-    return "-";
-  }
-};
-
-  const handleEditBreak = (breakItem) => {
-    setEditingBreak(breakItem);
-    setShowEditModal(true);
+  const handleEditBreak = async (breakItem) => {
+    try {
+      // Fetch fresh break data from API
+      const freshBreak = await dispatch(fetchBreakById(breakItem.id)).unwrap();
+      setEditingBreak(freshBreak);
+      setShowEditModal(true);
+    } catch (error) {
+      showToast(
+        typeof error === "string" ? error : "Failed to load break details",
+        "error",
+      );
+    }
   };
 
   const handleSaveBreak = async (breakId, formData) => {
     try {
-      const result = await dispatch(updateBreak({ breakId, data: formData })).unwrap();
+      const result = await dispatch(
+        updateBreak({ breakId, data: formData }),
+      ).unwrap();
       // Update the breaks in state
-      setBreaks(breaks.map(b => 
-        b.id === breakId ? { ...b, ...result } : b
-      ));
+      setBreaks(
+        breaks.map((b) => (b.id === breakId ? { ...b, ...result } : b)),
+      );
       showToast("Break updated successfully!", "success");
       setShowEditModal(false);
       setEditingBreak(null);
@@ -400,7 +433,10 @@ const BreakDetailsModal = ({
         onRefresh();
       }
     } catch (error) {
-      showToast(typeof error === 'string' ? error : "Failed to update break", "error");
+      showToast(
+        typeof error === "string" ? error : "Failed to update break",
+        "error",
+      );
     }
   };
 
@@ -412,7 +448,7 @@ const BreakDetailsModal = ({
   const confirmDeleteBreak = async () => {
     try {
       await dispatch(deleteBreak(deletingBreakId)).unwrap();
-      setBreaks(breaks.filter(b => b.id !== deletingBreakId));
+      setBreaks(breaks.filter((b) => b.id !== deletingBreakId));
       showToast("Break deleted successfully!", "success");
       setShowDeleteConfirm(false);
       setDeletingBreakId(null);
@@ -421,7 +457,10 @@ const BreakDetailsModal = ({
         onRefresh();
       }
     } catch (error) {
-      showToast(typeof error === 'string' ? error : "Failed to delete break", "error");
+      showToast(
+        typeof error === "string" ? error : "Failed to delete break",
+        "error",
+      );
     }
   };
 
@@ -450,7 +489,7 @@ const BreakDetailsModal = ({
           </div>
 
           <div className="p-6 max-h-[60vh] overflow-y-auto">
-            {(!breaks || breaks.length === 0) ? (
+            {!breaks || breaks.length === 0 ? (
               <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
                   <i className="fas fa-coffee text-2xl"></i>
@@ -474,15 +513,19 @@ const BreakDetailsModal = ({
                           <div className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                             {formatTime(breakData.start_time)}
                             <i className="fas fa-arrow-right text-xs text-gray-400"></i>
-                            {breakData.end_time ? formatTime(breakData.end_time) : "Ongoing"}
+                            {breakData.end_time
+                              ? formatTime(breakData.end_time)
+                              : "Ongoing"}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 w-full sm:w-auto">
                         <div className="bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {breakData.duration_minutes ? `${breakData.duration_minutes} mins` : "-"}
+                          {breakData.duration_minutes
+                            ? `${breakData.duration_minutes} mins`
+                            : "-"}
                         </div>
-                        
+
                         {/* Action Buttons */}
                         {breakData.id && (
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -527,6 +570,7 @@ const BreakDetailsModal = ({
         onClose={() => {
           setShowEditModal(false);
           setEditingBreak(null);
+          dispatch(clearSelectedBreak());
         }}
         onSave={handleSaveBreak}
         onDelete={handleDeleteBreak}
