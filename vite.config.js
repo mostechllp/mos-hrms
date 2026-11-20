@@ -9,6 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   plugins: [react()],
   // base: "/Mostech-HRMS/",
+  base: "https://hrms.mostech.ae/",
   resolve: {
     alias: {
       '@admin': path.resolve(__dirname, './src/admin'),

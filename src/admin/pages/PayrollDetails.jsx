@@ -317,7 +317,7 @@ const PayrollDetails = () => {
   const leaveDetails = leaveSummary.details || leaveDeductions?.leaves || [];
 
   // Logo URL
-  const logoUrl = "/favicon-light.png";
+  const logoUrl = "/fav-light.png";
   const logoUrlAlt = "/favicon.ico";
 
   return (
