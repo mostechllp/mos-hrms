@@ -55,7 +55,7 @@ const Layout = () => {
                   rel="noopener noreferrer"
                   className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium transition-colors hover:underline"
                 >
-                  Mostech Business Solutions
+                  Mostech
                 </a>
               </p>
             </div>

@@ -606,7 +606,7 @@ const Login = () => {
               rel="noopener noreferrer"
               className="text-white hover:text-white/90 font-medium transition-colors hover:underline"
             >
-              Mostech Business Solutions
+              Mostech
             </a>
           </p>
         </div>
