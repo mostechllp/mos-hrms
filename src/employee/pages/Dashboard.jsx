@@ -42,6 +42,7 @@ import MapView from "../components/common/MapView";
 import { fetchWorkingHours } from "../../admin/store/slices/settingsSlice";
 import LeavesByDepartment from "../components/attendance/LeavesByDepartment";
 import UpcomingReminders from "../../admin/components/dashboard/UpcomingReminders";
+import DailyQuote, { getDailyQuote } from "../components/common/DailyQuote";
 
 // Status tab mapping - assigned goes to its own tab now
 const STATUS_TAB_MAP = {
@@ -64,6 +65,36 @@ ChartJS.register(
   Legend,
   Filler,
 );
+
+const safeInt = (value) => {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+};
+
+// Safari-safe date parser: handles "YYYY-MM-DD HH:mm:ss" and "01:21 PM"
+const parseBreakDate = (value) => {
+  if (!value) return null;
+  let d = new Date(value);
+  if (!isNaN(d.getTime())) return d;
+
+  if (typeof value === "string") {
+    d = new Date(value.replace(" ", "T"));
+    if (!isNaN(d.getTime())) return d;
+
+    const match = value.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (match) {
+      let hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      const ampm = match[3].toUpperCase();
+      if (ampm === "PM" && hours !== 12) hours += 12;
+      if (ampm === "AM" && hours === 12) hours = 0;
+      const today = new Date();
+      today.setHours(hours, minutes, 0, 0);
+      return today;
+    }
+  }
+  return null;
+};
 
 const Dashboard = () => {
   const dispatch = useDispatch();
@@ -142,10 +173,10 @@ const Dashboard = () => {
     localStorage.getItem("attendance-break-start-time"),
   );
   const [totalBreakMs, setTotalBreakMs] = useState(
-    parseInt(localStorage.getItem("attendance-total-break-ms") || "0", 10),
+    safeInt(localStorage.getItem("attendance-total-break-ms")),
   );
   const [numberOfBreaks, setNumberOfBreaks] = useState(
-    parseInt(localStorage.getItem("attendance-breaks-count") || "0", 10),
+    safeInt(localStorage.getItem("attendance-breaks-count")),
   );
   const [breakHistory, setBreakHistory] = useState(() => {
     try {
@@ -177,30 +208,29 @@ const Dashboard = () => {
     try {
       // Check if the string is a full ISO date string
       if (
-  timeString.includes("T") &&
-  (timeString.includes("Z") || timeString.includes("+"))
-) {
-  const dateObj = new Date(timeString);
-  if (isNaN(dateObj.getTime())) return timeString;
+        timeString.includes("T") &&
+        (timeString.includes("Z") || timeString.includes("+"))
+      ) {
+        const dateObj = new Date(timeString);
+        if (isNaN(dateObj.getTime())) return timeString;
 
-  // Break times from the API are already local wall-clock time but are
-  // labelled "Z". Format as UTC so no timezone shift is applied.
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: "UTC",
-  }).format(dateObj);
-}
+        // Break times from the API are already local wall-clock time but are
+        // labelled "Z". Format as UTC so no timezone shift is applied.
+        return new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: "UTC",
+        }).format(dateObj);
+      }
 
       // Handle raw "HH:MM:SS" strings (fallback)
       if (timeString.includes(":")) {
         const parts = timeString.split(":");
         const hours = parseInt(parts[0], 10);
         const minutes = parts[1];
-        const ampm = hours >= 12 ? "PM" : "AM";
         const hours12 = hours % 12 || 12;
-        return `${hours12}:${minutes} ${ampm}`;
+        return `${hours12}:${minutes}`;
       }
 
       return timeString;
@@ -225,20 +255,26 @@ const Dashboard = () => {
   }, [dispatch]);
 
   // Sync break state from server (source of truth across devices)
+  // Find this useEffect around line 140
   useEffect(() => {
     const breaks = employeeBreaks?.breaks || [];
     const todayStr = getTodayInTimezone(workTimezone);
 
     const openBreak = breaks.find((b) => {
       if (!b || !b.start_time) return false;
-      if (b.end_time) return false;
+      // Check if end_time is null or empty
+      if (b.end_time !== null && b.end_time !== "") return false;
+
+      // Use the explicit date field if available
+      if (b.date) {
+        return b.date === todayStr;
+      }
+
       return getDatePartInTimezone(b.start_time, workTimezone) === todayStr;
     });
 
     if (openBreak) {
       setIsOnBreak(true);
-      // Keep the local start time if we already have one (this device started it).
-      // Only use the server time when there's none (other device / page reload).
       setBreakStartTime((prev) => {
         if (prev) return prev;
         localStorage.setItem(
@@ -250,7 +286,7 @@ const Dashboard = () => {
       localStorage.setItem("attendance-on-break", "true");
     } else {
       setIsOnBreak(false);
-      setBreakStartTime(null); // <- reset so the next break starts clean
+      setBreakStartTime(null);
       localStorage.setItem("attendance-on-break", "false");
       localStorage.removeItem("attendance-break-start-time");
     }
@@ -536,13 +572,14 @@ const Dashboard = () => {
         const resultAction = await dispatch(endBreak());
 
         if (endBreak.fulfilled.match(resultAction)) {
-          const breakStart = breakStartTime
-            ? new Date(breakStartTime)
-            : clientEndTime;
+          // FIX: Safely parse breakStartTime so it doesn't return Invalid Date / NaN
 
           // Calculate difference using the local start and local end times
-          const diff = Math.max(0, clientEndTime - breakStart);
-          const newTotal = totalBreakMs + diff;
+          const breakStart = parseBreakDate(breakStartTime) || clientEndTime;
+          const diff =
+            clientEndTime > breakStart ? clientEndTime - breakStart : 0;
+          const newTotal =
+            (Number.isFinite(totalBreakMs) ? totalBreakMs : 0) + diff;
 
           const newHistory = [
             ...breakHistory,
@@ -1145,8 +1182,27 @@ const Dashboard = () => {
     // 2. Calculate the current active break duration (if currently on break)
     let currentBreakMs = 0;
     if (isOnBreak && breakStartTime) {
-      const breakStart = new Date(breakStartTime);
-      currentBreakMs = Math.max(0, new Date() - breakStart);
+      let breakStart = new Date(breakStartTime);
+
+      // FIX: If the browser can't parse the string (e.g. "01:21 PM"),
+      // manually construct the date using today's date and the parsed time.
+      if (isNaN(breakStart.getTime())) {
+        const today = new Date();
+        const match = breakStartTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (match) {
+          let hours = parseInt(match[1], 10);
+          const minutes = parseInt(match[2], 10);
+          const ampm = match[3].toUpperCase();
+          if (ampm === "PM" && hours !== 12) hours += 12;
+          if (ampm === "AM" && hours === 12) hours = 0;
+          today.setHours(hours, minutes, 0, 0);
+          breakStart = today;
+        }
+      }
+
+      if (!isNaN(breakStart.getTime())) {
+        currentBreakMs = Math.max(0, new Date() - breakStart);
+      }
     }
 
     // 3. Work Duration = Total Elapsed - Total past breaks - Current active break
@@ -1214,13 +1270,16 @@ const Dashboard = () => {
             )}
           </div>
           <div className="welcome-text">
-            <h2 className="text-xl md:text-2xl font-bold text-white">
-              Welcome, {getEmployeeName()}! 👋
-            </h2>
-            <p className="text-white/90 text-xs md:text-sm">
-              {getEmployeeRole()}
-            </p>
-          </div>
+  <h2 className="text-xl md:text-2xl font-bold text-white">
+    Welcome, {getEmployeeName()}! 👋
+  </h2>
+  <p className="text-white/90 text-xs md:text-sm">
+    {getEmployeeRole()}
+  </p>
+  <p className="text-white/80 text-xs md:text-[13px] italic mt-2 max-w-xl leading-relaxed">
+    “{getDailyQuote(getTodayInTimezone(workTimezone))}”
+  </p>
+</div>
         </div>
         <div className="datetime-info text-center md:text-right text-white">
           <div className="time text-2xl md:text-3xl font-bold">
@@ -1229,6 +1288,11 @@ const Dashboard = () => {
           <div className="date text-xs opacity-90">{currentDate}</div>
         </div>
       </div>
+
+      <DailyQuote
+  dateStr={getTodayInTimezone(workTimezone)}
+  name={dashboardData?.employee?.first_name}
+/>
 
       {/* Location Info */}
       {renderLocationInfo()}
@@ -1263,18 +1327,23 @@ const Dashboard = () => {
               {currentDuration}
             </div>
 
-            {/* Show live break duration ONLY while on break */}
-            {isOnBreak && breakStartTime && (
-              <div className="mt-1 text-[11px] font-semibold text-amber-500 flex items-center justify-center gap-1 animate-pulse">
-                <i className="fas fa-coffee"></i>
-                <span>
-                  Break:{" "}
-                  {formatBreakDuration(
-                    Math.max(0, new Date() - new Date(breakStartTime)),
-                  )}
-                </span>
-              </div>
-            )}
+            {isOnBreak &&
+              breakStartTime &&
+              (() => {
+                const breakStart = parseBreakDate(breakStartTime);
+                if (!breakStart) return null;
+                return (
+                  <div className="mt-1 text-[11px] font-semibold text-amber-500 flex items-center justify-center gap-1 animate-pulse">
+                    <i className="fas fa-coffee"></i>
+                    <span>
+                      Break:{" "}
+                      {formatBreakDuration(
+                        Math.max(0, new Date() - breakStart),
+                      )}
+                    </span>
+                  </div>
+                );
+              })()}
           </div>
           <div className="punch-item text-center">
             <div className="punch-label text-xs text-[var(--muted)] mb-2">
@@ -1827,19 +1896,26 @@ const Dashboard = () => {
                     }
                   });
 
+                  // Find this block around line 800
                   const rawBreaks = Array.from(allBreaksMap.values());
                   const todayDateStr = getTodayInTimezone(workTimezone); // "YYYY-MM-DD" in the work timezone
 
-                  // Filter for today using backend format or split
+                  // Filter for today using the API's explicit 'date' field if available
                   const displayBreaks =
                     activeBreakTab === "today"
-                      ? rawBreaks.filter(
-                          (b) =>
+                      ? rawBreaks.filter((b) => {
+                          // If the API provides a 'date' field, use it directly
+                          if (b.date) {
+                            return b.date === todayDateStr;
+                          }
+                          // Fallback to timezone parsing if 'date' is missing
+                          return (
                             getDatePartInTimezone(
                               b.start_time,
                               workTimezone,
-                            ) === todayDateStr,
-                        )
+                            ) === todayDateStr
+                          );
+                        })
                       : rawBreaks;
 
                   return displayBreaks.length > 0 ? (
