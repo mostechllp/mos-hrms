@@ -527,7 +527,7 @@ ANNEXURES
           }
         };
         img.onerror = () => resolve(null);
-        img.src = "/favicon-light.png";
+        img.src = "/fav-light.png";
       } catch {
         resolve(null);
       }
@@ -779,7 +779,7 @@ ANNEXURES
         </head>
         <body>
           <div class="letterhead">
-            <img src="/favicon-light.png" alt="Mostech Business Solutions" />
+            <img src="/fav-light.png" alt="Mostech Business Solutions" />
             <h1>Offer of Employment</h1>
             <div class="company">Mostech Business Solutions (MOS)</div>
           </div>

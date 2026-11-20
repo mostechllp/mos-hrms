@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
-import logo from "../../../public/favicon-dark.png"
+import logo from "../../../public/fav-light.png"
 
 const ADMIN_ROUTE_MAP = {
   dashboard: "/admin/dashboard",
@@ -563,8 +563,8 @@ const Sidebar = ({
                 className="w-12 h-12 flex-shrink-0 object-contain rounded-lg p-1"
               />
               <div className="min-w-0 leading-tight">
-                <p className="text-white text-sm font-semibold truncate">
-                  Mostech Business Solutions
+                <p className="text-white text-lg font-semibold truncate">
+                  MOSTECH
                 </p>
                 <p className="text-white/70 text-xs truncate">HRMS Solution</p>
               </div>
