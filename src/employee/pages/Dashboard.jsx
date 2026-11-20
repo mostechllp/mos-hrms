@@ -214,23 +214,24 @@ const Dashboard = () => {
         const dateObj = new Date(timeString);
         if (isNaN(dateObj.getTime())) return timeString;
 
-        // Break times from the API are already local wall-clock time but are
-        // labelled "Z". Format as UTC so no timezone shift is applied.
-        return new Intl.DateTimeFormat("en-US", {
+        return formatTimeInTimezone(dateObj, workTimezone, {
           hour: "numeric",
           minute: "2-digit",
           hour12: true,
-          timeZone: "UTC",
-        }).format(dateObj);
+        });
       }
 
       // Handle raw "HH:MM:SS" strings (fallback)
       if (timeString.includes(":")) {
+        if (/am|pm/i.test(timeString)) {
+          return timeString.trim();
+        }
         const parts = timeString.split(":");
         const hours = parseInt(parts[0], 10);
         const minutes = parts[1];
+        const ampm = hours >= 12 ? "PM" : "AM";
         const hours12 = hours % 12 || 12;
-        return `${hours12}:${minutes}`;
+        return `${hours12}:${minutes} ${ampm}`;
       }
 
       return timeString;
@@ -238,6 +239,22 @@ const Dashboard = () => {
       console.error("Error formatting time:", e);
       return timeString;
     }
+  };
+
+  const formatBreakDisplayTime = (isoTime, fallbackStr) => {
+    if (
+      isoTime &&
+      typeof isoTime === "string" &&
+      (isoTime.includes("T") || isoTime.endsWith("Z"))
+    ) {
+      const formatted = formatTimeInTimezone(isoTime, workTimezone, {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      if (formatted) return formatted;
+    }
+    return formatTo12Hour(fallbackStr);
   };
 
   // Show toast notification
@@ -261,27 +278,36 @@ const Dashboard = () => {
     const todayStr = getTodayInTimezone(workTimezone);
 
     const openBreak = breaks.find((b) => {
-      if (!b || !b.start_time) return false;
-      // Check if end_time is null or empty
-      if (b.end_time !== null && b.end_time !== "") return false;
+      if (!b) return false;
+      // Check if break is ongoing or end_time is empty
+      if (b.is_ongoing !== undefined) {
+        if (!b.is_ongoing) return false;
+      } else if (b.end_time !== null && b.end_time !== "") {
+        return false;
+      }
 
       // Use the explicit date field if available
       if (b.date) {
         return b.date === todayStr;
       }
 
-      return getDatePartInTimezone(b.start_time, workTimezone) === todayStr;
+      return (
+        getDatePartInTimezone(b.created_at || b.start_time, workTimezone) ===
+        todayStr
+      );
     });
 
     if (openBreak) {
       setIsOnBreak(true);
+      // Prefer openBreak.created_at (pure UTC ISO string) over start_time
+      const serverStart = openBreak.created_at || openBreak.start_time;
       setBreakStartTime((prev) => {
-        if (prev) return prev;
+        if (prev && prev.includes("T")) return prev;
         localStorage.setItem(
           "attendance-break-start-time",
-          openBreak.start_time,
+          serverStart,
         );
-        return openBreak.start_time;
+        return serverStart;
       });
       localStorage.setItem("attendance-on-break", "true");
     } else {
@@ -575,7 +601,8 @@ const Dashboard = () => {
           // FIX: Safely parse breakStartTime so it doesn't return Invalid Date / NaN
 
           // Calculate difference using the local start and local end times
-          const breakStart = parseBreakDate(breakStartTime) || clientEndTime;
+          const breakStart =
+            parseBreakDate(breakStartTime, workTimezone) || clientEndTime;
           const diff =
             clientEndTime > breakStart ? clientEndTime - breakStart : 0;
           const newTotal =
@@ -1182,25 +1209,8 @@ const Dashboard = () => {
     // 2. Calculate the current active break duration (if currently on break)
     let currentBreakMs = 0;
     if (isOnBreak && breakStartTime) {
-      let breakStart = new Date(breakStartTime);
-
-      // FIX: If the browser can't parse the string (e.g. "01:21 PM"),
-      // manually construct the date using today's date and the parsed time.
-      if (isNaN(breakStart.getTime())) {
-        const today = new Date();
-        const match = breakStartTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
-        if (match) {
-          let hours = parseInt(match[1], 10);
-          const minutes = parseInt(match[2], 10);
-          const ampm = match[3].toUpperCase();
-          if (ampm === "PM" && hours !== 12) hours += 12;
-          if (ampm === "AM" && hours === 12) hours = 0;
-          today.setHours(hours, minutes, 0, 0);
-          breakStart = today;
-        }
-      }
-
-      if (!isNaN(breakStart.getTime())) {
+      const breakStart = parseBreakDate(breakStartTime, workTimezone);
+      if (breakStart && !isNaN(breakStart.getTime())) {
         currentBreakMs = Math.max(0, new Date() - breakStart);
       }
     }
@@ -1330,7 +1340,7 @@ const Dashboard = () => {
             {isOnBreak &&
               breakStartTime &&
               (() => {
-                const breakStart = parseBreakDate(breakStartTime);
+                const breakStart = parseBreakDate(breakStartTime, workTimezone);
                 if (!breakStart) return null;
                 return (
                   <div className="mt-1 text-[11px] font-semibold text-amber-500 flex items-center justify-center gap-1 animate-pulse">
@@ -1991,7 +2001,10 @@ const Dashboard = () => {
                                     <div className="flex items-center gap-2">
                                       <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                                       <span className="font-medium text-[var(--text)]">
-                                        {formatTo12Hour(b.start_time) || "-"}
+                                        {formatBreakDisplayTime(
+                                          b.created_at,
+                                          b.start_time,
+                                        ) || "-"}
                                       </span>
                                     </div>
                                   </td>
@@ -2000,7 +2013,10 @@ const Dashboard = () => {
                                       <span className="w-2 h-2 rounded-full bg-green-500"></span>
                                       <span className="font-medium text-[var(--text)]">
                                         {b.end_time
-                                          ? formatTo12Hour(b.end_time)
+                                          ? formatBreakDisplayTime(
+                                              b.updated_at,
+                                              b.end_time,
+                                            )
                                           : "-"}
                                       </span>
                                     </div>
@@ -2086,7 +2102,8 @@ const Dashboard = () => {
                                       <div className="flex items-center gap-2">
                                         <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                                         <span className="font-medium text-[var(--text)]">
-                                          {formatTo12Hour(
+                                          {formatBreakDisplayTime(
+                                            firstBreak.created_at,
                                             firstBreak.start_time,
                                           ) || "-"}
                                         </span>
@@ -2097,7 +2114,8 @@ const Dashboard = () => {
                                         <span className="w-2 h-2 rounded-full bg-green-500"></span>
                                         <span className="font-medium text-[var(--text)]">
                                           {firstBreak.end_time
-                                            ? formatTo12Hour(
+                                            ? formatBreakDisplayTime(
+                                                firstBreak.updated_at,
                                                 firstBreak.end_time,
                                               )
                                             : "-"}
@@ -2142,8 +2160,10 @@ const Dashboard = () => {
                                           <div className="flex items-center gap-2 text-sm">
                                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500/50"></span>
                                             <span className="text-[var(--text)] opacity-80">
-                                              {formatTo12Hour(b.start_time) ||
-                                                "-"}
+                                              {formatBreakDisplayTime(
+                                                b.created_at,
+                                                b.start_time,
+                                              ) || "-"}
                                             </span>
                                           </div>
                                         </td>
@@ -2152,7 +2172,10 @@ const Dashboard = () => {
                                             <span className="w-1.5 h-1.5 rounded-full bg-green-500/50"></span>
                                             <span className="text-[var(--text)] opacity-80">
                                               {b.end_time
-                                                ? formatTo12Hour(b.end_time)
+                                                ? formatBreakDisplayTime(
+                                                    b.updated_at,
+                                                    b.end_time,
+                                                  )
                                                 : "-"}
                                             </span>
                                           </div>

@@ -241,9 +241,11 @@ export const PunchOutModal = ({
       if (b.end_time && b.duration_minutes != null && b.duration_minutes !== "") {
         return sum + Number(b.duration_minutes) * 60000;
       }
-      if (b.start_time) {
-        const start = parsePunchTime(b.start_time);
-        const end = b.end_time ? parsePunchTime(b.end_time) : new Date();
+      if (b.created_at || b.start_time) {
+        const start = b.created_at ? new Date(b.created_at) : parsePunchTime(b.start_time);
+        const end = b.end_time
+          ? (b.updated_at ? new Date(b.updated_at) : parsePunchTime(b.end_time))
+          : new Date();
         const diff = end - start;
         if (diff > 0) return sum + diff;
       }

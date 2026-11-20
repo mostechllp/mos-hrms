@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import apiClient from "../../../utils/apiClient";
-import { setStoredWorkTimezone } from "../../utils/timezone";
+import { setStoredWorkTimezone, getStoredWorkTimezone } from "../../utils/timezone";
 
 // Timezone fields sent with every punch. The timezone is the one of the punch
 // LOCATION (resolved from coordinates in LocationModal) - not the device's.
@@ -271,7 +271,9 @@ export const startBreak = createAsyncThunk(
   "attendance/startBreak",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post("/employee/break/start");
+      const storedTz = getStoredWorkTimezone();
+      const payload = storedTz ? { timezone: storedTz } : {};
+      const response = await apiClient.post("/employee/break/start", payload);
       if (response.status === 200 || response.status === 201) {
         return response.data?.data || response.data;
       } else {
@@ -293,7 +295,9 @@ export const endBreak = createAsyncThunk(
   "attendance/endBreak",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post("/employee/break/end");
+      const storedTz = getStoredWorkTimezone();
+      const payload = storedTz ? { timezone: storedTz } : {};
+      const response = await apiClient.post("/employee/break/end", payload);
       if (response.status === 200 || response.status === 201) {
         return response.data?.data || response.data;
       } else {
