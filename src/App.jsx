@@ -14,6 +14,7 @@ import Login from "./pages/Login";
 import { ThemeProvider } from "./context/ThemeContext";
 import NotFound from "./pages/NotFound";
 import OnboardingDashboard from "./admin/pages/Onboarding";
+import FeatureAnnouncement from "./components/common/FeatureAnnouncement";
 
 // Lazy load layouts with prefetch
 const AdminLayout = lazy(() => import("./shared/layouts/AdminLayout"));
@@ -404,6 +405,7 @@ function App() {
 
   return (
     <ThemeProvider>
+      <FeatureAnnouncement />
       <Routes>
         {/* Public Routes - No lazy loading for login */}
         <Route path="/" element={<Login />} />

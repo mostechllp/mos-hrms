@@ -903,6 +903,12 @@ const Login = () => {
                     )}
                   </button>
                 </div>
+                {/* ✅ NEW: Helper Text */}
+                <div className="text-center mt-4">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Didn't receive the email? Please check your <strong>Spam or Junk</strong> folder.
+                  </p>
+                </div>
               </>
             )}
 
@@ -930,6 +936,13 @@ const Login = () => {
                         <i className="fas fa-check-circle text-green-500"></i>
                         <p className="text-sm text-green-700 dark:text-green-300">
                           Code sent to <strong>{resetEmail}</strong>
+                        </p>
+                      </div>
+                      
+                      {/* ✅ NEW: Helper Text */}
+                      <div className="text-center -mt-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Can't find it? Please check your <strong>Spam or Junk</strong> folder.
                         </p>
                       </div>
 
@@ -1180,6 +1193,14 @@ const Login = () => {
                       OTP sent to <strong>{otpLoginEmail}</strong>
                     </p>
                   </div>
+
+                  {/* ✅ NEW: Helper Text */}
+                  <div className="text-center -mt-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Can't find it? Please check your <strong>Spam or Junk</strong> folder.
+                    </p>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 text-center">
                       Enter the 6-digit OTP
