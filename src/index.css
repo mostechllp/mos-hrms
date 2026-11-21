@@ -944,3 +944,12 @@ i.text-green-600 {
 @keyframes fall {
   to { transform: translateY(120vh) rotate(360deg); opacity: 0; }
 }
+
+.sidebar-active {
+  background-color: color-mix(in srgb, var(--primary-color) 20%, transparent) !important;
+}
+
+/* Optional: Change the icon color to match the theme color when active */
+.sidebar-active i {
+  color: var(--primary-color) !important;
+}
