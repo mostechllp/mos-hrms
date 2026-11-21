@@ -467,9 +467,7 @@ const Sidebar = ({
   const isMenuExpanded = (item) =>
     showLabels && (expandedMenus[item.slug] || false);
 
-  // Click empty area handler
   const handleEmptyAreaClick = (e) => {
-    // Only trigger if the click target is the nav container itself, not a child element
     if (e.target === e.currentTarget) {
       onToggleCollapse();
     }
@@ -494,7 +492,7 @@ const Sidebar = ({
                 onClick={() => toggleMenu(child.slug)}
                 className={`flex items-center justify-between gap-3 px-3 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer select-none ${
                   isChildActive
-                    ? "text-white font-medium"
+                    ? "sidebar-active text-white font-medium"
                     : "text-gray-400 hover:text-white hover:bg-white/10"
                 }`}
               >
@@ -519,7 +517,7 @@ const Sidebar = ({
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer ${
                 isActive
-                  ? "bg-green-500/20 text-white"
+                  ? "sidebar-active text-white"
                   : "text-gray-400 hover:text-white hover:bg-white/10"
               }`
             }
@@ -571,7 +569,6 @@ const Sidebar = ({
             </div>
           )}
 
-          {/* Sidebar toggle icon */}
           <button
             type="button"
             onClick={() => (isMobile ? setMobileOpen(false) : onToggleCollapse())}
@@ -600,7 +597,6 @@ const Sidebar = ({
           </button>
         </div>
 
-        {/* ADDED onClick={handleEmptyAreaClick} here */}
         <nav 
           onClick={handleEmptyAreaClick}
           className="flex-1 overflow-y-auto overflow-x-hidden py-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent hover:scrollbar-thumb-gray-600 cursor-default"
@@ -615,7 +611,7 @@ const Sidebar = ({
                     title={isCollapsedDesktop ? item.label : undefined}
                     className={`flex items-center gap-3 ${itemPad} py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer select-none ${
                       item.isActive
-                        ? "bg-green-500/20 text-white"
+                        ? "sidebar-active text-white"
                         : "text-gray-400 hover:text-white hover:bg-white/10"
                     }`}
                   >
@@ -650,7 +646,7 @@ const Sidebar = ({
                 className={({ isActive }) =>
                   `flex items-center gap-3 ${itemPad} py-3 mx-2 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden ${
                     isActive
-                      ? "bg-green-500/20 text-white"
+                      ? "sidebar-active text-white"
                       : "text-gray-400 hover:text-white hover:bg-white/10"
                   }`
                 }
