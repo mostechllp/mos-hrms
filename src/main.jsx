@@ -7,12 +7,14 @@ import "./index.css";
 import App from "./App.jsx";
 import { LoadingProvider } from "./context/LoadingContext.jsx";
 import { Toaster } from "react-hot-toast";
+import { MenuVisibilityProvider } from "./context/MenuVisibilityContext.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <Provider store={store}>
       <BrowserRouter basename="/">
         <LoadingProvider>
+          <MenuVisibilityProvider>
           <Toaster
             position="top-right"
             toastOptions={{
@@ -38,6 +40,7 @@ createRoot(document.getElementById("root")).render(
             }}
           />
           <App />
+          </MenuVisibilityProvider>
         </LoadingProvider>
       </BrowserRouter>
     </Provider>
