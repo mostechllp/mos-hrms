@@ -1286,9 +1286,19 @@ const Dashboard = () => {
   <p className="text-white/90 text-xs md:text-sm">
     {getEmployeeRole()}
   </p>
-  <p className="text-white/80 text-xs md:text-[13px] italic mt-2 max-w-xl leading-relaxed">
-    “{getDailyQuote(getTodayInTimezone(workTimezone))}”
-  </p>
+  {(() => {
+    const dailyQuote = getDailyQuote(getTodayInTimezone(workTimezone));
+    return (
+      <p className="text-white/80 text-xs md:text-[13px] italic mt-2 max-w-xl leading-relaxed">
+        “{dailyQuote.text}”
+        {dailyQuote.author && (
+          <span className="not-italic font-medium ml-1">
+            — {dailyQuote.author}
+          </span>
+        )}
+      </p>
+    );
+  })()}
 </div>
         </div>
         <div className="datetime-info text-center md:text-right text-white">
