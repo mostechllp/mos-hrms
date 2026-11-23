@@ -156,6 +156,7 @@ const CrmSettings = lazy(() => import("./admin/pages/CRM/CrmSettings"));
 const CrmProposals = lazy(() => import("./admin/pages/CRM/Proposals"));
 const Meetings = lazy(() => import("./admin/pages/Meetings"));
 
+
 const SubscriptionsAdminPage = lazy(
   () => import("./admin/pages/SubscriptionsAdminPage"),
 );
@@ -344,6 +345,7 @@ const TrialBalance = lazy(() => import("./admin/pages/accounts/TrialBalance"));
 const AccountsReports = lazy(
   () => import("./admin/pages/accounts/ReportsCenterPage"),
 );
+const AccountsSettings  = lazy(() => import("./admin/pages/accounts/AccountSettings"));
 
 // Lazy load pages - Employee
 const EmployeeDashboard = lazy(() => import("./employee/pages/Dashboard"));
@@ -889,6 +891,7 @@ function App() {
           <Route path="accounts/general-ledger" element={<GeneralLedger />} />
           <Route path="accounts/trial-balance" element={<TrialBalance />} />
           <Route path="accounts/reports" element={<AccountsReports />} />
+          <Route path="accounts/settings" element={<AccountsSettings />} />
         </Route>
 
         {/* Employee Routes - Layout wrapper */}
@@ -1384,6 +1387,7 @@ function App() {
           <Route path="accounts/general-ledger" element={<GeneralLedger />} />
           <Route path="accounts/trial-balance" element={<TrialBalance />} />
           <Route path="accounts/reports" element={<AccountsReports />} />
+          <Route path="accounts/settings" element={<AccountsSettings />} />
         </Route>
 
         <Route

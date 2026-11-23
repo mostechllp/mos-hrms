@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import logo from "../../../public/fav-light.png"
+import { useMenuVisibility } from "../../context/MenuVisibilityContext";
 
 const ADMIN_ROUTE_MAP = {
   dashboard: "/admin/dashboard",
@@ -157,6 +158,7 @@ const ICON_MAP = {
   operations: "fas fa-layer-group",
   accountant: "fas fa-sliders",
   "accounts-reports": "fas fa-chart-line",
+  "accounts-settings": "fas fa-sliders",
   
   // Accounts (Level 2 & 3 Leaves)
   items: "fas fa-cubes",
@@ -281,6 +283,12 @@ const PARENT_MENU_CONFIG = {
         ],
       },
       { slug: "accounts-reports", label: "Reports", path: "/admin/accounts/reports", employeePath: "/employee/accounts/reports" },
+      { 
+        slug: "accounts-settings", 
+        label: "Menu Settings", 
+        path: "/admin/accounts/settings", 
+        employeePath: "/employee/accounts/settings" 
+      },
     ],
     order: 25,
   },
@@ -334,6 +342,7 @@ const Sidebar = ({
   const [expandedMenus, setExpandedMenus] = useState({});
   const location = useLocation();
   const { user } = useSelector((state) => state.auth);
+  const { isMenuVisible } = useMenuVisibility(); // <-- Hook into context
 
   useEffect(() => {
     if (isMobile) setMobileOpen(false);
@@ -387,18 +396,36 @@ const Sidebar = ({
       if (!canAccessParent(config)) return;
 
       const mapChildren = (children) =>
-        children.map((child) => {
-          const isAccordion = child.children && child.children.length > 0;
-          return {
-            slug: child.slug,
-            label: child.label,
-            path: isAccordion ? "#" : isAdmin ? child.path : child.employeePath,
-            icon: ICON_MAP[child.slug] || "fas fa-circle",
-            children: isAccordion ? mapChildren(child.children) : null,
-          };
-        });
+        children
+          .filter((child) => {
+            // 🌟 CUSTOM FILTER LOGIC 🌟
+            // If this is the Accounts parent, check if the child is hidden in settings
+            if (parentKey === "accounts") {
+              if (child.slug === "accounts-settings") return true;
+              return isMenuVisible(child.slug);
+            }
+            // For other parents (CRM, Subscriptions), keep them as they are
+            return true; 
+          })
+          .map((child) => {
+            const isAccordion = child.children && child.children.length > 0;
+            return {
+              slug: child.slug,
+              label: child.label,
+              path: isAccordion ? "#" : isAdmin ? child.path : child.employeePath,
+              icon: ICON_MAP[child.slug] || "fas fa-circle",
+              // Also filter nested children if needed (e.g., inside "sales" or "purchases")
+              children: isAccordion 
+                ? mapChildren(child.children) 
+                : null,
+            };
+          });
 
       const children = mapChildren(config.children);
+      
+      // If all children are hidden, don't show the parent (optional, but good UX)
+      if (children.length === 0) return;
+
       const isActive = children.some(
         (child) =>
           location.pathname === child.path ||
@@ -449,7 +476,7 @@ const Sidebar = ({
     return allItems;
   };
 
-  const navItems = buildNavItems();
+   const navItems = buildNavItems();
 
   const toggleMenu = (slug) => {
     setExpandedMenus((prev) => ({ ...prev, [slug]: !prev[slug] }));
