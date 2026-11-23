@@ -1,3 +1,4 @@
+// src/components/DailyQuote.jsx (or wherever this file is located)
 import React, { useEffect, useMemo, useState } from "react";
 import { useAppTheme } from "../../../context/ThemeContext"; // adjust path if needed
 import { WORK_QUOTES } from "../../utils/workQuotes";
@@ -16,7 +17,7 @@ const dayIndex = (dateStr, length) => {
 
 // Shared helper: the quote for a given day (used by the popup and the banner)
 export const getDailyQuote = (dateStr) =>
-  WORK_QUOTES[dayIndex(dateStr, WORK_QUOTES.length)] || "";
+  WORK_QUOTES[dayIndex(dateStr, WORK_QUOTES.length)] || { text: "" };
 
 const wasSeenToday = (dateStr) => {
   try {
@@ -40,14 +41,16 @@ const DailyQuote = ({ dateStr, name }) => {
   const { primaryColor, primaryDark } = useAppTheme();
   const [open, setOpen] = useState(false);
 
-  const quote = useMemo(() => getDailyQuote(dateStr), [dateStr]);
+  const dailyQuote = useMemo(() => getDailyQuote(dateStr), [dateStr]);
+  const quoteText = dailyQuote.text;
+  const quoteAuthor = dailyQuote.author;
 
   const gradient = `linear-gradient(135deg, ${primaryColor || "#2ecc71"}, ${primaryDark || "#1e9e57"})`;
-  const lang = isMalayalam(quote) ? "ml" : "en";
+  const lang = isMalayalam(quoteText) ? "ml" : "en";
 
   useEffect(() => {
-    if (dateStr && quote) setOpen(!wasSeenToday(dateStr));
-  }, [dateStr, quote]);
+    if (dateStr && quoteText) setOpen(!wasSeenToday(dateStr));
+  }, [dateStr, quoteText]);
 
   const close = () => {
     setOpen(false);
@@ -61,7 +64,7 @@ const DailyQuote = ({ dateStr, name }) => {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, dateStr]);
 
-  if (!open || !quote) return null;
+  if (!open || !quoteText) return null;
 
   return (
     <>
@@ -123,8 +126,13 @@ const DailyQuote = ({ dateStr, name }) => {
               lang={lang}
               className="text-lg md:text-xl font-semibold text-[var(--text)] leading-relaxed"
             >
-              {quote}
+              {quoteText}
             </p>
+            {quoteAuthor && (
+              <p className="text-sm text-[var(--muted)] mt-4 italic">
+                — {quoteAuthor}
+              </p>
+            )}
             <button
               onClick={close}
               className="mt-6 px-8 py-3 rounded-full text-white text-sm font-semibold shadow-md hover:-translate-y-0.5 hover:shadow-lg transition-all"

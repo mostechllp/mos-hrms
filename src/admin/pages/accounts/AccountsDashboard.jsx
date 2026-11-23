@@ -117,6 +117,17 @@ const AccountsDashboard = () => {
   }, [accounts]);
   const expTotal = expenseSlices.reduce((s, d) => s + d.value, 0);
 
+  // Mock data for the new layout blocks
+  const mockInvoices = { paid: 13625000, outstanding: 1250000, dueSoon: 350000, overdue: 900000 };
+  const mockBills = { paid: 6812500, outstanding: 965000, dueSoon: 455000, overdue: 510000 };
+  const mockReceivablesAging = [
+    { label: "Over 90 days", value: 100000, color: "#f59e0b" },
+    { label: "60 to 90 days", value: 125000, color: "#f97316" },
+    { label: "30 to 60 days", value: 300000, color: "#ef4444" },
+    { label: "1 to 30 days", value: 375000, color: "#e11d48" },
+    { label: "Due today", value: 350000, color: "#9f1239" },
+  ];
+
   return (
     <div className="w-full overflow-x-hidden">
       {/* ---- Stats Cards (HRMS style) ---- */}
@@ -182,180 +193,199 @@ const AccountsDashboard = () => {
         </div>
       </div>
 
-      {/* ---- Receivables / Payables ---- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-4 md:mb-5">
-        <LedgerSplit
-          title="Receivables"
-          total={totalReceivables}
-          rows={[
-            { label: "Current", value: currentReceivable, color: "bg-blue-500" },
-            { label: "Overdue", value: overdueReceivable, color: "bg-amber-500" },
-          ]}
-        />
-        <LedgerSplit
-          title="Payables"
-          total={totalPayables}
-          rows={[
-            { label: "Current", value: currentPayable, color: "bg-blue-500" },
-            { label: "Overdue", value: overduePayable, color: "bg-amber-500" },
-          ]}
-        />
-      </div>
+      {/* ========================================================= */}
+      {/* ---- REDESIGNED SECTION STARTS HERE ---- */}
+      {/* ========================================================= */}
 
-      {/* ---- Cash Flow ---- */}
-      <Card className="mb-4 md:mb-5">
-        <SectionHeader title="Cash Flow" subtitle="Monthly movement over the fiscal year" />
-        <div className="px-4 md:px-5 pb-5 flex flex-col lg:flex-row gap-6">
-          <div className="flex-1 min-w-0">
-            <LineChart
-              labels={labels}
-              series={[{ name: "Cash", color: "#2a78d6", values: cashTrend }]}
-              height={260}
-            />
-          </div>
-          <div className="lg:w-56 flex lg:flex-col gap-4 lg:gap-0 lg:divide-y lg:divide-gray-100 dark:lg:divide-gray-700">
-            <StatLine label="Incoming" value={money(totalInc)} tone="pos" />
-            <StatLine label="Outgoing" value={money(totalExp)} tone="neg" />
-            <StatLine label="Net" value={money(net)} tone="accent" strong />
-          </div>
-        </div>
-      </Card>
-
-      {/* ---- Income/Expense + Top Expenses ---- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-4 md:mb-5">
-        <Card>
-          <SectionHeader
-            title="Income vs Expenses"
-            subtitle="Monthly comparison"
-            action={
-              <div className="flex gap-3 text-[11px] text-gray-500">
-                <span className="flex items-center gap-1.5">
-                  <i className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Income
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <i className="w-1.5 h-1.5 rounded-full bg-rose-500" />Expense
-                </span>
-              </div>
-            }
-          />
-          <div className="px-4 md:px-5 pb-5">
-            <div className="flex gap-8 mb-5">
-              <div>
-                <p className="text-[11px] text-gray-500">Total income</p>
-                <p className="text-lg font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
-                  {money(totalInc)}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] text-gray-500">Total expenses</p>
-                <p className="text-lg font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
-                  {money(totalExp)}
-                </p>
-              </div>
+        {/* Invoices */}
+        <Card className="p-4 md:p-5 flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">Invoices</h3>
+            <PillSelect value="Last year" onChange={() => {}} options={["Last year", "This year"]} />
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex-1 w-full space-y-3">
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#1baf7a]"></span><span className="text-xs font-medium text-gray-600 dark:text-gray-300">Paid</span></div>
+                  <span className="text-sm font-semibold tabular-nums text-gray-800 dark:text-gray-100">{money(mockInvoices.paid)}</span>
+               </div>
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#e34948]"></span><span className="text-xs font-medium text-gray-600 dark:text-gray-300">Outstanding</span></div>
+                  <span className="text-sm font-semibold tabular-nums text-gray-800 dark:text-gray-100">{money(mockInvoices.outstanding)}</span>
+               </div>
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#eda100]"></span><span className="text-xs font-medium text-gray-600 dark:text-gray-300">Due Soon</span></div>
+                  <span className="text-sm font-semibold tabular-nums text-gray-800 dark:text-gray-100">{money(mockInvoices.dueSoon)}</span>
+               </div>
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#2a78d6]"></span><span className="text-xs font-medium text-gray-600 dark:text-gray-300">Overdue</span></div>
+                  <span className="text-sm font-semibold tabular-nums text-gray-800 dark:text-gray-100">{money(mockInvoices.overdue)}</span>
+               </div>
             </div>
+            <div className="shrink-0">
+              <DonutChart
+                data={[
+                  { label: "Paid", value: mockInvoices.paid, color: "#1baf7a" },
+                  { label: "Outstanding", value: mockInvoices.outstanding, color: "#e34948" },
+                  { label: "Due Soon", value: mockInvoices.dueSoon, color: "#eda100" },
+                  { label: "Overdue", value: mockInvoices.overdue, color: "#2a78d6" },
+                ]}
+                centerTop={money(mockInvoices.paid + mockInvoices.outstanding + mockInvoices.dueSoon + mockInvoices.overdue)}
+                centerBottom="Total"
+                size={140}
+                thickness={18}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-5 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <button className="flex-1 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-md py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700">Create Invoices</button>
+            <button className="flex-1 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-md py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700">View Invoices</button>
+          </div>
+        </Card>
+
+        {/* Account Receivable */}
+        <Card className="p-4 md:p-5 flex flex-col">
+          <div className="flex justify-between items-center mb-5">
+            <div>
+              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">Account Receivable</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Total <span className="font-semibold text-gray-800 dark:text-gray-200">$ 1,250,000</span></p>
+            </div>
+            <button className="text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-md px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700">View All</button>
+          </div>
+          <div className="space-y-3 flex-1 justify-center flex flex-col">
+            {mockReceivablesAging.map((item) => (
+              <div key={item.label} className="flex items-center gap-3">
+                <span className="text-[11px] font-medium text-gray-500 w-20 shrink-0">{item.label}</span>
+                <div className="flex-1 h-5 bg-gray-100 dark:bg-gray-700 rounded-sm overflow-hidden">
+                  <div className="h-full rounded-sm" style={{ width: `${(item.value / 400000) * 100}%`, backgroundColor: item.color }} />
+                </div>
+                <span className="text-xs font-semibold tabular-nums text-gray-800 dark:text-gray-200 w-20 text-right">$ {item.value.toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Bills */}
+        <Card className="p-4 md:p-5 flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">Bills</h3>
+            <PillSelect value="Last year" onChange={() => {}} options={["Last year", "This year"]} />
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex-1 w-full space-y-3">
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#eda100]"></span><span className="text-xs font-medium text-gray-600 dark:text-gray-300">Paid</span></div>
+                  <span className="text-sm font-semibold tabular-nums text-gray-800 dark:text-gray-100">{money(mockBills.paid)}</span>
+               </div>
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#2a78d6]"></span><span className="text-xs font-medium text-gray-600 dark:text-gray-300">Outstanding</span></div>
+                  <span className="text-sm font-semibold tabular-nums text-gray-800 dark:text-gray-100">{money(mockBills.outstanding)}</span>
+               </div>
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#e34948]"></span><span className="text-xs font-medium text-gray-600 dark:text-gray-300">Due Soon</span></div>
+                  <span className="text-sm font-semibold tabular-nums text-gray-800 dark:text-gray-100">{money(mockBills.dueSoon)}</span>
+               </div>
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#1baf7a]"></span><span className="text-xs font-medium text-gray-600 dark:text-gray-300">Overdue</span></div>
+                  <span className="text-sm font-semibold tabular-nums text-gray-800 dark:text-gray-100">{money(mockBills.overdue)}</span>
+               </div>
+            </div>
+            <div className="shrink-0">
+              <DonutChart
+                data={[
+                  { label: "Paid", value: mockBills.paid, color: "#eda100" },
+                  { label: "Outstanding", value: mockBills.outstanding, color: "#2a78d6" },
+                  { label: "Due Soon", value: mockBills.dueSoon, color: "#e34948" },
+                  { label: "Overdue", value: mockBills.overdue, color: "#1baf7a" },
+                ]}
+                centerTop={money(mockBills.paid + mockBills.outstanding + mockBills.dueSoon + mockBills.overdue)}
+                centerBottom="Total"
+                size={140}
+                thickness={18}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-5 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <button className="flex-1 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-md py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700">Create Bills</button>
+            <button className="flex-1 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-md py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700">View Bills</button>
+          </div>
+        </Card>
+
+        {/* Bank Accounts */}
+        <Card className="p-4 md:p-5 flex flex-col">
+          <div className="flex justify-between items-center mb-5">
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">Bank Accounts</h3>
+            <PillSelect value="SrvKuber Bank" onChange={() => {}} options={["SrvKuber Bank", "Other Bank"]} />
+          </div>
+          <div className="flex-1 flex flex-col">
+             <p className="text-xs text-right text-gray-500 mb-2">Statement Balance <span className="font-bold text-gray-800 dark:text-gray-200">$ 17,512,500</span></p>
+             <div className="flex-1 min-h-[160px]">
+                <LineChart
+                  labels={["Sep", "Oct", "Nov", "Dec", "Jan", "Feb"]}
+                  series={[{ name: "Balance", color: "#2a78d6", values: [9000000, 10000000, 11500000, 11800000, 13000000, 13500000] }]}
+                  height={180}
+                />
+             </div>
+          </div>
+        </Card>
+
+        {/* Net Cashflow */}
+        <Card className="p-4 md:p-5">
+          <div className="flex justify-between items-center mb-5">
+            <div>
+              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">Net Cashflow</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Total <span className="font-semibold text-gray-800 dark:text-gray-200">$ 6,812,502</span></p>
+            </div>
+            <PillSelect value="Last 6 months" onChange={() => {}} options={["Last 6 months", "This year"]} />
+          </div>
+          <div className="flex-1 min-h-[180px]">
             <BarChart
-              labels={labels}
-              height={220}
+              labels={["Aug", "Sep", "Oct", "Nov", "Dec", "Jan"]}
+              height={180}
               series={[
-                { name: "Income", color: "#1baf7a", values: inc },
-                { name: "Expenses", color: "#e34948", values: exp },
+                { name: "Inflow", color: "#1baf7a", values: [1500000, 2200000, 1800000, 2100000, 1900000, 2500000] },
+                { name: "Outflow", color: "#eda100", values: [900000, 1000000, 1100000, 950000, 1200000, 1150000] },
               ]}
             />
           </div>
+          <div className="flex items-center justify-between mt-4">
+             <div className="flex gap-4 text-xs font-medium">
+               <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#1baf7a]"></span>Inflow</span>
+               <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#eda100]"></span>Outflow</span>
+             </div>
+             <button className="text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-md px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700">View Reports</button>
+          </div>
         </Card>
 
-        <Card>
-          <SectionHeader title="Top Expenses" subtitle="Share of total spend" />
-          <div className="px-4 md:px-5 pb-6">
-            {expenseSlices.length > 0 ? (
-              <div className="flex flex-col sm:flex-row items-center gap-6">
-                <DonutChart
-                  data={expenseSlices}
-                  centerTop={money(expTotal)}
-                  centerBottom="total"
-                  size={170}
-                  thickness={22}
-                />
-                <div className="flex-1 w-full space-y-2.5">
-                  {expenseSlices.map((d, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs">
-                      <span className="flex items-center gap-2 text-gray-600 dark:text-gray-300 min-w-0">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
-                        <span className="truncate">{d.label}</span>
-                      </span>
-                      <span className="font-medium text-gray-800 dark:text-gray-100 tabular-nums">
-                        {((d.value / expTotal) * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400 py-8 text-center">No expense recorded</p>
-            )}
+        {/* Profit & Loss */}
+        <Card className="p-4 md:p-5">
+          <div className="flex justify-between items-center mb-5">
+            <div>
+              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">Profit & Loss</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Total <span className="font-semibold text-gray-800 dark:text-gray-200">$ 4,768,751</span></p>
+            </div>
+            <PillSelect value="Last 6 months" onChange={() => {}} options={["Last 6 months", "This year"]} />
+          </div>
+          <div className="flex-1 min-h-[180px]">
+            <BarChart
+              labels={["Aug", "Sep", "Oct", "Nov", "Dec", "Jan"]}
+              height={180}
+              series={[
+                { name: "Inflow", color: "#2a78d6", values: [1200000, 1500000, 1400000, 1700000, 1600000, 2100000] },
+                { name: "Expense", color: "#eda100", values: [800000, 900000, 950000, 1100000, 1050000, 1200000] },
+              ]}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-4">
+             <div className="flex gap-4 text-xs font-medium">
+               <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#2a78d6]"></span>Inflow</span>
+               <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#eda100]"></span>Expense</span>
+             </div>
+             <button className="text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-md px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700">View Reports</button>
           </div>
         </Card>
       </div>
-
-      {/* ---- Watchlist (HRMS table style) ---- */}
-      <Card className="overflow-x-auto">
-        <SectionHeader
-          title="Account Watchlist"
-          subtitle="Debit / credit summary by account"
-          action={<PillSelect value="Accrual" onChange={() => {}} options={["Accrual", "Cash"]} />}
-        />
-        <div className="min-w-[600px] lg:min-w-0">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-gray-700/50 border-y border-gray-200 dark:border-gray-700">
-                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  Account
-                </th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  Debit
-                </th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  Credit
-                </th>
-                <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  Net
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { name: "Sales", debit: "0.00", credit: "45,000.00", net: "45,000.00" },
-                { name: "Cost of Goods Sold", debit: "12,500.00", credit: "0.00", net: "-12,500.00" },
-                { name: "Rent Expense", debit: "5,000.00", credit: "0.00", net: "-5,000.00" },
-              ].map((row, i) => (
-                <tr
-                  key={i}
-                  className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                >
-                  <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200">
-                    {row.name}
-                  </td>
-                  <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-right tabular-nums">
-                    {row.debit}
-                  </td>
-                  <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-right tabular-nums">
-                    {row.credit}
-                  </td>
-                  <td
-                    className={`px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-right font-semibold tabular-nums ${
-                      row.net.startsWith("-")
-                        ? "text-red-600 dark:text-red-400"
-                        : "text-gray-800 dark:text-gray-100"
-                    }`}
-                  >
-                    {row.net}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
 
       {/* Modals */}
       <TransactionModal kind="income" open={modal === "income"} onClose={() => setModal(null)} />
@@ -400,66 +430,6 @@ const KpiStat = ({ label, value, sub, icon, color, trend }) => {
         {label}
       </div>
       <div className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{sub}</div>
-    </div>
-  );
-};
-
-const LedgerSplit = ({ title, total, rows }) => (
-  <Card className="p-4 md:p-5">
-    <div className="flex items-center justify-between mb-4">
-      <div>
-        <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">{title}</p>
-        <p className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-50 tabular-nums tracking-tight mt-1">
-          {money(total)}
-        </p>
-      </div>
-      <Link
-        to="#"
-        className="text-[11px] font-medium text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition-colors inline-flex items-center gap-1"
-      >
-        View <ArrowUpRight size={12} />
-      </Link>
-    </div>
-
-    <div className="h-1.5 w-full rounded-full bg-gray-100 dark:bg-gray-700 flex overflow-hidden mb-3">
-      {rows.map((r, i) => (
-        <div
-          key={i}
-          className={`${r.color} h-full`}
-          style={{ width: `${(r.value / total) * 100}%` }}
-        />
-      ))}
-    </div>
-
-    <div className="grid grid-cols-2 gap-3">
-      {rows.map((r, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className={`w-1.5 h-1.5 rounded-full ${r.color}`} />
-          <span className="text-[11.5px] text-gray-500">{r.label}</span>
-          <span className="ml-auto text-xs font-medium text-gray-800 dark:text-gray-100 tabular-nums">
-            {money(r.value)}
-          </span>
-        </div>
-      ))}
-    </div>
-  </Card>
-);
-
-const StatLine = ({ label, value, tone, strong }) => {
-  const toneCls =
-    tone === "pos"
-      ? "text-green-600 dark:text-green-400"
-      : tone === "neg"
-      ? "text-red-600 dark:text-red-400"
-      : tone === "accent"
-      ? "text-blue-600 dark:text-blue-400"
-      : "text-gray-800 dark:text-gray-100";
-  return (
-    <div className="flex items-center justify-between lg:py-3">
-      <span className="text-[11.5px] text-gray-500">{label}</span>
-      <span className={`text-[13px] tabular-nums ${strong ? "font-semibold" : "font-medium"} ${toneCls}`}>
-        {value}
-      </span>
     </div>
   );
 };
