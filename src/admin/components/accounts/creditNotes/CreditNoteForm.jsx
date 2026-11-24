@@ -6,7 +6,39 @@ import { addCreditNote, updateCreditNote } from "../../../store/slices/accounts/
 import { X, Plus, Trash2, Settings, Search } from "lucide-react";
 import { inputCls } from "../ui";
 import SearchableSelect from "../../../../components/common/SearchableSelect";
+import DateInput from "../../common/DateInput";
 import TransactionNumberSettingsModal from "../common/TransactionNumberSettingsModal";
+
+/* ---------- constants ---------- */
+
+const CURRENCIES = [
+  { value: "INR", label: "INR" },
+  { value: "USD", label: "USD" },
+  { value: "EUR", label: "EUR" },
+  { value: "GBP", label: "GBP" },
+  { value: "AED", label: "AED" },
+  { value: "SAR", label: "SAR" },
+  { value: "JPY", label: "JPY" },
+  { value: "RUB", label: "RUB" },
+  { value: "CNY", label: "CNY" },
+];
+
+const ACCOUNTS = [
+  { value: "Sales", label: "Sales" },
+  { value: "General Income", label: "General Income" },
+];
+
+const getTaxLabel = (currency) => {
+  switch (currency) {
+    case "INR": return "GST %";
+    case "AED":
+    case "SAR": return "VAT %";
+    case "USD":
+    case "EUR":
+    case "GBP": return "Tax %";
+    default: return "Tax %";
+  }
+};
 
 /* ---------- primitives ---------- */
 
@@ -82,7 +114,16 @@ const CreditNoteForm = () => {
     discountType: existingNote?.discountType || "percentage",
     adjustment: existingNote?.adjustment || 0,
     items: existingNote?.items || [
-      { id: `item-${Date.now()}`, name: "", description: "", account: "Sales", qty: 1, rate: 0, tax: 0 },
+      {
+        id: `item-${Date.now()}`,
+        name: "",
+        description: "",
+        account: "Sales",
+        qty: 1,
+        rate: 0,
+        currency: "INR",
+        tax: 0,
+      },
     ],
   });
 
@@ -92,7 +133,7 @@ const CreditNoteForm = () => {
   /* ---- calculations ---- */
   const subtotal = formData.items.reduce((a, i) => a + i.qty * i.rate, 0);
   const taxTotal = formData.items.reduce(
-    (a, i) => a + i.qty * i.rate * (i.tax / 100),
+    (a, i) => a + i.qty * i.rate * ((Number(i.tax) || 0) / 100),
     0
   );
   const discountAmount =
@@ -102,6 +143,9 @@ const CreditNoteForm = () => {
   const finalTotal =
     subtotal + taxTotal - discountAmount + Number(formData.adjustment || 0);
 
+  const primaryCurrency = formData.items[0]?.currency || "INR";
+  const taxLabel = getTaxLabel(primaryCurrency);
+
   const handleItemChange = (index, field, value) => {
     const next = [...formData.items];
     next[index][field] = value;
@@ -110,7 +154,16 @@ const CreditNoteForm = () => {
   const addItem = () =>
     setField("items", [
       ...formData.items,
-      { id: `item-${Date.now()}`, name: "", description: "", account: "Sales", qty: 1, rate: 0, tax: 0 },
+      {
+        id: `item-${Date.now()}`,
+        name: "",
+        description: "",
+        account: "Sales",
+        qty: 1,
+        rate: 0,
+        currency: "INR",
+        tax: 0,
+      },
     ]);
   const removeItem = (index) =>
     setField(
@@ -230,11 +283,10 @@ const CreditNoteForm = () => {
                 />
               </Field>
               <Field label="Credit note date" required>
-                <input
-                  type="date"
-                  className={inputCls}
+                <DateInput
                   value={formData.date}
-                  onChange={(e) => setField("date", e.target.value)}
+                  onChange={(val) => setField("date", val)}
+                  placeholder="dd/mm/yyyy"
                 />
               </Field>
             </div>
@@ -242,15 +294,22 @@ const CreditNoteForm = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5 mt-5 pt-5 border-t border-gray-200 dark:border-gray-700">
             <Field label="Accounts receivable">
-              <select className={inputCls}>
-                <option value="Accounts Receivable">Accounts Receivable</option>
-              </select>
+              <SearchableSelect
+                value="Accounts Receivable"
+                onChange={() => {}}
+                options={[
+                  { value: "Accounts Receivable", label: "Accounts Receivable" },
+                ]}
+                clearable={false}
+              />
             </Field>
             <Field label="Salesperson">
-              <select className={inputCls}>
-                <option value="">Select or add salesperson</option>
-                <option value="Fidha">Fidha</option>
-              </select>
+              <SearchableSelect
+                value={formData.salesperson || ""}
+                onChange={(val) => setField("salesperson", val)}
+                options={[{ value: "Fidha", label: "Fidha" }]}
+                placeholder="Select or add salesperson"
+              />
             </Field>
           </div>
         </Card>
@@ -262,7 +321,7 @@ const CreditNoteForm = () => {
           className="!py-0"
         >
           <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
-            <table className="w-full min-w-[800px] border-collapse text-xs md:text-[12.5px]">
+            <table className="w-full min-w-[950px] border-collapse text-xs md:text-[12.5px]">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700/50 border-y border-gray-200 dark:border-gray-700">
                   <th className="text-center text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 w-10">
@@ -274,11 +333,19 @@ const CreditNoteForm = () => {
                   <th className="text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-40">
                     Account
                   </th>
-                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
+                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-20">
                     Qty
                   </th>
-                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-28">
+                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
                     Rate
+                  </th>
+                  {/* 🌟 NEW CURRENCY COLUMN 🌟 */}
+                  <th className="text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
+                    Currency
+                  </th>
+                  {/* 🌟 DYNAMIC TAX HEADER 🌟 */}
+                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
+                    {taxLabel}
                   </th>
                   <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-28">
                     Amount
@@ -319,31 +386,60 @@ const CreditNoteForm = () => {
                     </td>
 
                     <td className="py-3 px-3">
-                      <select
-                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition"
+                      <SearchableSelect
                         value={item.account}
-                        onChange={(e) =>
-                          handleItemChange(index, "account", e.target.value)
-                        }
-                      >
-                        <option>Sales</option>
-                        <option>General Income</option>
-                      </select>
+                        onChange={(val) => handleItemChange(index, "account", val)}
+                        options={ACCOUNTS}
+                        clearable={false}
+                      />
                     </td>
 
-                    {["qty", "rate"].map((key) => (
-                      <td key={key} className="py-3 px-3">
-                        <input
-                          type="number"
-                          min="0"
-                          className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
-                          value={item[key]}
-                          onChange={(e) =>
-                            handleItemChange(index, key, Number(e.target.value))
-                          }
-                        />
-                      </td>
-                    ))}
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
+                        value={item.qty}
+                        onChange={(e) =>
+                          handleItemChange(index, "qty", Number(e.target.value))
+                        }
+                      />
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
+                        value={item.rate}
+                        onChange={(e) =>
+                          handleItemChange(index, "rate", Number(e.target.value))
+                        }
+                      />
+                    </td>
+
+                    {/* 🌟 CURRENCY SELECT 🌟 */}
+                    <td className="py-3 px-3">
+                      <SearchableSelect
+                        value={item.currency}
+                        onChange={(val) => handleItemChange(index, "currency", val)}
+                        options={CURRENCIES}
+                        clearable={false}
+                      />
+                    </td>
+
+                    {/* TAX INPUT */}
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
+                        value={item.tax}
+                        onChange={(e) =>
+                          handleItemChange(index, "tax", Number(e.target.value))
+                        }
+                      />
+                    </td>
 
                     <td className="text-right py-3 px-3 font-medium text-gray-800 dark:text-gray-100 tabular-nums">
                       {(item.qty * item.rate).toFixed(2)}
@@ -407,29 +503,32 @@ const CreditNoteForm = () => {
               <SummaryRow label="Subtotal" value={subtotal.toFixed(2)} />
 
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-gray-600 dark:text-gray-300">Discount</span>
+                <div className="flex items-center gap-1.5 flex-1">
+                  <span className="text-gray-600 dark:text-gray-300 whitespace-nowrap">Discount</span>
                   <input
                     type="number"
                     className="w-16 px-1.5 py-1 text-[11.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 tabular-nums"
                     value={formData.discount}
                     onChange={(e) => setField("discount", Number(e.target.value))}
                   />
-                  <select
-                    className="text-[11.5px] px-1.5 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
-                    value={formData.discountType}
-                    onChange={(e) => setField("discountType", e.target.value)}
-                  >
-                    <option value="percentage">%</option>
-                    <option value="amount">INR</option>
-                  </select>
+                  <div className="w-24">
+                    <SearchableSelect
+                      value={formData.discountType}
+                      onChange={(val) => setField("discountType", val)}
+                      options={[
+                        { value: "percentage", label: "%" },
+                        { value: "amount", label: "INR" },
+                      ]}
+                      clearable={false}
+                    />
+                  </div>
                 </div>
                 <span className="font-medium text-red-600 dark:text-red-400 tabular-nums">
                   -{discountAmount.toFixed(2)}
                 </span>
               </div>
 
-              <SummaryRow label="VAT" value={taxTotal.toFixed(2)} />
+              <SummaryRow label={taxLabel.replace(" %", "")} value={taxTotal.toFixed(2)} />
 
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
@@ -448,7 +547,7 @@ const CreditNoteForm = () => {
 
               <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-1 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-gray-800 dark:text-gray-100">
-                  Total ({formData.currency})
+                  Total ({primaryCurrency})
                 </span>
                 <span className="text-lg font-bold text-gray-800 dark:text-gray-50 tabular-nums">
                   {finalTotal.toFixed(2)}

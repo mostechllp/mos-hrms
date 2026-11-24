@@ -1,12 +1,16 @@
 // src/admin/pages/accounts/PaymentReceivedForm.jsx
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { addPayment, updatePayment } from "../../../store/slices/accounts/paymentsReceivedSlice";
+import {
+  addPayment,
+  updatePayment,
+} from "../../../store/slices/accounts/paymentsReceivedSlice";
 import { X, Upload, Settings, ChevronRight } from "lucide-react";
 import { inputCls } from "../ui";
 import SearchableSelect from "../../../../components/common/SearchableSelect";
 import TransactionNumberSettingsModal from "../common/TransactionNumberSettingsModal";
+import DateInput from "../../common/DateInput";
 
 /* ---------- primitives ---------- */
 
@@ -58,6 +62,46 @@ const SummaryRow = ({ label, value, tone }) => (
   </div>
 );
 
+/* ---------- payment mode config ---------- */
+
+const PAYMENT_MODES = [
+  { value: "Cash", label: "Cash" },
+  { value: "Bank", label: "Bank" },
+  { value: "Cheque", label: "Cheque" },
+  { value: "Credit", label: "Credit" },
+];
+
+// Deposit-to options per payment mode
+const DEPOSIT_OPTIONS_BY_MODE = {
+  Cash: [{ value: "Petty Cash", label: "Petty cash" }],
+  Bank: [
+    { value: "Deposit", label: "Deposit" },
+    { value: "Transfer", label: "Transfer" },
+  ],
+  Cheque: [
+    { value: "Current Date", label: "Current date" },
+    { value: "Post Dated", label: "Post dated" },
+  ],
+  Credit: [{ value: "Undeposited Funds", label: "Undeposited funds" }],
+};
+
+// Initial bank details (used both as default state and as reset)
+const emptyBankDetails = {
+  // Transfer fields
+  fromAccountNumber: "",
+  ifscCode: "",
+  accountHolderName: "",
+  branchName: "",
+  transferReference: "",
+  transferDate: "",
+  // Deposit fields
+  depositSlipNumber: "",
+  bankName: "",
+  branchId: "",
+  accountNumber: "",
+  depositDate: "",
+};
+
 /* ---------- page ---------- */
 
 const PaymentReceivedForm = () => {
@@ -66,7 +110,7 @@ const PaymentReceivedForm = () => {
   const { id } = useParams();
 
   const existingPayment = useSelector((state) =>
-    state.paymentsReceived.payments.find((p) => p.id === id)
+    state.paymentsReceived.payments.find((p) => p.id === id),
   );
   const customers = useSelector((state) => state.customers.customers) || [];
 
@@ -83,14 +127,77 @@ const PaymentReceivedForm = () => {
       Math.floor(1000 + Math.random() * 9000).toString(),
     paymentMode: existingPayment?.paymentMode || "Cash",
     depositTo: existingPayment?.depositTo || "Petty Cash",
+    postDatedDate: existingPayment?.postDatedDate || "",
     reference: existingPayment?.reference || "",
     tdsDeducted: existingPayment?.tdsDeducted || false,
     notes: existingPayment?.notes || "",
     status: existingPayment?.status || "Draft",
+    bankDetails: {
+      ...emptyBankDetails,
+      ...(existingPayment?.bankDetails || {}),
+    },
   });
 
   const setField = (key, value) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
+
+  const setBankField = (key, value) =>
+    setFormData((prev) => ({
+      ...prev,
+      bankDetails: { ...prev.bankDetails, [key]: value },
+    }));
+
+  // When payment mode changes, reset depositTo to the first valid option
+  const handlePaymentModeChange = (mode) => {
+    const nextOptions = DEPOSIT_OPTIONS_BY_MODE[mode] || [];
+    setFormData((prev) => ({
+      ...prev,
+      paymentMode: mode,
+      depositTo: nextOptions[0]?.value || "",
+      // clear post-dated date if we're no longer on Cheque → Post Dated
+      postDatedDate:
+        mode === "Cheque" && prev.depositTo === "Post Dated"
+          ? prev.postDatedDate
+          : "",
+      // reset bank details if moving away from Bank
+      bankDetails: mode === "Bank" ? prev.bankDetails : { ...emptyBankDetails },
+    }));
+  };
+
+  // When depositTo changes, clear the other sub-type's fields
+  const handleDepositToChange = (val) => {
+    setFormData((prev) => {
+      const nextBank = { ...prev.bankDetails };
+      if (prev.depositTo === "Transfer" && val !== "Transfer") {
+        nextBank.fromAccountNumber = "";
+        nextBank.ifscCode = "";
+        nextBank.accountHolderName = "";
+        nextBank.branchName = "";
+        nextBank.transferReference = "";
+        nextBank.transferDate = "";
+      }
+      if (prev.depositTo === "Deposit" && val !== "Deposit") {
+        nextBank.depositSlipNumber = "";
+        nextBank.bankName = "";
+        nextBank.branchId = "";
+        nextBank.accountNumber = "";
+        nextBank.depositDate = "";
+      }
+      return { ...prev, depositTo: val, bankDetails: nextBank };
+    });
+  };
+
+  const depositOptions = useMemo(
+    () => DEPOSIT_OPTIONS_BY_MODE[formData.paymentMode] || [],
+    [formData.paymentMode],
+  );
+
+  const showPostDatedDate =
+    formData.paymentMode === "Cheque" && formData.depositTo === "Post Dated";
+  const showBankTransferFields =
+    formData.paymentMode === "Bank" && formData.depositTo === "Transfer";
+  const showBankDepositFields =
+    formData.paymentMode === "Bank" && formData.depositTo === "Deposit";
 
   const handleSubmit = (e) => {
     e?.preventDefault();
@@ -213,38 +320,34 @@ const PaymentReceivedForm = () => {
                 </div>
               </Field>
               <Field label="Payment date" required>
-                <input
-                  type="date"
-                  className={inputCls}
+                <DateInput
                   value={formData.paymentDate}
-                  onChange={(e) => setField("paymentDate", e.target.value)}
+                  onChange={(val) => setField("paymentDate", val)}
+                  placeholder="dd/mm/yyyy"
                 />
               </Field>
               <Field label="Payment mode">
-                <select
-                  className={inputCls}
+                <SearchableSelect
                   value={formData.paymentMode}
-                  onChange={(e) => setField("paymentMode", e.target.value)}
-                >
-                  <option value="Cash">Cash</option>
-                  <option value="Bank Transfer">Bank transfer</option>
-                  <option value="Check">Check</option>
-                </select>
+                  onChange={handlePaymentModeChange}
+                  options={PAYMENT_MODES}
+                  placeholder="Select payment mode…"
+                  clearable={false}
+                />
               </Field>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5 mt-5 pt-5 border-t border-gray-200 dark:border-gray-700">
             <Field label="Deposit to" required>
-              <select
-                className={inputCls}
+              <SearchableSelect
                 value={formData.depositTo}
-                onChange={(e) => setField("depositTo", e.target.value)}
-              >
-                <option value="Petty Cash">Petty cash</option>
-                <option value="Undeposited Funds">Undeposited funds</option>
-                <option value="Bank Account">Bank account</option>
-              </select>
+                onChange={handleDepositToChange}
+                options={depositOptions}
+                placeholder="Select deposit option…"
+                emptyMessage="No deposit options for this payment mode"
+                clearable={false}
+              />
             </Field>
             <Field label="Reference #">
               <input
@@ -277,6 +380,156 @@ const PaymentReceivedForm = () => {
               </div>
             </Field>
           </div>
+
+          {/* ---- Bank → Transfer details ---- */}
+          {showBankTransferFields && (
+            <div className="mt-5 pt-5 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-3">
+                Bank transfer details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
+                <Field label="From account #" required>
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. 1234567890"
+                    value={formData.bankDetails.fromAccountNumber}
+                    onChange={(e) =>
+                      setBankField("fromAccountNumber", e.target.value)
+                    }
+                  />
+                </Field>
+                <Field label="IFSC code">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. HDFC0001234"
+                    value={formData.bankDetails.ifscCode}
+                    onChange={(e) => setBankField("ifscCode", e.target.value)}
+                  />
+                </Field>
+                <Field label="Account holder name">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="Name on the sending account"
+                    value={formData.bankDetails.accountHolderName}
+                    onChange={(e) =>
+                      setBankField("accountHolderName", e.target.value)
+                    }
+                  />
+                </Field>
+                <Field label="Branch name">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. MG Road"
+                    value={formData.bankDetails.branchName}
+                    onChange={(e) => setBankField("branchName", e.target.value)}
+                  />
+                </Field>
+                <Field label="Transfer reference #">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="UTR / IMPS / NEFT reference"
+                    value={formData.bankDetails.transferReference}
+                    onChange={(e) =>
+                      setBankField("transferReference", e.target.value)
+                    }
+                  />
+                </Field>
+                <Field label="Transfer date">
+                  <DateInput
+                    value={formData.bankDetails.transferDate}
+                    onChange={(val) => setBankField("transferDate", val)}
+                    placeholder="dd/mm/yyyy"
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
+
+          {/* ---- Bank → Deposit details ---- */}
+          {showBankDepositFields && (
+            <div className="mt-5 pt-5 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-3">
+                Bank deposit details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
+                <Field label="Deposit slip #">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="Slip / voucher number"
+                    value={formData.bankDetails.depositSlipNumber}
+                    onChange={(e) =>
+                      setBankField("depositSlipNumber", e.target.value)
+                    }
+                  />
+                </Field>
+                <Field label="Bank name" required>
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. HDFC Bank"
+                    value={formData.bankDetails.bankName}
+                    onChange={(e) => setBankField("bankName", e.target.value)}
+                  />
+                </Field>
+                <Field label="Branch name">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. MG Road"
+                    value={formData.bankDetails.branchName}
+                    onChange={(e) => setBankField("branchName", e.target.value)}
+                  />
+                </Field>
+                <Field label="Branch ID / IFSC">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. HDFC0001234"
+                    value={formData.bankDetails.branchId}
+                    onChange={(e) => setBankField("branchId", e.target.value)}
+                  />
+                </Field>
+                <Field label="Account #">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="Account credited"
+                    value={formData.bankDetails.accountNumber}
+                    onChange={(e) =>
+                      setBankField("accountNumber", e.target.value)
+                    }
+                  />
+                </Field>
+                <Field label="Deposit date">
+                  <DateInput
+                    value={formData.bankDetails.depositDate}
+                    onChange={(val) => setBankField("depositDate", val)}
+                    placeholder="dd/mm/yyyy"
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
+
+          {/* ---- Post-dated cheque date — only when Cheque → Post Dated ---- */}
+          {showPostDatedDate && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5 mt-5 pt-5 border-t border-gray-200 dark:border-gray-700">
+              <Field label="Post-dated cheque date" required>
+                <DateInput
+                  value={formData.postDatedDate}
+                  onChange={(val) => setField("postDatedDate", val)}
+                  placeholder="dd/mm/yyyy"
+                  minDate={new Date()}
+                />
+              </Field>
+            </div>
+          )}
         </Card>
 
         {/* ---- Unpaid invoices ---- */}
@@ -412,7 +665,12 @@ const PaymentReceivedForm = () => {
         isOpen={isNumberSettingsOpen}
         onClose={() => setIsNumberSettingsOpen(false)}
         title="Configure Payment Number Preferences"
-        initialData={{ autoGenerate: true, prefix: "PAY-", nextNumber: "0001", restartFiscalYear: false }}
+        initialData={{
+          autoGenerate: true,
+          prefix: "PAY-",
+          nextNumber: "0001",
+          restartFiscalYear: false,
+        }}
         onSave={(data) => {
           console.log("Payment Number Settings Saved:", data);
         }}

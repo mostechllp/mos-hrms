@@ -219,6 +219,7 @@ const DateInput = forwardRef(
               inputOnBlur?.(e);
               handleBlur(e);
             }}
+            disabled={props.disabled}
             placeholder={getPlaceholder()}
             readOnly
             className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800 border rounded-lg text-sm md:text-base text-gray-800 dark:text-gray-200 transition-all focus:outline-none focus:ring-2 cursor-pointer ${
