@@ -7,6 +7,33 @@ import { X, ChevronRight, Plus, Trash2, Settings } from "lucide-react";
 import { inputCls } from "../ui";
 import SearchableSelect from "../../../../components/common/SearchableSelect";
 import TransactionNumberSettingsModal from "../common/TransactionNumberSettingsModal";
+import DateInput from "../../common/DateInput";
+
+/* ---------- constants ---------- */
+
+const CURRENCIES = [
+  { value: "INR", label: "INR" },
+  { value: "USD", label: "USD" },
+  { value: "EUR", label: "EUR" },
+  { value: "GBP", label: "GBP" },
+  { value: "AED", label: "AED" },
+  { value: "SAR", label: "SAR" },
+  { value: "JPY", label: "JPY" },
+  { value: "RUB", label: "RUB" },
+  { value: "CNY", label: "CNY" },
+];
+
+const getTaxLabel = (currency) => {
+  switch (currency) {
+    case "INR": return "GST %";
+    case "AED":
+    case "SAR": return "VAT %";
+    case "USD":
+    case "EUR":
+    case "GBP": return "Tax %";
+    default: return "Tax %";
+  }
+};
 
 /* ---------- primitives ---------- */
 
@@ -43,6 +70,15 @@ const Card = ({ title, description, action, children, className = "" }) => (
   </section>
 );
 
+const SummaryRow = ({ label, value }) => (
+  <div className="flex items-center justify-between">
+    <span className="text-gray-600 dark:text-gray-300">{label}</span>
+    <span className="font-medium text-gray-800 dark:text-gray-100 tabular-nums">
+      {value}
+    </span>
+  </div>
+);
+
 /* ---------- page ---------- */
 
 const QuoteForm = () => {
@@ -75,7 +111,15 @@ const QuoteForm = () => {
     discountType: existingQuote?.discountType || "percentage",
     adjustment: existingQuote?.adjustment || 0,
     items: existingQuote?.items || [
-      { id: `item-${Date.now()}`, name: "", description: "", qty: 1, rate: 0, tax: 0 },
+      {
+        id: `item-${Date.now()}`,
+        name: "",
+        description: "",
+        qty: 1,
+        rate: 0,
+        currency: "INR",
+        tax: 0,
+      },
     ],
   });
 
@@ -95,6 +139,9 @@ const QuoteForm = () => {
   const finalTotal =
     subtotal + taxTotal - discountAmount + Number(formData.adjustment || 0);
 
+  const primaryCurrency = formData.items[0]?.currency || "INR";
+  const taxLabel = getTaxLabel(primaryCurrency);
+
   /* ---- item handlers ---- */
   const handleItemChange = (index, field, value) => {
     const next = [...formData.items];
@@ -104,7 +151,15 @@ const QuoteForm = () => {
   const addItem = () =>
     setField("items", [
       ...formData.items,
-      { id: `item-${Date.now()}`, name: "", description: "", qty: 1, rate: 0, tax: 0 },
+      {
+        id: `item-${Date.now()}`,
+        name: "",
+        description: "",
+        qty: 1,
+        rate: 0,
+        currency: "INR",
+        tax: 0,
+      },
     ]);
   const removeItem = (index) =>
     setField(
@@ -128,17 +183,11 @@ const QuoteForm = () => {
       <div className="flex flex-wrap justify-between items-start mb-4 md:mb-6 gap-3">
         <div className="min-w-0">
           <nav className="flex items-center gap-1.5 text-[11px] text-gray-500 mb-1.5 flex-wrap">
-            <Link
-              to="/admin/dashboard"
-              className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-            >
+            <Link to="/admin/dashboard" className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
               Home
             </Link>
             <ChevronRight size={11} className="text-gray-400" />
-            <Link
-              to="/admin/accounts/sales/quotes"
-              className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-            >
+            <Link to="/admin/accounts/sales/quotes" className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
               Quotes
             </Link>
             <ChevronRight size={11} className="text-gray-400" />
@@ -167,22 +216,15 @@ const QuoteForm = () => {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* ---- Customer & meta ---- */}
-        <Card
-          title="Customer & details"
-          description="Who the quote is for and its reference numbers"
-        >
+        <Card title="Customer & details" description="Who the quote is for and its reference numbers">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-6 gap-y-5">
-            
-            {/* Left Column: Customer & Reference */}
             <div className="lg:col-span-2 space-y-4">
               <Field label="Customer" required>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <SearchableSelect
                       value={formData.customerName}
-                      onChange={(val) => {
-                        setField("customerName", val);
-                      }}
+                      onChange={(val) => setField("customerName", val)}
                       options={customers.map((c) => ({
                         value: c.displayName,
                         label: c.displayName,
@@ -200,7 +242,6 @@ const QuoteForm = () => {
                 </div>
               </Field>
 
-              {/* Added Reference # to fill vertical space naturally */}
               <Field label="Reference #">
                 <input
                   type="text"
@@ -212,7 +253,6 @@ const QuoteForm = () => {
               </Field>
             </div>
 
-            {/* Right Column: Quote # & Dates */}
             <div className="space-y-4">
               <Field label="Quote #">
                 <div className="relative">
@@ -234,19 +274,17 @@ const QuoteForm = () => {
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Quote date">
-                  <input
-                    type="date"
-                    className={inputCls}
+                  <DateInput
                     value={formData.date}
-                    onChange={(e) => setField("date", e.target.value)}
+                    onChange={(val) => setField("date", val)}
+                    placeholder="dd/mm/yyyy"
                   />
                 </Field>
                 <Field label="Expiry date">
-                  <input
-                    type="date"
-                    className={inputCls}
+                  <DateInput
                     value={formData.expiryDate}
-                    onChange={(e) => setField("expiryDate", e.target.value)}
+                    onChange={(val) => setField("expiryDate", val)}
+                    placeholder="dd/mm/yyyy"
                   />
                 </Field>
               </div>
@@ -255,46 +293,30 @@ const QuoteForm = () => {
         </Card>
 
         {/* ---- Line items ---- */}
-        <Card
-          title="Line items"
-          description="Add the products or services you're quoting"
-          className="!py-0"
-        >
+        <Card title="Line items" description="Add the products or services you're quoting" className="!py-0">
           <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
-            <table className="w-full min-w-[720px] border-collapse text-xs md:text-[12.5px]">
+            <table className="w-full min-w-[850px] border-collapse text-xs md:text-[12.5px]">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700/50 border-y border-gray-200 dark:border-gray-700">
-                  <th className="text-center text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 w-10">
-                    #
-                  </th>
-                  <th className="text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3">
-                    Item
-                  </th>
+                  <th className="text-center text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 w-10">#</th>
+                  <th className="text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3">Item</th>
+                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-20">Qty</th>
+                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">Rate</th>
+                  {/* 🌟 NEW CURRENCY COLUMN 🌟 */}
+                  <th className="text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">Currency</th>
+                  {/* 🌟 DYNAMIC TAX HEADER 🌟 */}
                   <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
-                    Qty
+                    {taxLabel}
                   </th>
-                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-28">
-                    Rate
-                  </th>
-                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
-                    VAT %
-                  </th>
-                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-28">
-                    Amount
-                  </th>
+                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-28">Amount</th>
                   <th className="w-10 py-2.5" />
                 </tr>
               </thead>
 
               <tbody>
                 {formData.items.map((item, index) => (
-                  <tr
-                    key={item.id}
-                    className="align-top group border-b border-gray-200 dark:border-gray-700"
-                  >
-                    <td className="text-center py-3 text-gray-400 tabular-nums">
-                      {index + 1}
-                    </td>
+                  <tr key={item.id} className="align-top group border-b border-gray-200 dark:border-gray-700">
+                    <td className="text-center py-3 text-gray-400 tabular-nums">{index + 1}</td>
 
                     <td className="py-3 px-3">
                       <input
@@ -302,34 +324,57 @@ const QuoteForm = () => {
                         placeholder="Item name"
                         className="w-full px-2 py-1.5 text-xs md:text-[12.5px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition font-medium"
                         value={item.name}
-                        onChange={(e) =>
-                          handleItemChange(index, "name", e.target.value)
-                        }
+                        onChange={(e) => handleItemChange(index, "name", e.target.value)}
                       />
                       <input
                         type="text"
                         placeholder="Description (optional)"
                         className="w-full mt-1 px-2 py-1 text-[11.5px] bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-green-400 focus:bg-white dark:focus:bg-gray-900 rounded-md text-gray-600 dark:text-gray-300 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition"
                         value={item.description}
-                        onChange={(e) =>
-                          handleItemChange(index, "description", e.target.value)
-                        }
+                        onChange={(e) => handleItemChange(index, "description", e.target.value)}
                       />
                     </td>
 
-                    {["qty", "rate", "tax"].map((key) => (
-                      <td key={key} className="py-3 px-3">
-                        <input
-                          type="number"
-                          min="0"
-                          className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
-                          value={item[key]}
-                          onChange={(e) =>
-                            handleItemChange(index, key, Number(e.target.value))
-                          }
-                        />
-                      </td>
-                    ))}
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
+                        value={item.qty}
+                        onChange={(e) => handleItemChange(index, "qty", Number(e.target.value))}
+                      />
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
+                        value={item.rate}
+                        onChange={(e) => handleItemChange(index, "rate", Number(e.target.value))}
+                      />
+                    </td>
+
+                    {/* 🌟 CURRENCY SELECT 🌟 */}
+                    <td className="py-3 px-3">
+                      <SearchableSelect
+                        value={item.currency}
+                        onChange={(val) => handleItemChange(index, "currency", val)}
+                        options={CURRENCIES}
+                        clearable={false}
+                      />
+                    </td>
+
+                    {/* TAX INPUT */}
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
+                        value={item.tax}
+                        onChange={(e) => handleItemChange(index, "tax", Number(e.target.value))}
+                      />
+                    </td>
 
                     <td className="text-right py-3 px-3 font-medium text-gray-800 dark:text-gray-100 tabular-nums">
                       {(item.qty * item.rate).toFixed(2)}
@@ -392,51 +437,43 @@ const QuoteForm = () => {
             <div className="space-y-3 text-xs md:text-[12.5px]">
               <SummaryRow label="Subtotal" value={subtotal.toFixed(2)} />
 
-              {/* Discount */}
+              {/* Discount with SearchableSelect for type */}
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-gray-600 dark:text-gray-300">
-                    Discount
-                  </span>
+                <div className="flex items-center gap-1.5 flex-1">
+                  <span className="text-gray-600 dark:text-gray-300 whitespace-nowrap">Discount</span>
                   <input
                     type="number"
                     className="w-16 px-1.5 py-1 text-[11.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 tabular-nums"
                     value={formData.discount}
-                    onChange={(e) =>
-                      setField("discount", Number(e.target.value))
-                    }
+                    onChange={(e) => setField("discount", Number(e.target.value))}
                   />
-                  <select
-                    className="text-[11.5px] px-1.5 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
-                    value={formData.discountType}
-                    onChange={(e) =>
-                      setField("discountType", e.target.value)
-                    }
-                  >
-                    <option value="percentage">%</option>
-                    <option value="amount">INR</option>
-                  </select>
+                  <div className="w-24">
+                    <SearchableSelect
+                      value={formData.discountType}
+                      onChange={(val) => setField("discountType", val)}
+                      options={[
+                        { value: "percentage", label: "%" },
+                        { value: "amount", label: "INR" },
+                      ]}
+                      clearable={false}
+                    />
+                  </div>
                 </div>
                 <span className="font-medium text-red-600 dark:text-red-400 tabular-nums">
                   -{discountAmount.toFixed(2)}
                 </span>
               </div>
 
-              <SummaryRow label="VAT" value={taxTotal.toFixed(2)} />
+              <SummaryRow label={taxLabel.replace(" %", "")} value={taxTotal.toFixed(2)} />
 
-              {/* Adjustment */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-gray-600 dark:text-gray-300">
-                    Adjustment
-                  </span>
+                  <span className="text-gray-600 dark:text-gray-300">Adjustment</span>
                   <input
                     type="number"
                     className="w-20 px-1.5 py-1 text-[11.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 tabular-nums"
                     value={formData.adjustment}
-                    onChange={(e) =>
-                      setField("adjustment", Number(e.target.value))
-                    }
+                    onChange={(e) => setField("adjustment", Number(e.target.value))}
                   />
                 </div>
                 <span className="font-medium text-gray-700 dark:text-gray-300 tabular-nums">
@@ -446,7 +483,7 @@ const QuoteForm = () => {
 
               <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-1 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-gray-800 dark:text-gray-100">
-                  Total ({formData.currency})
+                  Total ({primaryCurrency})
                 </span>
                 <span className="text-lg font-bold text-gray-800 dark:text-gray-50 tabular-nums">
                   {finalTotal.toFixed(2)}
@@ -483,7 +520,6 @@ const QuoteForm = () => {
         </div>
       </form>
 
-      {/* Reusable Number Settings Modal */}
       <TransactionNumberSettingsModal
         isOpen={isNumberSettingsOpen}
         onClose={() => setIsNumberSettingsOpen(false)}
@@ -496,16 +532,5 @@ const QuoteForm = () => {
     </div>
   );
 };
-
-/* ---------- helpers ---------- */
-
-const SummaryRow = ({ label, value }) => (
-  <div className="flex items-center justify-between">
-    <span className="text-gray-600 dark:text-gray-300">{label}</span>
-    <span className="font-medium text-gray-800 dark:text-gray-100 tabular-nums">
-      {value}
-    </span>
-  </div>
-);
 
 export default QuoteForm;
