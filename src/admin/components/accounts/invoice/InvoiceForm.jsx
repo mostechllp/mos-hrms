@@ -2,13 +2,55 @@
 import React, { useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { addInvoice, updateInvoice } from "../../../store/slices/accounts/invoicesSlice";
 import {
-  X, ChevronRight, Plus, Trash2, Settings, Search, Upload, RefreshCw,
+  addInvoice,
+  updateInvoice,
+} from "../../../store/slices/accounts/invoicesSlice";
+import {
+  X,
+  ChevronRight,
+  Plus,
+  Trash2,
+  Settings,
+  Search,
+  Upload,
+  RefreshCw,
 } from "lucide-react";
 import { inputCls } from "../ui";
 import SearchableSelect from "../../../../components/common/SearchableSelect";
 import TransactionNumberSettingsModal from "../common/TransactionNumberSettingsModal"; // Adjust path if needed
+import DateInput from "../../common/DateInput";
+
+/* ---------- constants ---------- */
+
+const CURRENCIES = [
+  { value: "INR", label: "INR" },
+  { value: "USD", label: "USD" },
+  { value: "EUR", label: "EUR" },
+  { value: "GBP", label: "GBP" },
+  { value: "AED", label: "AED" },
+  { value: "SAR", label: "SAR" },
+  { value: "JPY", label: "JPY" },
+  { value: "RUB", label: "RUB" },
+  { value: "CNY", label: "CNY" },
+];
+
+// Helper to get the correct tax label based on currency
+const getTaxLabel = (currency) => {
+  switch (currency) {
+    case "INR":
+      return "GST %";
+    case "AED":
+    case "SAR":
+      return "VAT %";
+    case "USD":
+    case "EUR":
+    case "GBP":
+      return "Tax %";
+    default:
+      return "Tax %";
+  }
+};
 
 /* ---------- primitives ---------- */
 
@@ -62,7 +104,7 @@ const InvoiceForm = () => {
   const { id } = useParams();
 
   const existingInvoice = useSelector((state) =>
-    state.invoices.invoices.find((inv) => inv.id === id)
+    state.invoices.invoices.find((inv) => inv.id === id),
   );
   const customers = useSelector((state) => state.customers.customers) || [];
 
@@ -90,7 +132,15 @@ const InvoiceForm = () => {
     discountType: existingInvoice?.discountType || "percentage",
     adjustment: existingInvoice?.adjustment || 0,
     items: existingInvoice?.items || [
-      { id: `item-${Date.now()}`, name: "", description: "", qty: 1, rate: 0, tax: 0 },
+      {
+        id: `item-${Date.now()}`,
+        name: "",
+        description: "",
+        qty: 1,
+        rate: 0,
+        tax: 0,
+        currency: "INR",
+      },
     ],
   });
 
@@ -101,7 +151,7 @@ const InvoiceForm = () => {
   const subtotal = formData.items.reduce((a, i) => a + i.qty * i.rate, 0);
   const taxTotal = formData.items.reduce(
     (a, i) => a + i.qty * i.rate * (i.tax / 100),
-    0
+    0,
   );
   const discountAmount =
     formData.discountType === "percentage"
@@ -115,15 +165,25 @@ const InvoiceForm = () => {
     next[index][field] = value;
     setField("items", next);
   };
+
   const addItem = () =>
     setField("items", [
       ...formData.items,
-      { id: `item-${Date.now()}`, name: "", description: "", qty: 1, rate: 0, tax: 0 },
+      {
+        id: `item-${Date.now()}`,
+        name: "",
+        description: "",
+        qty: 1,
+        rate: 0,
+        tax: 0,
+        currency: "INR",
+      },
     ]);
+
   const removeItem = (index) =>
     setField(
       "items",
-      formData.items.filter((_, i) => i !== index)
+      formData.items.filter((_, i) => i !== index),
     );
 
   const handleSubmit = (e) => {
@@ -141,6 +201,10 @@ const InvoiceForm = () => {
   };
 
   const title = id ? "Edit invoice" : "New invoice";
+
+  // Use the currency of the first item to determine the tax label for the summary (assuming all items use same tax logic)
+  const primaryCurrency = formData.items[0]?.currency || "INR";
+  const taxLabel = getTaxLabel(primaryCurrency);
 
   return (
     <div className="w-full overflow-x-hidden pb-24">
@@ -210,7 +274,9 @@ const InvoiceForm = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => navigate("/admin/accounts/sales/customers/new")}
+                    onClick={() =>
+                      navigate("/admin/accounts/sales/customers/new")
+                    }
                     className="px-4 py-2 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors whitespace-nowrap"
                   >
                     + New
@@ -218,7 +284,6 @@ const InvoiceForm = () => {
                 </div>
               </Field>
 
-              {/* Moved Order # here to fill the vertical space */}
               <Field label="Order #">
                 <input
                   type="text"
@@ -259,22 +324,20 @@ const InvoiceForm = () => {
                   </button>
                 </div>
               </Field>
-              
+
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Invoice date" required>
-                  <input
-                    type="date"
-                    className={inputCls}
+                  <DateInput
                     value={formData.invoiceDate}
-                    onChange={(e) => setField("invoiceDate", e.target.value)}
+                    onChange={(val) => setField("invoiceDate", val)}
+                    placeholder="dd/mm/yyyy"
                   />
                 </Field>
                 <Field label="Due date">
-                  <input
-                    type="date"
-                    className={inputCls}
+                  <DateInput
                     value={formData.dueDate}
-                    onChange={(e) => setField("dueDate", e.target.value)}
+                    onChange={(val) => setField("dueDate", val)}
+                    placeholder="dd/mm/yyyy"
                   />
                 </Field>
               </div>
@@ -283,30 +346,40 @@ const InvoiceForm = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5 mt-5 pt-5 border-t border-gray-200 dark:border-gray-700">
             <Field label="Payment terms">
-              <select
-                className={inputCls}
+              <SearchableSelect
                 value={formData.paymentTerms}
-                onChange={(e) => setField("paymentTerms", e.target.value)}
-              >
-                <option value="Due on Receipt">Due on receipt</option>
-                <option value="Net 30">Net 30</option>
-                <option value="Net 60">Net 60</option>
-              </select>
+                onChange={(val) => setField("paymentTerms", val)}
+                options={[
+                  { value: "Due on Receipt", label: "Due on receipt" },
+                  { value: "Net 30", label: "Net 30" },
+                  { value: "Net 60", label: "Net 60" },
+                ]}
+                clearable={false}
+              />
             </Field>
             <Field label="Accounts receivable">
-              <select className={inputCls}>
-                <option value="Accounts Receivable">Accounts Receivable</option>
-              </select>
+              <SearchableSelect
+                value="Accounts Receivable"
+                onChange={() => {}}
+                options={[
+                  {
+                    value: "Accounts Receivable",
+                    label: "Accounts Receivable",
+                  },
+                ]}
+                clearable={false}
+              />
             </Field>
             <Field label="Salesperson">
-              <select
-                className={inputCls}
+              <SearchableSelect
                 value={formData.salesperson}
-                onChange={(e) => setField("salesperson", e.target.value)}
-              >
-                <option value="">Select or add salesperson</option>
-                <option value="Fidha">Fidha</option>
-              </select>
+                onChange={(val) => setField("salesperson", val)}
+                options={[
+                  { value: "", label: "Select or add salesperson" },
+                  { value: "Fidha", label: "Fidha" },
+                ]}
+                placeholder="Select or add salesperson"
+              />
             </Field>
           </div>
         </Card>
@@ -318,7 +391,7 @@ const InvoiceForm = () => {
           className="!py-0"
         >
           <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
-            <table className="w-full min-w-[720px] border-collapse text-xs md:text-[12.5px]">
+            <table className="w-full min-w-[850px] border-collapse text-xs md:text-[12.5px]">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700/50 border-y border-gray-200 dark:border-gray-700">
                   <th className="text-center text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 w-10">
@@ -327,14 +400,19 @@ const InvoiceForm = () => {
                   <th className="text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3">
                     Item
                   </th>
-                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
+                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-20">
                     Qty
                   </th>
-                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-28">
+                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
                     Rate
                   </th>
+                  {/* 🌟 NEW CURRENCY COLUMN 🌟 */}
+                  <th className="text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
+                    Currency
+                  </th>
+                  {/* 🌟 DYNAMIC TAX HEADER 🌟 */}
                   <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
-                    VAT %
+                    {taxLabel}
                   </th>
                   <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-28">
                     Amount
@@ -374,19 +452,58 @@ const InvoiceForm = () => {
                       />
                     </td>
 
-                    {["qty", "rate", "tax"].map((key) => (
-                      <td key={key} className="py-3 px-3">
-                        <input
-                          type="number"
-                          min="0"
-                          className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
-                          value={item[key]}
-                          onChange={(e) =>
-                            handleItemChange(index, key, Number(e.target.value))
-                          }
-                        />
-                      </td>
-                    ))}
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
+                        value={item.qty}
+                        onChange={(e) =>
+                          handleItemChange(index, "qty", Number(e.target.value))
+                        }
+                      />
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
+                        value={item.rate}
+                        onChange={(e) =>
+                          handleItemChange(
+                            index,
+                            "rate",
+                            Number(e.target.value),
+                          )
+                        }
+                      />
+                    </td>
+
+                    {/* 🌟 CURRENCY SELECT 🌟 */}
+                    <td className="py-3 px-3">
+                      <SearchableSelect
+                        value={item.currency}
+                        onChange={(val) =>
+                          handleItemChange(index, "currency", val)
+                        }
+                        options={CURRENCIES}
+                        clearable={false}
+                      />
+                    </td>
+
+                    {/* TAX INPUT */}
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
+                        value={item.tax}
+                        onChange={(e) =>
+                          handleItemChange(index, "tax", Number(e.target.value))
+                        }
+                      />
+                    </td>
 
                     <td className="text-right py-3 px-3 font-medium text-gray-800 dark:text-gray-100 tabular-nums">
                       {(item.qty * item.rate).toFixed(2)}
@@ -451,37 +568,52 @@ const InvoiceForm = () => {
 
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-gray-600 dark:text-gray-300">Discount</span>
+                  <span className="text-gray-600 dark:text-gray-300">
+                    Discount
+                  </span>
                   <input
                     type="number"
                     className="w-16 px-1.5 py-1 text-[11.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 tabular-nums"
                     value={formData.discount}
-                    onChange={(e) => setField("discount", Number(e.target.value))}
+                    onChange={(e) =>
+                      setField("discount", Number(e.target.value))
+                    }
                   />
-                  <select
-                    className="text-[11.5px] px-1.5 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
-                    value={formData.discountType}
-                    onChange={(e) => setField("discountType", e.target.value)}
-                  >
-                    <option value="percentage">%</option>
-                    <option value="amount">INR</option>
-                  </select>
+                  <div className="w-24">
+                    <SearchableSelect
+                      value={formData.discountType}
+                      onChange={(val) => setField("discountType", val)}
+                      options={[
+                        { value: "percentage", label: "%" },
+                        { value: "amount", label: "Amount" },
+                      ]}
+                      clearable={false}
+                    />
+                  </div>
                 </div>
                 <span className="font-medium text-red-600 dark:text-red-400 tabular-nums">
                   -{discountAmount.toFixed(2)}
                 </span>
               </div>
 
-              <SummaryRow label="VAT" value={taxTotal.toFixed(2)} />
+              {/* 🌟 DYNAMIC TAX LABEL IN SUMMARY 🌟 */}
+              <SummaryRow
+                label={taxLabel.replace(" %", "")}
+                value={taxTotal.toFixed(2)}
+              />
 
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-gray-600 dark:text-gray-300">Adjustment</span>
+                  <span className="text-gray-600 dark:text-gray-300">
+                    Adjustment
+                  </span>
                   <input
                     type="number"
                     className="w-20 px-1.5 py-1 text-[11.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 tabular-nums"
                     value={formData.adjustment}
-                    onChange={(e) => setField("adjustment", Number(e.target.value))}
+                    onChange={(e) =>
+                      setField("adjustment", Number(e.target.value))
+                    }
                   />
                 </div>
                 <span className="font-medium text-gray-700 dark:text-gray-300 tabular-nums">
@@ -491,7 +623,7 @@ const InvoiceForm = () => {
 
               <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-1 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-gray-800 dark:text-gray-100">
-                  Total ({formData.currency})
+                  Total ({primaryCurrency})
                 </span>
                 <span className="text-lg font-bold text-gray-800 dark:text-gray-50 tabular-nums">
                   {finalTotal.toFixed(2)}
@@ -518,7 +650,7 @@ const InvoiceForm = () => {
               <span>
                 Total{" "}
                 <span className="font-medium text-gray-700 dark:text-gray-300 tabular-nums">
-                  ₹{finalTotal.toFixed(2)}
+                  {primaryCurrency} {finalTotal.toFixed(2)}
                 </span>
               </span>
               <span className="text-gray-300 dark:text-gray-700">·</span>
@@ -568,7 +700,12 @@ const InvoiceForm = () => {
         isOpen={isNumberSettingsOpen}
         onClose={() => setIsNumberSettingsOpen(false)}
         title="Configure Invoice Number Preferences"
-        initialData={{ autoGenerate: true, prefix: "INV-", nextNumber: "000002", restartFiscalYear: false }}
+        initialData={{
+          autoGenerate: true,
+          prefix: "INV-",
+          nextNumber: "000002",
+          restartFiscalYear: false,
+        }}
         onSave={(data) => {
           console.log("Invoice Number Settings Saved:", data);
         }}
