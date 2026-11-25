@@ -172,6 +172,44 @@ const CustomersPage = () => {
     ),
   );
 
+  const [columnOrder, setColumnOrder] = useState(() => {
+  const savedOrder = localStorage.getItem("customersColumnOrder");
+
+  if (savedOrder) {
+    try {
+      const parsed = JSON.parse(savedOrder);
+
+      // Keep newly added columns and remove obsolete IDs.
+      const savedIds = parsed.filter((id) =>
+        ALL_COLUMNS.some((col) => col.id === id)
+      );
+
+      const missingColumns = ALL_COLUMNS
+        .filter((col) => !savedIds.includes(col.id))
+        .map((col) => col.id);
+
+      return [...savedIds, ...missingColumns];
+    } catch {
+      return ALL_COLUMNS.map((col) => col.id);
+    }
+  }
+
+  return ALL_COLUMNS.map((col) => col.id);
+});
+
+const orderedColumns = useMemo(() => {
+  return columnOrder
+    .map((id) => ALL_COLUMNS.find((col) => col.id === id))
+    .filter(Boolean);
+}, [columnOrder]);
+
+const handleReorderColumns = (reorderedColumns) => {
+  const newOrder = reorderedColumns.map((col) => col.id);
+
+  setColumnOrder(newOrder);
+  localStorage.setItem("customersColumnOrder", JSON.stringify(newOrder));
+};
+
   const [filters, setFilters] = useState({
     hasCompany: "all",
     portalAccess: "all",
@@ -466,305 +504,249 @@ const CustomersPage = () => {
             <div className="min-w-[1200px] lg:min-w-0">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                    {visibleColumns.displayName && (
-                      <th className="px-4 md:px-5 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        <span className="inline-flex items-center gap-1 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
-                          Name <ArrowUpDown size={11} />
-                        </span>
-                      </th>
-                    )}
-                    {visibleColumns.companyName && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Company Name
-                      </th>
-                    )}
-                    {visibleColumns.email && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Email
-                      </th>
-                    )}
-                    {visibleColumns.workPhone && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Phone
-                      </th>
-                    )}
-                    {visibleColumns.receivables && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Receivables (BCY)
-                      </th>
-                    )}
-                    {visibleColumns.unusedCredits && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Unused Credits (BCY)
-                      </th>
-                    )}
-                    {visibleColumns.source && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Source
-                      </th>
-                    )}
-                    {visibleColumns.firstName && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        First Name
-                      </th>
-                    )}
+  <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
 
-                    {/* Additional Custom Headers */}
-                    {visibleColumns.lastName && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Last Name
-                      </th>
-                    )}
-                    {visibleColumns.salutation && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Salutation
-                      </th>
-                    )}
-                    {visibleColumns.customerType && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Customer Type
-                      </th>
-                    )}
-                    {visibleColumns.mobile && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Mobile
-                      </th>
-                    )}
-                    {visibleColumns.pan && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Tax ID / PAN
-                      </th>
-                    )}
-                    {visibleColumns.currency && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Currency
-                      </th>
-                    )}
-                    {visibleColumns.paymentTerms && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Payment Terms
-                      </th>
-                    )}
-                    {visibleColumns.portalAccess && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Portal Access
-                      </th>
-                    )}
-                    {visibleColumns.openingBalance && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Opening Balance
-                      </th>
-                    )}
-                    {visibleColumns.receivableAccount && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Receivable Acct.
-                      </th>
-                    )}
-                    {visibleColumns.createdAt && (
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        Created At
-                      </th>
-                    )}
+    {orderedColumns
+      .filter((col) => visibleColumns[col.id])
+      .map((col) => (
+        <th
+          key={col.id}
+          className={`px-3 md:px-4 py-2 md:py-3 text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 ${
+            ["receivables", "unusedCredits", "openingBalance"].includes(col.id)
+              ? "text-right"
+              : "text-left"
+          }`}
+        >
+          {col.id === "displayName" ? (
+            <span className="inline-flex items-center gap-1">
+              {col.label}
+              <ArrowUpDown size={11} />
+            </span>
+          ) : (
+            col.label
+          )}
+        </th>
+      ))}
 
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
+    {/* Fixed Action Column */}
+    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+      Action
+    </th>
+
+  </tr>
+</thead>
                 <tbody>
-                  {loading ? (
-                    <tr>
-                      <td
-                        colSpan={visibleColumnCount}
-                        className="py-10 text-center text-gray-500"
-                      >
-                        <Loader2
-                          size={18}
-                          className="inline animate-spin mr-2 text-green-500"
-                        />{" "}
-                        Loading…
-                      </td>
-                    </tr>
-                  ) : processedCustomers.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={visibleColumnCount}
-                        className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
-                      >
-                        No customers match your filters or search.
-                      </td>
-                    </tr>
-                  ) : (
-                    processedCustomers.map((customer) => {
-                      const name = getVal(customer, "displayName", "display_name");
-                      const companyName = getVal(customer, "companyName", "company_name");
-                      const email = getVal(customer, "email", "email");
-                      const phone = getVal(customer, "workPhone", "work_phone");
-                      const balance = getVal(customer, "openingBalance", "opening_balance") || 0;
-                      const source = getVal(customer, "source", "source") || "Direct";
-                      const fName = getVal(customer, "firstName", "first_name");
-                      const lName = getVal(customer, "lastName", "last_name");
-                      const salutation = getVal(customer, "salutation", "salutation");
-                      const cType = getVal(customer, "customerType", "customer_type");
-                      const mobile = getVal(customer, "mobile", "mobile");
-                      const pan = getVal(customer, "pan", "pan") || getVal(customer, "gstinPan", "gstin_pan");
-                      const curr = getVal(customer, "baseCurrency", "base_currency");
-                      const terms = getVal(customer, "paymentTerms", "payment_terms");
-                      const isPortal = getVal(customer, "portalAccess", "portal_access");
-                      const recAcc = getVal(customer, "receivableAccount", "receivable_account");
-                      const cAt = getVal(customer, "createdAt", "created_at");
+  {loading ? (
+    <tr>
+      <td
+        colSpan={visibleColumnCount}
+        className="py-10 text-center text-gray-500"
+      >
+        <Loader2
+          size={18}
+          className="inline animate-spin mr-2 text-green-500"
+        />
+        Loading…
+      </td>
+    </tr>
+  ) : processedCustomers.length === 0 ? (
+    <tr>
+      <td
+        colSpan={visibleColumnCount}
+        className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+      >
+        No customers match your filters or search.
+      </td>
+    </tr>
+  ) : (
+    processedCustomers.map((customer) => {
+      const name = getVal(customer, "displayName", "display_name");
+      const companyName = getVal(customer, "companyName", "company_name");
+      const email = customer.email;
+      const phone = getVal(customer, "workPhone", "work_phone");
+      const balance =
+        getVal(customer, "openingBalance", "opening_balance") || 0;
+      const source = customer.source || "Direct";
+      const fName = getVal(customer, "firstName", "first_name");
+      const lName = getVal(customer, "lastName", "last_name");
+      const salutation = customer.salutation;
+      const cType = getVal(customer, "customerType", "customer_type");
+      const mobile = customer.mobile;
+      const pan =
+        getVal(customer, "pan", "pan") ||
+        getVal(customer, "gstinPan", "gstin_pan");
+      const curr = getVal(customer, "baseCurrency", "base_currency");
+      const terms = getVal(customer, "paymentTerms", "payment_terms");
+      const isPortal = getVal(customer, "portalAccess", "portal_access");
+      const recAcc = getVal(
+        customer,
+        "receivableAccount",
+        "receivable_account"
+      );
+      const cAt = getVal(customer, "createdAt", "created_at");
 
-                      return (
-                      <tr
-                        key={customer.id}
-                        onClick={() => handleViewCustomer(customer)}
-                        className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
-                      >
-                        {visibleColumns.displayName && (
-                          <td className="px-4 md:px-5 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleViewCustomer(customer);
-                              }}
-                              className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
-                            >
-                              {name}
-                            </button>
-                          </td>
-                        )}
-                        {visibleColumns.companyName && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {companyName || <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                        )}
-                        {visibleColumns.email && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {email || <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                        )}
-                        {visibleColumns.workPhone && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {phone || <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                        )}
-                        {visibleColumns.receivables && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
-                            {getCurrencySymbol(curr)}{balance.toFixed(2)}
-                          </td>
-                        )}
-                        {visibleColumns.unusedCredits && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {getCurrencySymbol(curr)}0.00
-                          </td>
-                        )}
-                        {visibleColumns.source && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {source}
-                          </td>
-                        )}
-                        {visibleColumns.firstName && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {fName || <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                        )}
+      const emptyValue = (
+        <span className="text-gray-300 dark:text-gray-600">—</span>
+      );
 
-                        {/* Additional Custom Body Cells */}
-                        {visibleColumns.lastName && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {lName || <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                        )}
-                        {visibleColumns.salutation && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {salutation || <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                        )}
-                        {visibleColumns.customerType && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {cType || <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                        )}
-                        {visibleColumns.mobile && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {mobile || <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                        )}
-                        {visibleColumns.pan && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {pan || <span className="text-gray-300">—</span>}
-                          </td>
-                        )}
-                        {visibleColumns.currency && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {curr || <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                        )}
-                        {visibleColumns.paymentTerms && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {terms || <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                        )}
-                        {visibleColumns.portalAccess && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {isPortal ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Enabled</span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">Disabled</span>
-                            )}
-                          </td>
-                        )}
-                        {visibleColumns.openingBalance && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {getCurrencySymbol(curr)}{balance.toFixed(2)}
-                          </td>
-                        )}
-                        {visibleColumns.receivableAccount && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {recAcc || <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                        )}
-                        {visibleColumns.createdAt && (
-                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {cAt ? formatDate(cAt) : <span className="text-gray-300 dark:text-gray-600">—</span>}
-                          </td>
-                        )}
+      const cellClass =
+        "px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap";
 
-                        <td
-                          className="px-3 md:px-4 py-2 md:py-3 text-right"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex items-center justify-end gap-1">
-                            <IconAction
-                              icon={Eye}
-                              label="View"
-                              tone="primary"
-                              onClick={() => handleViewCustomer(customer)}
-                            />
-                            <IconAction
-                              icon={Edit2}
-                              label="Edit"
-                              tone="warning"
-                              onClick={() =>
-                                navigate(
-                                  `/admin/accounts/sales/customers/edit/${customer.id}`,
-                                )
-                              }
-                            />
-                            <IconAction
-                              icon={Trash2}
-                              label="Delete"
-                              tone="danger"
-                              onClick={() => setDeleteTarget(customer)}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    )})
-                  )}
-                </tbody>
+      const renderCell = (columnId) => {
+        switch (columnId) {
+          case "displayName":
+            return (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleViewCustomer(customer);
+                }}
+                className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline"
+              >
+                {name || emptyValue}
+              </button>
+            );
+
+          case "companyName":
+            return companyName || emptyValue;
+
+          case "email":
+            return email || emptyValue;
+
+          case "workPhone":
+            return phone || emptyValue;
+
+          case "receivables":
+          case "openingBalance":
+            return (
+              <>
+                {getCurrencySymbol(curr)}
+                {Number(balance).toFixed(2)}
+              </>
+            );
+
+          case "unusedCredits":
+            return (
+              <>
+                {getCurrencySymbol(curr)}0.00
+              </>
+            );
+
+          case "source":
+            return source;
+
+          case "firstName":
+            return fName || emptyValue;
+
+          case "lastName":
+            return lName || emptyValue;
+
+          case "salutation":
+            return salutation || emptyValue;
+
+          case "customerType":
+            return cType || emptyValue;
+
+          case "mobile":
+            return mobile || emptyValue;
+
+          case "pan":
+            return pan || emptyValue;
+
+          case "currency":
+            return curr || emptyValue;
+
+          case "paymentTerms":
+            return terms || emptyValue;
+
+          case "portalAccess":
+            return isPortal ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                Enabled
+              </span>
+            ) : (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                Disabled
+              </span>
+            );
+
+          case "receivableAccount":
+            return recAcc || emptyValue;
+
+          case "createdAt":
+            return cAt ? formatDate(cAt) : emptyValue;
+
+          default:
+            return emptyValue;
+        }
+      };
+
+      return (
+        <tr
+          key={customer.id}
+          onClick={() => handleViewCustomer(customer)}
+          className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
+        >
+          {/* Dynamic Columns */}
+          {orderedColumns
+            .filter((col) => visibleColumns[col.id])
+            .map((col) => (
+              <td
+                key={col.id}
+                className={`${cellClass} ${
+                  ["receivables", "unusedCredits", "openingBalance"].includes(
+                    col.id
+                  )
+                    ? "text-right tabular-nums"
+                    : ""
+                } ${
+                  col.id === "displayName"
+                    ? "font-semibold text-gray-800 dark:text-gray-200"
+                    : ""
+                }`}
+              >
+                {renderCell(col.id)}
+              </td>
+            ))}
+
+          {/* Fixed Action Column */}
+          <td
+            className="px-3 md:px-4 py-2 md:py-3 text-right"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-end gap-1">
+              <IconAction
+                icon={Eye}
+                label="View"
+                tone="primary"
+                onClick={() => handleViewCustomer(customer)}
+              />
+
+              <IconAction
+                icon={Edit2}
+                label="Edit"
+                tone="warning"
+                onClick={() =>
+                  navigate(
+                    `/admin/accounts/sales/customers/edit/${customer.id}`
+                  )
+                }
+              />
+
+              <IconAction
+                icon={Trash2}
+                label="Delete"
+                tone="danger"
+                onClick={() => setDeleteTarget(customer)}
+              />
+            </div>
+          </td>
+        </tr>
+      );
+    })
+  )}
+</tbody>
               </table>
             </div>
           </div>
@@ -800,12 +782,13 @@ const CustomersPage = () => {
       )}
 
       <CustomizeColumnsModal
-        isOpen={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        columns={ALL_COLUMNS}
-        visibleColumns={visibleColumns}
-        onToggleColumn={toggleColumn}
-      />
+  isOpen={isColumnModalOpen}
+  onClose={() => setIsColumnModalOpen(false)}
+  columns={orderedColumns}
+  visibleColumns={visibleColumns}
+  onToggleColumn={toggleColumn}
+  onReorderColumns={handleReorderColumns}
+/>
 
       {/* DRAWER WITH TABS */}
       {isDrawerOpen && selectedCustomer && (
@@ -856,7 +839,7 @@ const CustomersPage = () => {
               </div>
 
               {/* Tabs */}
-              <div className="flex items-center gap-6 mt-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+              {/* <div className="flex items-center gap-6 mt-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
                 {[
                   { id: "overview", label: "Overview" },
                   { id: "comments", label: "Comments" },
@@ -876,7 +859,7 @@ const CustomersPage = () => {
                     {tab.label}
                   </button>
                 ))}
-              </div>
+              </div> */}
             </div>
 
             {/* Tab content wrapper */}
@@ -910,20 +893,20 @@ const CustomersPage = () => {
                             )}
                           </div>
                         </div>
-                        {(getVal(selectedCustomer, "portalAccess", "portal_access") !== undefined) && (
+                        {/* {(getVal(selectedCustomer, "portalAccess", "portal_access") !== undefined) && (
                           <button className="text-xs text-blue-500 hover:underline mt-1 block">
                             Invite to Portal
                           </button>
-                        )}
+                        )} */}
                       </div>
 
                       {/* Address */}
                       <div>
                         <div className="flex items-center justify-between mb-3 border-b border-gray-200 dark:border-gray-700 pb-1">
                           <SectionLabel className="mb-0">Address</SectionLabel>
-                          <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                          {/* <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                             <Edit2 size={13} />
-                          </button>
+                          </button> */}
                         </div>
                         
                         <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
@@ -959,9 +942,9 @@ const CustomersPage = () => {
                             ) : <p className="text-gray-400">No shipping address</p>}
                           </div>
                         </div>
-                        <button className="text-xs text-blue-500 hover:underline mt-2">
+                        {/* <button className="text-xs text-blue-500 hover:underline mt-2">
                           Add additional address
-                        </button>
+                        </button> */}
                       </div>
 
                       {/* Contact Persons */}
@@ -1090,9 +1073,9 @@ const CustomersPage = () => {
                             </tbody>
                           </table>
                         </div>
-                        <button className="text-xs text-blue-500 hover:underline mt-2">
+                        {/* <button className="text-xs text-blue-500 hover:underline mt-2">
                           Enter Opening Balance
-                        </button>
+                        </button> */}
                       </div>
 
                       {/* Record Info */}
