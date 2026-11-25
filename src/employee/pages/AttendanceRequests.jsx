@@ -29,6 +29,7 @@ import {
   updateAttendanceRequestStatus,
   deleteAttendanceRequest,
   deleteAttendanceRequestAdmin,
+  setOptimisticStatus,
 } from "../store/slices/attendanceTypeSlice";
 import EarlyCheckoutModal from "../components/modals/EarlyCheckoutModal";
 
@@ -63,6 +64,7 @@ const AttendanceRequests = ({ isAdmin = false }) => {
     request: null,
     action: null,
   });
+  const [updatingId, setUpdatingId] = useState(null);
 
   useEffect(() => {
     loadAttendanceRequests();
@@ -83,14 +85,41 @@ const AttendanceRequests = ({ isAdmin = false }) => {
     }
   };
 
+  // Optimistic Quick Action Status Update (Approve / Reject)
+  const handleQuickStatus = async (request, newStatus, e) => {
+    if (e) e.stopPropagation();
+    const previousStatus = request.status;
+    const reqId = request.id;
+
+    // 1. Instant optimistic update in store
+    dispatch(setOptimisticStatus({ id: reqId, status: newStatus }));
+    showToast(`Request marked as ${newStatus}`, "success");
+    setUpdatingId(reqId);
+
+    // 2. Dispatch backend API call: POST /api/admin/attendance-requests/{id}/status
+    try {
+      await dispatch(
+        updateAttendanceRequestStatus({ id: reqId, status: newStatus }),
+      ).unwrap();
+    } catch (err) {
+      // Revert if API failed
+      dispatch(setOptimisticStatus({ id: reqId, status: previousStatus }));
+      showToast(err || `Failed to ${newStatus} request`, "error");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const handleStatusUpdate = async (request, status) => {
     try {
       const payload = { id: request.id, status };
+      dispatch(setOptimisticStatus({ id: request.id, status }));
       await dispatch(updateAttendanceRequestStatus(payload)).unwrap();
       showToast(`Request ${status} successfully`, "success");
       loadAttendanceRequests();
     } catch (error) {
       showToast(error || `Failed to ${status} request`, "error");
+      loadAttendanceRequests();
     } finally {
       setConfirmModal({ isOpen: false, request: null, action: null });
     }
@@ -619,7 +648,11 @@ const AttendanceRequests = ({ isAdmin = false }) => {
                     {formatDate(request.request_date || request.date)}
                   </td>
                   <td className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)]">
-                    {formatTime(request.request_time || request.time)}
+                    {formatTime(
+                      request.request_time ||
+                        request.time ||
+                        request.arrival_time,
+                    )}
                   </td>
                   <td
                     className="py-3.5 px-4 border-b border-[var(--border)] text-[var(--text-secondary)] max-w-[200px] truncate"

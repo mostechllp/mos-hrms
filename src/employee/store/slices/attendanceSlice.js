@@ -63,22 +63,62 @@ export const fetchEmployeeBreaks = createAsyncThunk(
   },
 );
 
-// attendanceSlice.js - Fix to handle 201 status code
+// Fetch Punch Status (Late cutoff, HR approval status, punch permissions)
+export const fetchPunchStatus = createAsyncThunk(
+  "attendance/fetchPunchStatus",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get("/employee/punch-status");
+      console.log("📥 Punch status response:", response.data);
 
+      if (response.data && response.data.status === "success") {
+        return response.data.data;
+      } else {
+        return rejectWithValue(
+          response.data?.message || "Failed to fetch punch status",
+        );
+      }
+    } catch (error) {
+      console.error("Fetch punch status error:", error);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch punch status",
+      );
+    }
+  },
+);
+
+// attendanceSlice.js - Fix to handle 201 status code and late punch reason
 export const punchIn = createAsyncThunk(
   "attendance/punchIn",
-  async (locationData, { rejectWithValue }) => {
+  async (payloadData, { rejectWithValue }) => {
     try {
-      console.log("🔍 Punch in request:", locationData);
+      console.log("🔍 Punch in request:", payloadData);
 
       const requestBody = {};
 
-      if (locationData && locationData.location) {
-        requestBody.punch_in_latitude = locationData.location.latitude;
-        requestBody.punch_in_longitude = locationData.location.longitude;
-        requestBody.punch_in_address = locationData.location.address;
+      if (payloadData && payloadData.location) {
+        requestBody.punch_in_latitude = payloadData.location.latitude;
+        requestBody.punch_in_longitude = payloadData.location.longitude;
+        requestBody.punch_in_address = payloadData.location.address;
 
-        Object.assign(requestBody, timezoneFields(locationData.location));
+        Object.assign(requestBody, timezoneFields(payloadData.location));
+      } else if (payloadData) {
+        if (payloadData.punch_in_latitude !== undefined) {
+          requestBody.punch_in_latitude = payloadData.punch_in_latitude;
+        }
+        if (payloadData.punch_in_longitude !== undefined) {
+          requestBody.punch_in_longitude = payloadData.punch_in_longitude;
+        }
+        if (payloadData.punch_in_address !== undefined) {
+          requestBody.punch_in_address = payloadData.punch_in_address;
+        }
+        if (payloadData.timezone) {
+          requestBody.timezone = payloadData.timezone;
+        }
+      }
+
+      if (payloadData?.reason) {
+        requestBody.reason = payloadData.reason;
       }
 
       console.log("📤 Sending request:", requestBody);
@@ -93,24 +133,35 @@ export const punchIn = createAsyncThunk(
         const data = response.data.data || response.data;
 
         // Remember the timezone this shift runs in (used for all displays)
-        setStoredWorkTimezone(locationData?.location?.timezone);
+        const tz = payloadData?.location?.timezone || requestBody.timezone;
+        if (tz) {
+          setStoredWorkTimezone(tz);
+        }
 
         // Store in localStorage
         localStorage.setItem("attendance-punched-in", "true");
         localStorage.setItem(
           "attendance-punch-in-time",
-          data.punch_in || new Date().toISOString(),
+          data.punch_in_time || data.punch_in || new Date().toISOString(),
         );
 
         // Dispatch success
         return {
-          punch_in: data.punch_in,
+          punch_in: data.punch_in_time || data.punch_in,
+          punch_in_time: data.punch_in_time || data.punch_in,
+          raw_punch_in: data.raw_punch_in,
+          show_timer: data.show_timer,
+          approval_status: data.approval_status,
+          is_late: data.is_late,
+          request_id: data.request_id || data.id,
           log_date: data.log_date,
           log_status: data.log_status,
-          id: data.id,
+          id: data.id || data.request_id,
           punch_in_latitude: data.punch_in_latitude,
           punch_in_longitude: data.punch_in_longitude,
           punch_in_address: data.punch_in_address,
+          message: response.data?.message || "Punched in successfully.",
+          raw: data,
         };
       } else {
         return rejectWithValue(response.data?.message || "Punch in failed");
@@ -123,21 +174,56 @@ export const punchIn = createAsyncThunk(
         error.response?.data,
       );
 
+      const resData = error.response?.data || {};
+
+      // Handle 403 Forbidden specifically for Late Approval workflow
+      if (error.response?.status === 403) {
+        const requiresReason =
+          resData.requires_reason === true ||
+          resData.requires_reason === "true" ||
+          resData.requiresReason === true;
+        const requestStatus =
+          resData.request_status ||
+          (resData.late_request ? resData.late_request.status : null);
+
+        return rejectWithValue({
+          is403: true,
+          status: 403,
+          requires_reason: requiresReason,
+          request_status: requestStatus,
+          message:
+            resData.message ||
+            (requiresReason
+              ? "Late arrival requires HR approval with reason."
+              : requestStatus === "pending"
+                ? "Late request is pending HR approval."
+                : requestStatus === "rejected"
+                  ? "Late request was rejected by HR."
+                  : "HR approval required to punch in."),
+          data: resData,
+        });
+      }
+
       // Handle different error status codes
       if (error.response?.status === 422) {
-        const errors = error.response?.data?.errors;
+        const errors = resData.errors;
         if (errors && errors.timezone) {
           return rejectWithValue(
             `Timezone error: ${errors.timezone.join(", ")}`,
           );
         }
+        if (errors && errors.reason) {
+          return rejectWithValue(
+            `Reason error: ${errors.reason.join(", ")}`,
+          );
+        }
         return rejectWithValue(
-          error.response?.data?.message || "Validation error",
+          resData.message || "Validation error",
         );
       }
 
       return rejectWithValue(
-        error.response?.data?.message || "Punch in failed",
+        resData.message || "Punch in failed",
       );
     }
   },
@@ -320,27 +406,58 @@ const initialState = {
   error: null,
   dashboardData: null,
   employeeBreaks: null,
+  punchStatus: null,
+  punchStatusLoading: false,
 };
 
 const attendanceSlice = createSlice({
   name: "attendance",
   initialState,
   reducers: {
+    setPunchStatus: (state, action) => {
+      state.punchStatus = { ...state.punchStatus, ...action.payload };
+    },
     clearAttendanceState: (state) => {
       state.isPunchedIn = false;
       state.punchInTime = null;
       state.punchOutTime = null;
+      state.punchStatus = null;
       state.error = null;
       localStorage.removeItem("attendance-punched-in");
       localStorage.removeItem("attendance-punch-in-time");
     },
   },
   extraReducers: (builder) => {
-    builder;
-    // ✅ Fetch Dashboard Data
-    // In the extraReducers section of attendanceSlice.js
-
     builder
+      // ✅ Fetch Punch Status
+      .addCase(fetchPunchStatus.pending, (state) => {
+        state.punchStatusLoading = true;
+      })
+      .addCase(fetchPunchStatus.fulfilled, (state, action) => {
+        state.punchStatusLoading = false;
+        state.punchStatus = action.payload;
+        if (action.payload) {
+          if (action.payload.is_punched_in !== undefined) {
+            state.isPunchedIn = action.payload.is_punched_in;
+            if (action.payload.is_punched_in) {
+              localStorage.setItem("attendance-punched-in", "true");
+            } else {
+              localStorage.removeItem("attendance-punched-in");
+            }
+          }
+          if (action.payload.punch_in_time) {
+            state.punchInTime = action.payload.punch_in_time;
+            localStorage.setItem(
+              "attendance-punch-in-time",
+              action.payload.punch_in_time,
+            );
+          }
+        }
+      })
+      .addCase(fetchPunchStatus.rejected, (state, action) => {
+        state.punchStatusLoading = false;
+      })
+
       // ✅ Fetch Dashboard Data
       .addCase(fetchDashboardData.pending, (state) => {
         state.loading = true;
@@ -350,10 +467,17 @@ const attendanceSlice = createSlice({
         state.loading = false;
         state.dashboardData = action.payload;
         if (action.payload?.today_attendance) {
-          state.isPunchedIn =
-            action.payload.today_attendance.punched_in || false;
+          const punchStatusIn = state.punchStatus?.is_punched_in;
+          if (punchStatusIn !== undefined) {
+            state.isPunchedIn = punchStatusIn;
+          } else {
+            state.isPunchedIn =
+              action.payload.today_attendance.punched_in || false;
+          }
           state.punchInTime =
-            action.payload.today_attendance.punch_in_time || null;
+            action.payload.today_attendance.punch_in_time ||
+            state.punchInTime ||
+            null;
         }
         state.error = null;
       })
@@ -370,10 +494,33 @@ const attendanceSlice = createSlice({
       .addCase(punchIn.fulfilled, (state, action) => {
         state.loading = false;
         state.isPunchedIn = true;
-        state.punchInTime = action.payload.punch_in;
+        state.punchInTime =
+          action.payload.punch_in_time || action.payload.punch_in;
         state.error = null;
-        // Refresh dashboard data after successful punch in
-        // This will be handled in the component
+        state.punchStatus = {
+          ...(state.punchStatus || {}),
+          is_punched_in: true,
+          is_punched_out: false,
+          can_punch_in: false,
+          punch_in_time:
+            action.payload.punch_in_time || action.payload.punch_in,
+          raw_punch_in: action.payload.raw_punch_in,
+          show_timer:
+            action.payload.show_timer !== undefined
+              ? action.payload.show_timer
+              : false,
+          approval_status: action.payload.approval_status || "pending",
+          is_late: action.payload.is_late ?? state.punchStatus?.is_late,
+          late_request: action.payload.approval_status
+            ? {
+                id: action.payload.request_id,
+                status: action.payload.approval_status,
+                reason: state.punchStatus?.late_request?.reason,
+                request_time:
+                  action.payload.punch_in_time || action.payload.punch_in,
+              }
+            : state.punchStatus?.late_request,
+        };
       })
       .addCase(punchIn.rejected, (state, action) => {
         state.loading = false;
@@ -452,5 +599,5 @@ const attendanceSlice = createSlice({
   },
 });
 
-export const { clearAttendanceState } = attendanceSlice.actions;
+export const { clearAttendanceState, setPunchStatus } = attendanceSlice.actions;
 export default attendanceSlice.reducer;
