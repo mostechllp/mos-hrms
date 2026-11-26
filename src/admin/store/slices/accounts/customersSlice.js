@@ -22,6 +22,7 @@ const toBackendAddress = (addr) => {
 };
 
 // Build the shared payload body used by both create & update
+// Build the shared payload body used by both create & update
 const buildCustomerPayload = (customerData) => {
   const currencies = (customerData.currencies || []).map((c) =>
     typeof c === "string" ? c : c.value ?? c.code,
@@ -36,27 +37,23 @@ const buildCustomerPayload = (customerData) => {
     salutation: customerData.salutation || null,
     first_name: customerData.firstName || null,
     last_name: customerData.lastName || null,
-    company_name:
-      customerData.companyName?.trim() ||
-      customerData.displayName?.trim() ||
-      "Unnamed",
+    
+    // ✅ FIX: Only use company name if it exists, otherwise null
+    company_name: customerData.companyName?.trim() || null, 
+    
     display_name: customerData.displayName || null,
     email: customerData.email || null,
     country: customerData.country || null,
     work_phone: customerData.workPhone || null,
     mobile: customerData.mobile || null,
-    // ✅ Correct field name per working request
     gstin_pan: customerData.pan || null,
-    // ✅ Multi-currency fields
     currencies: currencies.length ? currencies : baseCurrency ? [baseCurrency] : [],
     base_currency: baseCurrency,
     exchange_rates: customerData.exchangeRates || {},
-    // ✅ Money / terms
     opening_balance: Number(customerData.openingBalance) || 0,
     payment_terms: customerData.paymentTerms || null,
     receivable_account: customerData.receivableAccount || null,
     portal_access: Boolean(customerData.portalAccess),
-    // ✅ Addresses are OBJECTS (not strings)
     billing_address: toBackendAddress(customerData.billingAddress),
     shipping_address: toBackendAddress(customerData.shippingAddress),
     remarks: customerData.remarks || null,
@@ -275,6 +272,43 @@ export const deleteContactPerson = createAsyncThunk(
       );
     }
   },
+);
+
+export const exportCustomers = createAsyncThunk(
+  "customers/exportCustomers",
+  async (params, { rejectWithValue }) => {
+    try {
+      const { data } = await apiClient.get("/accounts/revenue/customers/export", {
+        params,
+        responseType: "blob", // Important for file downloads
+      });
+      return data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || err.message || "Failed to export customers"
+      );
+    }
+  }
+);
+
+export const importCustomers = createAsyncThunk(
+  "customers/importCustomers",
+  async (formData, { rejectWithValue }) => {
+    try {
+      const { data } = await apiClient.post(
+        "/accounts/revenue/customers/import",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      return data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || err.message || "Failed to import customers"
+      );
+    }
+  }
 );
 
 /* ---------- slice ---------- */

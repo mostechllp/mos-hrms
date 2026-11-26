@@ -8,7 +8,9 @@ import {
   clearError,
   fetchCustomerById,
   clearSelectedCustomer,
-  deleteContactPerson, 
+  deleteContactPerson,
+  exportCustomers,
+  importCustomers,
 } from "../../store/slices/accounts/customersSlice";
 import {
   Plus,
@@ -24,19 +26,20 @@ import {
   X,
   Mail,
   Phone,
-  MapPin,
   CheckCircle2,
   Users,
   Columns,
   Loader2,
   Settings,
-  Paperclip,
   Printer,
   FileText,
 } from "lucide-react";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import CustomizeColumnsModal from "../../../components/common/CustomizeColumnsModal";
 import ContactPersonModal from "../../components/accounts/customers/ContactPersonModal";
+import ExportModal from "../../../components/common/ExportModal";
+import ImportModal from "../../../components/common/ImportModal";
+import { showToast } from "../../../components/common/Toast";
 
 /* ---------- primitives ---------- */
 const Card = ({ children, className = "" }) => (
@@ -135,6 +138,16 @@ const formatDate = (dateStr) => {
   });
 };
 
+const CUSTOMER_IMPORT_COLUMNS = [
+  "Customer Type", "Display Name", "Salutation", "First Name", "Last Name", 
+  "Company Name", "Email", "Country", "Work Phone", "Mobile", "GSTIN / PAN", 
+  "Currency", "Opening Balance", "Payment Terms", "Billing Attention", 
+  "Billing Country", "Billing Street 1", "Billing Street 2", "Billing City", 
+  "Billing State", "Billing Pin Code", "Billing Phone", "Shipping Attention", 
+  "Shipping Country", "Shipping Street 1", "Shipping Street 2", "Shipping City", 
+  "Shipping State", "Shipping Pin Code", "Shipping Phone", "Remarks"
+];
+
 /* ---------- page ---------- */
 const CustomersPage = () => {
   const navigate = useNavigate();
@@ -161,6 +174,10 @@ const CustomersPage = () => {
   // Contact Modal State
   const [contactModal, setContactModal] = useState({ isOpen: false, editId: null });
 
+  // Import/Export Modal State
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(
     ALL_COLUMNS.reduce(
@@ -173,42 +190,35 @@ const CustomersPage = () => {
   );
 
   const [columnOrder, setColumnOrder] = useState(() => {
-  const savedOrder = localStorage.getItem("customersColumnOrder");
-
-  if (savedOrder) {
-    try {
-      const parsed = JSON.parse(savedOrder);
-
-      // Keep newly added columns and remove obsolete IDs.
-      const savedIds = parsed.filter((id) =>
-        ALL_COLUMNS.some((col) => col.id === id)
-      );
-
-      const missingColumns = ALL_COLUMNS
-        .filter((col) => !savedIds.includes(col.id))
-        .map((col) => col.id);
-
-      return [...savedIds, ...missingColumns];
-    } catch {
-      return ALL_COLUMNS.map((col) => col.id);
+    const savedOrder = localStorage.getItem("customersColumnOrder");
+    if (savedOrder) {
+      try {
+        const parsed = JSON.parse(savedOrder);
+        const savedIds = parsed.filter((id) =>
+          ALL_COLUMNS.some((col) => col.id === id)
+        );
+        const missingColumns = ALL_COLUMNS
+          .filter((col) => !savedIds.includes(col.id))
+          .map((col) => col.id);
+        return [...savedIds, ...missingColumns];
+      } catch {
+        return ALL_COLUMNS.map((col) => col.id);
+      }
     }
-  }
+    return ALL_COLUMNS.map((col) => col.id);
+  });
 
-  return ALL_COLUMNS.map((col) => col.id);
-});
+  const orderedColumns = useMemo(() => {
+    return columnOrder
+      .map((id) => ALL_COLUMNS.find((col) => col.id === id))
+      .filter(Boolean);
+  }, [columnOrder]);
 
-const orderedColumns = useMemo(() => {
-  return columnOrder
-    .map((id) => ALL_COLUMNS.find((col) => col.id === id))
-    .filter(Boolean);
-}, [columnOrder]);
-
-const handleReorderColumns = (reorderedColumns) => {
-  const newOrder = reorderedColumns.map((col) => col.id);
-
-  setColumnOrder(newOrder);
-  localStorage.setItem("customersColumnOrder", JSON.stringify(newOrder));
-};
+  const handleReorderColumns = (reorderedColumns) => {
+    const newOrder = reorderedColumns.map((col) => col.id);
+    setColumnOrder(newOrder);
+    localStorage.setItem("customersColumnOrder", JSON.stringify(newOrder));
+  };
 
   const [filters, setFilters] = useState({
     hasCompany: "all",
@@ -218,6 +228,8 @@ const handleReorderColumns = (reorderedColumns) => {
   const [sortBy, setSortBy] = useState("name_asc");
   const [page, setPage] = useState(1);
   const [pageSize] = useState(25);
+
+  
 
   /* ---- fetch on mount + whenever page/search/filters change ---- */
   useEffect(() => {
@@ -277,6 +289,11 @@ const handleReorderColumns = (reorderedColumns) => {
     }
   };
 
+  const handleImportSubmit = async (formData) => {
+      await dispatch(importCustomers(formData)).unwrap();
+      showToast("Customers imported successfully", "success");
+  }
+
   const handleDeleteContactConfirm = async () => {
     if (!deleteContactTarget) return;
     const result = await dispatch(deleteContactPerson({ 
@@ -290,6 +307,42 @@ const handleReorderColumns = (reorderedColumns) => {
       setDeleteContactTarget(null);
     }
   };
+
+ const handleExport = async (format) => {
+  const params = {};
+  if (searchQuery.trim()) params.search = searchQuery.trim();
+  if (filters.currency !== "all") params.currency = filters.currency;
+  if (filters.portalAccess !== "all") params.portal_access = filters.portalAccess === "yes" ? 1 : 0;
+  if (filters.hasCompany !== "all") params.has_company = filters.hasCompany === "yes" ? 1 : 0;
+
+  // format must be xlsx, csv, or pdf
+  params.format = format === "excel" ? "xlsx" : format;
+
+  // ✅ Only for PDF: send the currently visible, ordered column labels
+  if (params.format === "pdf") {
+    params.columns = orderedColumns
+      .filter((col) => visibleColumns[col.id])
+      .map((col) => col.label);
+  }
+
+  const result = await dispatch(exportCustomers(params));
+
+  if (exportCustomers.fulfilled.match(result)) {
+    const blob = new Blob([result.payload], { type: "application/octet-stream" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `customers_export_${new Date().toISOString().split("T")[0]}.${params.format}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+
+    showToast("Export downloaded successfully", "success");
+  } else {
+    showToast(result.payload || "Export failed", "error");
+  }
+};
 
   const toggleColumn = (id) =>
     setVisibleColumns((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -378,10 +431,16 @@ const handleReorderColumns = (reorderedColumns) => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+          <button 
+            onClick={() => setIsImportModalOpen(true)}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+          >
             <Download size={14} /> Import
           </button>
-          <button className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+          <button 
+            onClick={() => setIsExportModalOpen(true)}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+          >
             <Upload size={14} /> Export
           </button>
           <button
@@ -504,249 +563,209 @@ const handleReorderColumns = (reorderedColumns) => {
             <div className="min-w-[1200px] lg:min-w-0">
               <table className="w-full border-collapse">
                 <thead>
-  <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-
-    {orderedColumns
-      .filter((col) => visibleColumns[col.id])
-      .map((col) => (
-        <th
-          key={col.id}
-          className={`px-3 md:px-4 py-2 md:py-3 text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 ${
-            ["receivables", "unusedCredits", "openingBalance"].includes(col.id)
-              ? "text-right"
-              : "text-left"
-          }`}
-        >
-          {col.id === "displayName" ? (
-            <span className="inline-flex items-center gap-1">
-              {col.label}
-              <ArrowUpDown size={11} />
-            </span>
-          ) : (
-            col.label
-          )}
-        </th>
-      ))}
-
-    {/* Fixed Action Column */}
-    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-      Action
-    </th>
-
-  </tr>
-</thead>
+                  <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                    {orderedColumns
+                      .filter((col) => visibleColumns[col.id])
+                      .map((col) => (
+                        <th
+                          key={col.id}
+                          className={`px-3 md:px-4 py-2 md:py-3 text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 ${
+                            ["receivables", "unusedCredits", "openingBalance"].includes(col.id)
+                              ? "text-right"
+                              : "text-left"
+                          }`}
+                        >
+                          {col.id === "displayName" ? (
+                            <span className="inline-flex items-center gap-1">
+                              {col.label}
+                              <ArrowUpDown size={11} />
+                            </span>
+                          ) : (
+                            col.label
+                          )}
+                        </th>
+                      ))}
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
                 <tbody>
-  {loading ? (
-    <tr>
-      <td
-        colSpan={visibleColumnCount}
-        className="py-10 text-center text-gray-500"
-      >
-        <Loader2
-          size={18}
-          className="inline animate-spin mr-2 text-green-500"
-        />
-        Loading…
-      </td>
-    </tr>
-  ) : processedCustomers.length === 0 ? (
-    <tr>
-      <td
-        colSpan={visibleColumnCount}
-        className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
-      >
-        No customers match your filters or search.
-      </td>
-    </tr>
-  ) : (
-    processedCustomers.map((customer) => {
-      const name = getVal(customer, "displayName", "display_name");
-      const companyName = getVal(customer, "companyName", "company_name");
-      const email = customer.email;
-      const phone = getVal(customer, "workPhone", "work_phone");
-      const balance =
-        getVal(customer, "openingBalance", "opening_balance") || 0;
-      const source = customer.source || "Direct";
-      const fName = getVal(customer, "firstName", "first_name");
-      const lName = getVal(customer, "lastName", "last_name");
-      const salutation = customer.salutation;
-      const cType = getVal(customer, "customerType", "customer_type");
-      const mobile = customer.mobile;
-      const pan =
-        getVal(customer, "pan", "pan") ||
-        getVal(customer, "gstinPan", "gstin_pan");
-      const curr = getVal(customer, "baseCurrency", "base_currency");
-      const terms = getVal(customer, "paymentTerms", "payment_terms");
-      const isPortal = getVal(customer, "portalAccess", "portal_access");
-      const recAcc = getVal(
-        customer,
-        "receivableAccount",
-        "receivable_account"
-      );
-      const cAt = getVal(customer, "createdAt", "created_at");
+                  {loading ? (
+                    <tr>
+                      <td
+                        colSpan={visibleColumnCount}
+                        className="py-10 text-center text-gray-500"
+                      >
+                        <Loader2
+                          size={18}
+                          className="inline animate-spin mr-2 text-green-500"
+                        />
+                        Loading…
+                      </td>
+                    </tr>
+                  ) : processedCustomers.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={visibleColumnCount}
+                        className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                      >
+                        No customers match your filters or search.
+                      </td>
+                    </tr>
+                  ) : (
+                    processedCustomers.map((customer) => {
+                      const name = getVal(customer, "displayName", "display_name");
+                      const companyName = getVal(customer, "companyName", "company_name");
+                      const email = customer.email;
+                      const phone = getVal(customer, "workPhone", "work_phone");
+                      const balance = getVal(customer, "openingBalance", "opening_balance") || 0;
+                      const source = customer.source || "Direct";
+                      const fName = getVal(customer, "firstName", "first_name");
+                      const lName = getVal(customer, "lastName", "last_name");
+                      const salutation = customer.salutation;
+                      const cType = getVal(customer, "customerType", "customer_type");
+                      const mobile = customer.mobile;
+                      const pan = getVal(customer, "pan", "pan") || getVal(customer, "gstinPan", "gstin_pan");
+                      const curr = getVal(customer, "baseCurrency", "base_currency");
+                      const terms = getVal(customer, "paymentTerms", "payment_terms");
+                      const isPortal = getVal(customer, "portalAccess", "portal_access");
+                      const recAcc = getVal(customer, "receivableAccount", "receivable_account");
+                      const cAt = getVal(customer, "createdAt", "created_at");
 
-      const emptyValue = (
-        <span className="text-gray-300 dark:text-gray-600">—</span>
-      );
+                      const emptyValue = (
+                        <span className="text-gray-300 dark:text-gray-600">—</span>
+                      );
 
-      const cellClass =
-        "px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap";
+                      const cellClass =
+                        "px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap";
 
-      const renderCell = (columnId) => {
-        switch (columnId) {
-          case "displayName":
-            return (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleViewCustomer(customer);
-                }}
-                className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline"
-              >
-                {name || emptyValue}
-              </button>
-            );
+                      const renderCell = (columnId) => {
+                        switch (columnId) {
+                          case "displayName":
+                            return (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewCustomer(customer);
+                                }}
+                                className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline"
+                              >
+                                {name || emptyValue}
+                              </button>
+                            );
+                          case "companyName":
+                            return companyName || emptyValue;
+                          case "email":
+                            return email || emptyValue;
+                          case "workPhone":
+                            return phone || emptyValue;
+                          case "receivables":
+                          case "openingBalance":
+                            return (
+                              <>
+                                {getCurrencySymbol(curr)}
+                                {Number(balance).toFixed(2)}
+                              </>
+                            );
+                          case "unusedCredits":
+                            return <>{getCurrencySymbol(curr)}0.00</>;
+                          case "source":
+                            return source;
+                          case "firstName":
+                            return fName || emptyValue;
+                          case "lastName":
+                            return lName || emptyValue;
+                          case "salutation":
+                            return salutation || emptyValue;
+                          case "customerType":
+                            return cType || emptyValue;
+                          case "mobile":
+                            return mobile || emptyValue;
+                          case "pan":
+                            return pan || emptyValue;
+                          case "currency":
+                            return curr || emptyValue;
+                          case "paymentTerms":
+                            return terms || emptyValue;
+                          case "portalAccess":
+                            return isPortal ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                Enabled
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                Disabled
+                              </span>
+                            );
+                          case "receivableAccount":
+                            return recAcc || emptyValue;
+                          case "createdAt":
+                            return cAt ? formatDate(cAt) : emptyValue;
+                          default:
+                            return emptyValue;
+                        }
+                      };
 
-          case "companyName":
-            return companyName || emptyValue;
-
-          case "email":
-            return email || emptyValue;
-
-          case "workPhone":
-            return phone || emptyValue;
-
-          case "receivables":
-          case "openingBalance":
-            return (
-              <>
-                {getCurrencySymbol(curr)}
-                {Number(balance).toFixed(2)}
-              </>
-            );
-
-          case "unusedCredits":
-            return (
-              <>
-                {getCurrencySymbol(curr)}0.00
-              </>
-            );
-
-          case "source":
-            return source;
-
-          case "firstName":
-            return fName || emptyValue;
-
-          case "lastName":
-            return lName || emptyValue;
-
-          case "salutation":
-            return salutation || emptyValue;
-
-          case "customerType":
-            return cType || emptyValue;
-
-          case "mobile":
-            return mobile || emptyValue;
-
-          case "pan":
-            return pan || emptyValue;
-
-          case "currency":
-            return curr || emptyValue;
-
-          case "paymentTerms":
-            return terms || emptyValue;
-
-          case "portalAccess":
-            return isPortal ? (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                Enabled
-              </span>
-            ) : (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                Disabled
-              </span>
-            );
-
-          case "receivableAccount":
-            return recAcc || emptyValue;
-
-          case "createdAt":
-            return cAt ? formatDate(cAt) : emptyValue;
-
-          default:
-            return emptyValue;
-        }
-      };
-
-      return (
-        <tr
-          key={customer.id}
-          onClick={() => handleViewCustomer(customer)}
-          className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
-        >
-          {/* Dynamic Columns */}
-          {orderedColumns
-            .filter((col) => visibleColumns[col.id])
-            .map((col) => (
-              <td
-                key={col.id}
-                className={`${cellClass} ${
-                  ["receivables", "unusedCredits", "openingBalance"].includes(
-                    col.id
-                  )
-                    ? "text-right tabular-nums"
-                    : ""
-                } ${
-                  col.id === "displayName"
-                    ? "font-semibold text-gray-800 dark:text-gray-200"
-                    : ""
-                }`}
-              >
-                {renderCell(col.id)}
-              </td>
-            ))}
-
-          {/* Fixed Action Column */}
-          <td
-            className="px-3 md:px-4 py-2 md:py-3 text-right"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-end gap-1">
-              <IconAction
-                icon={Eye}
-                label="View"
-                tone="primary"
-                onClick={() => handleViewCustomer(customer)}
-              />
-
-              <IconAction
-                icon={Edit2}
-                label="Edit"
-                tone="warning"
-                onClick={() =>
-                  navigate(
-                    `/admin/accounts/sales/customers/edit/${customer.id}`
-                  )
-                }
-              />
-
-              <IconAction
-                icon={Trash2}
-                label="Delete"
-                tone="danger"
-                onClick={() => setDeleteTarget(customer)}
-              />
-            </div>
-          </td>
-        </tr>
-      );
-    })
-  )}
-</tbody>
+                      return (
+                        <tr
+                          key={customer.id}
+                          onClick={() => handleViewCustomer(customer)}
+                          className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
+                        >
+                          {orderedColumns
+                            .filter((col) => visibleColumns[col.id])
+                            .map((col) => (
+                              <td
+                                key={col.id}
+                                className={`${cellClass} ${
+                                  ["receivables", "unusedCredits", "openingBalance"].includes(col.id)
+                                    ? "text-right tabular-nums"
+                                    : ""
+                                } ${
+                                  col.id === "displayName"
+                                    ? "font-semibold text-gray-800 dark:text-gray-200"
+                                    : ""
+                                }`}
+                              >
+                                {renderCell(col.id)}
+                              </td>
+                            ))}
+                          <td
+                            className="px-3 md:px-4 py-2 md:py-3 text-right"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              <IconAction
+                                icon={Eye}
+                                label="View"
+                                tone="primary"
+                                onClick={() => handleViewCustomer(customer)}
+                              />
+                              <IconAction
+                                icon={Edit2}
+                                label="Edit"
+                                tone="warning"
+                                onClick={() =>
+                                  navigate(
+                                    `/admin/accounts/sales/customers/edit/${customer.id}`
+                                  )
+                                }
+                              />
+                              <IconAction
+                                icon={Trash2}
+                                label="Delete"
+                                tone="danger"
+                                onClick={() => setDeleteTarget(customer)}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
               </table>
             </div>
           </div>
@@ -782,13 +801,13 @@ const handleReorderColumns = (reorderedColumns) => {
       )}
 
       <CustomizeColumnsModal
-  isOpen={isColumnModalOpen}
-  onClose={() => setIsColumnModalOpen(false)}
-  columns={orderedColumns}
-  visibleColumns={visibleColumns}
-  onToggleColumn={toggleColumn}
-  onReorderColumns={handleReorderColumns}
-/>
+        isOpen={isColumnModalOpen}
+        onClose={() => setIsColumnModalOpen(false)}
+        columns={orderedColumns}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onReorderColumns={handleReorderColumns}
+      />
 
       {/* DRAWER WITH TABS */}
       {isDrawerOpen && selectedCustomer && (
@@ -801,7 +820,6 @@ const handleReorderColumns = (reorderedColumns) => {
             }}
           />
           <aside className="fixed top-0 right-0 h-full w-full md:w-1/2 lg:w-[50%] xl:w-[45%] bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col border-l border-gray-200 dark:border-gray-700 animate-slide-in">
-            
             {/* Drawer Header */}
             <div className="px-5 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
               <div className="flex items-start justify-between gap-3">
@@ -837,29 +855,6 @@ const handleReorderColumns = (reorderedColumns) => {
                   </button>
                 </div>
               </div>
-
-              {/* Tabs */}
-              {/* <div className="flex items-center gap-6 mt-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-                {[
-                  { id: "overview", label: "Overview" },
-                  { id: "comments", label: "Comments" },
-                  { id: "transactions", label: "Transactions" },
-                  { id: "mails", label: "Mails" },
-                  { id: "statement", label: "Statement" },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
-                      activeTab === tab.id
-                        ? "text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400"
-                        : "text-gray-500 border-transparent hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div> */}
             </div>
 
             {/* Tab content wrapper */}
@@ -870,7 +865,6 @@ const handleReorderColumns = (reorderedColumns) => {
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 py-6 px-5 sm:px-6">
-                
                 {/* 1. OVERVIEW TAB */}
                 {activeTab === "overview" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
@@ -893,20 +887,12 @@ const handleReorderColumns = (reorderedColumns) => {
                             )}
                           </div>
                         </div>
-                        {/* {(getVal(selectedCustomer, "portalAccess", "portal_access") !== undefined) && (
-                          <button className="text-xs text-blue-500 hover:underline mt-1 block">
-                            Invite to Portal
-                          </button>
-                        )} */}
                       </div>
 
                       {/* Address */}
                       <div>
                         <div className="flex items-center justify-between mb-3 border-b border-gray-200 dark:border-gray-700 pb-1">
                           <SectionLabel className="mb-0">Address</SectionLabel>
-                          {/* <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                            <Edit2 size={13} />
-                          </button> */}
                         </div>
                         
                         <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
@@ -942,9 +928,6 @@ const handleReorderColumns = (reorderedColumns) => {
                             ) : <p className="text-gray-400">No shipping address</p>}
                           </div>
                         </div>
-                        {/* <button className="text-xs text-blue-500 hover:underline mt-2">
-                          Add additional address
-                        </button> */}
                       </div>
 
                       {/* Contact Persons */}
@@ -965,7 +948,6 @@ const handleReorderColumns = (reorderedColumns) => {
                           <div className="space-y-3 max-h-64 overflow-y-auto pr-1 pb-2">
                             {selectedCustomer.contact_persons.map(cp => (
                               <div key={cp.id} className="relative group text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 rounded-lg hover:shadow-sm transition-all">
-                                
                                 {/* Hover Actions */}
                                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-white dark:bg-gray-800 pl-1">
                                   <button 
@@ -1073,9 +1055,6 @@ const handleReorderColumns = (reorderedColumns) => {
                             </tbody>
                           </table>
                         </div>
-                        {/* <button className="text-xs text-blue-500 hover:underline mt-2">
-                          Enter Opening Balance
-                        </button> */}
                       </div>
 
                       {/* Record Info */}
@@ -1171,8 +1150,6 @@ const handleReorderColumns = (reorderedColumns) => {
 
                     {/* Statement Preview */}
                     <div className="bg-white dark:bg-gray-800 p-8 border border-gray-200 dark:border-gray-700 shadow-sm mx-auto max-w-3xl relative">
-                      
-
                       <div className="text-center mb-8 pt-4">
                         <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
                           Customer Statement for {getVal(selectedCustomer, "displayName", "display_name")}
@@ -1286,11 +1263,9 @@ const handleReorderColumns = (reorderedColumns) => {
                           </span>
                         </div>
                       </div>
-
                     </div>
                   </div>
                 )}
-
               </div>
             )}
           </aside>
@@ -1304,6 +1279,32 @@ const handleReorderColumns = (reorderedColumns) => {
         customerId={selectedCustomer?.id}
         editId={contactModal.editId}
         salutations={formOptions.salutations || []}
+      />
+
+      {/* IMPORT MODAL */}
+      <ImportModal 
+        isOpen={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)} 
+        onImport={handleImportSubmit}
+        title="Import Customers"
+        subtitle="Upload a spreadsheet to bulk-import customers."
+        expectedColumns={CUSTOMER_IMPORT_COLUMNS}
+        onSuccess={() => {
+           // Refresh the list after successful import
+           dispatch(fetchCustomers({ page, per_page: pageSize }));
+        }}
+      />
+
+      {/* EXPORT MODAL */}
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExport={handleExport}
+        title="Export Customers"
+        subtitle="Download your customer list"
+        totalRecords={totalCustomers}
+        formats={["csv", "xlsx", "pdf"]}
+        defaultFormat="csv"
       />
 
       {/* CONFIRM DELETE CUSTOMER */}
