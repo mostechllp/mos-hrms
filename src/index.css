@@ -949,7 +949,7 @@ i.text-green-600 {
   background-color: color-mix(in srgb, var(--primary-color) 20%, transparent) !important;
 }
 
-/* Optional: Change the icon color to match the theme color when active */
+/* Change this rule 👇 */
 .sidebar-active i {
-  color: var(--primary-color) !important;
+  color: #ffffff !important; 
 }

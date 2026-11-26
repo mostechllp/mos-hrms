@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import logo from "../../../public/fav-light.png"
+import { useMenuVisibility } from "../../context/MenuVisibilityContext";
 
 const ADMIN_ROUTE_MAP = {
   dashboard: "/admin/dashboard",
@@ -157,6 +158,7 @@ const ICON_MAP = {
   operations: "fas fa-layer-group",
   accountant: "fas fa-sliders",
   "accounts-reports": "fas fa-chart-line",
+  "accounts-settings": "fas fa-sliders",
   
   // Accounts (Level 2 & 3 Leaves)
   items: "fas fa-cubes",
@@ -171,6 +173,25 @@ const ICON_MAP = {
   // Operations Sub-items
   "time-projects": "fas fa-diagram-project",
   "time-timesheet": "fas fa-clock-rotate-left",
+
+  "sales-customers": "fas fa-user-tie",
+  "sales-quotes": "fas fa-file-signature",
+  "sales-orders": "fas fa-shopping-cart",
+  "sales-invoices": "fas fa-file-invoice",
+  "sales-recurring": "fas fa-sync-alt",
+  "sales-challans": "fas fa-truck",
+  "sales-payments": "fas fa-hand-holding-usd",
+  "sales-credits": "fas fa-undo-alt",
+
+  // Accounts - Spend (Purchases)
+  "purchases-vendors": "fas fa-store",
+  "purchases-orders": "fas fa-clipboard-list",
+  "purchases-bills": "fas fa-file-invoice-dollar",
+  "purchases-recurring-bills": "fas fa-calendar-alt",
+  "purchases-expenses": "fas fa-receipt",
+  "purchases-recurring": "fas fa-redo-alt",
+  "purchases-payments": "fas fa-money-bill-wave",
+  "purchases-credits": "fas fa-file-export",
 
   subscriptions: "fas fa-arrows-rotate",
   "subscriptions-plans": "fas fa-layer-group",
@@ -213,12 +234,12 @@ const PARENT_MENU_CONFIG = {
         children: [
           { slug: "sales-customers", label: "Customers", path: "/admin/accounts/sales/customers", employeePath: "/employee/accounts/sales/customers" },
           { slug: "sales-quotes", label: "Quotes", path: "/admin/accounts/sales/quotes", employeePath: "/employee/accounts/sales/quotes" },
-          { slug: "sales-orders", label: "Order Forms", path: "/admin/accounts/sales/orders", employeePath: "/employee/accounts/sales/orders" },
+          { slug: "sales-orders", label: "Sales Orders", path: "/admin/accounts/sales/orders", employeePath: "/employee/accounts/sales/orders" },
           { slug: "sales-invoices", label: "Invoices", path: "/admin/accounts/sales/invoices", employeePath: "/employee/accounts/sales/invoices" },
-          { slug: "sales-recurring", label: "Subscriptions", path: "/admin/accounts/sales/recurring", employeePath: "/employee/accounts/sales/recurring" },
+          { slug: "sales-recurring", label: "Recurring Invoices", path: "/admin/accounts/sales/recurring", employeePath: "/employee/accounts/sales/recurring" },
           { slug: "sales-challans", label: "Delivery Challans", path: "/admin/accounts/sales/challans", employeePath: "/employee/accounts/sales/challans" },
-          { slug: "sales-payments", label: "Incoming Payments", path: "/admin/accounts/sales/payments", employeePath: "/employee/accounts/sales/payments" },
-          { slug: "sales-credits", label: "Customer Credits", path: "/admin/accounts/sales/credit-notes", employeePath: "/employee/accounts/sales/credit-notes" },
+          { slug: "sales-payments", label: "Payments Received", path: "/admin/accounts/sales/payments", employeePath: "/employee/accounts/sales/payments" },
+          { slug: "sales-credits", label: "Credit Notes", path: "/admin/accounts/sales/credit-notes", employeePath: "/employee/accounts/sales/credit-notes" },
         ],
       },
       {
@@ -233,7 +254,7 @@ const PARENT_MENU_CONFIG = {
           { slug: "purchases-recurring-bills", label: "Recurring Bills", path: "/admin/accounts/purchases/recurring-bills", employeePath: "/employee/accounts/purchases/recurring-bills" },
           { slug: "purchases-expenses", label: "Expenses", path: "/admin/accounts/purchases/expenses", employeePath: "/employee/accounts/purchases/expenses" },
           { slug: "purchases-recurring", label: "Recurring Expenses", path: "/admin/accounts/purchases/recurring-expenses", employeePath: "/employee/accounts/purchases/recurring-expenses" },
-          { slug: "purchases-payments", label: "Outgoing Payments", path: "/admin/accounts/purchases/payments-made", employeePath: "/employee/accounts/purchases/payments-made" },
+          { slug: "purchases-payments", label: "Payments Made", path: "/admin/accounts/purchases/payments-made", employeePath: "/employee/accounts/purchases/payments-made" },
           { slug: "purchases-credits", label: "Vendor Credits", path: "/admin/accounts/purchases/vendor-credits", employeePath: "/employee/accounts/purchases/vendor-credits" },
         ],
       },
@@ -262,7 +283,7 @@ const PARENT_MENU_CONFIG = {
               { slug: "time-timesheet", label: "Timesheets", path: "/admin/accounts/time-tracking/timesheet", employeePath: "/employee/accounts/time-tracking/timesheet" },
             ],
           },
-          { slug: "items", label: "Catalogue", path: "/admin/accounts/items", employeePath: "/employee/accounts/items" },
+          { slug: "items", label: "Items", path: "/admin/accounts/items", employeePath: "/employee/accounts/items" },
           { slug: "account-documents", label: "Documents", path: "/admin/accounts/documents", employeePath: "/employee/accounts/documents" },
         ],
       },
@@ -276,11 +297,17 @@ const PARENT_MENU_CONFIG = {
           { slug: "acc-journals", label: "Manual Journals", path: "/admin/accounts/accountant/manual-journals", employeePath: "/employee/accounts/accountant/manual-journals" },
           { slug: "acc-currency", label: "Currency Adjustments", path: "/admin/accounts/accountant/currency-adjustments", employeePath: "/employee/accounts/accountant/currency-adjustments" },
           { slug: "acc-budgets", label: "Budgets", path: "/admin/accounts/accountant/budgets", employeePath: "/employee/accounts/accountant/budgets" },
-          { slug: "acc-locking", label: "Period Locking", path: "/admin/accounts/accountant/transaction-locking", employeePath: "/employee/accounts/accountant/transaction-locking" },
-          { slug: "acc-bulk", label: "Bulk Reclassify", path: "/admin/accounts/accountant/bulk-update", employeePath: "/employee/accounts/accountant/bulk-update" },
+          { slug: "acc-locking", label: "Transaction locking", path: "/admin/accounts/accountant/transaction-locking", employeePath: "/employee/accounts/accountant/transaction-locking" },
+          { slug: "acc-bulk", label: "Bulk Update", path: "/admin/accounts/accountant/bulk-update", employeePath: "/employee/accounts/accountant/bulk-update" },
         ],
       },
       { slug: "accounts-reports", label: "Reports", path: "/admin/accounts/reports", employeePath: "/employee/accounts/reports" },
+      { 
+        slug: "accounts-settings", 
+        label: "Menu Settings", 
+        path: "/admin/accounts/settings", 
+        employeePath: "/employee/accounts/settings" 
+      },
     ],
     order: 25,
   },
@@ -334,6 +361,7 @@ const Sidebar = ({
   const [expandedMenus, setExpandedMenus] = useState({});
   const location = useLocation();
   const { user } = useSelector((state) => state.auth);
+  const { isMenuVisible } = useMenuVisibility(); // <-- Hook into context
 
   useEffect(() => {
     if (isMobile) setMobileOpen(false);
@@ -387,18 +415,36 @@ const Sidebar = ({
       if (!canAccessParent(config)) return;
 
       const mapChildren = (children) =>
-        children.map((child) => {
-          const isAccordion = child.children && child.children.length > 0;
-          return {
-            slug: child.slug,
-            label: child.label,
-            path: isAccordion ? "#" : isAdmin ? child.path : child.employeePath,
-            icon: ICON_MAP[child.slug] || "fas fa-circle",
-            children: isAccordion ? mapChildren(child.children) : null,
-          };
-        });
+        children
+          .filter((child) => {
+            // 🌟 CUSTOM FILTER LOGIC 🌟
+            // If this is the Accounts parent, check if the child is hidden in settings
+            if (parentKey === "accounts") {
+              if (child.slug === "accounts-settings") return true;
+              return isMenuVisible(child.slug);
+            }
+            // For other parents (CRM, Subscriptions), keep them as they are
+            return true; 
+          })
+          .map((child) => {
+            const isAccordion = child.children && child.children.length > 0;
+            return {
+              slug: child.slug,
+              label: child.label,
+              path: isAccordion ? "#" : isAdmin ? child.path : child.employeePath,
+              icon: ICON_MAP[child.slug] || "fas fa-circle",
+              // Also filter nested children if needed (e.g., inside "sales" or "purchases")
+              children: isAccordion 
+                ? mapChildren(child.children) 
+                : null,
+            };
+          });
 
       const children = mapChildren(config.children);
+      
+      // If all children are hidden, don't show the parent (optional, but good UX)
+      if (children.length === 0) return;
+
       const isActive = children.some(
         (child) =>
           location.pathname === child.path ||
@@ -449,7 +495,7 @@ const Sidebar = ({
     return allItems;
   };
 
-  const navItems = buildNavItems();
+   const navItems = buildNavItems();
 
   const toggleMenu = (slug) => {
     setExpandedMenus((prev) => ({ ...prev, [slug]: !prev[slug] }));

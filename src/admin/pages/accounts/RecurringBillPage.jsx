@@ -1,32 +1,36 @@
 // src/admin/pages/accounts/RecurringBillsPage.jsx
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { deleteRecurringBill } from "../../store/slices/accounts/recurringBillsSlice";
 import {
-  Plus, MoreHorizontal, ChevronDown, CheckCircle2, FileText,
+  Plus, ChevronDown, CheckCircle2, FileText,
   Edit2, X, ArrowRight, RefreshCw, Eye, Trash2,
-  Search, Filter, ArrowUpDown, Repeat,
+  Search, ArrowUpDown, Repeat,
+  Columns,
 } from "lucide-react";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import CustomizeColumnsModal from "../../../components/common/CustomizeColumnsModal";
 
 /* ---------- primitives ---------- */
 
-const GhostBtn = ({ children, className = "", ...props }) => (
-  <button
-    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs md:text-sm font-medium text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${className}`}
-    {...props}
-  >
-    {children}
-  </button>
-);
+const ALL_COLUMNS = [
+  { id: "profileName", label: "Profile name", locked: true },
+  { id: "vendor", label: "Vendor" },
+  { id: "status", label: "Status" },
+  { id: "nextBillDate", label: "Next bill date" },
+  { id: "repeatEvery", label: "Recurring period" },
+  { id: "total", label: "Amount" },
+];
 
-const MenuItem = ({ icon: Icon, label }) => (
-  <button className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs md:text-[12.5px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
-    <Icon size={14} className="text-gray-400" />
-    <span className="flex-1 text-left">{label}</span>
-  </button>
-);
+const SORT_OPTIONS = [
+  { value: "name_asc", label: "Name A–Z" },
+  { value: "name_desc", label: "Name Z–A" },
+  { value: "date_asc", label: "Next Bill (Soonest)" },
+  { value: "date_desc", label: "Next Bill (Latest)" },
+  { value: "amount_desc", label: "Highest Amount" },
+  { value: "amount_asc", label: "Lowest Amount" },
+];
 
 const Card = ({ children, className = "" }) => (
   <div
@@ -44,23 +48,19 @@ const SectionLabel = ({ children }) => (
 
 const IconAction = ({ icon: Icon, label, onClick, tone = "default" }) => {
   const tones = {
-    default:
-      "text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700",
-    danger:
-      "text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20",
-    primary:
-      "text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20",
-    warning:
-      "text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20",
+    default: "text-gray-400 hover:text-gray-900 hover:bg-gray-100 dark:hover:text-gray-100 dark:hover:bg-gray-700",
+    danger: "text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30",
+    primary: "text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/30",
+    warning: "text-orange-500 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-900/30",
   };
   return (
     <button
       onClick={onClick}
       title={label}
       aria-label={label}
-      className={`p-1.5 rounded-lg transition-colors ${tones[tone]}`}
+      className={`p-2 rounded-full transition-all duration-200 ${tones[tone]}`}
     >
-      <Icon size={14} />
+      <Icon size={15} />
     </button>
   );
 };
@@ -113,29 +113,57 @@ const RecurringBillsPage = () => {
   const dispatch = useDispatch();
   const bills = useSelector((s) => s.recurringBills.recurringBills) || [];
 
+  // UI State
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedBill, setSelectedBill] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
   const [activeTab, setActiveTab] = useState("Overview");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const menuRef = useRef(null);
 
-  useEffect(() => {
-    const onDoc = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target))
-        setShowMoreMenu(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
+  // Filter & Sort State
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name_asc");
 
-  const filteredBills = bills.filter(
-    (b) =>
-      b.profileName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.vendor?.toLowerCase().includes(searchQuery.toLowerCase())
+  // Column Customization State
+  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(
+    ALL_COLUMNS.reduce((acc, col) => ({ ...acc, [col.id]: true }), {})
   );
+
+  const toggleColumn = (id) => {
+    setVisibleColumns((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Filtering & Sorting Logic
+  const processedBills = useMemo(() => {
+    let result = bills.filter((b) => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        b.profileName?.toLowerCase().includes(q) ||
+        b.vendor?.toLowerCase().includes(q);
+
+      const matchesStatus = statusFilter === "all" || b.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+
+    result.sort((a, b) => {
+      if (sortBy === "name_asc")
+        return (a.profileName || "").localeCompare(b.profileName || "");
+      if (sortBy === "name_desc")
+        return (b.profileName || "").localeCompare(a.profileName || "");
+      if (sortBy === "date_asc")
+        return new Date(a.nextBillDate || 0) - new Date(b.nextBillDate || 0);
+      if (sortBy === "date_desc")
+        return new Date(b.nextBillDate || 0) - new Date(a.nextBillDate || 0);
+      if (sortBy === "amount_desc") return b.total - a.total;
+      if (sortBy === "amount_asc") return a.total - b.total;
+      return 0;
+    });
+
+    return result;
+  }, [bills, searchQuery, statusFilter, sortBy]);
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
@@ -167,8 +195,10 @@ const RecurringBillsPage = () => {
   const stopped = bills.filter((b) => b.status === "Stopped").length;
   const drafts = bills.filter((b) => b.status === "Draft").length;
 
+  const hasActiveFilters = statusFilter !== "all";
+
   return (
-    <div className="w-full overflow-x-hidden">
+    <div className="w-full overflow-x-hidden px-2 md:px-4">
       {/* ---- Stats Cards ---- */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
         <MiniStat label="Total Profiles" value={total} icon="fas fa-repeat" color="green" />
@@ -197,23 +227,6 @@ const RecurringBillsPage = () => {
           >
             <Plus size={14} /> New Profile
           </button>
-
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setShowMoreMenu((v) => !v)}
-              className="inline-flex items-center justify-center px-2.5 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-              aria-label="More options"
-            >
-              <MoreHorizontal size={16} />
-            </button>
-
-            {showMoreMenu && (
-              <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-30 py-1.5 overflow-hidden">
-                <MenuItem icon={ArrowUpDown} label="Sort by" />
-                <MenuItem icon={RefreshCw} label="Refresh list" />
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
@@ -222,23 +235,13 @@ const RecurringBillsPage = () => {
         <EmptyState onCreate={() => navigate("/admin/accounts/purchases/recurring-bills/new")} />
       ) : (
         <Card className="overflow-hidden">
-          {/* Toolbar */}
-          <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-gray-700">
-            <GhostBtn title="Filter" className="!px-2">
-              <Filter size={15} />
-            </GhostBtn>
-            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
-            <input
-              type="checkbox"
-              className="rounded border-gray-300 dark:border-gray-600 text-green-500 focus:ring-green-400"
-              aria-label="Select all"
-            />
 
-            <div className="relative ml-auto w-full sm:w-64">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+          {/* 🌟 UNIFIED TOOLBAR ROW 🌟 */}
+          <div className="flex flex-wrap items-center gap-3 px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+
+            {/* Search */}
+            <div className="relative w-full sm:w-56">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search profiles…"
@@ -247,6 +250,54 @@ const RecurringBillsPage = () => {
                 className="w-full pl-9 pr-3 py-1.5 text-xs md:text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-full text-gray-700 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition"
               />
             </div>
+
+            <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+
+            <button
+              onClick={() => setIsColumnModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+            >
+              <Columns size={15} />
+              <span className="hidden md:inline">Columns</span>
+            </button>
+
+            <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+
+            {/* Inline Filters & Sort */}
+            <div className="flex flex-wrap items-center gap-2 flex-1">
+
+              {/* Sort By */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full px-3 py-1 text-xs text-gray-700 dark:text-gray-200 outline-none focus:border-green-400 cursor-pointer font-medium"
+              >
+                {SORT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+
+              {/* Status Filter */}
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full px-3 py-1 text-xs text-gray-700 dark:text-gray-200 outline-none focus:border-green-400 cursor-pointer"
+              >
+                <option value="all">Status: Any</option>
+                <option value="Active">Active</option>
+                <option value="Stopped">Stopped</option>
+                <option value="Draft">Draft</option>
+              </select>
+
+              {hasActiveFilters && (
+                <button
+                  onClick={() => setStatusFilter("all")}
+                  className="text-xs text-red-500 hover:text-red-600 hover:underline font-medium ml-1"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -254,45 +305,44 @@ const RecurringBillsPage = () => {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                    <th className="w-10 px-4 sm:px-5 py-2 md:py-3"></th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      <span className="inline-flex items-center gap-1 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
-                        Profile name <ArrowUpDown size={11} />
-                      </span>
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Vendor
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Status
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Next bill date
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Recurring period
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Amount
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Action
-                    </th>
+                    {visibleColumns.profileName && (
+                      <th className="px-4 md:px-5 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                        <span className="inline-flex items-center gap-1 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                          Profile name <ArrowUpDown size={11} />
+                        </span>
+                      </th>
+                    )}
+                    {visibleColumns.vendor && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Vendor</th>
+                    )}
+                    {visibleColumns.status && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Status</th>
+                    )}
+                    {visibleColumns.nextBillDate && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Next bill date</th>
+                    )}
+                    {visibleColumns.repeatEvery && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Recurring period</th>
+                    )}
+                    {visibleColumns.total && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Amount</th>
+                    )}
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Action</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {filteredBills.length === 0 ? (
+                  {processedBills.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={7}
                         className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                       >
-                        No profiles match "{searchQuery}"
+                        No profiles match your filters or search.
                       </td>
                     </tr>
                   ) : (
-                    filteredBills.map((bill) => (
+                    processedBills.map((bill) => (
                       <tr
                         key={bill.id}
                         onClick={() => {
@@ -301,49 +351,53 @@ const RecurringBillsPage = () => {
                         }}
                         className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
                       >
-                        <td
-                          className="px-3 md:px-4 py-2 md:py-3"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="checkbox"
-                            className="rounded border-gray-300 dark:border-gray-600 text-green-500 focus:ring-green-400"
-                            aria-label={`Select ${bill.profileName}`}
-                          />
-                        </td>
+                        {visibleColumns.profileName && (
+                          <td className="px-4 md:px-5 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedBill(bill);
+                                setActiveTab("Overview");
+                              }}
+                              className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
+                            >
+                              {bill.profileName}
+                            </button>
+                          </td>
+                        )}
 
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedBill(bill);
-                              setActiveTab("Overview");
-                            }}
-                            className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
-                          >
-                            {bill.profileName}
-                          </button>
-                        </td>
+                        {visibleColumns.vendor && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                            {bill.vendor}
+                          </td>
+                        )}
 
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          {bill.vendor}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3">
-                          <StatusPill status={bill.status} />
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {bill.nextBillDate || (
-                            <span className="text-gray-300 dark:text-gray-600">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {bill.repeatEvery}ly
-                        </td>
+                        {visibleColumns.status && (
+                          <td className="px-3 md:px-4 py-2 md:py-3">
+                            <StatusPill status={bill.status} />
+                          </td>
+                        )}
 
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
-                          ₹{Number(bill.total).toFixed(2)}
-                        </td>
+                        {visibleColumns.nextBillDate && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                            {bill.nextBillDate || (
+                              <span className="text-gray-300 dark:text-gray-600">—</span>
+                            )}
+                          </td>
+                        )}
+
+                        {visibleColumns.repeatEvery && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                            {bill.repeatEvery}ly
+                          </td>
+                        )}
+
+                        {visibleColumns.total && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
+                            ₹{Number(bill.total).toFixed(2)}
+                          </td>
+                        )}
 
                         <td
                           className="px-3 md:px-4 py-2 md:py-3 text-right"
@@ -384,6 +438,15 @@ const RecurringBillsPage = () => {
           </div>
         </Card>
       )}
+
+      {/* 🌟 REUSABLE CUSTOMIZE COLUMNS MODAL 🌟 */}
+      <CustomizeColumnsModal
+        isOpen={isColumnModalOpen}
+        onClose={() => setIsColumnModalOpen(false)}
+        columns={ALL_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+      />
 
       {/* ---- Drawer ---- */}
       {selectedBill && (

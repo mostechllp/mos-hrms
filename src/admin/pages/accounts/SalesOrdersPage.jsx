@@ -1,32 +1,34 @@
 // src/admin/pages/accounts/SalesOrdersPage.jsx
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { updateOrderStatus, deleteOrder } from "../../store/slices/accounts/salesOrdersSlice";
 import {
-  Plus, MoreHorizontal, ArrowUpDown, Download, Upload,
-  Settings, Search, Filter,
+  Plus, ArrowUpDown, Download, Upload,
+  Settings, Search,
   Eye, Edit2, Trash2, X, Mail, Printer, CheckCircle2, Package,
+  Columns,
 } from "lucide-react";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import CustomizeColumnsModal from "../../../components/common/CustomizeColumnsModal";
 
 /* ---------- primitives ---------- */
 
-const GhostBtn = ({ children, className = "", ...props }) => (
-  <button
-    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs md:text-sm font-medium text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${className}`}
-    {...props}
-  >
-    {children}
-  </button>
-);
+const ALL_COLUMNS = [
+  { id: "orderNumber", label: "Order #", locked: true },
+  { id: "customerName", label: "Customer" },
+  { id: "orderDate", label: "Order date" },
+  { id: "expectedShipmentDate", label: "Shipment" },
+  { id: "total", label: "Amount" },
+  { id: "status", label: "Status" },
+];
 
-const MenuItem = ({ icon: Icon, label }) => (
-  <button className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs md:text-[12.5px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
-    <Icon size={14} className="text-gray-400" />
-    <span className="flex-1 text-left">{label}</span>
-  </button>
-);
+const SORT_OPTIONS = [
+  { value: "date_desc", label: "Newest First" },
+  { value: "date_asc", label: "Oldest First" },
+  { value: "amount_desc", label: "Highest Amount" },
+  { value: "amount_asc", label: "Lowest Amount" },
+];
 
 const Card = ({ children, className = "" }) => (
   <div
@@ -44,23 +46,19 @@ const SectionLabel = ({ children }) => (
 
 const IconAction = ({ icon: Icon, label, onClick, tone = "default" }) => {
   const tones = {
-    default:
-      "text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700",
-    danger:
-      "text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20",
-    primary:
-      "text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20",
-    warning:
-      "text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20",
+    default: "text-gray-400 hover:text-gray-900 hover:bg-gray-100 dark:hover:text-gray-100 dark:hover:bg-gray-700",
+    danger: "text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30",
+    primary: "text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/30",
+    warning: "text-orange-500 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-900/30",
   };
   return (
     <button
       onClick={onClick}
       title={label}
       aria-label={label}
-      className={`p-1.5 rounded-lg transition-colors ${tones[tone]}`}
+      className={`p-2 rounded-full transition-all duration-200 ${tones[tone]}`}
     >
-      <Icon size={14} />
+      <Icon size={15} />
     </button>
   );
 };
@@ -80,6 +78,15 @@ const StatusPill = ({ status }) => {
   );
 };
 
+const GhostAction = ({ icon: Icon, label, onClick }) => (
+  <button
+    onClick={onClick}
+    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+  >
+    <Icon size={13} /> {label}
+  </button>
+);
+
 const DetailItem = ({ label, value }) => (
   <div>
     <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">
@@ -91,15 +98,6 @@ const DetailItem = ({ label, value }) => (
   </div>
 );
 
-const GhostAction = ({ icon: Icon, label, onClick }) => (
-  <button
-    onClick={onClick}
-    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-  >
-    <Icon size={13} /> {label}
-  </button>
-);
-
 /* ---------- page ---------- */
 
 const SalesOrdersPage = () => {
@@ -107,27 +105,50 @@ const SalesOrdersPage = () => {
   const dispatch = useDispatch();
   const orders = useSelector((s) => s.salesOrders.orders) || [];
 
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showPdfView, setShowPdfView] = useState(false);
-  const menuRef = useRef(null);
+  
+  // Filter & Sort State
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("date_desc");
 
-  useEffect(() => {
-    const onDoc = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target))
-        setShowMoreMenu(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
-
-  const filteredOrders = orders.filter(
-    (o) =>
-      o.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.orderNumber?.toLowerCase().includes(searchQuery.toLowerCase())
+  // Column Customization State
+  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(
+    ALL_COLUMNS.reduce((acc, col) => ({ ...acc, [col.id]: true }), {})
   );
+
+  const toggleColumn = (id) => {
+    setVisibleColumns((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Filtering & Sorting Logic
+  const processedOrders = useMemo(() => {
+    let result = orders.filter((o) => {
+      // Search
+      const matchesSearch =
+        o.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        o.orderNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Status Filter
+      const matchesStatus = statusFilter === "all" || o.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortBy === "date_desc") return new Date(b.orderDate) - new Date(a.orderDate);
+      if (sortBy === "date_asc") return new Date(a.orderDate) - new Date(b.orderDate);
+      if (sortBy === "amount_desc") return b.total - a.total;
+      if (sortBy === "amount_asc") return a.total - b.total;
+      return 0;
+    });
+
+    return result;
+  }, [orders, searchQuery, statusFilter, sortBy]);
 
   const handleDeleteConfirm = () => {
     if (deleteTarget) {
@@ -149,8 +170,10 @@ const SalesOrdersPage = () => {
   const confirmed = orders.filter((o) => o.status === "Confirmed").length;
   const invoiced = orders.filter((o) => o.status === "Invoiced").length;
 
+  const hasActiveFilters = statusFilter !== "all";
+
   return (
-    <div className="w-full overflow-x-hidden">
+    <div className="w-full overflow-x-hidden px-2 md:px-4">
       {/* ---- Stats Cards ---- */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
         <MiniStat label="Total Orders" value={total} icon="fas fa-shopping-cart" color="green" />
@@ -173,75 +196,34 @@ const SalesOrdersPage = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <Download size={14} /> Import
+          </button>
+          <button className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <Upload size={14} /> Export
+          </button>
+          
           <button
             onClick={() => navigate("/admin/accounts/sales/orders/new")}
             className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full shadow-md hover:shadow-lg transition-all"
           >
             <Plus size={14} /> New Order
           </button>
-
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setShowMoreMenu((v) => !v)}
-              className="inline-flex items-center justify-center px-2.5 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-              aria-label="More options"
-            >
-              <MoreHorizontal size={16} />
-            </button>
-
-            {showMoreMenu && (
-              <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-30 py-1.5 overflow-hidden">
-                <MenuItem icon={ArrowUpDown} label="Sort by" />
-                <MenuItem icon={Download} label="Import" />
-                <MenuItem icon={Upload} label="Export" />
-                <div className="h-px bg-gray-100 dark:bg-gray-700 my-1.5" />
-                <MenuItem icon={Settings} label="Preferences" />
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
       {/* ---- Empty / Table ---- */}
       {total === 0 ? (
-        <Card className="py-16 px-6">
-          <div className="max-w-md mx-auto text-center">
-            <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-              <Package size={22} className="text-gray-400" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
-              Start managing your sales activities
-            </h2>
-            <p className="text-sm text-gray-500 mt-1.5 mb-6">
-              Create, customize, and send professional sales orders.
-            </p>
-            <button
-              onClick={() => navigate("/admin/accounts/sales/orders/new")}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full shadow-md hover:shadow-lg transition-all"
-            >
-              <Plus size={14} /> Create sales order
-            </button>
-          </div>
-        </Card>
+        <EmptyState onCreate={() => navigate("/admin/accounts/sales/orders/new")} />
       ) : (
         <Card className="overflow-hidden">
-          {/* Toolbar */}
-          <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-gray-700">
-            <GhostBtn title="Filter" className="!px-2">
-              <Filter size={15} />
-            </GhostBtn>
-            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
-            <input
-              type="checkbox"
-              className="rounded border-gray-300 dark:border-gray-600 text-green-500 focus:ring-green-400"
-              aria-label="Select all"
-            />
-
-            <div className="relative ml-auto w-full sm:w-64">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+          
+          {/* 🌟 UNIFIED TOOLBAR ROW 🌟 */}
+          <div className="flex flex-wrap items-center gap-3 px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+            
+            {/* Search */}
+            <div className="relative w-full sm:w-56">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search orders…"
@@ -250,6 +232,54 @@ const SalesOrdersPage = () => {
                 className="w-full pl-9 pr-3 py-1.5 text-xs md:text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-full text-gray-700 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition"
               />
             </div>
+
+            <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+
+            <button
+              onClick={() => setIsColumnModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+            >
+              <Columns size={15} />
+              <span className="hidden md:inline">Columns</span>
+            </button>
+
+            <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+
+            {/* Inline Filters & Sort */}
+            <div className="flex flex-wrap items-center gap-2 flex-1">
+              
+              {/* Sort By */}
+              <select 
+                value={sortBy} 
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full px-3 py-1 text-xs text-gray-700 dark:text-gray-200 outline-none focus:border-green-400 cursor-pointer font-medium"
+              >
+                {SORT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+
+              {/* Status Filter */}
+              <select 
+                value={statusFilter} 
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full px-3 py-1 text-xs text-gray-700 dark:text-gray-200 outline-none focus:border-green-400 cursor-pointer"
+              >
+                <option value="all">Status: Any</option>
+                <option value="Draft">Draft</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Invoiced">Invoiced</option>
+              </select>
+
+              {hasActiveFilters && (
+                <button 
+                  onClick={() => setStatusFilter("all")}
+                  className="text-xs text-red-500 hover:text-red-600 hover:underline font-medium ml-1"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -257,45 +287,44 @@ const SalesOrdersPage = () => {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                    <th className="w-10 px-4 sm:px-5 py-2 md:py-3"></th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      <span className="inline-flex items-center gap-1 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
-                        Order # <ArrowUpDown size={11} />
-                      </span>
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Customer
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Order date
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Shipment
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Amount
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Status
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Action
-                    </th>
+                    {visibleColumns.orderNumber && (
+                      <th className="px-4 md:px-5 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                        <span className="inline-flex items-center gap-1 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                          Order # <ArrowUpDown size={11} />
+                        </span>
+                      </th>
+                    )}
+                    {visibleColumns.customerName && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Customer</th>
+                    )}
+                    {visibleColumns.orderDate && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Order date</th>
+                    )}
+                    {visibleColumns.expectedShipmentDate && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Shipment</th>
+                    )}
+                    {visibleColumns.total && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Amount</th>
+                    )}
+                    {visibleColumns.status && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Status</th>
+                    )}
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Action</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {filteredOrders.length === 0 ? (
+                  {processedOrders.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={7}
                         className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                       >
-                        No orders match "{searchQuery}"
+                        No orders match your filters or search.
                       </td>
                     </tr>
                   ) : (
-                    filteredOrders.map((order) => (
+                    processedOrders.map((order) => (
                       <tr
                         key={order.id}
                         onClick={() => {
@@ -304,50 +333,53 @@ const SalesOrdersPage = () => {
                         }}
                         className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
                       >
-                        <td
-                          className="px-3 md:px-4 py-2 md:py-3"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="checkbox"
-                            className="rounded border-gray-300 dark:border-gray-600 text-green-500 focus:ring-green-400"
-                            aria-label={`Select ${order.orderNumber}`}
-                          />
-                        </td>
+                        {visibleColumns.orderNumber && (
+                          <td className="px-4 md:px-5 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedOrder(order);
+                                setShowPdfView(false);
+                              }}
+                              className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
+                            >
+                              {order.orderNumber}
+                            </button>
+                          </td>
+                        )}
 
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedOrder(order);
-                              setShowPdfView(false);
-                            }}
-                            className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
-                          >
-                            {order.orderNumber}
-                          </button>
-                        </td>
+                        {visibleColumns.customerName && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                            {order.customerName}
+                          </td>
+                        )}
 
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          {order.customerName}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {order.orderDate}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {order.expectedShipmentDate || (
-                            <span className="text-gray-300 dark:text-gray-600">—</span>
-                          )}
-                        </td>
+                        {visibleColumns.orderDate && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                            {order.orderDate}
+                          </td>
+                        )}
 
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
-                          {order.currency} {order.total.toFixed(2)}
-                        </td>
+                        {visibleColumns.expectedShipmentDate && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                            {order.expectedShipmentDate || (
+                              <span className="text-gray-300 dark:text-gray-600">—</span>
+                            )}
+                          </td>
+                        )}
 
-                        <td className="px-3 md:px-4 py-2 md:py-3">
-                          <StatusPill status={order.status} />
-                        </td>
+                        {visibleColumns.total && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
+                            {order.currency} {order.total.toFixed(2)}
+                          </td>
+                        )}
+
+                        {visibleColumns.status && (
+                          <td className="px-3 md:px-4 py-2 md:py-3">
+                            <StatusPill status={order.status} />
+                          </td>
+                        )}
 
                         <td
                           className="px-3 md:px-4 py-2 md:py-3 text-right"
@@ -388,6 +420,15 @@ const SalesOrdersPage = () => {
           </div>
         </Card>
       )}
+
+      {/* 🌟 REUSABLE CUSTOMIZE COLUMNS MODAL 🌟 */}
+      <CustomizeColumnsModal
+        isOpen={isColumnModalOpen}
+        onClose={() => setIsColumnModalOpen(false)}
+        columns={ALL_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+      />
 
       {/* ---- Drawer ---- */}
       {selectedOrder && (
@@ -661,6 +702,28 @@ const SalesOrdersPage = () => {
 };
 
 /* ---------- sub-components ---------- */
+
+const EmptyState = ({ onCreate }) => (
+  <Card className="py-16 px-6">
+    <div className="max-w-md mx-auto text-center">
+      <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+        <Package size={22} className="text-gray-400" />
+      </div>
+      <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
+        Start managing your sales activities
+      </h2>
+      <p className="text-sm text-gray-500 mt-1.5 mb-6">
+        Create, customize, and send professional sales orders.
+      </p>
+      <button
+        onClick={onCreate}
+        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full shadow-md hover:shadow-lg transition-all"
+      >
+        <Plus size={14} /> Create sales order
+      </button>
+    </div>
+  </Card>
+);
 
 const MiniStat = ({ label, value, icon, color }) => {
   const bg = {

@@ -1,33 +1,36 @@
 // src/admin/pages/accounts/InvoicesPage.jsx
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { updateInvoiceStatus, deleteInvoice } from "../../store/slices/accounts/invoicesSlice";
 import {
-  Plus, MoreHorizontal, ArrowUpDown, Download, Upload,
-  Settings, Search, Filter,
+  Plus, ArrowUpDown, Download, Upload,
+  Settings, Search,
   Eye, Edit2, Trash2, X, Mail, Printer, CreditCard, CheckCircle2,
   FileText, FileEdit, Send, User as UserIcon, Receipt,
+  Columns,
 } from "lucide-react";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import CustomizeColumnsModal from "../../../components/common/CustomizeColumnsModal";
 
 /* ---------- primitives ---------- */
 
-const GhostBtn = ({ children, className = "", ...props }) => (
-  <button
-    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs md:text-sm font-medium text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${className}`}
-    {...props}
-  >
-    {children}
-  </button>
-);
+const ALL_COLUMNS = [
+  { id: "invoiceNumber", label: "Invoice #", locked: true },
+  { id: "customerName", label: "Customer" },
+  { id: "invoiceDate", label: "Invoice date" },
+  { id: "dueDate", label: "Due date" },
+  { id: "total", label: "Amount" },
+  { id: "balanceDue", label: "Balance" },
+  { id: "status", label: "Status" },
+];
 
-const MenuItem = ({ icon: Icon, label }) => (
-  <button className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs md:text-[12.5px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
-    <Icon size={14} className="text-gray-400" />
-    <span className="flex-1 text-left">{label}</span>
-  </button>
-);
+const SORT_OPTIONS = [
+  { value: "date_desc", label: "Newest First" },
+  { value: "date_asc", label: "Oldest First" },
+  { value: "amount_desc", label: "Highest Amount" },
+  { value: "amount_asc", label: "Lowest Amount" },
+];
 
 const Card = ({ children, className = "" }) => (
   <div
@@ -45,23 +48,19 @@ const SectionLabel = ({ children }) => (
 
 const IconAction = ({ icon: Icon, label, onClick, tone = "default" }) => {
   const tones = {
-    default:
-      "text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700",
-    danger:
-      "text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20",
-    primary:
-      "text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20",
-    warning:
-      "text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20",
+    default: "text-gray-400 hover:text-gray-900 hover:bg-gray-100 dark:hover:text-gray-100 dark:hover:bg-gray-700",
+    danger: "text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30",
+    primary: "text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/30",
+    warning: "text-orange-500 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-900/30",
   };
   return (
     <button
       onClick={onClick}
       title={label}
       aria-label={label}
-      className={`p-1.5 rounded-lg transition-colors ${tones[tone]}`}
+      className={`p-2 rounded-full transition-all duration-200 ${tones[tone]}`}
     >
-      <Icon size={14} />
+      <Icon size={15} />
     </button>
   );
 };
@@ -99,26 +98,50 @@ const InvoicesPage = () => {
   const dispatch = useDispatch();
   const invoices = useSelector((s) => s.invoices.invoices) || [];
 
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  // UI State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const menuRef = useRef(null);
+  
+  // Filter & Sort State
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("date_desc");
 
-  useEffect(() => {
-    const onDoc = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target))
-        setShowMoreMenu(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
-
-  const filteredInvoices = invoices.filter(
-    (inv) =>
-      inv.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase())
+  // Column Customization State
+  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(
+    ALL_COLUMNS.reduce((acc, col) => ({ ...acc, [col.id]: true }), {})
   );
+
+  const toggleColumn = (id) => {
+    setVisibleColumns((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Filtering & Sorting Logic
+  const processedInvoices = useMemo(() => {
+    let result = invoices.filter((inv) => {
+      // Search
+      const matchesSearch =
+        inv.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inv.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Status Filter
+      const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortBy === "date_desc") return new Date(b.invoiceDate) - new Date(a.invoiceDate);
+      if (sortBy === "date_asc") return new Date(a.invoiceDate) - new Date(b.invoiceDate);
+      if (sortBy === "amount_desc") return b.total - a.total;
+      if (sortBy === "amount_asc") return a.total - b.total;
+      return 0;
+    });
+
+    return result;
+  }, [invoices, searchQuery, statusFilter, sortBy]);
 
   const handleDeleteConfirm = () => {
     if (deleteTarget) {
@@ -140,8 +163,10 @@ const InvoicesPage = () => {
   const overdue = invoices.filter((i) => i.status === "Overdue").length;
   const drafts = invoices.filter((i) => i.status === "Draft").length;
 
+  const hasActiveFilters = statusFilter !== "all";
+
   return (
-    <div className="w-full overflow-x-hidden">
+    <div className="w-full overflow-x-hidden px-2 md:px-4">
       {/* ---- Stats Cards ---- */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
         <MiniStat label="Total Invoices" value={total} icon="fas fa-file-invoice" color="green" />
@@ -164,32 +189,19 @@ const InvoicesPage = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <Download size={14} /> Import
+          </button>
+          <button className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <Upload size={14} /> Export
+          </button>
+          
           <button
             onClick={() => navigate("/admin/accounts/sales/invoices/new")}
             className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full shadow-md hover:shadow-lg transition-all"
           >
             <Plus size={14} /> New Invoice
           </button>
-
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setShowMoreMenu((v) => !v)}
-              className="inline-flex items-center justify-center px-2.5 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-              aria-label="More options"
-            >
-              <MoreHorizontal size={16} />
-            </button>
-
-            {showMoreMenu && (
-              <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-30 py-1.5 overflow-hidden">
-                <MenuItem icon={ArrowUpDown} label="Sort by" />
-                <MenuItem icon={Download} label="Import" />
-                <MenuItem icon={Upload} label="Export" />
-                <div className="h-px bg-gray-100 dark:bg-gray-700 my-1.5" />
-                <MenuItem icon={Settings} label="Preferences" />
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
@@ -198,23 +210,13 @@ const InvoicesPage = () => {
         <EmptyState onCreate={() => navigate("/admin/accounts/sales/invoices/new")} />
       ) : (
         <Card className="overflow-hidden">
-          {/* Toolbar */}
-          <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-gray-700">
-            <GhostBtn title="Filter" className="!px-2">
-              <Filter size={15} />
-            </GhostBtn>
-            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
-            <input
-              type="checkbox"
-              className="rounded border-gray-300 dark:border-gray-600 text-green-500 focus:ring-green-400"
-              aria-label="Select all"
-            />
-
-            <div className="relative ml-auto w-full sm:w-64">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+          
+          {/* 🌟 UNIFIED TOOLBAR ROW 🌟 */}
+          <div className="flex flex-wrap items-center gap-3 px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+            
+            {/* Search */}
+            <div className="relative w-full sm:w-56">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search invoices…"
@@ -223,6 +225,56 @@ const InvoicesPage = () => {
                 className="w-full pl-9 pr-3 py-1.5 text-xs md:text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-full text-gray-700 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition"
               />
             </div>
+
+            <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+
+            <button
+              onClick={() => setIsColumnModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+            >
+              <Columns size={15} />
+              <span className="hidden md:inline">Columns</span>
+            </button>
+
+            <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+
+            {/* Inline Filters & Sort */}
+            <div className="flex flex-wrap items-center gap-2 flex-1">
+              
+              {/* Sort By */}
+              <select 
+                value={sortBy} 
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full px-3 py-1 text-xs text-gray-700 dark:text-gray-200 outline-none focus:border-green-400 cursor-pointer font-medium"
+              >
+                {SORT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+
+              {/* Status Filter */}
+              <select 
+                value={statusFilter} 
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full px-3 py-1 text-xs text-gray-700 dark:text-gray-200 outline-none focus:border-green-400 cursor-pointer"
+              >
+                <option value="all">Status: Any</option>
+                <option value="Draft">Draft</option>
+                <option value="Sent">Sent</option>
+                <option value="Paid">Paid</option>
+                <option value="Unpaid">Unpaid</option>
+                <option value="Overdue">Overdue</option>
+              </select>
+
+              {hasActiveFilters && (
+                <button 
+                  onClick={() => setStatusFilter("all")}
+                  className="text-xs text-red-500 hover:text-red-600 hover:underline font-medium ml-1"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -230,97 +282,102 @@ const InvoicesPage = () => {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                    <th className="w-10 px-4 sm:px-5 py-2 md:py-3"></th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      <span className="inline-flex items-center gap-1 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
-                        Invoice # <ArrowUpDown size={11} />
-                      </span>
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Customer
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Invoice date
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Due date
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Amount
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Balance
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Status
-                    </th>
-                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      Action
-                    </th>
+                    {visibleColumns.invoiceNumber && (
+                      <th className="px-4 md:px-5 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
+                        <span className="inline-flex items-center gap-1 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                          Invoice # <ArrowUpDown size={11} />
+                        </span>
+                      </th>
+                    )}
+                    {visibleColumns.customerName && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Customer</th>
+                    )}
+                    {visibleColumns.invoiceDate && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Invoice date</th>
+                    )}
+                    {visibleColumns.dueDate && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Due date</th>
+                    )}
+                    {visibleColumns.total && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Amount</th>
+                    )}
+                    {visibleColumns.balanceDue && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Balance</th>
+                    )}
+                    {visibleColumns.status && (
+                      <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Status</th>
+                    )}
+                    <th className="px-3 md:px-4 py-2 md:py-3 text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">Action</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {filteredInvoices.length === 0 ? (
+                  {processedInvoices.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={9}
+                        colSpan={8}
                         className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                       >
-                        No invoices match "{searchQuery}"
+                        No invoices match your filters or search.
                       </td>
                     </tr>
                   ) : (
-                    filteredInvoices.map((inv) => (
+                    processedInvoices.map((inv) => (
                       <tr
                         key={inv.id}
                         onClick={() => setSelectedInvoice(inv)}
                         className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
                       >
-                        <td
-                          className="px-3 md:px-4 py-2 md:py-3"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="checkbox"
-                            className="rounded border-gray-300 dark:border-gray-600 text-green-500 focus:ring-green-400"
-                            aria-label={`Select ${inv.invoiceNumber}`}
-                          />
-                        </td>
+                        {visibleColumns.invoiceNumber && (
+                          <td className="px-4 md:px-5 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedInvoice(inv);
+                              }}
+                              className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
+                            >
+                              {inv.invoiceNumber}
+                            </button>
+                          </td>
+                        )}
 
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedInvoice(inv);
-                            }}
-                            className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
-                          >
-                            {inv.invoiceNumber}
-                          </button>
-                        </td>
+                        {visibleColumns.customerName && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                            {inv.customerName}
+                          </td>
+                        )}
 
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                          {inv.customerName}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {inv.invoiceDate}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {inv.dueDate}
-                        </td>
+                        {visibleColumns.invoiceDate && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                            {inv.invoiceDate}
+                          </td>
+                        )}
 
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm text-gray-600 dark:text-gray-300 tabular-nums">
-                          {inv.currency} {inv.total.toFixed(2)}
-                        </td>
-                        <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
-                          {inv.currency} {inv.balanceDue.toFixed(2)}
-                        </td>
+                        {visibleColumns.dueDate && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                            {inv.dueDate}
+                          </td>
+                        )}
 
-                        <td className="px-3 md:px-4 py-2 md:py-3">
-                          <StatusPill status={inv.status} />
-                        </td>
+                        {visibleColumns.total && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm text-gray-600 dark:text-gray-300 tabular-nums">
+                            {inv.currency} {inv.total.toFixed(2)}
+                          </td>
+                        )}
+
+                        {visibleColumns.balanceDue && (
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
+                            {inv.currency} {inv.balanceDue.toFixed(2)}
+                          </td>
+                        )}
+
+                        {visibleColumns.status && (
+                          <td className="px-3 md:px-4 py-2 md:py-3">
+                            <StatusPill status={inv.status} />
+                          </td>
+                        )}
 
                         <td
                           className="px-3 md:px-4 py-2 md:py-3 text-right"
@@ -358,6 +415,15 @@ const InvoicesPage = () => {
           </div>
         </Card>
       )}
+
+      {/* 🌟 REUSABLE CUSTOMIZE COLUMNS MODAL 🌟 */}
+      <CustomizeColumnsModal
+        isOpen={isColumnModalOpen}
+        onClose={() => setIsColumnModalOpen(false)}
+        columns={ALL_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+      />
 
       {/* ---- Drawer ---- */}
       {selectedInvoice && (

@@ -8,7 +8,34 @@ import {
 } from "lucide-react";
 import { inputCls } from "../ui";
 import SearchableSelect from "../../../../components/common/SearchableSelect";
+import DateInput from "../../common/DateInput";
 import TransactionNumberSettingsModal from "../common/TransactionNumberSettingsModal";
+
+/* ---------- constants ---------- */
+
+const CURRENCIES = [
+  { value: "INR", label: "INR" },
+  { value: "USD", label: "USD" },
+  { value: "EUR", label: "EUR" },
+  { value: "GBP", label: "GBP" },
+  { value: "AED", label: "AED" },
+  { value: "SAR", label: "SAR" },
+  { value: "JPY", label: "JPY" },
+  { value: "RUB", label: "RUB" },
+  { value: "CNY", label: "CNY" },
+];
+
+const getTaxLabel = (currency) => {
+  switch (currency) {
+    case "INR": return "GST %";
+    case "AED":
+    case "SAR": return "VAT %";
+    case "USD":
+    case "EUR":
+    case "GBP": return "Tax %";
+    default: return "Tax %";
+  }
+};
 
 /* ---------- primitives ---------- */
 
@@ -81,7 +108,15 @@ const DeliveryChallanForm = () => {
     terms: existingChallan?.terms || "Goods once sold will not be taken back.",
     subject: existingChallan?.subject || "",
     items: existingChallan?.items || [
-      { id: `item-${Date.now()}`, name: "", description: "", qty: 1, rate: 0, tax: 0 },
+      {
+        id: `item-${Date.now()}`,
+        name: "",
+        description: "",
+        qty: 1,
+        rate: 0,
+        currency: "INR",
+        tax: 0,
+      },
     ],
   });
 
@@ -90,7 +125,14 @@ const DeliveryChallanForm = () => {
 
   /* ---- calculations ---- */
   const subtotal = formData.items.reduce((a, i) => a + i.qty * i.rate, 0);
-  const finalTotal = subtotal;
+  const taxTotal = formData.items.reduce(
+    (a, i) => a + i.qty * i.rate * ((Number(i.tax) || 0) / 100),
+    0
+  );
+  const finalTotal = subtotal + taxTotal;
+
+  const primaryCurrency = formData.items[0]?.currency || "INR";
+  const taxLabel = getTaxLabel(primaryCurrency);
 
   const handleItemChange = (index, field, value) => {
     const next = [...formData.items];
@@ -100,7 +142,15 @@ const DeliveryChallanForm = () => {
   const addItem = () =>
     setField("items", [
       ...formData.items,
-      { id: `item-${Date.now()}`, name: "", description: "", qty: 1, rate: 0, tax: 0 },
+      {
+        id: `item-${Date.now()}`,
+        name: "",
+        description: "",
+        qty: 1,
+        rate: 0,
+        currency: "INR",
+        tax: 0,
+      },
     ]);
   const removeItem = (index) =>
     setField(
@@ -110,7 +160,7 @@ const DeliveryChallanForm = () => {
 
   const handleSubmit = (e) => {
     e?.preventDefault();
-    const finalData = { ...formData, subtotal, taxTotal: 0, total: finalTotal };
+    const finalData = { ...formData, subtotal, taxTotal, total: finalTotal };
     if (id) dispatch(updateChallan({ id, ...finalData }));
     else dispatch(addChallan(finalData));
     navigate("/admin/accounts/sales/challans");
@@ -168,7 +218,6 @@ const DeliveryChallanForm = () => {
           description="Who the goods are being delivered to"
         >
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-6 gap-y-5">
-            
             {/* Left Column */}
             <div className="lg:col-span-2 space-y-4">
               <Field label="Customer" required>
@@ -228,23 +277,23 @@ const DeliveryChallanForm = () => {
                 </div>
               </Field>
               <Field label="Challan date" required>
-                <input
-                  type="date"
-                  className={inputCls}
+                <DateInput
                   value={formData.date}
-                  onChange={(e) => setField("date", e.target.value)}
+                  onChange={(val) => setField("date", val)}
+                  placeholder="dd/mm/yyyy"
                 />
               </Field>
               <Field label="Challan type">
-                <select
-                  className={inputCls}
+                <SearchableSelect
                   value={formData.challanType}
-                  onChange={(e) => setField("challanType", e.target.value)}
-                >
-                  <option value="Job Work">Job work</option>
-                  <option value="Supply">Supply</option>
-                  <option value="Return">Return</option>
-                </select>
+                  onChange={(val) => setField("challanType", val)}
+                  options={[
+                    { value: "Job Work", label: "Job work" },
+                    { value: "Supply", label: "Supply" },
+                    { value: "Return", label: "Return" },
+                  ]}
+                  clearable={false}
+                />
               </Field>
             </div>
           </div>
@@ -257,7 +306,7 @@ const DeliveryChallanForm = () => {
           className="!py-0"
         >
           <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
-            <table className="w-full min-w-[720px] border-collapse text-xs md:text-[12.5px]">
+            <table className="w-full min-w-[850px] border-collapse text-xs md:text-[12.5px]">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700/50 border-y border-gray-200 dark:border-gray-700">
                   <th className="text-center text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 w-10">
@@ -266,11 +315,19 @@ const DeliveryChallanForm = () => {
                   <th className="text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3">
                     Item
                   </th>
-                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
+                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-20">
                     Qty
                   </th>
-                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-28">
+                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
                     Rate
+                  </th>
+                  {/* 🌟 NEW CURRENCY COLUMN 🌟 */}
+                  <th className="text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
+                    Currency
+                  </th>
+                  {/* 🌟 DYNAMIC TAX HEADER 🌟 */}
+                  <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-24">
+                    {taxLabel}
                   </th>
                   <th className="text-right text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400 py-2.5 px-3 w-28">
                     Amount
@@ -310,19 +367,52 @@ const DeliveryChallanForm = () => {
                       />
                     </td>
 
-                    {["qty", "rate"].map((key) => (
-                      <td key={key} className="py-3 px-3">
-                        <input
-                          type="number"
-                          min="0"
-                          className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
-                          value={item[key]}
-                          onChange={(e) =>
-                            handleItemChange(index, key, Number(e.target.value))
-                          }
-                        />
-                      </td>
-                    ))}
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
+                        value={item.qty}
+                        onChange={(e) =>
+                          handleItemChange(index, "qty", Number(e.target.value))
+                        }
+                      />
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
+                        value={item.rate}
+                        onChange={(e) =>
+                          handleItemChange(index, "rate", Number(e.target.value))
+                        }
+                      />
+                    </td>
+
+                    {/* 🌟 CURRENCY SELECT 🌟 */}
+                    <td className="py-3 px-3">
+                      <SearchableSelect
+                        value={item.currency}
+                        onChange={(val) => handleItemChange(index, "currency", val)}
+                        options={CURRENCIES}
+                        clearable={false}
+                      />
+                    </td>
+
+                    {/* TAX INPUT */}
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1.5 text-xs md:text-[12.5px] text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition tabular-nums"
+                        value={item.tax}
+                        onChange={(e) =>
+                          handleItemChange(index, "tax", Number(e.target.value))
+                        }
+                      />
+                    </td>
 
                     <td className="text-right py-3 px-3 font-medium text-gray-800 dark:text-gray-100 tabular-nums">
                       {(item.qty * item.rate).toFixed(2)}
@@ -384,9 +474,13 @@ const DeliveryChallanForm = () => {
           <Card title="Summary" className="h-fit">
             <div className="space-y-3 text-xs md:text-[12.5px]">
               <SummaryRow label="Subtotal" value={subtotal.toFixed(2)} />
+              <SummaryRow
+                label={taxLabel.replace(" %", "")}
+                value={taxTotal.toFixed(2)}
+              />
               <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-1 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-gray-800 dark:text-gray-100">
-                  Total ({formData.currency})
+                  Total ({primaryCurrency})
                 </span>
                 <span className="text-lg font-bold text-gray-800 dark:text-gray-50 tabular-nums">
                   {finalTotal.toFixed(2)}

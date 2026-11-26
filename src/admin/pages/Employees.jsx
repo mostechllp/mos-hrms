@@ -165,28 +165,35 @@ const Employees = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft">
+        <div
+          onClick={() => navigate("/admin/employees/onboarding")}
+          className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 transition-all hover:-translate-y-0.5 hover:shadow-soft cursor-pointer"
+          title="Click to view Onboarding Candidates"
+        >
           <div className="flex justify-between items-start mb-2 md:mb-3">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
               <i className="fas fa-user-clock text-amber-600 dark:text-amber-400 text-sm md:text-lg"></i>
             </div>
+            <span className="text-[10px] md:text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 font-medium">
+              View List <i className="fas fa-arrow-right text-[9px]"></i>
+            </span>
           </div>
           <div className="text-xl md:text-2xl font-bold text-amber-600 dark:text-amber-400">
             {onboardingCount}
           </div>
           <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
-            Onboarding
+            Onboarding Candidates
           </div>
         </div>
       </div>
 
-      {/* Header with Filters — ✅ removed "all" option */}
+      {/* Header with Filters — Only Active and Inactive in Employee Directory */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
         <h2 className="text-lg md:text-2xl font-bold gradient-heading bg-clip-text text-transparent">
           Employee Directory
         </h2>
         <div className="flex gap-2 w-full sm:w-auto">
-          {["Active", "Inactive", "Onboarding"].map((status) => (
+          {["Active", "Inactive"].map((status) => (
             <button
               key={status}
               onClick={() => handleStatusFilter(status)}
