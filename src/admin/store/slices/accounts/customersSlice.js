@@ -274,6 +274,43 @@ export const deleteContactPerson = createAsyncThunk(
   },
 );
 
+export const exportCustomers = createAsyncThunk(
+  "customers/exportCustomers",
+  async (params, { rejectWithValue }) => {
+    try {
+      const { data } = await apiClient.get("/accounts/revenue/customers/export", {
+        params,
+        responseType: "blob", // Important for file downloads
+      });
+      return data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || err.message || "Failed to export customers"
+      );
+    }
+  }
+);
+
+export const importCustomers = createAsyncThunk(
+  "customers/importCustomers",
+  async (formData, { rejectWithValue }) => {
+    try {
+      const { data } = await apiClient.post(
+        "/accounts/revenue/customers/import",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      return data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || err.message || "Failed to import customers"
+      );
+    }
+  }
+);
+
 /* ---------- slice ---------- */
 
 const initialState = {
