@@ -189,6 +189,16 @@ const attendanceTypeSlice = createSlice({
       state.currentRequest = null;
       state.error = null;
     },
+    setOptimisticStatus: (state, action) => {
+      const { id, status } = action.payload;
+      const index = state.requests.findIndex((r) => r.id === id);
+      if (index !== -1) {
+        state.requests[index].status = status;
+      }
+      if (state.currentRequest?.id === id) {
+        state.currentRequest.status = status;
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -270,7 +280,8 @@ export const {
   setAttendanceFilter, 
   setAttendancePagination, 
   clearAttendanceError,
-  clearAttendanceRequests 
+  clearAttendanceRequests,
+  setOptimisticStatus,
 } = attendanceTypeSlice.actions;
 
 export default attendanceTypeSlice.reducer;
