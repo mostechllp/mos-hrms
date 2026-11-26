@@ -66,9 +66,17 @@ export const fetchEmployeeBreaks = createAsyncThunk(
 // Fetch Punch Status (Late cutoff, HR approval status, punch permissions)
 export const fetchPunchStatus = createAsyncThunk(
   "attendance/fetchPunchStatus",
-  async (_, { rejectWithValue }) => {
+  async (tzOverride, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get("/employee/punch-status");
+      const storedTz = getStoredWorkTimezone();
+      const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const tz = tzOverride || storedTz || clientTz || "Asia/Dubai";
+      const response = await apiClient.get(
+        `/employee/punch-status?timezone=${encodeURIComponent(tz)}`,
+        {
+          headers: { "X-Timezone": tz },
+        },
+      );
       console.log("📥 Punch status response:", response.data);
 
       if (response.data && response.data.status === "success") {

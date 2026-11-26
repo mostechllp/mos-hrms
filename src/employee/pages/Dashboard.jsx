@@ -165,25 +165,56 @@ const Dashboard = () => {
     getStoredWorkTimezone() ||
     null;
 
-  // Leave exemption: If has_leave_today is true, treat as normal on-time punch-in
+  // Leave applied for today: employee is on leave, so punch-in is blocked
   const hasLeaveToday =
     punchStatus?.has_leave_today === true ||
     dashboardData?.has_leave_today === true ||
     todayAttendance?.has_leave_today === true;
 
+  // Active timezone for evaluations
+  const activeTz =
+    workTimezone ||
+    getStoredWorkTimezone() ||
+    Intl.DateTimeFormat().resolvedOptions().timeZone ||
+    "Asia/Dubai";
+
+  // Check if live clock in employee's work timezone is past 10:00:00 AM cutoff
+  const isPast10Clock = (() => {
+    try {
+      const nowInTz = new Date(
+        new Date().toLocaleString("en-US", { timeZone: activeTz })
+      );
+      return (
+        nowInTz.getHours() > 10 ||
+        (nowInTz.getHours() === 10 &&
+          (nowInTz.getMinutes() > 0 || nowInTz.getSeconds() > 0))
+      );
+    } catch {
+      return false;
+    }
+  })();
+
   // Status evaluated from /api/employee/punch-status
   const isPunchedInFromStatus = punchStatus?.is_punched_in;
   const isPunchedOutFromStatus = punchStatus?.is_punched_out;
   const canPunchInFromStatus = punchStatus?.can_punch_in;
-  const isLateFromStatus = hasLeaveToday ? false : punchStatus?.is_late;
+  const isLateFromStatus = hasLeaveToday
+    ? false
+    : (punchStatus?.is_late === true || isPast10Clock);
   const lateRequest = punchStatus?.late_request;
   const cutoffTimeFromStatus = punchStatus?.cutoff_time || "10:00 AM";
 
   const approvalStatus =
     punchStatus?.approval_status || lateRequest?.status || null;
-  const isLatePending = !hasLeaveToday && approvalStatus === "pending";
-  const isLateApproved = approvalStatus === "approved";
-  const isLateRejected = !hasLeaveToday && approvalStatus === "rejected";
+  const isLatePending = !hasLeaveToday && (approvalStatus === "pending" || lateRequest?.status === "pending");
+  const isLateApproved =
+    !hasLeaveToday &&
+    Boolean(lateRequest) &&
+    (approvalStatus === "approved" || lateRequest?.status === "approved");
+  const isLateRejected =
+    !hasLeaveToday &&
+    Boolean(lateRequest) &&
+    (approvalStatus === "rejected" || lateRequest?.status === "rejected");
 
   const rawPunchIn =
     punchStatus?.raw_punch_in || todayAttendance?.raw_punch_in || null;
@@ -671,6 +702,14 @@ const Dashboard = () => {
   // Handle Punch In/Out
   const handlePunch = async () => {
     if (!isActuallyPunchedIn) {
+      if (hasLeaveToday) {
+        showToastMessage(
+          "You have applied for leave today. Punch-in is not permitted.",
+          "info",
+        );
+        return;
+      }
+
       if (isLatePending) {
         showToastMessage(
           "Your late punch-in request is pending HR approval.",
@@ -1337,6 +1376,7 @@ const Dashboard = () => {
   // Determine if button should be disabled
   const isButtonDisabled = () => {
     if (loading || isSubmitting || punchStatusLoading) return true;
+    if (hasLeaveToday && !isActuallyPunchedIn) return true;
     if (isWaitingForApproval) return true;
     if (!isActuallyPunchedIn && isLatePending) return true;
     if (!isActuallyPunchedIn && !canPunch && !isLateApproved && !isLateFromStatus) return true;
@@ -1346,6 +1386,7 @@ const Dashboard = () => {
   // Get button text
   const getButtonText = () => {
     if (loading || isSubmitting || punchStatusLoading) return "Processing...";
+    if (hasLeaveToday && !isActuallyPunchedIn) return "On Leave Today";
     if (isWaitingForApproval || (!isActuallyPunchedIn && isLatePending))
       return "Pending HR Approval";
     if (isActuallyPunchedIn) return "Punch Out";
@@ -1354,6 +1395,9 @@ const Dashboard = () => {
 
   // Get status display
   const getStatusDisplay = () => {
+    if (hasLeaveToday && !isActuallyPunchedIn) {
+      return { text: "On Leave Today", color: "text-amber-500" };
+    }
     if (isLateRejected) {
       return { text: "Late Punch-In Rejected", color: "text-red-500" };
     }
@@ -1361,10 +1405,10 @@ const Dashboard = () => {
       return { text: "Pending HR Approval", color: "text-amber-500" };
     }
     if (isActuallyPunchedIn) {
-      if (isLateApproved || (isLateFromStatus && showTimer)) {
+      if (isLateApproved) {
         return { text: "Late Punch-In Approved ✓", color: "text-emerald-500" };
       }
-      return { text: "Already Punched In ✓", color: "text-green-500" };
+      return { text: "Punched In ✓", color: "text-green-500" };
     }
     if (isLateApproved && canPunchInFromStatus) {
       return { text: "Late Approved ✓", color: "text-emerald-500" };
@@ -1372,7 +1416,7 @@ const Dashboard = () => {
     if (todayAttendance.punched_out === true) {
       return { text: "Punched Out ✓", color: "text-blue-500" };
     }
-    return { text: "Not Punched In", color: "text-red-500" };
+    return { text: "Not Punched In", color: "text-gray-400" };
   };
 
   const statusDisplay = getStatusDisplay();
@@ -1436,11 +1480,14 @@ const Dashboard = () => {
 
     let startTime = null;
     if (rawPunchIn) {
-      const isoRaw =
-        typeof rawPunchIn === "string" ? rawPunchIn.replace(" ", "T") : rawPunchIn;
-      const parsedRaw = new Date(isoRaw);
-      if (!isNaN(parsedRaw.getTime())) {
-        startTime = parsedRaw;
+      startTime = parsePunchTime(rawPunchIn);
+      if (!startTime || isNaN(startTime.getTime())) {
+        const isoRaw =
+          typeof rawPunchIn === "string" ? rawPunchIn.replace(" ", "T") : rawPunchIn;
+        const parsedRaw = new Date(isoRaw);
+        if (!isNaN(parsedRaw.getTime())) {
+          startTime = parsedRaw;
+        }
       }
     }
     if (!startTime && displayPunchTime) {
@@ -1768,22 +1815,26 @@ const Dashboard = () => {
             onClick={handlePunch}
             disabled={isButtonDisabled() || isOnBreak}
             className={`punch-btn border-none text-white py-3 px-8 rounded-full font-semibold text-sm transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${
-              isWaitingForApproval || (!isActuallyPunchedIn && isLatePending)
-                ? "bg-amber-500 hover:bg-amber-600 opacity-90 cursor-not-allowed"
-                : isActuallyPunchedIn
-                  ? "bg-red-500 hover:bg-red-600"
-                  : isLateApproved
-                    ? "bg-green-600 hover:bg-green-700 ring-2 ring-green-500/30"
-                    : "bg-green-500 hover:bg-green-600"
+              hasLeaveToday && !isActuallyPunchedIn
+                ? "bg-amber-600 hover:bg-amber-700 opacity-90 cursor-not-allowed"
+                : isWaitingForApproval || (!isActuallyPunchedIn && isLatePending)
+                  ? "bg-amber-500 hover:bg-amber-600 opacity-90 cursor-not-allowed"
+                  : isActuallyPunchedIn
+                    ? "bg-red-500 hover:bg-red-600"
+                    : isLateApproved
+                      ? "bg-green-600 hover:bg-green-700 ring-2 ring-green-500/30"
+                      : "bg-green-500 hover:bg-green-600"
             }`}
           >
             <i
               className={`fas ${
-                isWaitingForApproval || (!isActuallyPunchedIn && isLatePending)
-                  ? "fa-clock"
-                  : isActuallyPunchedIn
-                    ? "fa-sign-out-alt"
-                    : "fa-fingerprint"
+                hasLeaveToday && !isActuallyPunchedIn
+                  ? "fa-calendar-minus"
+                  : isWaitingForApproval || (!isActuallyPunchedIn && isLatePending)
+                    ? "fa-clock"
+                    : isActuallyPunchedIn
+                      ? "fa-sign-out-alt"
+                      : "fa-fingerprint"
               }`}
             ></i>
             {getButtonText()}
