@@ -153,6 +153,7 @@ export const punchIn = createAsyncThunk(
           show_timer: data.show_timer,
           approval_status: data.approval_status,
           is_late: data.is_late,
+          has_leave_today: data.has_leave_today,
           request_id: data.request_id || data.id,
           log_date: data.log_date,
           log_status: data.log_status,
@@ -497,6 +498,7 @@ const attendanceSlice = createSlice({
         state.punchInTime =
           action.payload.punch_in_time || action.payload.punch_in;
         state.error = null;
+        const isLeaveExempt = action.payload.has_leave_today === true;
         state.punchStatus = {
           ...(state.punchStatus || {}),
           is_punched_in: true,
@@ -505,21 +507,30 @@ const attendanceSlice = createSlice({
           punch_in_time:
             action.payload.punch_in_time || action.payload.punch_in,
           raw_punch_in: action.payload.raw_punch_in,
-          show_timer:
-            action.payload.show_timer !== undefined
+          show_timer: isLeaveExempt
+            ? true
+            : action.payload.show_timer !== undefined
               ? action.payload.show_timer
               : false,
-          approval_status: action.payload.approval_status || "pending",
-          is_late: action.payload.is_late ?? state.punchStatus?.is_late,
-          late_request: action.payload.approval_status
-            ? {
-                id: action.payload.request_id,
-                status: action.payload.approval_status,
-                reason: state.punchStatus?.late_request?.reason,
-                request_time:
-                  action.payload.punch_in_time || action.payload.punch_in,
-              }
-            : state.punchStatus?.late_request,
+          approval_status: isLeaveExempt
+            ? "approved"
+            : action.payload.approval_status || "pending",
+          is_late: isLeaveExempt
+            ? false
+            : (action.payload.is_late ?? state.punchStatus?.is_late),
+          has_leave_today:
+            action.payload.has_leave_today ??
+            state.punchStatus?.has_leave_today,
+          late_request:
+            !isLeaveExempt && action.payload.approval_status
+              ? {
+                  id: action.payload.request_id,
+                  status: action.payload.approval_status,
+                  reason: state.punchStatus?.late_request?.reason,
+                  request_time:
+                    action.payload.punch_in_time || action.payload.punch_in,
+                }
+              : state.punchStatus?.late_request,
         };
       })
       .addCase(punchIn.rejected, (state, action) => {

@@ -164,31 +164,41 @@ const Dashboard = () => {
     dashboardData?.timezone ||
     getStoredWorkTimezone() ||
     null;
+
+  // Leave exemption: If has_leave_today is true, treat as normal on-time punch-in
+  const hasLeaveToday =
+    punchStatus?.has_leave_today === true ||
+    dashboardData?.has_leave_today === true ||
+    todayAttendance?.has_leave_today === true;
+
   // Status evaluated from /api/employee/punch-status
   const isPunchedInFromStatus = punchStatus?.is_punched_in;
   const isPunchedOutFromStatus = punchStatus?.is_punched_out;
   const canPunchInFromStatus = punchStatus?.can_punch_in;
-  const isLateFromStatus = punchStatus?.is_late;
+  const isLateFromStatus = hasLeaveToday ? false : punchStatus?.is_late;
   const lateRequest = punchStatus?.late_request;
   const cutoffTimeFromStatus = punchStatus?.cutoff_time || "10:00 AM";
 
   const approvalStatus =
     punchStatus?.approval_status || lateRequest?.status || null;
-  const isLatePending = approvalStatus === "pending";
+  const isLatePending = !hasLeaveToday && approvalStatus === "pending";
   const isLateApproved = approvalStatus === "approved";
-  const isLateRejected = approvalStatus === "rejected";
+  const isLateRejected = !hasLeaveToday && approvalStatus === "rejected";
 
   const rawPunchIn =
     punchStatus?.raw_punch_in || todayAttendance?.raw_punch_in || null;
 
   // showTimer: Flag from API to show/hide the running timer.
+  // If has_leave_today is true, timer is active immediately.
   // Defaults to false while pending HR approval; true once approved or on normal shift.
   const showTimer =
-    punchStatus?.show_timer !== undefined
-      ? Boolean(punchStatus.show_timer)
-      : todayAttendance?.show_timer !== undefined
-        ? Boolean(todayAttendance.show_timer)
-        : (isLateApproved || (!isLatePending && isPunchedInFromStatus));
+    hasLeaveToday
+      ? true
+      : punchStatus?.show_timer !== undefined
+        ? Boolean(punchStatus.show_timer)
+        : todayAttendance?.show_timer !== undefined
+          ? Boolean(todayAttendance.show_timer)
+          : (isLateApproved || (!isLatePending && isPunchedInFromStatus));
 
   // Fix: Only consider punched in if not punched out and status or todayAttendance says punched in
   const isActuallyPunchedIn =
@@ -197,6 +207,11 @@ const Dashboard = () => {
       (todayAttendance.punched_in === true &&
         (todayAttendance.punched_out !== true ||
           todayAttendance.punch_out_time === "--")));
+
+  // When an employee has punched in late and is awaiting HR approval
+  const isWaitingForApproval =
+    !hasLeaveToday && isActuallyPunchedIn && (!showTimer || isLatePending);
+
   const punchInTimeFromApi =
     punchStatus?.punch_in_time || todayAttendance.punch_in_time;
   const canPunch =
@@ -362,7 +377,7 @@ const Dashboard = () => {
 
       showToastMessage(
         data?.message ||
-          `Punch-in recorded at ${punchTimeRecorded}. Late approval request has been sent to HR. Waiting for HR approval.`,
+          `Punched in at ${punchTimeRecorded} - Awaiting HR Approval`,
         "success",
       );
       setShowLatePunchNoticeModal(false);
@@ -537,22 +552,38 @@ const Dashboard = () => {
       setIsSubmitting(false);
 
       if (punchIn.fulfilled.match(result)) {
-        showToastMessage(
-          "Punched in successfully with location verification!",
-          "success",
-        );
+        const payloadData = result.payload;
+        if (
+          !hasLeaveToday &&
+          (payloadData?.approval_status === "pending" ||
+            payloadData?.show_timer === false)
+        ) {
+          const punchTimeRecorded =
+            payloadData?.punch_in_time || payloadData?.punch_in || "the cutoff";
+          showToastMessage(
+            payloadData?.message ||
+              `Punched in at ${punchTimeRecorded} - Awaiting HR Approval`,
+            "success",
+          );
+        } else {
+          showToastMessage(
+            "Punched in successfully with location verification!",
+            "success",
+          );
+        }
         await Promise.all([
           dispatch(fetchDashboardData()),
           dispatch(fetchPunchStatus()),
         ]);
       } else {
         const payload = result.payload;
-        // Check if server rejected because user is late and reason is required
+        // Check if server rejected because user is late and reason is required (exempt if on leave today)
         if (
-          payload?.requires_reason ||
-          (typeof payload === "object" &&
-            payload?.status === 403 &&
-            payload?.requires_reason)
+          !hasLeaveToday &&
+          (payload?.requires_reason ||
+            (typeof payload === "object" &&
+              payload?.status === 403 &&
+              payload?.requires_reason))
         ) {
           setLateLocationData(locationData);
           setShowLatePunchNoticeModal(true);
@@ -648,14 +679,15 @@ const Dashboard = () => {
         return;
       }
 
-      // If user is late and not yet approved by HR, open Late Punch-In Notice Modal
-      const isLateArrival = isLateFromStatus === true && !isLateApproved;
+      // If user is late and not yet approved by HR, open Late Punch-In Notice Modal (exempt if on leave today)
+      const isLateArrival =
+        !hasLeaveToday && isLateFromStatus === true && !isLateApproved;
       if (isLateArrival) {
         setShowLatePunchNoticeModal(true);
         return;
       }
 
-      if (!canPunch && !isLateApproved) {
+      if (!canPunch && !isLateApproved && !hasLeaveToday) {
         showToastMessage("You cannot punch in at this time", "error");
         return;
       }
@@ -1305,7 +1337,8 @@ const Dashboard = () => {
   // Determine if button should be disabled
   const isButtonDisabled = () => {
     if (loading || isSubmitting || punchStatusLoading) return true;
-    if (isLatePending) return true;
+    if (isWaitingForApproval) return true;
+    if (!isActuallyPunchedIn && isLatePending) return true;
     if (!isActuallyPunchedIn && !canPunch && !isLateApproved && !isLateFromStatus) return true;
     return false;
   };
@@ -1313,7 +1346,8 @@ const Dashboard = () => {
   // Get button text
   const getButtonText = () => {
     if (loading || isSubmitting || punchStatusLoading) return "Processing...";
-    if (isLatePending) return "Pending HR Approval";
+    if (isWaitingForApproval || (!isActuallyPunchedIn && isLatePending))
+      return "Pending HR Approval";
     if (isActuallyPunchedIn) return "Punch Out";
     return "Punch In";
   };
@@ -1323,7 +1357,7 @@ const Dashboard = () => {
     if (isLateRejected) {
       return { text: "Late Punch-In Rejected", color: "text-red-500" };
     }
-    if (isLatePending || (isActuallyPunchedIn && !showTimer)) {
+    if (isWaitingForApproval || (!isActuallyPunchedIn && isLatePending)) {
       return { text: "Pending HR Approval", color: "text-amber-500" };
     }
     if (isActuallyPunchedIn) {
@@ -1342,7 +1376,10 @@ const Dashboard = () => {
   };
 
   const statusDisplay = getStatusDisplay();
-  const displayPunchTime = punchInTimeFromApi || todayAttendance.punch_in_time;
+  const displayPunchTime =
+    punchInTimeFromApi ||
+    todayAttendance.punch_in_time ||
+    lateRequest?.request_time;
 
   // Update duration every second when punched in and timer is active
   useEffect(() => {
@@ -1394,7 +1431,7 @@ const Dashboard = () => {
   };
 
   const getDuration = () => {
-    if (!showTimer && isLatePending) return "00h 00m 00s";
+    if (isWaitingForApproval) return "00h 00m 00s";
     if (!rawPunchIn && !displayPunchTime) return "00h 00m 00s";
 
     let startTime = null;
@@ -1585,7 +1622,9 @@ const Dashboard = () => {
                 </span>
               </div>
               <p className="text-xs text-amber-800 dark:text-amber-300 mt-1 leading-relaxed">
-                ⏳ Punched in at {formatPunchTime(displayPunchTime) || "the cutoff"}. Waiting for HR approval...
+                {displayPunchTime
+                  ? `Punched in at ${formatPunchTime(displayPunchTime)} - Awaiting HR Approval`
+                  : "Your late punch-in request has been sent to HR - Awaiting HR Approval."}
               </p>
               {lateRequest?.reason && (
                 <div className="text-[11px] text-[var(--muted,#6b7280)] dark:text-gray-400 mt-1 italic">
@@ -1661,18 +1700,19 @@ const Dashboard = () => {
             <div className="punch-label text-xs text-[var(--muted)] mb-2">
               Duration
             </div>
-            {showTimer ? (
-              <div className="punch-value text-2xl font-bold text-blue-500">
-                {currentDuration}
-              </div>
-            ) : (
+            {isWaitingForApproval ? (
               <div className="punch-value text-xs md:text-sm font-semibold text-amber-500 flex items-center justify-center gap-1.5 py-1">
                 <i className="fas fa-hourglass-half animate-pulse"></i>
                 <span>Waiting for HR approval</span>
               </div>
+            ) : (
+              <div className="punch-value text-2xl font-bold text-blue-500">
+                {currentDuration}
+              </div>
             )}
 
-            {showTimer &&
+            {!isWaitingForApproval &&
+              showTimer &&
               isOnBreak &&
               breakStartTime &&
               (() => {
@@ -1724,27 +1764,14 @@ const Dashboard = () => {
               )}
             </button>
           )}
-          {isLatePending && (
-            <button
-              onClick={handleRefreshStatus}
-              disabled={isRefreshingStatus}
-              className="py-3 px-5 rounded-full border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:-translate-y-0.5"
-              title="Refresh approval status from HR"
-            >
-              <i
-                className={`fas fa-sync-alt ${isRefreshingStatus ? "fa-spin" : ""}`}
-              ></i>
-              Refresh Status
-            </button>
-          )}
           <button
             onClick={handlePunch}
             disabled={isButtonDisabled() || isOnBreak}
             className={`punch-btn border-none text-white py-3 px-8 rounded-full font-semibold text-sm transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${
-              isActuallyPunchedIn
-                ? "bg-red-500 hover:bg-red-600"
-                : isLatePending
-                  ? "bg-amber-500 hover:bg-amber-600 opacity-90 cursor-not-allowed"
+              isWaitingForApproval || (!isActuallyPunchedIn && isLatePending)
+                ? "bg-amber-500 hover:bg-amber-600 opacity-90 cursor-not-allowed"
+                : isActuallyPunchedIn
+                  ? "bg-red-500 hover:bg-red-600"
                   : isLateApproved
                     ? "bg-green-600 hover:bg-green-700 ring-2 ring-green-500/30"
                     : "bg-green-500 hover:bg-green-600"
@@ -1752,10 +1779,10 @@ const Dashboard = () => {
           >
             <i
               className={`fas ${
-                isActuallyPunchedIn
-                  ? "fa-sign-out-alt"
-                  : isLatePending
-                    ? "fa-clock"
+                isWaitingForApproval || (!isActuallyPunchedIn && isLatePending)
+                  ? "fa-clock"
+                  : isActuallyPunchedIn
+                    ? "fa-sign-out-alt"
                     : "fa-fingerprint"
               }`}
             ></i>
