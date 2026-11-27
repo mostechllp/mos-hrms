@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
-import logo from "../../../public/fav-light.png"
+import logo from "../../../public/fav-light.png";
 import { useMenuVisibility } from "../../context/MenuVisibilityContext";
 
 const ADMIN_ROUTE_MAP = {
@@ -51,7 +51,7 @@ const ADMIN_ROUTE_MAP = {
   "trial-balance": "/admin/accounts/trial-balance",
   "accounts-reports": "/admin/accounts/reports",
 
-  "subscriptions": "/admin/subscriptions",
+  subscriptions: "/admin/subscriptions",
   "subscriptions-plans": "/admin/subscriptions/plans",
   "subscriptions-subscribers": "/admin/subscriptions/subscribers",
 };
@@ -105,7 +105,7 @@ const EMPLOYEE_ROUTE_MAP = {
   "trial-balance": "/employee/accounts/trial-balance",
   "accounts-reports": "/employee/accounts/reports",
 
-  "subscriptions": "/employee/subscriptions",
+  subscriptions: "/employee/subscriptions",
   "subscriptions-plans": "/employee/subscriptions/plans",
   "subscriptions-subscribers": "/employee/subscriptions/subscribers",
   "my-subscription": "/employee/subscriptions/my-subscription",
@@ -134,7 +134,7 @@ const ICON_MAP = {
   "my-payroll": "fas fa-file-invoice-dollar",
   warnings: "fas fa-triangle-exclamation",
   "my-warnings": "fas fa-triangle-exclamation",
-  
+
   // CRM
   "crm-dashboard": "fas fa-gauge-high",
   "crm-leads": "fas fa-user-tag",
@@ -148,7 +148,7 @@ const ICON_MAP = {
   "crm-proposals": "fas fa-file-lines",
   meetings: "fas fa-calendar-days",
   "my-meetings": "fas fa-calendar-alt",
-  
+
   // Accounts (Top Level)
   accounts: "fas fa-compass",
   "accounts-dashboard": "fas fa-gauge",
@@ -159,17 +159,17 @@ const ICON_MAP = {
   accountant: "fas fa-sliders",
   "accounts-reports": "fas fa-chart-line",
   "accounts-settings": "fas fa-sliders",
-  
+
   // Accounts (Level 2 & 3 Leaves)
   items: "fas fa-cubes",
   "time-tracking": "fas fa-stopwatch",
   banking: "fas fa-vault",
   "account-documents": "fas fa-folder-tree",
-  
+
   // Money Sub-items
   "money-cards": "fas fa-credit-card",
   "money-transfers": "fas fa-money-bill-transfer",
-  
+
   // Operations Sub-items
   "time-projects": "fas fa-diagram-project",
   "time-timesheet": "fas fa-clock-rotate-left",
@@ -206,16 +206,66 @@ const PARENT_MENU_CONFIG = {
     permissionKeys: ["crm", "crm-dashboard"],
     expandOnHover: false,
     children: [
-      { slug: "crm-dashboard", label: "Dashboard", path: ADMIN_ROUTE_MAP["crm-dashboard"], employeePath: EMPLOYEE_ROUTE_MAP["crm-dashboard"] },
-      { slug: "crm-leads", label: "Leads", path: ADMIN_ROUTE_MAP["crm-leads"], employeePath: EMPLOYEE_ROUTE_MAP["crm-leads"] },
-      { slug: "crm-customers", label: "Customers", path: ADMIN_ROUTE_MAP["crm-customers"], employeePath: EMPLOYEE_ROUTE_MAP["crm-customers"] },
-      { slug: "crm-opportunities", label: "Opportunities", path: ADMIN_ROUTE_MAP["crm-opportunities"], employeePath: EMPLOYEE_ROUTE_MAP["crm-opportunities"] },
-      { slug: "crm-activities", label: "Activities", path: ADMIN_ROUTE_MAP["crm-activities"], employeePath: EMPLOYEE_ROUTE_MAP["crm-activities"] },
-      { slug: "crm-quotations", label: "Quotations", path: ADMIN_ROUTE_MAP["crm-quotations"], employeePath: EMPLOYEE_ROUTE_MAP["crm-quotations"] },
-      { slug: "crm-proposals", label: "Proposals", path: ADMIN_ROUTE_MAP["crm-proposals"], employeePath: EMPLOYEE_ROUTE_MAP["crm-proposals"] },
-      { slug: "crm-products", label: "Products & Services", path: ADMIN_ROUTE_MAP["crm-products"], employeePath: EMPLOYEE_ROUTE_MAP["crm-products"] },
-      { slug: "crm-reports", label: "Reports", path: ADMIN_ROUTE_MAP["crm-reports"], employeePath: EMPLOYEE_ROUTE_MAP["crm-reports"] },
-      { slug: "crm-settings", label: "CRM Settings", path: ADMIN_ROUTE_MAP["crm-settings"], employeePath: EMPLOYEE_ROUTE_MAP["crm-settings"] },
+      {
+        slug: "crm-dashboard",
+        label: "Dashboard",
+        path: ADMIN_ROUTE_MAP["crm-dashboard"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-dashboard"],
+      },
+      {
+        slug: "crm-leads",
+        label: "Leads",
+        path: ADMIN_ROUTE_MAP["crm-leads"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-leads"],
+      },
+      {
+        slug: "crm-customers",
+        label: "Customers",
+        path: ADMIN_ROUTE_MAP["crm-customers"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-customers"],
+      },
+      {
+        slug: "crm-opportunities",
+        label: "Opportunities",
+        path: ADMIN_ROUTE_MAP["crm-opportunities"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-opportunities"],
+      },
+      {
+        slug: "crm-activities",
+        label: "Activities",
+        path: ADMIN_ROUTE_MAP["crm-activities"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-activities"],
+      },
+      {
+        slug: "crm-quotations",
+        label: "Quotations",
+        path: ADMIN_ROUTE_MAP["crm-quotations"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-quotations"],
+      },
+      {
+        slug: "crm-proposals",
+        label: "Proposals",
+        path: ADMIN_ROUTE_MAP["crm-proposals"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-proposals"],
+      },
+      {
+        slug: "crm-products",
+        label: "Products & Services",
+        path: ADMIN_ROUTE_MAP["crm-products"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-products"],
+      },
+      {
+        slug: "crm-reports",
+        label: "Reports",
+        path: ADMIN_ROUTE_MAP["crm-reports"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-reports"],
+      },
+      {
+        slug: "crm-settings",
+        label: "CRM Settings",
+        path: ADMIN_ROUTE_MAP["crm-settings"],
+        employeePath: EMPLOYEE_ROUTE_MAP["crm-settings"],
+      },
     ],
     order: 20,
   },
@@ -225,21 +275,66 @@ const PARENT_MENU_CONFIG = {
     permissionKeys: ["accounts", "accounts-dashboard"],
     expandOnHover: false,
     children: [
-      { slug: "accounts-dashboard", label: "Dashboard", path: "/admin/accounts/dashboard", employeePath: "/employee/accounts/dashboard" },
+      {
+        slug: "accounts-dashboard",
+        label: "Dashboard",
+        path: "/admin/accounts/dashboard",
+        employeePath: "/employee/accounts/dashboard",
+      },
       {
         slug: "sales",
         label: "Revenue",
         path: "#",
         employeePath: "#",
         children: [
-          { slug: "sales-customers", label: "Customers", path: "/admin/accounts/sales/customers", employeePath: "/employee/accounts/sales/customers" },
-          { slug: "sales-quotes", label: "Quotes", path: "/admin/accounts/sales/quotes", employeePath: "/employee/accounts/sales/quotes" },
-          { slug: "sales-orders", label: "Sales Orders", path: "/admin/accounts/sales/orders", employeePath: "/employee/accounts/sales/orders" },
-          { slug: "sales-invoices", label: "Invoices", path: "/admin/accounts/sales/invoices", employeePath: "/employee/accounts/sales/invoices" },
-          { slug: "sales-recurring", label: "Recurring Invoices", path: "/admin/accounts/sales/recurring", employeePath: "/employee/accounts/sales/recurring" },
-          { slug: "sales-challans", label: "Delivery Challans", path: "/admin/accounts/sales/challans", employeePath: "/employee/accounts/sales/challans" },
-          { slug: "sales-payments", label: "Payments Received", path: "/admin/accounts/sales/payments", employeePath: "/employee/accounts/sales/payments" },
-          { slug: "sales-credits", label: "Credit Notes", path: "/admin/accounts/sales/credit-notes", employeePath: "/employee/accounts/sales/credit-notes" },
+          {
+            slug: "sales-customers",
+            label: "Customers",
+            path: "/admin/accounts/sales/customers",
+            employeePath: "/employee/accounts/sales/customers",
+          },
+          {
+            slug: "sales-quotes",
+            label: "Quotes",
+            path: "/admin/accounts/sales/quotes",
+            employeePath: "/employee/accounts/sales/quotes",
+          },
+          {
+            slug: "sales-orders",
+            label: "Sales Orders",
+            path: "/admin/accounts/sales/orders",
+            employeePath: "/employee/accounts/sales/orders",
+          },
+          {
+            slug: "sales-invoices",
+            label: "Invoices",
+            path: "/admin/accounts/sales/invoices",
+            employeePath: "/employee/accounts/sales/invoices",
+          },
+          {
+            slug: "sales-recurring",
+            label: "Recurring Invoices",
+            path: "/admin/accounts/sales/recurring",
+            employeePath: "/employee/accounts/sales/recurring",
+          },
+          {
+            slug: "sales-challans",
+            label: "Delivery Challans",
+            path: "/admin/accounts/sales/challans",
+            employeePath: "/employee/accounts/sales/challans",
+          },
+          {
+            slug: "sales-payments",
+            label: "Payments Received",
+            path: "/admin/accounts/sales/payments",
+            employeePath: "/employee/accounts/sales/payments",
+          },
+          {
+            slug: "sales-credits",
+            label: "Credit Notes",
+            path: "/admin/accounts/sales/credit-notes",
+            employeePath: "/employee/accounts/sales/credit-notes",
+          },
         ],
       },
       {
@@ -248,14 +343,54 @@ const PARENT_MENU_CONFIG = {
         path: "#",
         employeePath: "#",
         children: [
-          { slug: "purchases-vendors", label: "Vendors", path: "/admin/accounts/purchases/vendors", employeePath: "/employee/accounts/purchases/vendors" },
-          { slug: "purchases-orders", label: "Purchase Orders", path: "/admin/accounts/purchases/purchase-orders", employeePath: "/employee/accounts/purchases/purchase-orders" },
-          { slug: "purchases-bills", label: "Bills", path: "/admin/accounts/purchases/bills", employeePath: "/employee/accounts/purchases/bills" },
-          { slug: "purchases-recurring-bills", label: "Recurring Bills", path: "/admin/accounts/purchases/recurring-bills", employeePath: "/employee/accounts/purchases/recurring-bills" },
-          { slug: "purchases-expenses", label: "Expenses", path: "/admin/accounts/purchases/expenses", employeePath: "/employee/accounts/purchases/expenses" },
-          { slug: "purchases-recurring", label: "Recurring Expenses", path: "/admin/accounts/purchases/recurring-expenses", employeePath: "/employee/accounts/purchases/recurring-expenses" },
-          { slug: "purchases-payments", label: "Payments Made", path: "/admin/accounts/purchases/payments-made", employeePath: "/employee/accounts/purchases/payments-made" },
-          { slug: "purchases-credits", label: "Vendor Credits", path: "/admin/accounts/purchases/vendor-credits", employeePath: "/employee/accounts/purchases/vendor-credits" },
+          {
+            slug: "purchases-vendors",
+            label: "Vendors",
+            path: "/admin/accounts/purchases/vendors",
+            employeePath: "/employee/accounts/purchases/vendors",
+          },
+          {
+            slug: "purchases-orders",
+            label: "Purchase Orders",
+            path: "/admin/accounts/purchases/purchase-orders",
+            employeePath: "/employee/accounts/purchases/purchase-orders",
+          },
+          {
+            slug: "purchases-bills",
+            label: "Bills",
+            path: "/admin/accounts/purchases/bills",
+            employeePath: "/employee/accounts/purchases/bills",
+          },
+          {
+            slug: "purchases-recurring-bills",
+            label: "Recurring Bills",
+            path: "/admin/accounts/purchases/recurring-bills",
+            employeePath: "/employee/accounts/purchases/recurring-bills",
+          },
+          {
+            slug: "purchases-expenses",
+            label: "Expenses",
+            path: "/admin/accounts/purchases/expenses",
+            employeePath: "/employee/accounts/purchases/expenses",
+          },
+          {
+            slug: "purchases-recurring",
+            label: "Recurring Expenses",
+            path: "/admin/accounts/purchases/recurring-expenses",
+            employeePath: "/employee/accounts/purchases/recurring-expenses",
+          },
+          {
+            slug: "purchases-payments",
+            label: "Payments Made",
+            path: "/admin/accounts/purchases/payments-made",
+            employeePath: "/employee/accounts/purchases/payments-made",
+          },
+          {
+            slug: "purchases-credits",
+            label: "Vendor Credits",
+            path: "/admin/accounts/purchases/vendor-credits",
+            employeePath: "/employee/accounts/purchases/vendor-credits",
+          },
         ],
       },
       {
@@ -264,9 +399,37 @@ const PARENT_MENU_CONFIG = {
         path: "#",
         employeePath: "#",
         children: [
-          { slug: "banking", label: "Bank Accounts", path: "/admin/accounts/banking", employeePath: "/employee/accounts/banking" },
+          {
+            slug: "banking",
+            label: "Bank Accounts",
+            path: "/admin/accounts/banking",
+            employeePath: "/employee/accounts/banking",
+          },
         ],
       },
+
+      // ✅ NEW: Dedicated "Items" parent menu (moved out of Operations)
+      {
+        slug: "items-parent",
+        label: "Items",
+        path: "#",
+        employeePath: "#",
+        children: [
+          {
+            slug: "items",
+            label: "Items",
+            path: "/admin/accounts/items",
+            employeePath: "/employee/accounts/items",
+          },
+          {
+            slug: "account-documents",
+            label: "Documents",
+            path: "/admin/accounts/documents",
+            employeePath: "/employee/accounts/documents",
+          },
+        ],
+      },
+
       {
         slug: "operations",
         label: "Operations",
@@ -279,12 +442,21 @@ const PARENT_MENU_CONFIG = {
             path: "#",
             employeePath: "#",
             children: [
-              { slug: "time-projects", label: "Projects", path: "/admin/accounts/time-tracking/projects", employeePath: "/employee/accounts/time-tracking/projects" },
-              { slug: "time-timesheet", label: "Timesheets", path: "/admin/accounts/time-tracking/timesheet", employeePath: "/employee/accounts/time-tracking/timesheet" },
+              {
+                slug: "time-projects",
+                label: "Projects",
+                path: "/admin/accounts/time-tracking/projects",
+                employeePath: "/employee/accounts/time-tracking/projects",
+              },
+              {
+                slug: "time-timesheet",
+                label: "Timesheets",
+                path: "/admin/accounts/time-tracking/timesheet",
+                employeePath: "/employee/accounts/time-tracking/timesheet",
+              },
             ],
           },
-          { slug: "items", label: "Items", path: "/admin/accounts/items", employeePath: "/employee/accounts/items" },
-          { slug: "account-documents", label: "Documents", path: "/admin/accounts/documents", employeePath: "/employee/accounts/documents" },
+          // ❌ Removed: items and account-documents were previously here
         ],
       },
       {
@@ -293,20 +465,55 @@ const PARENT_MENU_CONFIG = {
         path: "#",
         employeePath: "#",
         children: [
-          { slug: "acc-coa", label: "Chart of Accounts", path: "/admin/accounts/accountant/chart-of-accounts", employeePath: "/employee/accounts/accountant/chart-of-accounts" },
-          { slug: "acc-journals", label: "Manual Journals", path: "/admin/accounts/accountant/manual-journals", employeePath: "/employee/accounts/accountant/manual-journals" },
-          { slug: "acc-currency", label: "Currency Adjustments", path: "/admin/accounts/accountant/currency-adjustments", employeePath: "/employee/accounts/accountant/currency-adjustments" },
-          { slug: "acc-budgets", label: "Budgets", path: "/admin/accounts/accountant/budgets", employeePath: "/employee/accounts/accountant/budgets" },
-          { slug: "acc-locking", label: "Transaction locking", path: "/admin/accounts/accountant/transaction-locking", employeePath: "/employee/accounts/accountant/transaction-locking" },
-          { slug: "acc-bulk", label: "Bulk Update", path: "/admin/accounts/accountant/bulk-update", employeePath: "/employee/accounts/accountant/bulk-update" },
+          {
+            slug: "acc-coa",
+            label: "Chart of Accounts",
+            path: "/admin/accounts/accountant/chart-of-accounts",
+            employeePath: "/employee/accounts/accountant/chart-of-accounts",
+          },
+          {
+            slug: "acc-journals",
+            label: "Manual Journals",
+            path: "/admin/accounts/accountant/manual-journals",
+            employeePath: "/employee/accounts/accountant/manual-journals",
+          },
+          {
+            slug: "acc-currency",
+            label: "Currency Adjustments",
+            path: "/admin/accounts/accountant/currency-adjustments",
+            employeePath: "/employee/accounts/accountant/currency-adjustments",
+          },
+          {
+            slug: "acc-budgets",
+            label: "Budgets",
+            path: "/admin/accounts/accountant/budgets",
+            employeePath: "/employee/accounts/accountant/budgets",
+          },
+          {
+            slug: "acc-locking",
+            label: "Transaction locking",
+            path: "/admin/accounts/accountant/transaction-locking",
+            employeePath: "/employee/accounts/accountant/transaction-locking",
+          },
+          {
+            slug: "acc-bulk",
+            label: "Bulk Update",
+            path: "/admin/accounts/accountant/bulk-update",
+            employeePath: "/employee/accounts/accountant/bulk-update",
+          },
         ],
       },
-      { slug: "accounts-reports", label: "Reports", path: "/admin/accounts/reports", employeePath: "/employee/accounts/reports" },
-      { 
-        slug: "accounts-settings", 
-        label: "Menu Settings", 
-        path: "/admin/accounts/settings", 
-        employeePath: "/employee/accounts/settings" 
+      {
+        slug: "accounts-reports",
+        label: "Reports",
+        path: "/admin/accounts/reports",
+        employeePath: "/employee/accounts/reports",
+      },
+      {
+        slug: "accounts-settings",
+        label: "Menu Settings",
+        path: "/admin/accounts/settings",
+        employeePath: "/employee/accounts/settings",
       },
     ],
     order: 25,
@@ -317,8 +524,18 @@ const PARENT_MENU_CONFIG = {
     permissionKeys: ["subscriptions", "subscriptions-plans"],
     expandOnHover: false,
     children: [
-      { slug: "subscriptions-plans", label: "Plans", path: ADMIN_ROUTE_MAP["subscriptions-plans"], employeePath: EMPLOYEE_ROUTE_MAP["subscriptions-plans"] },
-      { slug: "subscriptions-subscribers", label: "Subscribers", path: ADMIN_ROUTE_MAP["subscriptions-subscribers"], employeePath: EMPLOYEE_ROUTE_MAP["subscriptions-subscribers"] },
+      {
+        slug: "subscriptions-plans",
+        label: "Plans",
+        path: ADMIN_ROUTE_MAP["subscriptions-plans"],
+        employeePath: EMPLOYEE_ROUTE_MAP["subscriptions-plans"],
+      },
+      {
+        slug: "subscriptions-subscribers",
+        label: "Subscribers",
+        path: ADMIN_ROUTE_MAP["subscriptions-subscribers"],
+        employeePath: EMPLOYEE_ROUTE_MAP["subscriptions-subscribers"],
+      },
     ],
     order: 24,
   },
@@ -340,15 +557,46 @@ const ALL_PARENT_CHILD_SLUGS = Object.values(PARENT_MENU_CONFIG).flatMap((c) =>
 );
 
 const MODULE_ORDER = {
-  dashboard: 1, onboarding: 2, employees: 3, warnings: 4, "my-warnings": 4,
-  offboarding: 5, projects: 6, "project-tasks": 7, attendance: 8, documents: 9,
-  reports: 10, settings: 11, roles: 12, payroll: 13, leaves: 14, organization: 15,
-  "my-payroll": 16, meetings: 18, "my-meetings": 19, accounts: 25, "accounts-dashboard": 25,
-  sales: 26, purchases: 27, money: 28, operations: 29, accountant: 30, "accounts-reports": 31,
-  subscriptions: 24, "subscriptions-plans": 24, "subscriptions-subscribers": 24, "my-subscription": 23,
+  dashboard: 1,
+  onboarding: 2,
+  employees: 3,
+  warnings: 4,
+  "my-warnings": 4,
+  offboarding: 5,
+  projects: 6,
+  "project-tasks": 7,
+  attendance: 8,
+  documents: 9,
+  reports: 10,
+  settings: 11,
+  roles: 12,
+  payroll: 13,
+  leaves: 14,
+  organization: 15,
+  "my-payroll": 16,
+  meetings: 18,
+  "my-meetings": 19,
+  accounts: 25,
+  "accounts-dashboard": 25,
+  sales: 26,
+  purchases: 27,
+  money: 28,
+  "items-parent": 29, 
+  operations: 30,
+  accountant: 31,
+  "accounts-reports": 32,
+  subscriptions: 24,
+  "subscriptions-plans": 24,
+  "subscriptions-subscribers": 24,
+  "my-subscription": 23,
 };
 
-const HIDDEN_FOR_ADMIN = ["my-leaves", "my-tasks", "my-warnings", "my-subscription"];
+const HIDDEN_FOR_ADMIN = [
+  "my-leaves",
+  "my-tasks",
+  "my-warnings",
+  "my-subscription",
+];
 const ALWAYS_SHOWN_MODULES = ["projects", "project-tasks"];
 
 const Sidebar = ({
@@ -424,24 +672,26 @@ const Sidebar = ({
               return isMenuVisible(child.slug);
             }
             // For other parents (CRM, Subscriptions), keep them as they are
-            return true; 
+            return true;
           })
           .map((child) => {
             const isAccordion = child.children && child.children.length > 0;
             return {
               slug: child.slug,
               label: child.label,
-              path: isAccordion ? "#" : isAdmin ? child.path : child.employeePath,
+              path: isAccordion
+                ? "#"
+                : isAdmin
+                  ? child.path
+                  : child.employeePath,
               icon: ICON_MAP[child.slug] || "fas fa-circle",
               // Also filter nested children if needed (e.g., inside "sales" or "purchases")
-              children: isAccordion 
-                ? mapChildren(child.children) 
-                : null,
+              children: isAccordion ? mapChildren(child.children) : null,
             };
           });
 
       const children = mapChildren(config.children);
-      
+
       // If all children are hidden, don't show the parent (optional, but good UX)
       if (children.length === 0) return;
 
@@ -495,7 +745,7 @@ const Sidebar = ({
     return allItems;
   };
 
-   const navItems = buildNavItems();
+  const navItems = buildNavItems();
 
   const toggleMenu = (slug) => {
     setExpandedMenus((prev) => ({ ...prev, [slug]: !prev[slug] }));
@@ -617,12 +867,22 @@ const Sidebar = ({
 
           <button
             type="button"
-            onClick={() => (isMobile ? setMobileOpen(false) : onToggleCollapse())}
+            onClick={() =>
+              isMobile ? setMobileOpen(false) : onToggleCollapse()
+            }
             aria-label={
-              isMobile ? "Close menu" : collapsed ? "Expand sidebar" : "Collapse sidebar"
+              isMobile
+                ? "Close menu"
+                : collapsed
+                  ? "Expand sidebar"
+                  : "Collapse sidebar"
             }
             title={
-              isMobile ? "Close menu" : collapsed ? "Expand sidebar" : "Collapse sidebar"
+              isMobile
+                ? "Close menu"
+                : collapsed
+                  ? "Expand sidebar"
+                  : "Collapse sidebar"
             }
             className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-gray-200 transition-colors duration-200 hover:bg-green-500 hover:text-white"
           >
@@ -643,7 +903,7 @@ const Sidebar = ({
           </button>
         </div>
 
-        <nav 
+        <nav
           onClick={handleEmptyAreaClick}
           className="flex-1 overflow-y-auto overflow-x-hidden py-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent hover:scrollbar-thumb-gray-600 cursor-default"
         >
@@ -662,7 +922,9 @@ const Sidebar = ({
                     }`}
                   >
                     <i
-                      className={item.icon + " w-6 text-lg text-center flex-shrink-0"}
+                      className={
+                        item.icon + " w-6 text-lg text-center flex-shrink-0"
+                      }
                     ></i>
                     {showLabels && (
                       <>
@@ -698,7 +960,9 @@ const Sidebar = ({
                 }
               >
                 <i
-                  className={item.icon + " w-6 text-lg text-center flex-shrink-0"}
+                  className={
+                    item.icon + " w-6 text-lg text-center flex-shrink-0"
+                  }
                 ></i>
                 {showLabels && <span className="truncate">{item.label}</span>}
               </NavLink>

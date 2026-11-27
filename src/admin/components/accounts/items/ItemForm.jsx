@@ -189,7 +189,7 @@ const ItemForm = () => {
   const title = id ? "Edit item" : "New item";
 
   return (
-    <div className="w-full overflow-x-hidden pb-24">
+    <div className="w-full overflow-x-hidden pb-24 px-2 md:px-4">
       {/* ---- Header ---- */}
       <div className="flex flex-wrap justify-between items-start mb-4 md:mb-6 gap-3">
         <div className="min-w-0">
@@ -231,20 +231,6 @@ const ItemForm = () => {
         </button>
       </div>
 
-      {/* ---- Info banner ---- */}
-      <div className="mb-4 flex items-start gap-2.5 px-4 py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200/80 dark:border-green-800/60 text-xs md:text-[12.5px] text-gray-700 dark:text-gray-300">
-        <Sparkles size={14} className="text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-        <p className="leading-relaxed">
-          Items are goods and services you buy or sell. Set a sales price, purchase cost, and
-          the accounts they post to.{" "}
-          <a
-            href="#"
-            className="font-semibold text-green-700 dark:text-green-400 underline underline-offset-2 hover:no-underline"
-          >
-            Learn more →
-          </a>
-        </p>
-      </div>
 
       {/* ---- Form ---- */}
       <form onSubmit={handleSubmit} className="space-y-4">

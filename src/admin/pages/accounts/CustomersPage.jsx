@@ -91,13 +91,11 @@ const ALL_COLUMNS = [
   { id: "firstName", label: "First Name", defaultVisible: true },
   { id: "lastName", label: "Last Name", defaultVisible: false },
   { id: "salutation", label: "Salutation", defaultVisible: false },
-  { id: "customerType", label: "Customer Type", defaultVisible: false },
   { id: "mobile", label: "Mobile", defaultVisible: false },
   { id: "pan", label: "Tax ID / PAN", defaultVisible: false },
   { id: "currency", label: "Currency", defaultVisible: false },
   { id: "paymentTerms", label: "Payment Terms", defaultVisible: false },
   { id: "portalAccess", label: "Portal Access", defaultVisible: false },
-  { id: "openingBalance", label: "Opening Balance", defaultVisible: false },
   { id: "receivableAccount", label: "Receivable Account", defaultVisible: false },
   { id: "createdAt", label: "Created At", defaultVisible: false },
 ];

@@ -624,28 +624,6 @@ const CustomerForm = () => {
   }
 
   // --- Validations ---
-  const validatePhone = (phoneStr, fieldName) => {
-    if (!phoneStr) return null;
-    const digitsOnly = phoneStr.replace(/\D/g, "");
-    const allowedLengths = countryConfig.phoneLength || [10];
-    if (!allowedLengths.includes(digitsOnly.length)) {
-      return `${fieldName} number for ${formData.country} must be ${allowedLengths.join(" or ")} digits long.`;
-    }
-    return null;
-  };
-
-  const workPhoneError = validatePhone(formData.workPhone, "Work phone");
-  const mobileError = validatePhone(formData.mobile, "Mobile");
-  if (workPhoneError) return setSubmitError(workPhoneError);
-  if (mobileError) return setSubmitError(mobileError);
-
-  for (let i = 0; i < localContactPersons.length; i++) {
-    const cp = localContactPersons[i];
-    const err =
-      validatePhone(cp.workPhone, `Contact person ${i + 1} work phone`) ||
-      validatePhone(cp.mobile, `Contact person ${i + 1} mobile`);
-    if (err) return setSubmitError(err);
-  }
 
   if (formData.type === "Business" && !formData.companyName.trim()) {
     setSubmitError("Company name is required for business customers.");
@@ -754,7 +732,7 @@ const CustomerForm = () => {
   ).map((c) => ({ value: c.value, label: c.value }));
 
   return (
-    <div className="w-full overflow-x-hidden pb-24">
+    <div className="w-full overflow-x-hidden pb-24 px-2 md:px-4">
       {/* Header */}
       <div className="flex flex-wrap justify-between items-start mb-4 md:mb-6 gap-3">
         <div className="min-w-0">
