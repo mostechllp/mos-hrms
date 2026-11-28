@@ -1,17 +1,35 @@
 // src/admin/pages/accounts/VendorsPage.jsx
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { deleteVendor } from "../../store/slices/accounts/vendorsSlice";
 import {
-  Plus, ArrowUpDown, Download, Upload,
+  fetchVendors,
+  deleteVendor,
+  clearError,
+} from "../../store/slices/accounts/vendorsSlice";
+import {
+  Plus,
+  ArrowUpDown,
+  Download,
+  Upload,
   Search,
-  Eye, Edit2, Trash2, X, CheckCircle2, UserPlus, UploadCloud,
-  Mail, Printer, Building2,
+  Eye,
+  Edit2,
+  Trash2,
+  X,
+  CheckCircle2,
+  UserPlus,
+  UploadCloud,
+  Mail,
+  Printer,
+  Building2,
   Columns,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import CustomizeColumnsModal from "../../../components/common/CustomizeColumnsModal";
+import { showToast } from "../../../components/common/Toast";
 
 /* ---------- primitives ---------- */
 
@@ -24,10 +42,10 @@ const ALL_COLUMNS = [
 ];
 
 const SORT_OPTIONS = [
-  { value: "name_asc", label: "Name A–Z" },
-  { value: "name_desc", label: "Name Z–A" },
-  { value: "payables_desc", label: "Highest Payables" },
-  { value: "payables_asc", label: "Lowest Payables" },
+  { value: "name_asc", label: "Name A–Z", sort_by: "name", sort_dir: "asc" },
+  { value: "name_desc", label: "Name Z–A", sort_by: "name", sort_dir: "desc" },
+  { value: "payables_desc", label: "Highest Payables", sort_by: "opening_balance", sort_dir: "desc" },
+  { value: "payables_asc", label: "Lowest Payables", sort_by: "opening_balance", sort_dir: "asc" },
 ];
 
 const Card = ({ children, className = "" }) => (
@@ -85,77 +103,103 @@ const DetailItem = ({ label, value, tone }) => (
 const VendorsPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const vendors = useSelector((s) => s.vendors.vendors) || [];
 
-  // UI State
+  const vendorsSlice = useSelector((s) => s.vendors) || {};
+  const vendors = vendorsSlice.vendors || [];
+  const loading = vendorsSlice.loading ?? false;
+  const error = vendorsSlice.error ?? null;
+  const pagination = vendorsSlice.pagination ?? null;
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [activeTab, setActiveTab] = useState("Overview");
 
-  // Filter & Sort State
-  const [portalFilter, setPortalFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("name_asc");
 
-  // Column Customization State
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(25);
+
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(
     ALL_COLUMNS.reduce((acc, col) => ({ ...acc, [col.id]: true }), {})
   );
 
-  const toggleColumn = (id) => {
-    setVisibleColumns((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  /* ---- load list whenever page / search / filters / sort change ---- */
+  useEffect(() => {
+    const params = { page, per_page: pageSize };
+    if (searchQuery.trim()) params.search = searchQuery.trim();
+    if (statusFilter !== "all") params.status = statusFilter;
 
-  // Filtering & Sorting Logic
-  const processedVendors = useMemo(() => {
-    let result = vendors.filter((v) => {
-      const q = searchQuery.toLowerCase();
-      const matchesSearch =
-        v.displayName?.toLowerCase().includes(q) ||
-        (v.companyName && v.companyName.toLowerCase().includes(q)) ||
-        (v.email && v.email.toLowerCase().includes(q));
-
-      const matchesPortal =
-        portalFilter === "all" ||
-        (portalFilter === "enabled" && v.portalAccess) ||
-        (portalFilter === "disabled" && !v.portalAccess);
-
-      return matchesSearch && matchesPortal;
-    });
-
-    result.sort((a, b) => {
-      if (sortBy === "name_asc")
-        return (a.displayName || "").localeCompare(b.displayName || "");
-      if (sortBy === "name_desc")
-        return (b.displayName || "").localeCompare(a.displayName || "");
-      if (sortBy === "payables_desc")
-        return (b.openingBalance || 0) - (a.openingBalance || 0);
-      if (sortBy === "payables_asc")
-        return (a.openingBalance || 0) - (b.openingBalance || 0);
-      return 0;
-    });
-
-    return result;
-  }, [vendors, searchQuery, portalFilter, sortBy]);
-
-  const handleDeleteConfirm = () => {
-    if (deleteTarget) {
-      dispatch(deleteVendor(deleteTarget.id));
-      if (selectedVendor?.id === deleteTarget.id) setSelectedVendor(null);
-      setDeleteTarget(null);
+    const sort = SORT_OPTIONS.find((o) => o.value === sortBy);
+    if (sort) {
+      params.sort_by = sort.sort_by;
+      params.sort_dir = sort.sort_dir;
     }
-  };
 
-  const total = vendors.length;
+    dispatch(fetchVendors(params));
+  }, [dispatch, page, pageSize, searchQuery, statusFilter, sortBy]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter, sortBy]);
+
+  useEffect(() => {
+    return () => {
+      dispatch(clearError());
+    };
+  }, [dispatch]);
+
+  const toggleColumn = (id) =>
+    setVisibleColumns((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  /* ---- render rows (server-paginated, no extra client work) ---- */
+  const renderedVendors = vendors;
+
+  const total = pagination?.total ?? vendors.length;
+  const totalPages = pagination?.lastPage ?? 1;
+  const currentPage = pagination?.currentPage ?? 1;
+
   const withCompany = vendors.filter((v) => v.companyName).length;
   const withPortal = vendors.filter((v) => v.portalAccess).length;
   const totalPayables = vendors.reduce((s, v) => s + (v.openingBalance || 0), 0);
 
-  const hasActiveFilters = portalFilter !== "all";
+  const hasActiveFilters = statusFilter !== "all";
+
+  /* ---- handlers ---- */
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    try {
+      await dispatch(deleteVendor(target.id)).unwrap();
+      if (selectedVendor?.id === target.id) setSelectedVendor(null);
+      showToast("Vendor deleted", "success");
+    } catch (e) {
+      showToast(typeof e === "string" ? e : "Delete failed", "error");
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
 
   return (
     <div className="w-full overflow-x-hidden px-2 md:px-4">
+      {/* Error banner */}
+      {error && (
+        <div className="mb-4 flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-xs md:text-sm text-red-700 dark:text-red-300">
+          <span className="inline-flex items-center gap-2">
+            <AlertCircle size={14} />
+            {typeof error === "string" ? error : error?.message || "Something went wrong"}
+          </span>
+          <button
+            onClick={() => dispatch(clearError())}
+            className="text-[11px] font-medium underline hover:no-underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* ---- Stats Cards ---- */}
       <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
         <MiniStat label="Total Vendors" value={total} icon="fas fa-truck" color="green" />
@@ -185,10 +229,10 @@ const VendorsPage = () => {
 
         <div className="flex flex-wrap items-center gap-2">
           <button className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-            <Download size={14} /> Import
+            <Upload size={14} /> Import
           </button>
           <button className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-            <Upload size={14} /> Export
+            <Download size={14} /> Export
           </button>
 
           <button
@@ -201,15 +245,17 @@ const VendorsPage = () => {
       </div>
 
       {/* ---- Empty / Table ---- */}
-      {total === 0 ? (
+      {loading && vendors.length === 0 ? (
+        <Card className="py-20 flex flex-col items-center justify-center gap-3 text-gray-500">
+          <Loader2 size={22} className="animate-spin text-green-500" />
+          <span className="text-sm">Loading vendors…</span>
+        </Card>
+      ) : total === 0 && !searchQuery && !hasActiveFilters ? (
         <EmptyState onCreate={() => navigate("/admin/accounts/purchases/vendors/new")} />
       ) : (
         <Card className="overflow-hidden">
-
-          {/* 🌟 UNIFIED TOOLBAR ROW 🌟 */}
+          {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-3 px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-gray-700">
-
-            {/* Search */}
             <div className="relative w-full sm:w-56">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -233,34 +279,32 @@ const VendorsPage = () => {
 
             <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block" />
 
-            {/* Inline Filters & Sort */}
             <div className="flex flex-wrap items-center gap-2 flex-1">
-
-              {/* Sort By */}
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full px-3 py-1 text-xs text-gray-700 dark:text-gray-200 outline-none focus:border-green-400 cursor-pointer font-medium"
               >
-                {SORT_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
                 ))}
               </select>
 
-              {/* Portal Access Filter */}
               <select
-                value={portalFilter}
-                onChange={(e) => setPortalFilter(e.target.value)}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full px-3 py-1 text-xs text-gray-700 dark:text-gray-200 outline-none focus:border-green-400 cursor-pointer"
               >
-                <option value="all">Portal: Any</option>
-                <option value="enabled">Portal Enabled</option>
-                <option value="disabled">Portal Disabled</option>
+                <option value="all">Status: Any</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
               </select>
 
               {hasActiveFilters && (
                 <button
-                  onClick={() => setPortalFilter("all")}
+                  onClick={() => setStatusFilter("all")}
                   className="text-xs text-red-500 hover:text-red-600 hover:underline font-medium ml-1"
                 >
                   Clear Filters
@@ -276,7 +320,7 @@ const VendorsPage = () => {
                   <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                     {visibleColumns.displayName && (
                       <th className="px-4 md:px-5 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        <span className="inline-flex items-center gap-1 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                        <span className="inline-flex items-center gap-1">
                           Display name <ArrowUpDown size={11} />
                         </span>
                       </th>
@@ -298,17 +342,21 @@ const VendorsPage = () => {
                 </thead>
 
                 <tbody>
-                  {processedVendors.length === 0 ? (
+                  {loading ? (
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
-                      >
+                      <td colSpan={6} className="py-10 text-center text-gray-500">
+                        <Loader2 size={18} className="inline animate-spin mr-2 text-green-500" />
+                        Loading…
+                      </td>
+                    </tr>
+                  ) : renderedVendors.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                         No vendors match your filters or search.
                       </td>
                     </tr>
                   ) : (
-                    processedVendors.map((vendor) => (
+                    renderedVendors.map((vendor) => (
                       <tr
                         key={vendor.id}
                         onClick={() => {
@@ -328,41 +376,30 @@ const VendorsPage = () => {
                               }}
                               className="text-left font-semibold text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 hover:underline transition-colors"
                             >
-                              {vendor.displayName}
+                              {vendor.displayName || "—"}
                             </button>
                           </td>
                         )}
-
                         {visibleColumns.companyName && (
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {vendor.companyName || (
-                              <span className="text-gray-300 dark:text-gray-600">—</span>
-                            )}
+                            {vendor.companyName || <span className="text-gray-300 dark:text-gray-600">—</span>}
                           </td>
                         )}
-
                         {visibleColumns.email && (
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {vendor.email || (
-                              <span className="text-gray-300 dark:text-gray-600">—</span>
-                            )}
+                            {vendor.email || <span className="text-gray-300 dark:text-gray-600">—</span>}
                           </td>
                         )}
-
                         {visibleColumns.workPhone && (
                           <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                            {vendor.workPhone || (
-                              <span className="text-gray-300 dark:text-gray-600">—</span>
-                            )}
+                            {vendor.workPhone || <span className="text-gray-300 dark:text-gray-600">—</span>}
                           </td>
                         )}
-
                         {visibleColumns.openingBalance && (
                           <td className="px-3 md:px-4 py-2 md:py-3 text-right text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
                             ₹{(vendor.openingBalance || 0).toFixed(2)}
                           </td>
                         )}
-
                         <td
                           className="px-3 md:px-4 py-2 md:py-3 text-right"
                           onClick={(e) => e.stopPropagation()}
@@ -400,10 +437,34 @@ const VendorsPage = () => {
               </table>
             </div>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-t border-gray-200 dark:border-gray-700">
+              <span className="text-xs text-gray-500">
+                Page {currentPage} of {totalPages} · {total} total
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={currentPage <= 1 || loading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                >
+                  Prev
+                </button>
+                <button
+                  disabled={currentPage >= totalPages || loading}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 
-      {/* 🌟 REUSABLE CUSTOMIZE COLUMNS MODAL 🌟 */}
       <CustomizeColumnsModal
         isOpen={isColumnModalOpen}
         onClose={() => setIsColumnModalOpen(false)}
@@ -420,7 +481,6 @@ const VendorsPage = () => {
             onClick={() => setSelectedVendor(null)}
           />
           <aside className="fixed top-0 right-0 h-full w-full md:w-[60%] lg:w-1/2 bg-gray-50 dark:bg-gray-900 shadow-2xl z-50 flex flex-col border-l border-gray-200 dark:border-gray-700 animate-slide-in">
-            {/* Header */}
             <div className="px-5 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
@@ -439,9 +499,6 @@ const VendorsPage = () => {
                 >
                   <Edit2 size={13} /> Edit
                 </button>
-                <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  New transaction
-                </button>
                 <button
                   onClick={() => setSelectedVendor(null)}
                   className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
@@ -452,7 +509,6 @@ const VendorsPage = () => {
               </div>
             </div>
 
-            {/* Tabs */}
             <div className="px-5 sm:px-6 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <div className="flex gap-1 -mb-px overflow-x-auto">
                 {["Overview", "Comments", "Transactions", "Mails", "Statement"].map((tab) => (
@@ -471,17 +527,14 @@ const VendorsPage = () => {
               </div>
             </div>
 
-            {/* Body */}
             <div className="flex-1 overflow-y-auto">
               {activeTab === "Overview" && (
                 <div className="flex flex-col lg:flex-row gap-4 p-5 sm:p-6">
-                  {/* Left column */}
                   <div className="lg:w-64 space-y-4 shrink-0">
-                    {/* Contact card */}
                     <Card className="p-4">
                       <div className="flex items-start gap-3">
                         <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 font-semibold text-sm shrink-0">
-                          {selectedVendor.displayName?.charAt(0)}
+                          {selectedVendor.displayName?.charAt(0) || "?"}
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
@@ -501,103 +554,32 @@ const VendorsPage = () => {
                       </div>
                     </Card>
 
-                    {/* Addresses */}
-                    <Card className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <SectionLabel>Billing address</SectionLabel>
-                        <button className="text-[11px] text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                          New
-                        </button>
-                      </div>
-                      {selectedVendor.billingAddress?.attention ? (
-                        <div className="text-[11.5px] text-gray-600 dark:text-gray-300 space-y-0.5 leading-relaxed">
-                          <p className="font-medium text-gray-800 dark:text-gray-100">
-                            {selectedVendor.billingAddress.attention}
-                          </p>
-                          {selectedVendor.billingAddress.street1 && (
-                            <p>{selectedVendor.billingAddress.street1}</p>
-                          )}
-                          <p>
-                            {[selectedVendor.billingAddress.city, selectedVendor.billingAddress.state]
-                              .filter(Boolean)
-                              .join(", ")}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-[11.5px] text-gray-400 dark:text-gray-600">
-                          Not provided
-                        </p>
-                      )}
-
-                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between mb-2">
-                          <SectionLabel>Shipping address</SectionLabel>
-                          <button className="text-[11px] text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                            New
-                          </button>
-                        </div>
-                        {selectedVendor.shippingAddress?.attention ? (
-                          <div className="text-[11.5px] text-gray-600 dark:text-gray-300 space-y-0.5">
-                            <p className="font-medium text-gray-800 dark:text-gray-100">
-                              {selectedVendor.shippingAddress.attention}
-                            </p>
-                            {selectedVendor.shippingAddress.street1 && (
-                              <p>{selectedVendor.shippingAddress.street1}</p>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-[11.5px] text-gray-400 dark:text-gray-600">
-                            Not provided
-                          </p>
-                        )}
-                      </div>
-                    </Card>
-
-                    {/* Other details */}
                     <Card className="p-4 space-y-2">
                       <SectionLabel>Other details</SectionLabel>
+                      <DetailItem label="Currency" value={selectedVendor.currency} />
                       <DetailItem
-                        label="Currency"
-                        value={selectedVendor.currency?.split("-")[0]}
+                        label="Status"
+                        value={selectedVendor.status === "active" ? "Active" : "Inactive"}
+                        tone={selectedVendor.status === "active" ? "pos" : "neg"}
                       />
+                      <DetailItem label="Payment terms" value={selectedVendor.paymentTerms} />
                       <DetailItem
-                        label="Portal status"
-                        value={selectedVendor.portalAccess ? "Enabled" : "Disabled"}
-                        tone={selectedVendor.portalAccess ? "pos" : "neg"}
+                        label="Opening balance"
+                        value={`₹${(selectedVendor.openingBalance || 0).toFixed(2)}`}
                       />
-                      <DetailItem label="Language" value={selectedVendor.language} />
                     </Card>
 
-                    {/* Contact persons */}
-                    <Card className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <SectionLabel>Contact persons</SectionLabel>
-                        <button className="text-[11px] text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                          Add
-                        </button>
-                      </div>
-                      <p className="text-[11.5px] text-gray-400 dark:text-gray-600">
-                        No contact persons yet
-                      </p>
-                    </Card>
-
-                    {/* Bank */}
-                    <Card className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <SectionLabel>Bank accounts</SectionLabel>
-                        <button className="text-[11px] text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                          Add
-                        </button>
-                      </div>
-                      <p className="text-[11.5px] text-gray-400 dark:text-gray-600">
-                        No bank account added
-                      </p>
-                    </Card>
+                    {selectedVendor.remarks && (
+                      <Card className="p-4">
+                        <SectionLabel>Remarks</SectionLabel>
+                        <p className="text-[11.5px] text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+                          {selectedVendor.remarks}
+                        </p>
+                      </Card>
+                    )}
                   </div>
 
-                  {/* Right column */}
                   <div className="flex-1 min-w-0 space-y-4">
-                    {/* What's next */}
                     <Card className="p-4 bg-green-50 dark:bg-green-900/20 !border-green-200/80 dark:!border-green-800/60">
                       <div className="flex items-start gap-2">
                         <CheckCircle2
@@ -609,8 +591,7 @@ const VendorsPage = () => {
                             What's next?
                           </p>
                           <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
-                            Create a purchase order or record a bill for this
-                            vendor.
+                            Create a purchase order or record a bill for this vendor.
                           </p>
                           <div className="flex flex-wrap items-center gap-2 mt-3">
                             <button className="inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-semibold text-white bg-green-500 hover:bg-green-600 rounded-full transition-colors">
@@ -624,7 +605,6 @@ const VendorsPage = () => {
                       </div>
                     </Card>
 
-                    {/* Payables */}
                     <Card>
                       <div className="px-4 pt-4 pb-2 flex items-center justify-between">
                         <div>
@@ -632,13 +612,10 @@ const VendorsPage = () => {
                           <p className="text-[11.5px] text-gray-500">
                             Payment due period{" "}
                             <span className="font-medium text-gray-700 dark:text-gray-300">
-                              {selectedVendor.paymentTerms}
+                              {selectedVendor.paymentTerms || "—"}
                             </span>
                           </p>
                         </div>
-                        <button className="text-[11px] text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                          Opening balance
-                        </button>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full border-collapse text-xs">
@@ -658,10 +635,10 @@ const VendorsPage = () => {
                           <tbody>
                             <tr className="border-b border-gray-200 dark:border-gray-700">
                               <td className="px-3 md:px-4 py-2.5 text-gray-700 dark:text-gray-300">
-                                {selectedVendor.currency}
+                                {selectedVendor.currency || "INR"}
                               </td>
                               <td className="px-3 md:px-4 py-2.5 text-right tabular-nums">
-                                ₹0.00
+                                ₹{(selectedVendor.openingBalance || 0).toFixed(2)}
                               </td>
                               <td className="px-3 md:px-4 py-2.5 text-right tabular-nums">
                                 ₹0.00
@@ -671,95 +648,12 @@ const VendorsPage = () => {
                         </table>
                       </div>
                     </Card>
-
-                    {/* Expenses */}
-                    <Card className="p-4">
-                      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                        <div>
-                          <SectionLabel>Expenses</SectionLabel>
-                          <p className="text-[10.5px] text-gray-500">
-                            In organization's base currency.
-                          </p>
-                        </div>
-                        <div className="flex gap-2 text-[11px]">
-                          <select className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full px-3 py-1 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400">
-                            <option>Last 6 months</option>
-                          </select>
-                          <select className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full px-3 py-1 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400">
-                            <option>Accrual</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="h-28 flex items-end justify-between gap-2 px-1">
-                        {[10, 20, 15, 30, 25, 40].map((h, i) => (
-                          <div
-                            key={i}
-                            className="flex-1 bg-green-200 dark:bg-green-900/40 rounded-t"
-                            style={{ height: `${h}%` }}
-                          ></div>
-                        ))}
-                      </div>
-                      <div className="flex justify-between text-[10px] text-gray-400 mt-1 px-1">
-                        <span>Apr</span>
-                        <span>May</span>
-                        <span>Jun</span>
-                        <span>Jul</span>
-                        <span>Aug</span>
-                        <span>Sep</span>
-                      </div>
-                    </Card>
-
-                    {/* Timeline */}
-                    <Card className="p-4">
-                      <SectionLabel>Recent activity</SectionLabel>
-                      <ol className="relative border-l border-gray-200 dark:border-gray-700 ml-2 space-y-4 mt-2">
-                        {[
-                          { title: "Contact person added", detail: "Fidha was added by Joe Doe" },
-                          { title: "Contact created", detail: "Created by Joe Doe" },
-                        ].map((item, i) => (
-                          <li key={i} className="pl-4 relative">
-                            <span className="absolute left-[-4.5px] top-1.5 w-2 h-2 bg-white dark:bg-gray-900 border-2 border-green-500 rounded-full" />
-                            <p className="text-xs md:text-[12.5px] font-medium text-gray-800 dark:text-gray-100">
-                              {item.title}
-                            </p>
-                            <p className="text-[11.5px] text-gray-500 mt-0.5">
-                              {item.detail}
-                            </p>
-                            <p className="text-[10.5px] text-gray-400 mt-0.5">
-                              29 Oct 2026 · 5:08 PM
-                            </p>
-                          </li>
-                        ))}
-                      </ol>
-                    </Card>
                   </div>
                 </div>
               )}
 
               {activeTab === "Statement" && (
                 <div className="p-5 sm:p-6">
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <div className="flex gap-2">
-                      <select className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full px-3 py-1.5 text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400">
-                        <option>This month</option>
-                      </select>
-                      <select className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full px-3 py-1.5 text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400">
-                        <option>All</option>
-                      </select>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                        <Printer size={13} /> Print
-                      </button>
-                      <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                        <Download size={13} /> PDF
-                      </button>
-                      <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                        <Mail size={13} /> Send
-                      </button>
-                    </div>
-                  </div>
-
                   <StatementPreview vendor={selectedVendor} />
                 </div>
               )}
@@ -859,31 +753,6 @@ const EmptyState = ({ onCreate }) => (
         </button>
       </div>
     </div>
-
-    <div className="mt-12 max-w-2xl mx-auto bg-gray-50 dark:bg-gray-700/30 border border-gray-200/80 dark:border-gray-700 rounded-xl p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Building2 size={14} className="text-gray-400" />
-        <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-          Key benefits
-        </h3>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-        {[
-          "Multiple contact persons per vendor",
-          "Vendor portal access",
-          "Multiple billing and shipping addresses",
-          "Multi-currency purchase transactions",
-        ].map((b) => (
-          <div
-            key={b}
-            className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300"
-          >
-            <CheckCircle2 size={14} className="text-green-500 mt-0.5 shrink-0" />
-            <span>{b}</span>
-          </div>
-        ))}
-      </div>
-    </div>
   </Card>
 );
 
@@ -891,16 +760,17 @@ const StatementPreview = ({ vendor }) => (
   <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 sm:p-8 mx-auto max-w-2xl text-gray-800 dark:text-gray-200 shadow-soft">
     <div className="flex justify-between items-start mb-8 pb-4 border-b border-gray-200 dark:border-gray-700">
       <div className="text-[11.5px] space-y-0.5">
-        <p className="font-semibold text-gray-800 dark:text-gray-100">Fidha</p>
-        <p className="text-gray-500">Keralam</p>
-        <p className="text-gray-500">India</p>
-        <p className="text-gray-500">fidh3549@gmail.com</p>
+        <p className="font-semibold text-gray-800 dark:text-gray-100">
+          {vendor.companyName || vendor.displayName}
+        </p>
+        {vendor.email && <p className="text-gray-500">{vendor.email}</p>}
+        {vendor.workPhone && <p className="text-gray-500">{vendor.workPhone}</p>}
       </div>
       <div className="text-right">
         <h1 className="text-xl font-semibold tracking-tight text-gray-800 dark:text-gray-100">
           Statement of accounts
         </h1>
-        <p className="text-[11px] text-gray-500 mt-1">01 Oct – 31 Oct 2026</p>
+        <p className="text-[11px] text-gray-500 mt-1">As of today</p>
       </div>
     </div>
 
@@ -913,88 +783,25 @@ const StatementPreview = ({ vendor }) => (
       </p>
     </div>
 
-    <table className="w-full border-collapse text-[11.5px] mb-6">
-      <thead>
-        <tr className="bg-gray-50 dark:bg-gray-700/50 border-y border-gray-200 dark:border-gray-700">
-          <th
-            colSpan={2}
-            className="text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-2 px-2"
-          >
-            Account summary
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {[
-          ["Opening balance", "₹0.00"],
-          ["Billed amount", "₹0.00"],
-          ["Amount paid", "₹0.00"],
-        ].map(([label, value]) => (
-          <tr
-            key={label}
-            className="border-b border-gray-200 dark:border-gray-700"
-          >
-            <td className="py-2 px-2 text-gray-500">{label}</td>
-            <td className="py-2 px-2 text-right text-gray-800 dark:text-gray-100 tabular-nums">
-              {value}
-            </td>
-          </tr>
-        ))}
-        <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-          <td className="py-2 px-2 font-semibold text-gray-800 dark:text-gray-100">
-            Balance due
-          </td>
-          <td className="py-2 px-2 text-right font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
-            ₹0.00
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
     <table className="w-full border-collapse text-[11.5px]">
       <thead>
         <tr className="bg-gray-50 dark:bg-gray-700/50 border-y border-gray-200 dark:border-gray-700">
           <th className="text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-2 px-2">
-            Date
-          </th>
-          <th className="text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-2 px-2">
-            Details
+            Account summary
           </th>
           <th className="text-right text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-2 px-2">
             Amount
-          </th>
-          <th className="text-right text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-2 px-2">
-            Payments
-          </th>
-          <th className="text-right text-[10px] font-semibold text-gray-500 dark:text-gray-400 py-2 px-2">
-            Balance
           </th>
         </tr>
       </thead>
       <tbody>
         <tr className="border-b border-gray-200 dark:border-gray-700">
-          <td className="py-2.5 px-2 text-gray-500">01 Oct 2026</td>
-          <td className="py-2.5 px-2 text-gray-700 dark:text-gray-300">
-            Opening balance
+          <td className="py-2 px-2 text-gray-500">Opening balance</td>
+          <td className="py-2 px-2 text-right tabular-nums">
+            ₹{(vendor.openingBalance || 0).toFixed(2)}
           </td>
-          <td className="py-2.5 px-2 text-right tabular-nums">0.00</td>
-          <td className="py-2.5 px-2 text-right tabular-nums">—</td>
-          <td className="py-2.5 px-2 text-right tabular-nums">0.00</td>
         </tr>
       </tbody>
-      <tfoot>
-        <tr>
-          <td
-            colSpan={4}
-            className="pt-3 px-2 text-right font-semibold text-gray-800 dark:text-gray-100 border-t border-gray-200 dark:border-gray-700"
-          >
-            Balance due
-          </td>
-          <td className="pt-3 px-2 text-right font-semibold text-gray-800 dark:text-gray-100 tabular-nums border-t border-gray-200 dark:border-gray-700">
-            ₹0.00
-          </td>
-        </tr>
-      </tfoot>
     </table>
   </div>
 );

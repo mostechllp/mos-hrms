@@ -1,13 +1,13 @@
 // src/admin/pages/accounts/ItemsPage.jsx
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
+  fetchItems,
   deleteItem,
-  // Optional — add these to itemsSlice to enable server-side import/export & pagination
-  // importItems,
-  // exportItems,
-  // fetchItems,
+  importItems,
+  exportItems,
+  clearError,
 } from "../../store/slices/accounts/itemsSlice";
 import {
   Plus,
@@ -21,7 +21,6 @@ import {
   Package,
   Columns,
   Loader2,
-  X,
   Settings,
 } from "lucide-react";
 import ConfirmModal from "../../components/common/ConfirmModal";
@@ -30,7 +29,7 @@ import ExportModal from "../../../components/common/ExportModal";
 import ImportModal from "../../../components/common/ImportModal";
 import { showToast } from "../../../components/common/Toast";
 
-/* ---------- primitives (match CustomersPage) ---------- */
+/* ---------- primitives ---------- */
 const Card = ({ children, className = "" }) => (
   <div
     className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-soft ${className}`}
@@ -79,10 +78,10 @@ const ALL_COLUMNS = [
 ];
 
 const SORT_OPTIONS = [
-  { value: "name_asc", label: "Name (A-Z)" },
-  { value: "name_desc", label: "Name (Z-A)" },
-  { value: "rate_desc", label: "Highest Rate" },
-  { value: "rate_asc", label: "Lowest Rate" },
+  { value: "name_asc", label: "Name (A-Z)", sort_by: "name", sort_dir: "asc" },
+  { value: "name_desc", label: "Name (Z-A)", sort_by: "name", sort_dir: "desc" },
+  { value: "rate_desc", label: "Highest Rate", sort_by: "selling_price", sort_dir: "desc" },
+  { value: "rate_asc", label: "Lowest Rate", sort_by: "selling_price", sort_dir: "asc" },
 ];
 
 const ITEM_IMPORT_COLUMNS = [
@@ -105,7 +104,6 @@ const ItemsPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  // Tolerant of slice shape — falls back gracefully if pagination isn't wired yet
   const itemsSlice = useSelector((state) => state.items) || {};
   const items = itemsSlice.items || [];
   const loading = itemsSlice.loading ?? false;
@@ -125,9 +123,37 @@ const ItemsPage = () => {
   });
   const [sortBy, setSortBy] = useState("name_asc");
 
-  // Client-side pagination fallback (used only if slice doesn't provide one)
   const [page, setPage] = useState(1);
   const [pageSize] = useState(25);
+
+  /* ---- load items whenever page / search / filters / sort change ---- */
+  useEffect(() => {
+    const params = { page, per_page: pageSize };
+
+    if (searchQuery.trim()) params.search = searchQuery.trim();
+    if (filters.type !== "all") params.type = filters.type;
+    if (filters.usageUnit !== "all") params.usage_unit = filters.usageUnit;
+
+    const sort = SORT_OPTIONS.find((o) => o.value === sortBy);
+    if (sort) {
+      params.sort_by = sort.sort_by;
+      params.sort_dir = sort.sort_dir;
+    }
+
+    dispatch(fetchItems(params));
+  }, [dispatch, page, pageSize, searchQuery, filters, sortBy]);
+
+  /* ---- reset to page 1 when search / filters / sort change ---- */
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, filters, sortBy]);
+
+  /* ---- clear stale errors on unmount ---- */
+  useEffect(() => {
+    return () => {
+      dispatch(clearError());
+    };
+  }, [dispatch]);
 
   /* ---- column visibility + order (persisted) ---- */
   const [visibleColumns, setVisibleColumns] = useState(
@@ -174,6 +200,9 @@ const ItemsPage = () => {
     setVisibleColumns((prev) => ({ ...prev, [id]: !prev[id] }));
 
   /* ---- derived data ---- */
+  // In server-paginated mode, filter dropdown options must come from the
+  // server-provided form options. As a resilient fallback, derive from
+  // whatever rows we currently have.
   const availableUnits = useMemo(
     () => [...new Set(items.map((i) => i.usageUnit).filter(Boolean))],
     [items],
@@ -187,10 +216,14 @@ const ItemsPage = () => {
   const hasActiveFilters =
     filters.type !== "all" || filters.usageUnit !== "all";
 
-  const filteredItems = useMemo(() => {
+  /* ---- rows to render ---- */
+  // Server already filtered, sorted and paginated — render as-is.
+  // Client fallback (no pagination meta) still applies in-memory filtering.
+  const pagedItems = useMemo(() => {
+    if (pagination) return items;
+
     let result = [...items];
 
-    // search
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       result = result.filter(
@@ -200,8 +233,6 @@ const ItemsPage = () => {
           (item.purchaseDescription && item.purchaseDescription.toLowerCase().includes(q)),
       );
     }
-
-    // filters
     if (filters.type !== "all") {
       result = result.filter((item) => item.type === filters.type);
     }
@@ -209,7 +240,6 @@ const ItemsPage = () => {
       result = result.filter((item) => item.usageUnit === filters.usageUnit);
     }
 
-    // sort
     result.sort((a, b) => {
       const nameA = (a.name || "").toLowerCase();
       const nameB = (b.name || "").toLowerCase();
@@ -222,104 +252,94 @@ const ItemsPage = () => {
       return 0;
     });
 
-    return result;
-  }, [items, searchQuery, filters, sortBy]);
+    return result.slice((page - 1) * pageSize, page * pageSize);
+  }, [items, pagination, searchQuery, filters, sortBy, page, pageSize]);
 
-  // Use server pagination if provided; else client-side
   const serverPaginated = !!pagination;
-  const totalItems = serverPaginated ? (pagination.total ?? items.length) : filteredItems.length;
+  const totalItems = serverPaginated
+    ? (pagination.total ?? items.length)
+    : (() => {
+        // Recompute total count for client fallback
+        let result = [...items];
+        if (searchQuery.trim()) {
+          const q = searchQuery.trim().toLowerCase();
+          result = result.filter(
+            (item) =>
+              item.name?.toLowerCase().includes(q) ||
+              (item.description && item.description.toLowerCase().includes(q)) ||
+              (item.purchaseDescription && item.purchaseDescription.toLowerCase().includes(q)),
+          );
+        }
+        if (filters.type !== "all") result = result.filter((i) => i.type === filters.type);
+        if (filters.usageUnit !== "all") result = result.filter((i) => i.usageUnit === filters.usageUnit);
+        return result.length;
+      })();
   const totalPages = serverPaginated
     ? (pagination.lastPage ?? 1)
-    : Math.max(1, Math.ceil(filteredItems.length / pageSize));
+    : Math.max(1, Math.ceil(totalItems / pageSize));
   const currentPage = serverPaginated
     ? (pagination.currentPage ?? 1)
     : page;
 
-  const pagedItems = serverPaginated
-    ? filteredItems
-    : filteredItems.slice((page - 1) * pageSize, page * pageSize);
-
-  // Reset to page 1 when filters/search change
-  useEffect(() => {
-    if (!serverPaginated) setPage(1);
-  }, [searchQuery, filters, sortBy, serverPaginated]);
-
   /* ---- handlers ---- */
-  const handleDeleteConfirm = () => {
-    if (deleteTarget) {
-      dispatch(deleteItem(deleteTarget.id));
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget; // capture before state changes
+    try {
+      await dispatch(deleteItem(target.id)).unwrap();
+      showToast("Item deleted", "success");
+    } catch (e) {
+      showToast(e || "Delete failed", "error");
+    } finally {
       setDeleteTarget(null);
     }
   };
 
-  // Soft fallback: if slice thunk not yet wired, show a toast instead of crashing
   const handleImportSubmit = async (formData) => {
     try {
-      const { importItems } = await import("../../store/slices/accounts/itemsSlice");
-      if (typeof importItems === "function") {
-        await dispatch(importItems(formData)).unwrap();
-        showToast("Items imported successfully", "success");
-      } else {
-        showToast("Import handler not configured on itemsSlice yet", "info");
-      }
+      await dispatch(importItems(formData)).unwrap();
+      showToast("Items imported successfully", "success");
+      // refresh current page
+      dispatch(fetchItems({ page: 1, per_page: pageSize }));
+      setPage(1);
     } catch (e) {
-      showToast(e?.message || "Import failed", "error");
+      showToast(e || "Import failed", "error");
+      throw e;
     }
   };
 
   const handleExport = async (format) => {
     try {
-      const mod = await import("../../store/slices/accounts/itemsSlice");
-      if (typeof mod.exportItems === "function") {
-        const params = { format: format === "excel" ? "xlsx" : format };
-        if (searchQuery.trim()) params.search = searchQuery.trim();
-        if (filters.type !== "all") params.type = filters.type;
-        if (filters.usageUnit !== "all") params.usage_unit = filters.usageUnit;
-        if (params.format === "pdf") {
-          params.columns = orderedColumns
-            .filter((col) => visibleColumns[col.id])
-            .map((col) => col.label);
-        }
+      const params = { format: format === "excel" ? "xlsx" : format };
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      if (filters.type !== "all") params.type = filters.type;
+      if (filters.usageUnit !== "all") params.usage_unit = filters.usageUnit;
 
-        const result = await dispatch(mod.exportItems(params));
-        if (mod.exportItems.fulfilled.match?.(result)) {
-          const blob = new Blob([result.payload], { type: "application/octet-stream" });
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `items_export_${new Date().toISOString().split("T")[0]}.${params.format}`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          window.URL.revokeObjectURL(url);
-          showToast("Export downloaded successfully", "success");
-        } else {
-          showToast(result.payload || "Export failed", "error");
-        }
-      } else {
-        // Simple client-side CSV fallback so the Export button isn't dead
-        const cols = orderedColumns.filter((c) => visibleColumns[c.id]);
-        const rows = [
-          cols.map((c) => c.label).join(","),
-          ...filteredItems.map((item) =>
-            cols
-              .map((c) => `"${String(item[c.id] ?? "").replace(/"/g, '""')}"`)
-              .join(","),
-          ),
-        ].join("\n");
-        const blob = new Blob([rows], { type: "text/csv" });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `items_export_${new Date().toISOString().split("T")[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-        showToast("Exported (CSV fallback)", "success");
+      const sort = SORT_OPTIONS.find((o) => o.value === sortBy);
+      if (sort) {
+        params.sort_by = sort.sort_by;
+        params.sort_dir = sort.sort_dir;
       }
+
+      // Only send explicit columns for PDF (matches prior behavior)
+      if (params.format === "pdf") {
+        params.columns = orderedColumns
+          .filter((col) => visibleColumns[col.id])
+          .map((col) => col.label);
+      }
+
+      const blob = await dispatch(exportItems(params)).unwrap();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `items_export_${new Date().toISOString().split("T")[0]}.${params.format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      showToast("Export downloaded successfully", "success");
     } catch (e) {
-      showToast(e?.message || "Export failed", "error");
+      showToast(e || "Export failed", "error");
     }
   };
 
@@ -336,10 +356,15 @@ const ItemsPage = () => {
 
   return (
     <div className="w-full overflow-x-hidden px-2 md:px-4">
-      {/* error banner */}
       {error && (
         <div className="mb-4 flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-xs md:text-sm text-red-700 dark:text-red-300">
           <span>{typeof error === "string" ? error : error?.message || "Something went wrong"}</span>
+          <button
+            onClick={() => dispatch(clearError())}
+            className="text-[11px] font-medium underline hover:no-underline"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -350,8 +375,8 @@ const ItemsPage = () => {
         <MiniStat label="Services" value={serviceCount} icon="fas fa-concierge-bell" color="violet" />
         <MiniStat
           label="Avg. Rate"
-          value={`$${avgRate.toFixed(2)}`}
-          icon="fas fa-dollar-sign"
+          value={`₹${avgRate.toFixed(2)}`}
+          icon="fas fa-rupee-sign"
           color="amber"
           isMoney
         />
@@ -374,13 +399,13 @@ const ItemsPage = () => {
             onClick={() => setIsImportModalOpen(true)}
             className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
           >
-            <Download size={14} /> Import
+            <Upload size={14} /> Import
           </button>
           <button
             onClick={() => setIsExportModalOpen(true)}
             className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
           >
-            <Upload size={14} /> Export
+            <Download size={14} /> Export
           </button>
           <button
             onClick={() => navigate("/admin/accounts/items/new")}
@@ -556,9 +581,9 @@ const ItemsPage = () => {
                               </span>
                             );
                           case "purchaseRate":
-                            return `$${(Number(item.purchaseRate) || 0).toFixed(2)}`;
+                            return `₹${(Number(item.purchaseRate) || 0).toFixed(2)}`;
                           case "rate":
-                            return `$${(Number(item.rate) || 0).toFixed(2)}`;
+                            return `₹${(Number(item.rate) || 0).toFixed(2)}`;
                           case "usageUnit":
                             return item.usageUnit || emptyValue;
                           case "sku":
@@ -643,14 +668,14 @@ const ItemsPage = () => {
               <div className="flex items-center gap-2">
                 <button
                   disabled={currentPage <= 1 || loading}
-                  onClick={() => setPage((p) => p - 1)}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
                   className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700/50"
                 >
                   Prev
                 </button>
                 <button
                   disabled={currentPage >= totalPages || loading}
-                  onClick={() => setPage((p) => p + 1)}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700/50"
                 >
                   Next
@@ -679,12 +704,7 @@ const ItemsPage = () => {
         subtitle="Upload a spreadsheet to bulk-import items."
         expectedColumns={ITEM_IMPORT_COLUMNS}
         onSuccess={() => {
-          // Refresh list if slice exposes fetchItems
-          import("../../store/slices/accounts/itemsSlice").then((m) => {
-            if (typeof m.fetchItems === "function") {
-              dispatch(m.fetchItems({ page: 1, per_page: pageSize }));
-            }
-          });
+          dispatch(fetchItems({ page: 1, per_page: pageSize }));
         }}
       />
 
